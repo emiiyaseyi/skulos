@@ -6,6 +6,26 @@
 
 ---
 
+## Design System Rules (standing instructions — apply to every future build, marketing site and product UI alike)
+
+Established 2026-07-26 from direct feedback on the first landing page draft. These are not one-off fixes — apply them by default to every card, section header, and tagline built from here on, across the marketing site and the eventual product UI, unless a future instruction explicitly overrides them.
+
+- [ ] **Cards (feature/capability/module/pricing cards, etc.):** icon and title are always **center-aligned**; the supporting body text underneath is always **justified** (`text-align: justify`), never left-aligned.
+- [ ] **Section headers and taglines** (eyebrow label + heading + intro paragraph): same rule — the eyebrow/heading is **center-aligned**, the accompanying paragraph/tagline text is **justified**.
+- [ ] **Grid layouts** should always resolve to complete rows/columns — pick item counts and column counts that divide evenly at each breakpoint (e.g. 9 items → 3×3, 12 items → 4×3 desktop / 2×6 tablet), rather than leaving a dangling partial last row. Add or trim content to make the grid land clean, don't just let `auto-fit` produce an orphan.
+- [ ] Keep section vertical spacing tight and deliberate — avoid excess empty space between sections; this was flagged directly as a problem on the first draft.
+
+## Confirmed Business Decisions (post-launch-doc updates)
+
+- [x] **Pricing (confirmed 2026-07-26)**, per student per term — supersedes the "illustrative only" figures in §6.10 and the "TBD" flag in §11:
+  - Starter: ₦500 / child / term
+  - Growth: ₦800 / child / term
+  - Professional: ₦1,200 / child / term
+  - Enterprise: ₦1,500 / child / term
+  - Figures and the feature list shown under each plan must be **admin-editable**, not hardcoded — see the Marketing Site / Admin CMS section below. The admin settings page must expose a checkbox per feature per plan so the Platform Super Admin controls what each tier displays without a code change.
+
+---
+
 ## 0. Reference & Inspiration Links
 
 Kept centrally here since the source document scatters them across multiple chapters. Add any new research links to this list as they come up.
@@ -156,6 +176,7 @@ The source docx is itself unfinished. Its own internal roadmap table (captured n
 - [ ] Deployment: **Docker, Linux, Nginx, Cloudflare**; cPanel-compatible deployment path for smaller/self-hosted customers
 - [ ] Multi-tenancy model: **Hybrid** — one shared Platform Database (schools, billing, licenses, marketplace, domains, global settings, platform users) + **one dedicated database per school** (dedicated storage, backups, configuration, branding)
 - [ ] Domain strategy: subdomain per school (e.g. `greenfield.skulos.app`) with optional custom domain (e.g. `portal.school.com`)
+- [x] **Deployment targets (confirmed 2026-07-26):** both a live **cPanel** hosting environment (Laravel backend + MySQL — the original always-planned path) and **Vercel** (for the Next.js frontend) are to be considered/kept viable throughout development. Don't make architecture choices that lock out either target — e.g. avoid Vercel-only edge/serverless-only frontend patterns if they'd break a plain Node/static export path, and keep the Laravel API deployable on standard shared/VPS cPanel hosting.
 
 ---
 
@@ -445,12 +466,27 @@ Architecture must not preclude these even though they are out of scope for initi
 
 Flagged directly from the source document — these need answers before the relevant build items above can be considered "ready":
 
-- [ ] Actual subscription pricing figures per tier (Starter/Basic/Standard/Premium/Enterprise) — only illustrative student-count bands exist today
+- [x] ~~Actual subscription pricing figures per tier~~ — **resolved 2026-07-26**, see "Confirmed Business Decisions" above
 - [ ] SMS provider selection for Nigeria/Africa (cost + speed comparison needed)
 - [ ] Final subdomain/domain naming convention (docs use `skulos.app` as a placeholder only)
 - [ ] White-label launch phase / timeline (feature is architecturally required now, commercially deferred — no date set)
 - [ ] Marketplace commission structure for third-party plugin developers
 - [ ] No ERD, wireframes, or formal API spec exist yet — all of Volumes 2–7 (§1 above) block detailed engineering estimates until produced
+- [ ] Legal business name, contact email/phone/WhatsApp, physical address (if any), and social links for the public marketing site — not yet provided; About/Contact pages are blocked on this until supplied through the admin CMS (see below) rather than hardcoded
+
+---
+
+## 13. Marketing Site & Admin CMS (new — started 2026-07-26)
+
+Distinct from the product itself: the public-facing marketing site (landing page, About, Pricing, Contact) needs to be **content-managed**, not static HTML, because pricing figures, plan features, and company/contact info must be editable by the Platform Super Admin and reflect immediately on the live site. This means the marketing site cannot live on GitHub Pages alone (static hosting, no database) — it needs the real backend.
+
+- [ ] Marketing site backend: Laravel-rendered (or served via API from Laravel + a lightweight frontend) so it can share auth/admin tooling with the rest of the platform, backed by MySQL
+- [ ] Admin-editable **Site Settings**: business/legal name, contact email, phone/WhatsApp, physical address, social links — surfaced on About/Contact pages
+- [ ] Admin-editable **Pricing Plans**: name, price per student per term, and a per-plan checklist of which features to display (checkbox-driven, not hardcoded per plan)
+- [ ] Admin-editable **About** content
+- [ ] Public pages (Home/landing, About, Pricing, Contact) read from the database and update automatically when the admin changes content — no redeploy needed for content changes
+- [ ] Decide hosting split: Laravel admin + API on cPanel (per confirmed deployment target above); marketing frontend either server-rendered by Laravel directly, or a separate Next.js frontend deployable to Vercel that consumes the API — **pending a plan/approval before implementation starts**
+- [ ] Current static GitHub Pages landing page (`index.html`) is a stopgap only — treat as temporary until the CMS-backed version replaces it
 
 ---
 
