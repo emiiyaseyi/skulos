@@ -131,6 +131,13 @@ Entries are added here as work starts on each item — see the current build pha
 - Issues/Bugs: (2026-07-08) `date` cast serialized to "YYYY-MM-DD 00:00:00", so the idempotent `updateOrCreate` match on "YYYY-MM-DD" never matched and re-inserted, hitting the unique constraint. Also a summary assertion was order-sensitive.
 - Resolution: store `date` as a plain date string (dropped the datetime cast; documented why in the model) so the match is exact; made the summary assertion canonicalizing. 5 attendance tests; full suite 58 tests / 161 assertions.
 
+### Configurable grading + results (§5 — a core product promise)
+- Status: In progress (grading engine + scoring + broadsheet + tests; result approval workflow, publishing, report card designer still to come)
+- Started: 2026-07-08
+- Notes: fully configurable, nothing hardcoded. Tenant tables grading_scales/grading_bands (any number of scales; a band maps a score range to grade + remark + optional GPA points), assessment_components (the CA format, e.g. 20/20/60 or 30/20/50 or 40/60 — any components summing to any total), scores (one component score per student/subject/term/class-arm, unique). `ResultService`: `subjectResult` (sums components, grades via the active scale), `classBroadsheet` (per-subject totals, overall total/average, competition-ranked positions with ties sharing a place), `studentReport`. A test rebuilds a totally different CA format to prove nothing is baked in.
+- Issues/Bugs: none this pass.
+- Resolution: 6 results tests (configurable totals, component summing + grading, boundary grades, ranking, tie positions, alternate format); full suite 64 tests / 177 assertions.
+
 ### Multi-tenancy foundation (§4.1)
 - Status: Done (foundation scope)
 - Started: 2026-07-08
