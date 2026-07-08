@@ -486,7 +486,7 @@ Distinct from the product itself: the public-facing marketing site (landing page
 - [ ] Admin-editable **About** content
 - [ ] Public pages (Home/landing, About, Pricing, Contact) read from the database and update automatically when the admin changes content — no redeploy needed for content changes
 - [ ] Decide hosting split: Laravel admin + API on cPanel (per confirmed deployment target above); marketing frontend either server-rendered by Laravel directly, or a separate Next.js frontend deployable to Vercel that consumes the API — **pending a plan/approval before implementation starts**
-- [ ] Current static GitHub Pages landing page (`index.html`) is a stopgap only — treat as temporary until the CMS-backed version replaces it
+- [x] Current static GitHub Pages site (`index.html`, `about.html`, `pricing.html`, `contact.html`, added 2026-07-08) is a stopgap only — treat as temporary until the CMS-backed version replaces it. Content on About/Pricing/Contact was authored directly (not placeholder/dummy text) per instruction, but is hardcoded HTML, not database-backed — it does not yet satisfy the "admin can edit, site auto-updates" requirement above. The Contact page form currently submits via a `mailto:` action (opens the visitor's email client) as an honest interim mechanism — no real form handler exists until the backend does.
 
 ---
 
