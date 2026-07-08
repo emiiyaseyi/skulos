@@ -77,14 +77,14 @@
   --night-3:#E7ECF3;
   --ink:#05070D;
   --paper:#0B1420;
-  --mist:rgba(11,20,32,.68);
-  --mist-dim:rgba(11,20,32,.46);
-  --gold:#B8790F;
-  --gold-soft:#9C6A18;
-  --glass:rgba(11,20,32,.035);
-  --glass-strong:rgba(11,20,32,.065);
-  --glass-border:rgba(11,20,32,.12);
-  --shadow:rgba(15,23,35,.10);
+  --mist:rgba(11,20,32,.74);
+  --mist-dim:rgba(11,20,32,.58);
+  --gold:#A6690A;
+  --gold-soft:#8A5A12;
+  --glass:rgba(11,20,32,.045);
+  --glass-strong:rgba(11,20,32,.08);
+  --glass-border:rgba(11,20,32,.16);
+  --shadow:rgba(15,23,35,.12);
   --star-opacity:0;
   --teal-a:#2DD4BF; --teal-b:#0EA5A0;
   --violet-a:#8B7CF6; --violet-b:#6D4FE0;
@@ -121,14 +121,14 @@
   --night-2:#EEF1F6;
   --night-3:#E7ECF3;
   --paper:#0B1420;
-  --mist:rgba(11,20,32,.68);
-  --mist-dim:rgba(11,20,32,.46);
-  --gold:#B8790F;
-  --gold-soft:#9C6A18;
-  --glass:rgba(11,20,32,.035);
-  --glass-strong:rgba(11,20,32,.065);
-  --glass-border:rgba(11,20,32,.12);
-  --shadow:rgba(15,23,35,.10);
+  --mist:rgba(11,20,32,.74);
+  --mist-dim:rgba(11,20,32,.58);
+  --gold:#A6690A;
+  --gold-soft:#8A5A12;
+  --glass:rgba(11,20,32,.045);
+  --glass-strong:rgba(11,20,32,.08);
+  --glass-border:rgba(11,20,32,.16);
+  --shadow:rgba(15,23,35,.12);
   --star-opacity:0;
 }
 
@@ -243,20 +243,29 @@ h1,h2,h3{
 .nav{
   position:sticky; top:0; z-index:100;
   backdrop-filter:blur(18px) saturate(140%);
-  background:rgba(8,12,24,.42);
+  background:color-mix(in srgb, var(--night-2) 62%, transparent);
   border-bottom:1px solid var(--glass-border);
+  transition:background .3s ease, box-shadow .3s ease;
+}
+.nav.is-scrolled{
+  background:color-mix(in srgb, var(--night-2) 88%, transparent);
+  box-shadow:0 8px 30px -12px var(--shadow);
 }
 .nav-row{ position:relative; }
 .nav-row{
   display:flex; align-items:center; justify-content:space-between;
   padding-block:1.05rem;
+  transition:padding-block .25s ease;
 }
+.nav.is-scrolled .nav-row{ padding-block:.6rem; }
+.nav.is-scrolled .brand{ font-size:1.3rem; }
 .brand{
   font-family:var(--font-display);
   font-weight:700;
   font-size:1.5rem;
   letter-spacing:-.01em;
   display:flex; align-items:baseline; gap:.4rem;
+  transition:font-size .25s ease;
 }
 .brand em{
   font-style:normal;
@@ -359,7 +368,7 @@ h1,h2,h3{
   display:none;
   position:absolute;
   top:100%; left:0; right:0;
-  background:rgba(8,12,24,.97);
+  background:color-mix(in srgb, var(--night-2) 96%, transparent);
   backdrop-filter:blur(18px) saturate(140%);
   border-bottom:1px solid var(--glass-border);
   padding:1.25rem 2rem 1.75rem;
@@ -516,8 +525,13 @@ h1,h2,h3{
 .mock-dot-btn.is-active:hover{ background:var(--mc-gold); }
 
 /* ---------- section shell ---------- */
-section{ position:relative; z-index:1; padding-block:clamp(2.5rem,4.5vw,3.75rem); }
-.section-head{ max-width:42rem; margin:0 auto 2.25rem; text-align:center; }
+/* padding-top only, by design: two stacked <section> elements should produce ONE
+   deliberate gap, not the sum of one section's bottom padding plus the next
+   section's top padding. The last section gets an explicit bottom pad before
+   the footer (see .final-cta's wrapper below). */
+section{ position:relative; z-index:1; padding-top:clamp(2.25rem,4vw,3.25rem); }
+section:last-of-type{ padding-bottom:clamp(2.25rem,4vw,3.25rem); }
+.section-head{ max-width:42rem; margin:0 auto 1.75rem; text-align:center; }
 .section-head .eyebrow{ justify-content:center; }
 .section-head h2{ font-size:clamp(1.9rem,3.4vw,2.75rem); margin-top:.8rem; }
 .section-head .lede{ text-align:justify; text-align-last:center; margin-inline:auto; }
@@ -644,7 +658,7 @@ section{ position:relative; z-index:1; padding-block:clamp(2.5rem,4.5vw,3.75rem)
 .role-visual{
   border-radius:16px;
   border:1px solid var(--glass-border);
-  background:rgba(0,0,0,.18);
+  background:var(--glass-strong);
   padding:1.75rem;
   min-height:220px;
   display:flex; flex-direction:column; justify-content:center; gap:1rem;
@@ -809,7 +823,8 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
   .cap-grid{ grid-template-columns:1fr; }
 }
 @media (max-width:720px){
-  section{ padding-block:clamp(2.25rem,7vw,3.25rem); }
+  section{ padding-top:clamp(2rem,6vw,2.75rem); }
+  section:last-of-type{ padding-bottom:clamp(2rem,6vw,2.75rem); }
   .integrations{ gap:.6rem; }
   .integration-pill{ padding:.5rem 1rem; font-size:.8rem; }
 }
@@ -1493,6 +1508,16 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
 </footer>
 
 <script>
+  (function(){
+    var nav = document.querySelector('.nav');
+    if(!nav) return;
+    function onScroll(){
+      nav.classList.toggle('is-scrolled', window.scrollY > 24);
+    }
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+
   (function(){
     var root = document.documentElement;
     var STORAGE_KEY = 'skulos-theme';
