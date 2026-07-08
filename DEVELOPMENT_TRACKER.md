@@ -95,6 +95,13 @@ Entries are added here as work starts on each item — see the current build pha
 - Issues/Bugs: (2026-07-08) `composer create-project laravel/laravel` now defaults to **Laravel 13** — contradicts documented TD-001 (Laravel 12). Also one transient AV-related "Permission denied" on a package temp file mid-install. Also stock `phpunit.xml` ships with the in-memory test DB lines commented out, so the first `artisan test` run silently migrated/used the **dev** `database.sqlite`.
 - Resolution: recreated pinned to `laravel/laravel:^12.0` (12.63.0). Flag for user: revisit "12 vs 13" deliberately someday. Retried install (succeeded). Uncommented `DB_CONNECTION=sqlite` / `DB_DATABASE=:memory:` in phpunit.xml — tests now isolated from dev data.
 
+### Academic structure (§5: sessions, terms, sections, classes, arms, subjects, houses)
+- Status: In progress (schema + models + tests done; default-structure service + wizard still to come)
+- Started: 2026-07-08
+- Notes: tenant tables in one migration (`create_academic_structure_tables`): academic_sessions, terms (sequence-based so 2/3/N terms all work), sections, school_classes, arms, class_arms (the enrollable unit; arm_id null = single stream; `class_teacher_staff_id` is a plain id/no FK so it can be set once staff exist), subjects, class_subject pivot, houses (housemaster_staff_id plain id). All names/counts/sequences are data (TD-007, nothing hardcoded). Models in `app/Models/Tenant/`, all `$connection='tenant'` + `Auditable`. `makeCurrent()` enforces a single current session/term.
+- Issues/Bugs: (2026-07-08) test used `assertDatabaseHas('houses', ...)` which checks the default (platform) connection where the tenant-only `houses` table does not exist — "no such table: houses".
+- Resolution: assert via the tenant-connection model instead. 6 academic tests passing; full suite 39 tests / 103 assertions.
+
 ### Multi-tenancy foundation (§4.1)
 - Status: Done (foundation scope)
 - Started: 2026-07-08
