@@ -15,6 +15,7 @@ Established 2026-07-26 from direct feedback on the first landing page draft. The
 - [ ] **Grid layouts** should always resolve to complete rows/columns — pick item counts and column counts that divide evenly at each breakpoint (e.g. 9 items → 3×3, 12 items → 4×3 desktop / 2×6 tablet), rather than leaving a dangling partial last row. Add or trim content to make the grid land clean, don't just let `auto-fit` produce an orphan.
 - [ ] Keep section vertical spacing tight and deliberate — avoid excess empty space between sections; this was flagged directly as a problem on the first draft.
 - [ ] **Nothing hardcoded — ever** (user directive 2026-07-08). Any value a school or the Platform Super Admin could plausibly want to change (pricing, plan features, grading formulas, permissions, module lists, contact info, copy, term counts, thresholds) lives in config/database/admin settings, never as literals in code. This applies to every layer: backend, frontend, marketing site.
+- [ ] **No dashes in on-screen text** (user directive 2026-07-08). Hyphens and em/en dashes must not appear as punctuation in any user-facing copy (marketing pages, UI labels, validation and error messages, notifications, report card text). Rephrase with commas, colons, or separate sentences. Existing marketing-site copy predates this rule and needs a sweep when next touched.
 
 ## Confirmed Business Decisions (post-launch-doc updates)
 
@@ -85,6 +86,19 @@ Entries are added here as work starts on each item — see the current build pha
 - Security: hidden attributes (password, remember_token, is_super_admin) never reach logs; per-model `auditExclude` for extra masking; logs are **immutable** — model throws on update and delete attempts.
 - Issues/Bugs: (2026-07-08) first draft registered the `restored` listener per-instance (would have duplicated log rows); caught in review before commit.
 - Resolution: moved to `bootAuditable` with a `SoftDeletes` trait check — fires once per class. 8 audit tests passing; full suite 26 passing.
+
+### Bulk operations framework + import validation (§4.3)
+- Status: Done
+- Started: 2026-07-08
+- Notes: `app/Services/Bulk/` — `CsvReader` (dependency-free CSV parsing: BOM, blank lines, Excel trailing columns), abstract `Importer` (per-row Laravel validation, **strict** mode = all-or-nothing in one transaction vs **partial** mode = import valid rows and report the rest, in-file duplicate detection via `uniqueBy()` e.g. the same admission number twice in one upload, CSV template generation from `columns()`), `ImportResult` (row numbers reported Excel-style: header is row 1, first data row is 2 — matches the tracker's "Row 15: Admission Number already exists" requirement), `BulkActionRunner` (applies an action across many ids, collecting per-id success/failure instead of dying on the first error). Every import and bulk action writes an audit record into the tenant DB automatically. First real subclass will be the Students importer in the core-modules phase.
+- Issues/Bugs: (2026-07-08) syntax typo in first Importer draft (`$index, => $row`); caught immediately.
+- Resolution: fixed. 7 bulk framework tests passing; full suite 33 tests / 81 assertions passing.
+
+### ⚠️ Handoff note (agent switch planned after this item, 2026-07-08)
+- Everything above (env, reorg, scaffold, tenancy, RBAC, audit, bulk framework) is **done and tested**: 33 tests passing. Committed locally.
+- **Push may be pending**: GitHub was unreachable (DNS failure on the dev machine) at the time of the last commits. First thing next session: `git log origin/main..main --oneline` and push anything unpushed.
+- Next build item: **Core modules** (tracker §5, minus §5b deferrals): Student records (unique ID = admission number; email optional), Staff records, Parent portal linkage (parent unique ID = email, platform-level), academic structure (sessions, terms, sections, classes, arms, subjects, houses), CA/examinations/results with configurable grading, attendance, timetable, calendar, communication incl. email notifications. Use the tenancy/RBAC/audit/bulk foundations — tenant models get `Auditable` + a real `Importer` subclass each.
+- Read CLAUDE.md first: environment paths (PHP 8.3 shims), conventions (no hardcoding, no dashes in on-screen text, security posture, commit-as-user with no trailer, push at every completed item).
 
 ---
 
