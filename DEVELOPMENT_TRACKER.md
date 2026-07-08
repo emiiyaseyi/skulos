@@ -30,6 +30,16 @@ Established 2026-07-26 from direct feedback on the first landing page draft. The
   - **Student email address is optional** — students must not be blocked from admission/record-creation for lacking one. Design student login/notifications so email is an enhancement (e.g. enables direct student portal login if present), not a requirement.
   - **Parent** unique ID is their **email address** — this is what a parent logs in with and what the system uses to detect "this is the same parent" across multiple children/schools (see §4.2 multi-child/multi-school parent account merging). Parent records must therefore enforce email as required + unique at the platform level, not per-school.
 
+## Working conventions reminder (read CLAUDE.md for the full list)
+
+Standing directives that apply to **every current and future change** (backend, frontend, marketing site, docs):
+- **Always commit AND push** after each completed item — never leave work only committed locally (user directive 2026-07-08).
+- **Nothing hardcoded** — configurable values live in config/DB/admin settings.
+- **No dashes in on-screen text** — hyphens and em/en dashes out of all user-facing copy.
+- **Security in everything** — deny-by-default, tenant isolation, explicit `$fillable`, no leaking secrets to logs/serialization.
+- **CSV** for all bulk templates + import files; every importer ships a downloadable template.
+- Commit as the user (`emiiyaseyi`), no Claude co-author trailer.
+
 ## Build Log (live status while building — updated as we go)
 
 Per-item status for whatever is actively "in build," not a duplicate of the full backlog above. Use this format per entry:
