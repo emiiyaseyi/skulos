@@ -69,6 +69,14 @@ Entries are added here as work starts on each item — see the current build pha
 - Issues/Bugs: none beyond the phpunit.xml one logged above.
 - Resolution: 8 feature tests passing: provisioning creates dedicated DB w/ tenant schema, two schools fully isolated, idempotent provisioning, header resolution, unknown/unprovisioned/suspended rejection.
 
+### RBAC engine + module toggles (§4.2)
+- Status: Done
+- Started: 2026-07-08
+- Notes: platform-DB tables `permissions` (catalog, seeded from `config/skulos.php` — 26 modules × standard actions + extras = 160 codes), `permission_role`, `user_permissions` (per-user allow/deny overrides), `modules`, `module_states` (Enable/Disable/Hidden/Read-only at school/role/user scope). 21 built-in role templates (school_id null) seeded; schools customize via `Rbac::cloneTemplateRole()` so templates stay shared and untouched. Resolution rules: permission = super admin > user deny > user allow > role grant > **deny by default**; module state = user > role > school > catalog default (core modules default enabled, optional + deferred default disabled). Deferred modules (admissions/finance/visitors/assets, §5b) are cataloged so toggles stay stable, but nothing is built for them.
+- Security posture baked in: deny-by-default everywhere; unknown permission codes and unknown modules resolve to "no"; suspended memberships denied; `is_super_admin` and `school_id` not mass-assignable (console/forceFill only); permission catalog not user-editable (schools grant/revoke, never invent codes).
+- Issues/Bugs: (2026-07-08) `db:seed` on dev DB failed first run — new migration hadn't been applied to dev database (tests run on in-memory DB, so they didn't catch a stale dev DB).
+- Resolution: ran `migrate` then reseeded — dev DB now has 26 modules / 160 permissions / 21 template roles. 10 RBAC feature tests + full suite (18 tests) passing.
+
 ---
 
 ## 0. Reference & Inspiration Links
