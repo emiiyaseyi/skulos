@@ -40,6 +40,21 @@ Standing directives that apply to **every current and future change** (backend, 
 - **CSV** for all bulk templates + import files; every importer ships a downloadable template.
 - Commit as the user (`emiiyaseyi`), no Claude co-author trailer.
 
+## Queued marketing-site requests (2026-07-08, active focus — backend core modules paused mid-academic-structure)
+
+Captured so nothing is lost while the user rapid-fires requests. Work through these, QA + commit + push each:
+- [ ] On-screen dashes: paragraph em-dashes already swept (a stale browser/artifact cache still showed them). Remaining real ones: CSS `content:"—"` pricing-list bullet and any `aria-label` em-dashes. Fix across all pages.
+- [ ] Light-mode palette: user dislikes the muddy dark-gold CTA button + overall light combo (dark mode is fine). Rework the light theme so the primary button is vibrant/clean, not brown.
+- [ ] Contact widget, bottom-right, on every prospective-user page: (1) Chat on WhatsApp **+2348023373302**, (2) email **info@skulos.app**, (3) link to the Contact form.
+- [ ] Legal pages: **Privacy Policy** compliant with **NDPR** (Nigeria), **GDPR** (EU), and note other African data-protection laws (e.g. Kenya DPA 2019, South Africa POPIA, Ghana DPA); **Terms & Conditions**. Real draft copy (user authorized real draft copy previously), not lorem.
+- [ ] **FAQ** page + a **mini-FAQ** section on the homepage with a button to view all.
+- [ ] Integrations pills: render **exactly 4 per row** (currently 8 flow to 7+1). Rename **"LearnGuard Secure Browser" → "Assessments"** in that list.
+- [ ] Republish the Artifact (inlined, CSP-safe) after the above.
+- Contact details now known (supersedes the earlier "blocked on contact info" note for About/Contact): WhatsApp/phone **+2348023373302**, email **info@skulos.app**. Legal business name still not given; ask before putting a company legal name in Terms/Privacy.
+
+## Queued backend requests (2026-07-08)
+- [ ] **SSO via Google and Outlook (Microsoft)** — add as enable-able options in the current auth build (TD-005 already lists OAuth/Google/Microsoft as planned; user wants it in scope now). Must be toggleable (nothing hardcoded), Sanctum-based session issuance after OAuth callback.
+
 ## Build Log (live status while building — updated as we go)
 
 Per-item status for whatever is actively "in build," not a duplicate of the full backlog above. Use this format per entry:
