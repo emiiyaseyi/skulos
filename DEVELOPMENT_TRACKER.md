@@ -102,6 +102,13 @@ Entries are added here as work starts on each item — see the current build pha
 - Issues/Bugs: (2026-07-08) test used `assertDatabaseHas('houses', ...)` which checks the default (platform) connection where the tenant-only `houses` table does not exist — "no such table: houses".
 - Resolution: assert via the tenant-connection model instead. 6 academic tests passing; full suite 39 tests / 103 assertions.
 
+### Student records (§5)
+- Status: In progress (schema + models + CSV importer + tests done; UI/API + parent-portal query + custom-fields UI later)
+- Started: 2026-07-08
+- Notes: tenant tables students / student_guardians / enrollments. Admission number is the unique key (unique index), email nullable (never required, enforced by validation allowing null). Guardians link to a platform parent by `guardian_user_id` (plain id, no cross-db FK; parent unique ID = email at platform level). Enrollments give per-session placement history for promotion/transcripts. Extended profile fields + a `custom` json column for the future custom-fields engine. `StudentImporter` extends the bulk framework: CSV template (`admission_number,first_name,...`), per-row validation, in-file + in-DB admission-number duplicate detection, strict/partial modes, audited. Downloadable template satisfied via `Importer::template()`.
+- Issues/Bugs: none this pass.
+- Resolution: 5 student tests (uniqueness, optional email, full name/guardians/enrollment, template, partial + strict bulk import with Excel-row-numbered errors); full suite 44 tests / 120 assertions passing.
+
 ### Multi-tenancy foundation (§4.1)
 - Status: Done (foundation scope)
 - Started: 2026-07-08
