@@ -14,6 +14,7 @@ Established 2026-07-26 from direct feedback on the first landing page draft. The
 - [ ] **Section headers and taglines** (eyebrow label + heading + intro paragraph): same rule — the eyebrow/heading is **center-aligned**, the accompanying paragraph/tagline text is **justified**.
 - [ ] **Grid layouts** should always resolve to complete rows/columns — pick item counts and column counts that divide evenly at each breakpoint (e.g. 9 items → 3×3, 12 items → 4×3 desktop / 2×6 tablet), rather than leaving a dangling partial last row. Add or trim content to make the grid land clean, don't just let `auto-fit` produce an orphan.
 - [ ] Keep section vertical spacing tight and deliberate — avoid excess empty space between sections; this was flagged directly as a problem on the first draft.
+- [ ] **Nothing hardcoded — ever** (user directive 2026-07-08). Any value a school or the Platform Super Admin could plausibly want to change (pricing, plan features, grading formulas, permissions, module lists, contact info, copy, term counts, thresholds) lives in config/database/admin settings, never as literals in code. This applies to every layer: backend, frontend, marketing site.
 
 ## Confirmed Business Decisions (post-launch-doc updates)
 
@@ -76,6 +77,14 @@ Entries are added here as work starts on each item — see the current build pha
 - Security posture baked in: deny-by-default everywhere; unknown permission codes and unknown modules resolve to "no"; suspended memberships denied; `is_super_admin` and `school_id` not mass-assignable (console/forceFill only); permission catalog not user-editable (schools grant/revoke, never invent codes).
 - Issues/Bugs: (2026-07-08) `db:seed` on dev DB failed first run — new migration hadn't been applied to dev database (tests run on in-memory DB, so they didn't catch a stale dev DB).
 - Resolution: ran `migrate` then reseeded — dev DB now has 26 modules / 160 permissions / 21 template roles. 10 RBAC feature tests + full suite (18 tests) passing.
+
+### Audit trail engine (§4.3)
+- Status: Done
+- Started: 2026-07-08
+- Notes: identical `audit_logs` tables in the platform DB **and** every tenant DB — a school's audit history lives inside its own database, so tenant isolation holds for logs too. `Auditable` trait (created/updated/deleted/force_deleted/restored, old/new value diffs, changed-keys-only on update) + `Recorder` service (captures user_id, IP, user-agent, URL; marks console actions; also takes custom action names like "results.published" for non-model events). Wired into `School`, `User`, and the tenant `Setting` model; every future model just adds the trait. No cross-DB FK on user_id (impossible tenant→platform) — deliberate.
+- Security: hidden attributes (password, remember_token, is_super_admin) never reach logs; per-model `auditExclude` for extra masking; logs are **immutable** — model throws on update and delete attempts.
+- Issues/Bugs: (2026-07-08) first draft registered the `restored` listener per-instance (would have duplicated log rows); caught in review before commit.
+- Resolution: moved to `bootAuditable` with a `SoftDeletes` trait check — fires once per class. 8 audit tests passing; full suite 26 passing.
 
 ---
 
