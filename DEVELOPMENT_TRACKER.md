@@ -93,6 +93,15 @@ Entries are added here as work starts on each item — see the current build pha
 - Notes: `app/Services/Bulk/` — `CsvReader` (dependency-free CSV parsing: BOM, blank lines, Excel trailing columns), abstract `Importer` (per-row Laravel validation, **strict** mode = all-or-nothing in one transaction vs **partial** mode = import valid rows and report the rest, in-file duplicate detection via `uniqueBy()` e.g. the same admission number twice in one upload, CSV template generation from `columns()`), `ImportResult` (row numbers reported Excel-style: header is row 1, first data row is 2 — matches the tracker's "Row 15: Admission Number already exists" requirement), `BulkActionRunner` (applies an action across many ids, collecting per-id success/failure instead of dying on the first error). Every import and bulk action writes an audit record into the tenant DB automatically. First real subclass will be the Students importer in the core-modules phase.
 - Issues/Bugs: (2026-07-08) syntax typo in first Importer draft (`$index, => $row`); caught immediately.
 - Resolution: fixed. 7 bulk framework tests passing; full suite 33 tests / 81 assertions passing.
+- Confirmed 2026-07-08 (user): **CSV** is the chosen format for both templates and import files (not Excel/xlsx). Base `Importer::template()` already emits CSV. **Every** importer must expose a downloadable template so users can fill and re-upload — this is a hard requirement per importer, wire a download endpoint/button for each in the core-modules phase.
+
+### Marketing site: no-dashes copy sweep (§ Design System Rules)
+- Status: Done
+- Started: 2026-07-08
+- Notes: applied the "no dashes in on-screen text" directive to all four marketing pages (site/index, about, pricing, contact) and to the published Artifact source. Swept only visible text nodes (protected `<style>`, `<script>`, tags, and the embedded base64 fonts): em/en dashes to commas, hyphenated compounds spaced ("role based", "drag and drop", "at risk", "real time", "add ons", "multi school", etc.), demo domain simplified to greenfield.skulos.app, page titles cleaned (e.g. "About SKULOS", "SKULOS. The Operating System..."). Verified 0 dashes remain in visible text on every page. Artifact republished to the same URL (086cc9bb...).
+- Note on "nothing hardcoded" for the marketing site: the static HTML is inherently hardcoded; genuinely satisfying that directive requires the CMS-backed rebuild already tracked in §13 (pricing/features/contact read from DB). The dash sweep is done now; the de-hardcoding is the larger §13 item, not yet built. Did not fake it.
+- Issues/Bugs: —
+- Resolution: —
 
 ### ⚠️ Handoff note (agent switch planned after this item, 2026-07-08)
 - Everything above (env, reorg, scaffold, tenancy, RBAC, audit, bulk framework) is **done and tested**: 33 tests passing. Committed locally.
