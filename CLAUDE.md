@@ -28,17 +28,18 @@ Positioning: **not** a "School Management System" — an **Education Operating S
 | Auth | Laravel Sanctum (SSO); future OAuth, 2FA, passwordless |
 | Deployment | **Both** cPanel (Laravel + MySQL) and Vercel (Next.js frontend) must stay viable — don't make architecture choices that lock out either |
 
-## ⚠️ Local environment reality (checked 2026-07-08)
+## ⚠️ Local environment reality (updated 2026-07-08, second pass)
 
-Do not assume a ready-to-run Laravel environment exists in every session. As of this check, the sandboxed dev environment had:
-- PHP **8.1.34** available — Laravel 12 needs **8.2+**, so this is below spec
-- **No Composer**
-- **No MySQL** server/client
-- **No Docker**
-- Missing several PHP extensions Laravel needs (openssl, mbstring, fileinfo, curl, pdo_mysql weren't loaded), and the extension directory PHP reported wasn't reachable from the bash shell to fix via php.ini
-- `winget` **is** available and not admin-restricted for user-scope installs (network access to packagist.org/getcomposer.org confirmed working), so provisioning a working PHP 8.2+/Composer/SQLite dev loop in-session is plausible if needed — check with the user before spending significant time on this rather than assuming it's wanted every session.
+A working PHP 8.3 + Composer loop **was provisioned in-session on 2026-07-08** (user approved "set up the real stack now"). Current state:
 
-**Practical implication:** verify the actual runtime environment at the start of any build session before assuming you can run `composer install`, `artisan migrate`, or serve the app. If the environment isn't ready, say so and ask how the user wants to proceed (fix the environment now, author code without running it, use SQLite as a local stand-in for MySQL, etc.) rather than silently writing untested code and claiming it works.
+- **PHP 8.3.32** — installed via winget at
+  `C:\Users\HP\AppData\Local\Microsoft\WinGet\Packages\PHP.PHP.8.3_Microsoft.Winget.Source_8wekyb3d8bbwe\php.exe`
+  with a hand-written `php.ini` in that same folder (extension_dir pointed at the package's `ext\`; curl, fileinfo, mbstring, openssl, pdo_sqlite, sqlite3, zip, sodium, intl, gd, exif enabled). All Laravel 12 required extensions load.
+- **Composer 2.10.x** — `composer.phar` + `php.bat`/`composer.bat` shims at `C:\Users\HP\AppData\Local\composer-bin\`
+- **PATH trap:** bare `php` on PATH still resolves to the old **PHP 8.1.34** install — always use the 8.3 full path or the shims above, never bare `php`.
+- **No MySQL, no Docker, no Redis** — local dev uses **SQLite** as the MySQL stand-in (`pdo_sqlite` is loaded) and `sync`/`database` queue driver instead of Redis. Production targets remain MySQL/Redis per the stack table; don't write SQLite-only SQL (no MySQL-isms in raw queries either — keep to the query builder/Eloquent so both work).
+
+**Practical implication:** verify the shims still exist at the start of a build session (winget upgrades can move package paths and orphan the php.ini). If gone, re-create per above — it takes ~2 minutes and needs no admin rights.
 
 ## Confirmed business/data-model decisions
 
@@ -48,19 +49,22 @@ Do not assume a ready-to-run Laravel environment exists in every session. As of 
 - **Pricing (confirmed):** Starter ₦500 / Growth ₦800 / Professional ₦1,200 / Enterprise ₦1,500 — per student, per term. Must be admin-editable (not hardcoded) once the CMS exists — see tracker §13.
 - Full list of confirmed decisions: tracker "Confirmed Business Decisions" section near the top.
 
-## Repo structure
+## Repo structure (monorepo — decided 2026-07-08)
 
 ```
-/                     — marketing site (static HTML, GitHub Pages) + project docs
-  index.html            homepage
-  about.html, pricing.html, contact.html
-  SKULOS.docx           source vision doc
-  DEVELOPMENT_TRACKER.md  the real backlog — read this
+/                     — project docs at root
   CLAUDE.md             this file
+  DEVELOPMENT_TRACKER.md  the real backlog — read this
   README.md             GitHub-facing project overview
+  SKULOS.docx           source vision doc
+  site/                 static marketing site (index/about/pricing/contact.html)
+                        deployed to GitHub Pages via .github/workflows/pages.yml
+                        (Actions-based deploy — branch-based Pages can't serve /site)
+  backend/              Laravel 12 API + platform admin (being built from 2026-07-08)
+  web/                  Next.js frontend (not started yet)
 ```
 
-The marketing site at repo root is a **stopgap**, hardcoded HTML, explicitly temporary until the admin-CMS-backed version replaces it (tracker §13). Application code (Laravel backend, Next.js frontend) location is being decided as of 2026-07-08 — check the tracker's "Confirmed Technology Stack" / build-phase notes for whether it landed as a monorepo (`/backend`, `/web`) or separate repos before assuming a path.
+The marketing site in `/site` is a **stopgap**, hardcoded HTML, explicitly temporary until the admin-CMS-backed version replaces it (tracker §13). If you touch anything under `site/`, the Pages workflow redeploys it automatically on push.
 
 ## Design system rules (apply to every future build — marketing site and product UI)
 

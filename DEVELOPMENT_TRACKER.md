@@ -41,6 +41,27 @@ Per-item status for whatever is actively "in build," not a duplicate of the full
 
 Entries are added here as work starts on each item — see the current build phase below.
 
+### Dev environment provisioning
+- Status: Done
+- Started: 2026-07-08
+- Notes: PHP 8.3.32 + Composer 2.10.x provisioned user-scope via winget/phar (details + exact paths in CLAUDE.md "Local environment reality"). SQLite stands in for MySQL locally; no Redis (use database/sync queue drivers locally).
+- Issues/Bugs: (2026-07-08) winget package ships without php.ini — fresh install has no extensions loaded and extension_dir defaults to nonexistent `C:\php\ext`. Also, bare `php` on PATH resolves to a stale PHP 8.1 install.
+- Resolution: hand-wrote php.ini inside the 8.3 package folder (extension_dir absolute-pathed, required extensions enabled); created `php.bat`/`composer.bat` shims in `C:\Users\HP\AppData\Local\composer-bin\`. Never invoke bare `php`.
+
+### Repo reorganization (monorepo layout)
+- Status: Done
+- Started: 2026-07-08
+- Notes: marketing site moved from repo root to `/site` (user decision); `/backend` = Laravel 12, `/web` = future Next.js. GitHub Pages branch-deploys can only serve root or `/docs`, so added `.github/workflows/pages.yml` (Actions-based deploy of `/site`, `enablement: true` so no manual settings change needed).
+- Issues/Bugs: —
+- Resolution: —
+
+### Laravel 12 backend scaffold (/backend)
+- Status: In progress
+- Started: 2026-07-08
+- Notes: full-foundation-first build order (user decision): multi-tenancy → RBAC → audit → bulk-ops framework, then core modules. SQLite for local dev; schema must stay MySQL-compatible (no SQLite-isms).
+- Issues/Bugs: —
+- Resolution: —
+
 ---
 
 ## 0. Reference & Inspiration Links
