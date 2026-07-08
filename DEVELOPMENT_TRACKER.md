@@ -56,11 +56,18 @@ Entries are added here as work starts on each item — see the current build pha
 - Resolution: —
 
 ### Laravel 12 backend scaffold (/backend)
-- Status: In progress
+- Status: Done
 - Started: 2026-07-08
-- Notes: full-foundation-first build order (user decision): multi-tenancy → RBAC → audit → bulk-ops framework, then core modules. SQLite for local dev; schema must stay MySQL-compatible (no SQLite-isms).
-- Issues/Bugs: —
-- Resolution: —
+- Notes: full-foundation-first build order (user decision): multi-tenancy → RBAC → audit → bulk-ops framework, then core modules. SQLite for local dev; schema must stay MySQL-compatible (no SQLite-isms). Laravel 12.63.0.
+- Issues/Bugs: (2026-07-08) `composer create-project laravel/laravel` now defaults to **Laravel 13** — contradicts documented TD-001 (Laravel 12). Also one transient AV-related "Permission denied" on a package temp file mid-install. Also stock `phpunit.xml` ships with the in-memory test DB lines commented out, so the first `artisan test` run silently migrated/used the **dev** `database.sqlite`.
+- Resolution: recreated pinned to `laravel/laravel:^12.0` (12.63.0). Flag for user: revisit "12 vs 13" deliberately someday. Retried install (succeeded). Uncommented `DB_CONNECTION=sqlite` / `DB_DATABASE=:memory:` in phpunit.xml — tests now isolated from dev data.
+
+### Multi-tenancy foundation (§4.1)
+- Status: Done (foundation scope)
+- Started: 2026-07-08
+- Notes: hand-rolled lean tenancy (no stancl/tenancy dependency — keeps cPanel path simple and the mechanism fully ours). Platform DB holds `schools`, `users` (+phone, +is_super_admin), `roles` (shell; RBAC fills in next), `school_user` pivot. Per-school DB: `TenantManager` provisions (SQLite file locally / `CREATE DATABASE` on MySQL), runs `database/migrations/tenant/*` against a runtime-repointed `tenant` connection. `ResolveTenant` middleware (alias `tenant`) resolves school by `X-School` header or subdomain, rejects unknown/unprovisioned (404) and suspended (403). `school:provision` artisan command works end-to-end (demo school provisioned in dev). First tenant table: `settings` key/value (backs TD-007 configurability).
+- Issues/Bugs: none beyond the phpunit.xml one logged above.
+- Resolution: 8 feature tests passing: provisioning creates dedicated DB w/ tenant schema, two schools fully isolated, idempotent provisioning, header resolution, unknown/unprovisioned/suspended rejection.
 
 ---
 

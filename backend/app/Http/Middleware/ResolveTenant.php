@@ -1,0 +1,64 @@
+<?php
+
+namespace App\Http\Middleware;
+
+use App\Models\School;
+use App\Services\Tenancy\TenantManager;
+use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+/**
+ * Resolves the active school for the request and points the tenant
+ * connection at its database.
+ *
+ * Resolution order:
+ *  1. X-School header (API clients / the future Next.js frontend)
+ *  2. Subdomain ({slug}.skulos.app or any host with 3+ labels)
+ */
+class ResolveTenant
+{
+    public function __construct(protected TenantManager $tenants)
+    {
+    }
+
+    public function handle(Request $request, Closure $next): Response
+    {
+        $slug = $request->headers->get(config('tenancy.header'))
+            ?: $this->subdomainFrom($request->getHost());
+
+        if (! $slug) {
+            abort(404, 'No school specified.');
+        }
+
+        $school = School::where('slug', $slug)->first();
+
+        if (! $school || ! $school->isProvisioned()) {
+            abort(404, 'School not found.');
+        }
+
+        if ($school->status !== School::STATUS_ACTIVE) {
+            abort(403, 'This school is currently suspended.');
+        }
+
+        $this->tenants->use($school);
+        $request->attributes->set('school', $school);
+
+        return $next($request);
+    }
+
+    protected function subdomainFrom(string $host): ?string
+    {
+        $labels = explode('.', $host);
+
+        // "greenfield.skulos.app" => "greenfield"; bare domains and
+        // localhost have no subdomain to extract.
+        if (count($labels) < 3) {
+            return null;
+        }
+
+        $first = $labels[0];
+
+        return in_array($first, ['www', 'app', 'api'], true) ? null : $first;
+    }
+}
