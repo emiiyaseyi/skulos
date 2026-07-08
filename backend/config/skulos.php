@@ -57,6 +57,23 @@ return [
     | Permission actions generated for every module: "{module}.{action}".
     | Modules can add extra actions of their own via "extra_permissions".
     */
+    /*
+    | Single sign on providers. Each is independently enable-able; a provider
+    | is only offered when it is BOTH enabled and configured with credentials.
+    | Enable flags and credentials come from env (never hardcoded); once the
+    | admin CMS exists these become platform-admin toggles.
+    */
+    'sso' => [
+        'google' => [
+            'enabled' => env('SSO_GOOGLE_ENABLED', false),
+            'label' => 'Continue with Google',
+        ],
+        'microsoft' => [
+            'enabled' => env('SSO_MICROSOFT_ENABLED', false),
+            'label' => 'Continue with Outlook',
+        ],
+    ],
+
     'permission_actions' => ['view', 'create', 'update', 'delete', 'export', 'bulk'],
 
     'extra_permissions' => [

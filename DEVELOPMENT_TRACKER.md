@@ -109,6 +109,21 @@ Entries are added here as work starts on each item — see the current build pha
 - Issues/Bugs: none this pass.
 - Resolution: 5 student tests (uniqueness, optional email, full name/guardians/enrollment, template, partial + strict bulk import with Excel-row-numbered errors); full suite 44 tests / 120 assertions passing.
 
+### Staff records (§5)
+- Status: In progress (schema + models + CSV importer + tests; UI/API later)
+- Started: 2026-07-08
+- Notes: tenant tables staff / teaching_assignments. Staff ID is the unique key. `position` is a descriptive free label; actual permissions come from the RBAC role, not this field (kept separate deliberately). Class-teacher recorded on class_arms.class_teacher_staff_id; subject teaching via teaching_assignments (staff + subject + class_arm, unique). `StaffImporter` mirrors the student one (CSV template, row-level validation, duplicate detection, audited).
+- Issues/Bugs: none.
+- Resolution: 4 tests; full suite green.
+
+### SSO: Google + Microsoft/Outlook (TD-005; user-requested 2026-07-08)
+- Status: Done (plumbing + policy + tests; live OAuth round-trip needs real credentials, not testable in this env)
+- Started: 2026-07-08
+- Notes: Laravel Socialite + socialiteproviders/microsoft. Each provider is **enable-able and off by default** (`config/skulos.php` sso.*.enabled via env `SSO_GOOGLE_ENABLED`/`SSO_MICROSOFT_ENABLED`); a provider is only "available" when enabled AND credentialed (`config/services.php` from env). `SsoManager` resolves/links accounts by verified **email** (the platform identity key, consistent with parent-unique-ID = email), so Google and Outlook with the same email map to one account; new SSO users get no usable password and are never super admin; refuses when the provider returns no email. `SsoController` redirect/callback; disabled/unknown providers 404 (existence not advertised). Microsoft provider registered via `SocialiteWasCalled` in AppServiceProvider. Logins audited (`sso.user_provisioned`, `sso.login`). `.env.example` documents all keys.
+- Nothing hardcoded: enable flags + credentials + button labels all in config/env; DB-backed admin toggle comes with the admin CMS.
+- Issues/Bugs: live OAuth not exercisable here (no real Google/Microsoft app credentials).
+- Resolution: 5 tests via mocked Socialite cover the enable gate, 404s, new-user provisioning + login, email account-linking, and audit. Full suite 53 tests / 151 assertions passing.
+
 ### Multi-tenancy foundation (§4.1)
 - Status: Done (foundation scope)
 - Started: 2026-07-08
