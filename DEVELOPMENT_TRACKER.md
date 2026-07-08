@@ -23,6 +23,23 @@ Established 2026-07-26 from direct feedback on the first landing page draft. The
   - Professional: ₦1,200 / child / term
   - Enterprise: ₦1,500 / child / term
   - Figures and the feature list shown under each plan must be **admin-editable**, not hardcoded — see the Marketing Site / Admin CMS section below. The admin settings page must expose a checkbox per feature per plan so the Platform Super Admin controls what each tier displays without a code change.
+- [x] **Unique identifiers (confirmed 2026-07-08):**
+  - **Student** unique ID is the **Admission Number** (school-assigned, not auto-incrementing DB id) — this is the field used to look up/reference a student throughout the system, including bulk import matching (e.g. the "Row 15 — Admission Number already exists" validation example in §4.3).
+  - **Student email address is optional** — students must not be blocked from admission/record-creation for lacking one. Design student login/notifications so email is an enhancement (e.g. enables direct student portal login if present), not a requirement.
+  - **Parent** unique ID is their **email address** — this is what a parent logs in with and what the system uses to detect "this is the same parent" across multiple children/schools (see §4.2 multi-child/multi-school parent account merging). Parent records must therefore enforce email as required + unique at the platform level, not per-school.
+
+## Build Log (live status while building — updated as we go)
+
+Per-item status for whatever is actively "in build," not a duplicate of the full backlog above. Use this format per entry:
+
+`### <Module/Item name>`
+`- Status: Not started / In progress / Blocked / Done`
+`- Started: <date>`
+`- Notes: <design decisions specific to the implementation>`
+`- Issues/Bugs: <anything found, with date>`
+`- Resolution: <how it was fixed, or current workaround>`
+
+Entries are added here as work starts on each item — see the current build phase below.
 
 ---
 
@@ -297,13 +314,16 @@ These are cross-cutting capabilities every module depends on — build these fou
 
 ## 5. Core Modules (mandatory — always available)
 
+> **Build phase note (2026-07-08):** Active build has started. Four modules below were moved out to §5b (Deferred) at the user's direction so the first build phase stays focused on the academic/people/communication backbone. Email notification (previously just a bullet under Communication) is called out and prioritized as part of this phase rather than left for later.
+
 - [ ] **Student Records**
-  - Core fields: Admission/Serial Number, First Name, Last Name, Other Names, Gender, Date of Birth, Session of Admission, Parent Mobile Number, Class, School House
+  - Core fields: **Admission Number (unique student identifier — see Confirmed Business Decisions)**, First Name, Last Name, Other Names, Gender, Date of Birth, Session of Admission, Parent Mobile Number, Class, School House
+  - **Email address is optional**, not a required field
   - Extended profile: Admission record, Academic History, Medical info, Attendance, Behaviour, Library activity, Payments, Exam/CA history, Certificates, Guardian info, Transport, Hostel, Documents (Passport photo, Birth Certificate, State of Origin, Religion, Nationality, Blood Group, Genotype, Previous School, Emergency Contact)
 - [ ] **Staff Records**
   - Core fields: Staff ID Number, First/Last/Other Names, Gender, Class and/or Subjects taught, unique positions (Store Keeper, Accountant, ICT, Director, etc. — extensible list)
   - Extended profile: Teaching load, Attendance, Lesson notes, Assignments, CBT involvement, Leave, Payroll, Performance, Timetable, Documents, Promotion history, Qualifications, Certificates
-- [ ] **Parent Portal** — one login, multiple children (across classes and across schools under common ownership)
+- [ ] **Parent Portal** — one login, multiple children (across classes and across schools under common ownership). **Unique identifier is email address** (required + unique at platform level — see Confirmed Business Decisions)
 - [ ] **Academic Structure** — Session, Term/Semester, Section, Class, Arm, Subject, Subject-Teacher mapping, Grading setup, CA setup, Exam setup, Promotion rules, Report Card
 - [ ] **School Sections** (Nursery/Primary/Secondary/College/custom — renameable, extensible by School Admin/Super Admin, can run concurrently in one school)
 - [ ] **School Classes** (mapped to a section)
@@ -316,30 +336,9 @@ These are cross-cutting capabilities every module depends on — build these fou
 - [ ] **Timetable Management** — conflict detection, teacher workload balancing
 - [ ] **Attendance** — student and staff
 - [ ] **School Calendar & Event Planner**
-- [ ] **Admissions / Enrollment**
-  - [ ] Online application forms
-  - [ ] Entrance examinations conducted in-platform
-  - [ ] CBT with webcam monitoring via LearnGuard integration
-- [ ] **Finance**
-  - [ ] School Fees
-  - [ ] Discounts
-  - [ ] Scholarships
-  - [ ] Installment plans (school-configurable, optional)
-  - [ ] Automatic invoicing
-  - [ ] Receipts
-  - [ ] Expenses
-  - [ ] Income
-  - [ ] Payroll
-  - [ ] Budgets
-  - [ ] Ledger
-  - [ ] Bank accounts
-  - [ ] Payment gateway integration (school-selectable — see §8)
-  - [ ] Bank transfer + proof-of-payment upload as an alternative to gateway payment
-  - [ ] Refunds
-  - [ ] Financial reports & revenue analytics
 - [ ] **Communication**
+  - [ ] **Email notification — brought into this build phase explicitly (2026-07-08)**, prioritized alongside the people/academic core rather than left for later
   - [ ] In-App Notifications
-  - [ ] Email
   - [ ] SMS
   - [ ] WhatsApp
   - [ ] Push Notifications
@@ -349,8 +348,6 @@ These are cross-cutting capabilities every module depends on — build these fou
   - [ ] Emergency Alerts
   - [ ] Automated (rule-triggered) notifications — logged for reference/reporting
 - [ ] **School Information System** (core institutional profile: logo, motto/slogan, full address, email, mobile)
-- [ ] **Visitor Management**
-- [ ] **School Assets Management**
 - [ ] **Analytics & Reporting**
   - [ ] Student performance, Class performance, Subject performance, Teacher performance
   - [ ] Financial reports
@@ -358,6 +355,19 @@ These are cross-cutting capabilities every module depends on — build these fou
   - [ ] Enrollment reports
   - [ ] Fee collection / defaulters
   - [ ] Custom report builder (see §4.3)
+
+---
+
+## 5b. Deferred to Later Build (moved out of Core Modules, 2026-07-08)
+
+Moved out at the user's explicit direction so the first build phase can focus on the academic/people/communication backbone. These are **not cancelled** — they remain required, just sequenced later. Move back into §5 (with a status update) when their build phase starts.
+
+- [ ] **Admissions / Enrollment** — online application forms, entrance examinations conducted in-platform, CBT with webcam monitoring via LearnGuard integration
+- [ ] **Finance** — school fees, discounts, scholarships, installment plans, automatic invoicing, receipts, expenses, income, payroll, budgets, ledger, bank accounts, payment gateway integration, bank transfer + proof-of-payment upload, refunds, financial reports & revenue analytics
+- [ ] **Visitor Management**
+- [ ] **School Assets Management**
+
+Reasoning: these four are either commerce-adjacent (Finance, Admissions involve payment/external-integration surface area) or facilities-adjacent (Visitor, Assets) rather than part of the core academic/records/communication backbone every school needs on day one. Building Student/Staff/Parent records, academic structure, results, and communication first gives a coherent, testable vertical slice before layering in money-handling and facilities modules.
 
 ---
 
