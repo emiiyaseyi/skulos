@@ -124,6 +124,13 @@ Entries are added here as work starts on each item — see the current build pha
 - Issues/Bugs: live OAuth not exercisable here (no real Google/Microsoft app credentials).
 - Resolution: 5 tests via mocked Socialite cover the enable gate, 404s, new-user provisioning + login, email account-linking, and audit. Full suite 53 tests / 151 assertions passing.
 
+### Attendance (§5)
+- Status: In progress (schema + model + service + tests; UI/API + register screen later)
+- Started: 2026-07-08
+- Notes: single tenant `attendance` table for both students and staff (person_type discriminator, one row per person per day, unique). class_arm_id set for students. Status values come from `config/skulos.php` attendance_statuses (configurable, not a hardcoded enum). `AttendanceService`: `markClass` (idempotent whole-class register, correct-in-place), `markStaff`, `classSummary` (counts by status). Bulk class marking audited.
+- Issues/Bugs: (2026-07-08) `date` cast serialized to "YYYY-MM-DD 00:00:00", so the idempotent `updateOrCreate` match on "YYYY-MM-DD" never matched and re-inserted, hitting the unique constraint. Also a summary assertion was order-sensitive.
+- Resolution: store `date` as a plain date string (dropped the datetime cast; documented why in the model) so the match is exact; made the summary assertion canonicalizing. 5 attendance tests; full suite 58 tests / 161 assertions.
+
 ### Multi-tenancy foundation (§4.1)
 - Status: Done (foundation scope)
 - Started: 2026-07-08

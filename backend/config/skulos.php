@@ -74,6 +74,13 @@ return [
         ],
     ],
 
+    /*
+    | Attendance status vocabulary. A default set schools can rely on; the
+    | admin CMS will let a school edit this per school. Not hardcoded into
+    | the model or validation.
+    */
+    'attendance_statuses' => ['present', 'absent', 'late', 'excused'],
+
     'permission_actions' => ['view', 'create', 'update', 'delete', 'export', 'bulk'],
 
     'extra_permissions' => [
