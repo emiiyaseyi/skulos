@@ -729,6 +729,16 @@ section:last-of-type{ padding-bottom:clamp(2.25rem,4vw,3.25rem); }
 .tier li::before{ content:"¹3"; color:var(--gold-soft); flex-shrink:0; font-weight:800; }
 .tier .btn{ width:100%; }
 .pricing-note{ text-align:center; color:var(--mist-dim); font-size:.85rem; margin-top:2rem; }
+.faq-list{ max-width:48rem; margin:0 auto; display:flex; flex-direction:column; gap:.75rem; }
+.faq-item{ border:1px solid var(--glass-border); border-radius:14px; background:var(--glass); overflow:hidden; }
+.faq-q{ width:100%; text-align:left; background:none; border:none; cursor:pointer; padding:1.1rem 1.3rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; font-family:var(--font-body); font-weight:700; font-size:1rem; color:var(--paper); }
+.faq-q .chev{ flex-shrink:0; transition:transform .25s ease; color:var(--gold-soft); font-size:1.1rem; }
+.faq-item.open .faq-q .chev{ transform:rotate(180deg); }
+.faq-a{ max-height:0; overflow:hidden; transition:max-height .3s ease; }
+.faq-item.open .faq-a{ max-height:400px; }
+.faq-a p{ padding:0 1.3rem 1.2rem; margin:0; color:var(--mist); line-height:1.7; text-align:justify; }
+.faq-cta{ text-align:center; margin-top:2rem; }
+@media (prefers-reduced-motion: reduce){ .faq-a{ transition:none; } }
 
 /* ---------- contact form ---------- */
 .contact-grid{ display:grid; grid-template-columns:1.2fr .8fr; gap:2rem; align-items:start; }
@@ -1573,6 +1583,42 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
  <p class="pricing-note">Annual billing available at 3× the termly rate. Module and storage add ons available on every plan.</p>
  </section>
 
+
+ <!-- MINI FAQ -->
+ <section class="wrap">
+ <div class="section-head">
+ <span class="eyebrow">Good to know</span>
+ <h2>Questions schools ask first</h2>
+ </div>
+ <div class="faq-list">
+<div class="faq-item">
+<button class="faq-q" aria-expanded="false"><span>What exactly is SKULOS?</span><span class="chev" aria-hidden="true">⌄</span></button>
+<div class="faq-a"><p>SKULOS is a complete education operating system. Instead of separate tools for records, results, fees and communication, it brings admissions, academics, finance, communication and learning into one platform, with one login and one source of truth for your school.</p></div>
+</div>
+<div class="faq-item">
+<button class="faq-q" aria-expanded="false"><span>How much does it cost?</span><span class="chev" aria-hidden="true">⌄</span></button>
+<div class="faq-a"><p>Pricing is per active student, per academic term. Starter is 500 naira, Growth is 800 naira, Professional is 1,200 naira, and Enterprise is 1,500 naira, each per student per term. You can pay termly or annually, and annual billing is three times the termly rate.</p></div>
+</div>
+<div class="faq-item">
+<button class="faq-q" aria-expanded="false"><span>Is there a free trial?</span><span class="chev" aria-hidden="true">⌄</span></button>
+<div class="faq-a"><p>Yes. Every new school gets one full academic term at no cost, with no card required to begin. Before the trial ends you choose a plan to continue, and nothing is billed automatically without your confirmation.</p></div>
+</div>
+<div class="faq-item">
+<button class="faq-q" aria-expanded="false"><span>Can one school run nursery, primary and secondary together?</span><span class="chev" aria-hidden="true">⌄</span></button>
+<div class="faq-a"><p>Yes. Sections, classes and arms are fully configurable, so a single school can run several levels side by side and rename or add levels to match how it actually operates.</p></div>
+</div>
+<div class="faq-item">
+<button class="faq-q" aria-expanded="false"><span>Can a parent see all their children in one account?</span><span class="chev" aria-hidden="true">⌄</span></button>
+<div class="faq-a"><p>Yes. A parent signs in once and sees every child they are linked to, even across different classes or different schools under the same ownership, using their email address as their single identity.</p></div>
+</div>
+<div class="faq-item">
+<button class="faq-q" aria-expanded="false"><span>How do we collect school fees?</span><span class="chev" aria-hidden="true">⌄</span></button>
+<div class="faq-a"><p>Through Paystack, other gateways your school prefers, or by bank transfer with proof of payment uploaded for confirmation. Installment plans are available when a school chooses to offer them.</p></div>
+</div>
+ </div>
+ <div class="faq-cta"><a href="faq.html" class="btn btn-ghost btn-lg">View all questions</a></div>
+ </section>
+
  <!-- FINAL CTA -->
  <section class="wrap">
  <div class="final-cta" id="trial">
@@ -1618,9 +1664,9 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
  <div class="footer-col">
  <h4>Resources</h4>
  <ul>
- <li><a href="#" title="Coming soon">Help Center</a></li>
- <li><a href="#" title="Coming soon">Documentation</a></li>
- <li><a href="#" title="Coming soon">Privacy &amp; Terms</a></li>
+ <li><a href="faq.html">FAQ</a></li>
+ <li><a href="privacy.html">Privacy Policy</a></li>
+ <li><a href="terms.html">Terms and Conditions</a></li>
  </ul>
  </div>
  </div>
@@ -1775,6 +1821,15 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
       document.querySelectorAll('.role-panel').forEach(function(p){
         p.classList.toggle('is-active', p.getAttribute('data-panel') === role);
       });
+    });
+  });
+
+  document.querySelectorAll('.faq-q').forEach(function(q){
+    q.addEventListener('click', function(){
+      var item = q.closest('.faq-item');
+      var open = item.classList.contains('open');
+      item.classList.toggle('open', !open);
+      q.setAttribute('aria-expanded', !open ? 'true' : 'false');
     });
   });
 </script>
