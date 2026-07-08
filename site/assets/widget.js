@@ -1,7 +1,7 @@
 /*
  * SKULOS floating contact widget.
- * Included on every prospective-user page with:
- *   <script src="assets/widget.js" defer></script>
+ * Included on every prospective-user page with a deferred script tag that
+ * points at assets/widget.js.
  * Contact details live here only (one source of truth, nothing hardcoded
  * into individual pages). On-screen text carries no dashes by design.
  */
