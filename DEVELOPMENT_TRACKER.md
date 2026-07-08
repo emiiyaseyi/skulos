@@ -40,17 +40,23 @@ Standing directives that apply to **every current and future change** (backend, 
 - **CSV** for all bulk templates + import files; every importer ships a downloadable template.
 - Commit as the user (`emiiyaseyi`), no Claude co-author trailer.
 
-## Queued marketing-site requests (2026-07-08, active focus — backend core modules paused mid-academic-structure)
+## Marketing-site batch (2026-07-08) — DONE (QA'd with headless screenshots)
 
-Captured so nothing is lost while the user rapid-fires requests. Work through these, QA + commit + push each:
-- [ ] On-screen dashes: paragraph em-dashes already swept (a stale browser/artifact cache still showed them). Remaining real ones: CSS `content:"—"` pricing-list bullet and any `aria-label` em-dashes. Fix across all pages.
-- [ ] Light-mode palette: user dislikes the muddy dark-gold CTA button + overall light combo (dark mode is fine). Rework the light theme so the primary button is vibrant/clean, not brown.
-- [ ] Contact widget, bottom-right, on every prospective-user page: (1) Chat on WhatsApp **+2348023373302**, (2) email **info@skulos.app**, (3) link to the Contact form.
-- [ ] Legal pages: **Privacy Policy** compliant with **NDPR** (Nigeria), **GDPR** (EU), and note other African data-protection laws (e.g. Kenya DPA 2019, South Africa POPIA, Ghana DPA); **Terms & Conditions**. Real draft copy (user authorized real draft copy previously), not lorem.
-- [ ] **FAQ** page + a **mini-FAQ** section on the homepage with a button to view all.
-- [ ] Integrations pills: render **exactly 4 per row** (currently 8 flow to 7+1). Rename **"LearnGuard Secure Browser" → "Assessments"** in that list.
-- [ ] Republish the Artifact (inlined, CSP-safe) after the above.
-- Contact details now known (supersedes the earlier "blocked on contact info" note for About/Contact): WhatsApp/phone **+2348023373302**, email **info@skulos.app**. Legal business name still not given; ask before putting a company legal name in Terms/Privacy.
+All shipped, committed, pushed, artifact republished. Backend core modules were paused mid-academic-structure for this and resume next.
+- [x] On-screen dashes removed everywhere: paragraph em-dashes (earlier sweep; screenshots that still showed them were stale cache), CSS `content:"—"` pricing bullet (now a checkmark), and the carousel `aria-label`. Byte-verified 0 rendered em/en dashes on all 7 pages (only code comments retain them, not rendered).
+- [x] Light-mode palette fixed: added vibrant `--gold-btn-a/b/ink` tokens for button fills (stays bright in both themes); dark gold retained only for text/hairlines. Verified in screenshot: CTA is vibrant, not muddy.
+- [x] Contact widget: self-contained `site/assets/widget.js`, bottom-right, expands to WhatsApp (+234 802 337 3302), email (info@skulos.app), and the contact form. One config object = single source. On every page.
+- [x] Legal pages: `privacy.html` (NDPR + GDPR aligned, with Kenya/South Africa/Ghana notes, controller vs processor, children's data, rights, transfers, retention) and `terms.html` (subscriptions/trial/billing, data ownership, acceptable use, governing law = Nigeria). Real draft copy, no lorem. Written with SKULOS as the operating name + info@skulos.app; a registered legal entity name + physical address are still not provided (ask the user to add them when known).
+- [x] FAQ: `faq.html` (12 accordion Q&A) + homepage mini-FAQ (6 items) with a "View all questions" button.
+- [x] Integrations: now an explicit 4-column grid (8 pills = 4x2); "LearnGuard Secure Browser" renamed to "Assessments" and the module card copy updated to "secure computer based testing through our Assessments module."
+- [x] Artifact republished (inlined fonts + widget, CSP-safe) at the same URL 086cc9bb.
+- [x] Site refactored: 370KB of fonts extracted to shared `assets/fonts.css` (pages 415KB -> 45-70KB); new pages use shared `assets/base.css` + `assets/site.js`.
+- QA bug caught + fixed during this batch: widget.js header comment contained a literal closing script tag, which would have prematurely closed the inlined `<script>` in the artifact and broken the widget. Fixed at source + escape on inline.
+
+### Still-open marketing follow-ups (not blocking)
+- [ ] Registered legal business name + physical address for Privacy/Terms footer/company details (ask user).
+- [ ] DRY debt: the 4 original pages still carry inline CSS (identical tokens) rather than linking `assets/base.css`; migrate them so palette is truly single-source. Interim: palette changes must touch both inline pages and base.css.
+- Contact details known: WhatsApp/phone **+2348023373302**, email **info@skulos.app**.
 
 ## Queued backend requests (2026-07-08)
 - [ ] **SSO via Google and Outlook (Microsoft)** — add as enable-able options in the current auth build (TD-005 already lists OAuth/Google/Microsoft as planned; user wants it in scope now). Must be toggleable (nothing hardcoded), Sanctum-based session issuance after OAuth callback.
