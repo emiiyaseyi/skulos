@@ -113,6 +113,7 @@ tr:last-child td{border-bottom:none}
 .badge{font-size:.72rem;font-weight:800;padding:.2rem .55rem;border-radius:999px}
 .badge-ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
 .badge-warn{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.badge-bad{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
 .flash{padding:.85rem 1.1rem;border-radius:12px;margin-bottom:1.2rem;font-weight:600;font-size:.9rem;border:1px solid}
 .flash-ok{background:color-mix(in srgb,var(--ok) 12%,transparent);border-color:color-mix(in srgb,var(--ok) 40%,transparent);color:var(--ok)}
 .flash-bad{background:color-mix(in srgb,var(--bad) 12%,transparent);border-color:color-mix(in srgb,var(--bad) 40%,transparent);color:var(--bad)}

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Start a Trial | SKULOS</title>
+<meta name="robots" content="noindex" />
+<style>
+  :root{--accent:#E8A33D;--bg:#0B0F1A;--panel:#12182A;--ink:#F5F7FA;--mut:rgba(245,247,250,.65);--line:rgba(245,247,250,.12)}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;padding:2rem 1.25rem;background:var(--bg);
+    font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:var(--ink)}
+  .card{width:100%;max-width:26rem;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:2.4rem 2rem;text-align:center}
+  .brand{font-weight:800;font-size:1.2rem;letter-spacing:-.01em;margin-bottom:1.4rem}
+  .brand em{font-style:normal;color:var(--accent)}
+  .spinner{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--accent);
+    margin:0 auto 1.2rem;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  h1{font-size:1.05rem;font-weight:700;margin:0 0 .5rem}
+  p{color:var(--mut);line-height:1.6;margin:0 0 1.5rem}
+  a.btn{display:inline-block;background:var(--accent);color:#241503;font-weight:700;text-decoration:none;padding:.7rem 1.4rem;border-radius:10px}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">SK<em>U</em>LOS</div>
+    <div class="spinner" aria-hidden="true"></div>
+    <h1>Taking you to the trial request form</h1>
+    <p>If this does not redirect automatically in a moment, use the button below.</p>
+    <a class="btn" id="trialLink" href="#">Continue to trial form</a>
+  </div>
+
+  <script>
+    // Single place to point every "Start Free Trial" button at the real
+    // backend once it is deployed (see DEPLOYMENT.md). Update this one
+    // constant, not the links scattered across every marketing page.
+    var BACKEND_URL = 'http://localhost:8000';
+    var target = BACKEND_URL + '/trial';
+    document.getElementById('trialLink').href = target;
+    window.location.replace(target);
+  </script>
+</body>
+</html>
