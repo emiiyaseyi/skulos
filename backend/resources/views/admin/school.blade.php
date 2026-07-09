@@ -77,4 +77,33 @@
     <button class="btn btn-primary btn-sm" type="submit">Add administrator</button>
   </form>
 </div>
+
+<div class="card" style="max-width:32rem;margin-top:1.25rem">
+  <h3 style="margin-bottom:.4rem">Clone this school</h3>
+  <p class="muted" style="margin-bottom:.8rem">Creates a brand new school with the same classes, subjects, grading scales, houses, and look and feel. Student, staff, and parent records are never copied.</p>
+  <form method="POST" action="{{ route('admin.schools.clone', ['school' => $school->id]) }}">
+    @csrf
+    <div class="field">
+      <label for="c_name">New school name</label>
+      <input id="c_name" name="name" required />
+    </div>
+    <div class="field">
+      <label for="c_slug">Address (optional)</label>
+      <input id="c_slug" name="slug" placeholder="auto generated from the name" />
+    </div>
+    <div class="field">
+      <label for="c_admin_name">New administrator name</label>
+      <input id="c_admin_name" name="admin_name" required />
+    </div>
+    <div class="field">
+      <label for="c_admin_email">New administrator email</label>
+      <input id="c_admin_email" name="admin_email" type="email" required />
+    </div>
+    <div class="field">
+      <label for="c_admin_password">New administrator password</label>
+      <input id="c_admin_password" name="admin_password" type="password" minlength="8" required />
+    </div>
+    <button class="btn btn-primary btn-sm" type="submit">Clone {{ $school->name }}</button>
+  </form>
+</div>
 @endsection

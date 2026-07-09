@@ -4,6 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\Role;
 use App\Models\School;
+use App\Models\Tenant\GradingBand;
+use App\Models\Tenant\GradingScale;
+use App\Models\Tenant\SchoolClass;
+use App\Models\Tenant\Section;
+use App\Models\Tenant\Subject;
 use App\Models\User;
 use App\Services\Tenancy\TenantManager;
 use Database\Seeders\RbacSeeder;
@@ -118,6 +123,51 @@ class SchoolAdminManagementTest extends TestCase
             ->assertRedirect();
 
         $this->assertTrue($owner->fresh()->isMemberOf($school));
+    }
+
+    public function test_platform_admin_can_clone_a_schools_structure_onto_a_new_school(): void
+    {
+        [$source] = $this->schoolWithOwner('sourceschool');
+        $platformAdmin = $this->superAdmin();
+
+        app(TenantManager::class)->use($source);
+        $section = Section::create(['name' => 'Secondary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'SS 1', 'sequence' => 1]);
+        $subject = Subject::create(['name' => 'Chemistry']);
+        $class->subjects()->attach($subject->id, ['is_mandatory' => true, 'is_examinable' => true]);
+        $scale = GradingScale::create(['name' => 'Custom Scale', 'is_default' => true]);
+        GradingBand::create(['grading_scale_id' => $scale->id, 'min_score' => 0, 'max_score' => 100, 'grade' => 'A', 'remark' => 'Good']);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($platformAdmin)->post(route('admin.schools.clone', ['school' => $source->id]), [
+            'name' => 'Cloned School',
+            'admin_name' => 'Clone Admin',
+            'admin_email' => 'cloneadmin@example.com',
+            'admin_password' => 'clonepass123',
+        ])->assertRedirect(route('admin.dashboard'));
+
+        $clone = School::where('name', 'Cloned School')->first();
+        $this->assertNotNull($clone);
+        $this->assertTrue($clone->isProvisioned());
+
+        app(TenantManager::class)->use($clone);
+        $clonedSection = Section::where('name', 'Secondary')->first();
+        $clonedClass = SchoolClass::where('name', 'SS 1')->first();
+        $clonedSubject = Subject::where('name', 'Chemistry')->first();
+        $clonedScale = GradingScale::where('name', 'Custom Scale')->first();
+        $offeredSubjectsCount = $clonedClass?->subjects()->count();
+        app(TenantManager::class)->forget();
+
+        $this->assertNotNull($clonedSection);
+        $this->assertNotNull($clonedClass);
+        $this->assertSame($clonedSection->id, $clonedClass->section_id);
+        $this->assertNotNull($clonedSubject);
+        $this->assertNotNull($clonedScale);
+        $this->assertSame(1, $offeredSubjectsCount);
+
+        // No student/staff data is copied; only the new admin is a member.
+        $this->assertCount(1, $clone->users);
+        $this->assertSame('cloneadmin@example.com', $clone->users->first()->email);
     }
 
     public function test_only_platform_super_admin_can_manage_school_administrators(): void

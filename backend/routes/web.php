@@ -40,6 +40,7 @@ Route::domain($appDomain)->group(function () {
         Route::get('/schools/archive', [SchoolAdminController::class, 'trashed'])->name('schools.archive-list');
         Route::post('/schools/{schoolId}/restore', [SchoolAdminController::class, 'restore'])->name('schools.restore');
         Route::get('/schools/{school}', [SchoolAdminController::class, 'show'])->name('schools.show');
+        Route::post('/schools/{school}/clone', [SchoolAdminController::class, 'cloneSchool'])->name('schools.clone');
         Route::post('/schools/{school}/admins', [SchoolAdminController::class, 'storeAdmin'])->name('schools.admins.store');
         Route::post('/schools/{school}/admins/{user}/reset-password', [SchoolAdminController::class, 'resetAdminPassword'])->name('schools.admins.reset-password');
         Route::post('/schools/{school}/admins/{user}/toggle-access', [SchoolAdminController::class, 'toggleAdminAccess'])->name('schools.admins.toggle-access');

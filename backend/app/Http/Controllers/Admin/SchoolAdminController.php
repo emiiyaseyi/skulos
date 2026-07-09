@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\School;
 use App\Models\User;
+use App\Services\Tenancy\SchoolCloneService;
 use App\Services\Tenancy\TenantManager;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -46,7 +47,7 @@ class SchoolAdminController extends Controller
             'admin_password' => ['required', 'string', 'min:8', 'max:100'],
         ]);
 
-        $slug = $data['slug'] ?: Str::slug($data['name']);
+        $slug = $data['slug'] ?? Str::slug($data['name']);
         if (School::where('slug', $slug)->exists()) {
             return back()->with('error', "A school with the address '{$slug}' already exists.")->withInput();
         }
@@ -63,20 +64,55 @@ class SchoolAdminController extends Controller
         // Create (or reuse) the school administrator account and attach it as
         // this school's owner. This is who signs in on the subdomain to run
         // setup, not the platform super admin.
-        $adminEmail = Str::lower($data['admin_email']);
-        $schoolAdmin = User::firstOrNew(['email' => $adminEmail]);
-        $schoolAdmin->name = $schoolAdmin->name ?: $data['admin_name'];
-        $schoolAdmin->password = Hash::make($data['admin_password']);
-        $schoolAdmin->email_verified_at = $schoolAdmin->email_verified_at ?: now();
-        $schoolAdmin->save();
-
-        $ownerRole = Role::whereNull('school_id')->where('slug', 'school-owner')->value('id');
-        $school->users()->syncWithoutDetaching([
-            $schoolAdmin->id => ['role_id' => $ownerRole, 'status' => 'active'],
-        ]);
+        $this->attachAdmin($school, $data['admin_name'], $data['admin_email'], $data['admin_password']);
 
         return redirect()->route('admin.dashboard')->with('status',
-            "{$school->name} is ready. The administrator ({$adminEmail}) can now sign in at {$school->slug}.".config('app.domain')." to finish setup.");
+            "{$school->name} is ready. The administrator (".Str::lower($data['admin_email']).") can now sign in at {$school->slug}.".config('app.domain')." to finish setup.");
+    }
+
+    protected function attachAdmin(School $school, string $name, string $email, string $password): User
+    {
+        $email = Str::lower($email);
+        $admin = User::firstOrNew(['email' => $email]);
+        $admin->name = $admin->name ?: $name;
+        $admin->password = Hash::make($password);
+        $admin->email_verified_at = $admin->email_verified_at ?: now();
+        $admin->save();
+
+        $ownerRole = Role::whereNull('school_id')->where('slug', 'school-owner')->value('id');
+        $school->users()->syncWithoutDetaching([$admin->id => ['role_id' => $ownerRole, 'status' => 'active']]);
+
+        return $admin;
+    }
+
+    /**
+     * Clone a school's structure (sections/classes/subjects/grading/houses/
+     * look and feel) onto a brand new school (user request 2026-07-09): a
+     * fast way to stand up a similarly configured school without repeating
+     * the setup. Student/staff/parent data is never copied.
+     */
+    public function cloneSchool(Request $request, School $school, TenantManager $tenants, SchoolCloneService $cloner): RedirectResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'slug' => ['nullable', 'alpha_dash', 'max:60', Rule::unique('schools', 'slug')],
+            'admin_name' => ['required', 'string', 'max:120'],
+            'admin_email' => ['required', 'email', 'max:150'],
+            'admin_password' => ['required', 'string', 'min:8', 'max:100'],
+        ]);
+
+        $slug = $data['slug'] ?? Str::slug($data['name']);
+        if (School::where('slug', $slug)->exists()) {
+            return back()->with('error', "A school with the address '{$slug}' already exists.")->withInput();
+        }
+
+        $clone = School::create(['name' => $data['name'], 'slug' => $slug, 'email' => $data['admin_email']]);
+        $tenants->provision($clone);
+        $this->attachAdmin($clone, $data['admin_name'], $data['admin_email'], $data['admin_password']);
+        $cloner->clone($school, $clone);
+
+        return redirect()->route('admin.dashboard')->with('status',
+            "{$clone->name} has been created as a clone of {$school->name}'s setup. Student, staff, and parent records were not copied.");
     }
 
     /** Suspend a school (temporary): access blocked, data kept. */
