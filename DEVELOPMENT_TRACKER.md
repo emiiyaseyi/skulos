@@ -65,11 +65,16 @@ All shipped, committed, pushed, artifact republished. Backend core modules were 
 
 To make the platform clickable from **one entry point** fast, the product UI is built as **Laravel server-rendered Blade pages** (reusing the design system), not the separately-planned Next.js SPA + REST API. Rationale: one deployable, cPanel-friendly, reuses the tenancy/RBAC/audit/services already built, and reaches a working unified platform far quicker than standing up a separate SPA + token auth + CORS + two deployments. **API-first is preserved** — the services (TenantManager, Rbac, ResultService, NotificationService, importers, etc.) are UI-agnostic, so a Next.js frontend consuming a REST/JSON API can be layered on later without rework. If/when that happens, the Blade UI can remain for admin or be retired. Recorded here so a future agent doesn't think the Next.js frontend was skipped by mistake.
 
-## Queued: dashboard templates + widget toggles (user request 2026-07-09)
-- [ ] During school setup, admin picks one of **4 dashboard layout templates** for how their dashboard looks; changeable later in admin settings.
-- [ ] In settings, admin can **show/hide individual dashboard widgets**.
-- [ ] Store `dashboard_layout` + `dashboard_widgets` in tenant settings (admin-editable, nothing hardcoded).
-- Note: the 4 sample images the user shared could not be processed (over the size limit). Building 4 solid layout variants now; **refine to match the exact samples once re-shared smaller / as PDF.** Ask the user to re-share.
+## Dashboard templates + widget toggles (user request 2026-07-09) — DONE (backend + UI)
+- [x] Four **named** dashboard layouts: **Classic, Focus, Analytics, Compact**. Admin picks one; changeable in settings.
+- [x] **Preview page**: `/settings/dashboard` shows each layout as a small visual schematic so the admin sees what each looks like before choosing.
+- [x] **Widget show/hide** toggles (greeting, key figures, notifications, calendar).
+- [x] Stored in tenant settings (`DashboardPreferences`), defaulted from `config/skulos.php` (nothing hardcoded). Dashboard renders per chosen layout via widget partials honouring visibility. 7 tests.
+- [ ] **Refine the 4 layouts to match the user's exact sample images** — the samples could not be processed (over the size limit). Ask the user to re-share smaller or as a PDF, then align the layouts. Current four are solid, distinct starting points.
+- [ ] Fold the layout choice into the (future) setup wizard so it is picked during onboarding, not only in settings.
+
+## Vercel deploy 404 (user reported 2026-07-09) — FIXED
+- User imported the repo to Vercel and got `404: NOT_FOUND` because Vercel served the repo root (no index.html; site is in `/site`). Fixed `vercel.json` with rewrites mapping all requests into `/site` so a plain import works without changing project settings (or set Root Directory = site). Documented in DEPLOYMENT.md. User should redeploy.
 
 ## Build Log (live status while building — updated as we go)
 

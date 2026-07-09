@@ -34,10 +34,23 @@ You can also just open `site/index.html` in a browser, though a local server is 
 3. Deploy. Every push to `main` redeploys.
 
 ### Vercel
-1. Import the GitHub repo in Vercel.
-2. Set **Root Directory** to `site` in the project settings (Vercel serves that folder as a static site; no framework preset, no build command).
-3. `vercel.json` at the repo root enables clean URLs.
-4. Deploy. Every push to `main` redeploys.
+Two ways, pick one:
+
+**Option A (no settings needed).** Just import the repo and deploy. The
+`vercel.json` at the repo root rewrites every request into the `/site`
+folder, so `/` serves `site/index.html` and `/about` serves
+`site/about.html`, with clean URLs. This is why a plain import now works
+instead of returning 404.
+
+**Option B (cleaner).** In the Vercel project settings set **Root
+Directory** to `site`, choose no framework preset and no build command.
+Then Vercel serves `/site` directly as the site root.
+
+Either way, every push to `main` redeploys.
+
+> If you previously saw `404: NOT_FOUND` on Vercel, it was because the
+> project served the repo root, which has no `index.html` (the site is in
+> `/site`). Redeploy after this change and it resolves.
 
 ### GitHub Pages
 Already wired: `.github/workflows/pages.yml` deploys `site/` on every push that touches it. Enable Pages once in the repo settings (Source: GitHub Actions).
