@@ -34,23 +34,23 @@ You can also just open `site/index.html` in a browser, though a local server is 
 3. Deploy. Every push to `main` redeploys.
 
 ### Vercel
-Two ways, pick one:
+`vercel.json` at the repo root sets `"outputDirectory": "site"`, which tells
+Vercel to serve that folder as the site root with no build step and no
+dashboard configuration needed — `/` serves `site/index.html`, `/about`
+serves `site/about.html` (clean URLs on), etc. Just import the repo and
+deploy; every push to `main` redeploys automatically.
 
-**Option A (no settings needed).** Just import the repo and deploy. The
-`vercel.json` at the repo root rewrites every request into the `/site`
-folder, so `/` serves `site/index.html` and `/about` serves
-`site/about.html`, with clean URLs. This is why a plain import now works
-instead of returning 404.
-
-**Option B (cleaner).** In the Vercel project settings set **Root
-Directory** to `site`, choose no framework preset and no build command.
-Then Vercel serves `/site` directly as the site root.
-
-Either way, every push to `main` redeploys.
-
-> If you previously saw `404: NOT_FOUND` on Vercel, it was because the
-> project served the repo root, which has no `index.html` (the site is in
-> `/site`). Redeploy after this change and it resolves.
+> **If you still see `404: NOT_FOUND` after a redeploy** (this has recurred
+> more than once — `outputDirectory` alone does not always take effect on
+> every Vercel project depending on when/how it was first imported), the
+> guaranteed fix is the dashboard setting: Vercel project → **Settings →
+> Build and Deployment → Root Directory** → set to `site`, framework preset
+> **Other**, no build command. Save and redeploy. This makes Vercel treat
+> `/site` as the project root directly, independent of `vercel.json`, and
+> is the more reliable of the two mechanisms.
+>
+> Root cause of the original 404: the project served the repo root, which
+> has no `index.html` (the real site lives in `/site`).
 
 ### GitHub Pages
 Already wired: `.github/workflows/pages.yml` deploys `site/` on every push that touches it. Enable Pages once in the repo settings (Source: GitHub Actions).
