@@ -11,45 +11,72 @@
 <style>
 :root{
   --accent: {{ $accent ?? '#E8A33D' }};
-  --bg:#F5F7FA; --panel:#FFFFFF; --ink:#0B1420; --mut:rgba(11,20,32,.62); --mut-dim:rgba(11,20,32,.45);
-  --line:rgba(11,20,32,.12); --soft:rgba(11,20,32,.04); --ok:#12A97B; --warn:#E5901C; --bad:#E14F63;
-  --shadow:0 10px 30px -12px rgba(15,23,35,.18);
+  --bg:#EEF1F6; --panel:#FFFFFF; --ink:#0B1420; --mut:rgba(11,20,32,.60); --mut-dim:rgba(11,20,32,.42);
+  --line:rgba(11,20,32,.10); --soft:rgba(11,20,32,.035); --ok:#12A97B; --warn:#E5901C; --bad:#E14F63;
+  --side:#0C1826; --side-ink:#E7ECF3; --side-mut:rgba(231,236,243,.55); --side-line:rgba(231,236,243,.10); --side-active:rgba(255,255,255,.08);
+  --shadow:0 1px 2px rgba(15,23,35,.06),0 8px 24px -14px rgba(15,23,35,.18);
   --font:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --radius:14px;
 }
 @media (prefers-color-scheme:dark){:root{
-  --bg:#0A1420; --panel:#0F1E30; --ink:#F3F5F8; --mut:rgba(243,245,248,.66); --mut-dim:rgba(243,245,248,.42);
-  --line:rgba(243,245,248,.13); --soft:rgba(243,245,248,.05); --shadow:0 14px 34px -14px rgba(0,0,0,.55);
+  --bg:#070C14; --panel:#0E1B2B; --ink:#F3F5F8; --mut:rgba(243,245,248,.62); --mut-dim:rgba(243,245,248,.40);
+  --line:rgba(243,245,248,.10); --soft:rgba(243,245,248,.04); --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -16px rgba(0,0,0,.6);
+  --side:#0A1420;
 }}
-:root[data-theme="light"]{--bg:#F5F7FA;--panel:#FFFFFF;--ink:#0B1420;--mut:rgba(11,20,32,.62);--mut-dim:rgba(11,20,32,.45);--line:rgba(11,20,32,.12);--soft:rgba(11,20,32,.04);--shadow:0 10px 30px -12px rgba(15,23,35,.18);}
-:root[data-theme="dark"]{--bg:#0A1420;--panel:#0F1E30;--ink:#F3F5F8;--mut:rgba(243,245,248,.66);--mut-dim:rgba(243,245,248,.42);--line:rgba(243,245,248,.13);--soft:rgba(243,245,248,.05);--shadow:0 14px 34px -14px rgba(0,0,0,.55);}
+:root[data-theme="light"]{--bg:#EEF1F6;--panel:#FFFFFF;--ink:#0B1420;--mut:rgba(11,20,32,.60);--mut-dim:rgba(11,20,32,.42);--line:rgba(11,20,32,.10);--soft:rgba(11,20,32,.035);--shadow:0 1px 2px rgba(15,23,35,.06),0 8px 24px -14px rgba(15,23,35,.18);--side:#0C1826;}
+:root[data-theme="dark"]{--bg:#070C14;--panel:#0E1B2B;--ink:#F3F5F8;--mut:rgba(243,245,248,.62);--mut-dim:rgba(243,245,248,.40);--line:rgba(243,245,248,.10);--soft:rgba(243,245,248,.04);--shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -16px rgba(0,0,0,.6);--side:#0A1420;}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:var(--font);background:var(--bg);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
-a{color:var(--accent);text-decoration:none}
-.wrap{max-width:1140px;margin:0 auto;padding:0 1.25rem}
-.topbar{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--panel) 88%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
-.topbar-row{display:flex;align-items:center;justify-content:space-between;padding:.85rem 0;gap:1rem}
-.brand{font-weight:800;font-size:1.35rem;letter-spacing:-.01em;color:var(--ink)}
-.brand em{font-style:normal;color:var(--accent)}
-.top-actions{display:flex;align-items:center;gap:.6rem}
-.chip{font-size:.75rem;font-weight:700;color:var(--mut);background:var(--soft);border:1px solid var(--line);padding:.3rem .6rem;border-radius:999px}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;padding:.6rem 1.1rem;border-radius:10px;border:1px solid transparent;font-weight:700;font-size:.9rem;cursor:pointer;font-family:inherit;transition:transform .15s ease,background .15s ease,box-shadow .15s ease}
-.btn-primary{background:var(--accent);color:#241503}
-.btn-primary:hover{transform:translateY(-1px);box-shadow:0 10px 22px -10px color-mix(in srgb,var(--accent) 70%,transparent)}
-.btn-ghost{background:transparent;color:var(--ink);border-color:var(--line)}
-.btn-ghost:hover{background:var(--soft)}
-.btn-sm{padding:.4rem .8rem;font-size:.82rem;border-radius:8px}
-.btn-block{width:100%}
-.icon-btn{width:2.4rem;height:2.4rem;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
-main{padding:2rem 0 3rem}
+a{color:inherit;text-decoration:none}
+
+/* ---- app shell ---- */
+.shell{display:grid;grid-template-columns:264px 1fr;min-height:100vh}
+.side{background:var(--side);color:var(--side-ink);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.side-brand{display:flex;align-items:center;gap:.6rem;padding:1.15rem 1.3rem;font-weight:800;font-size:1.3rem;letter-spacing:-.01em}
+.side-brand em{font-style:normal;color:var(--accent)}
+.side-school{display:flex;align-items:center;gap:.6rem;padding:.4rem 1rem 1rem}
+.side-badge{width:34px;height:34px;border-radius:9px;background:var(--accent);color:#241503;display:grid;place-items:center;font-weight:800;flex-shrink:0}
+.side-school b{font-size:.9rem;display:block;line-height:1.2}
+.side-school span{font-size:.72rem;color:var(--side-mut)}
+.side-nav{flex:1;padding:.4rem .7rem 1rem}
+.side-group{font-size:.66rem;text-transform:uppercase;letter-spacing:.09em;color:var(--side-mut);font-weight:800;padding:.9rem .6rem .35rem}
+.side-link{display:flex;align-items:center;gap:.7rem;padding:.6rem .65rem;border-radius:10px;color:var(--side-mut);font-weight:600;font-size:.9rem;transition:background .15s ease,color .15s ease}
+.side-link:hover{background:var(--side-active);color:var(--side-ink)}
+.side-link.active{background:var(--side-active);color:#fff}
+.side-link.active .ic{color:var(--accent)}
+.side-link .ic{width:18px;height:18px;flex-shrink:0;color:var(--side-mut)}
+.side-link .soon{margin-left:auto;font-size:.6rem;background:rgba(255,255,255,.08);color:var(--side-mut);padding:.1rem .35rem;border-radius:5px;font-weight:700}
+.side-foot{padding:.9rem 1rem;border-top:1px solid var(--side-line);display:flex;align-items:center;gap:.6rem}
+.side-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#b8790f);color:#241503;display:grid;place-items:center;font-weight:800;flex-shrink:0}
+.side-foot .who{flex:1;min-width:0}
+.side-foot b{font-size:.82rem;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side-foot span{font-size:.7rem;color:var(--side-mut)}
+
+.main{min-width:0;display:flex;flex-direction:column}
+.scrim{display:none}
+.appbar{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--panel) 90%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:1rem;padding:.8rem 1.6rem}
+.appbar h2{font-size:1rem;font-weight:800}
+.appbar .crumb{font-size:.78rem;color:var(--mut-dim)}
+.appbar-spacer{flex:1}
+.iconbtn{width:2.3rem;height:2.3rem;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;display:inline-grid;place-items:center;position:relative}
+.iconbtn:hover{background:var(--soft)}
+.iconbtn .badge-dot{position:absolute;top:6px;right:7px;width:8px;height:8px;border-radius:50%;background:var(--bad);border:2px solid var(--panel)}
+.menu-toggle{display:none}
+.content{padding:1.9rem 1.6rem 3rem}
+
+/* ---- primitives ---- */
 .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap}
-h1.title{font-size:1.7rem;font-weight:800;letter-spacing:-.01em}
+h1.title{font-size:1.55rem;font-weight:800;letter-spacing:-.01em}
 .subtitle{color:var(--mut);font-size:.92rem;margin-top:.2rem}
 .grid{display:grid;gap:1.1rem}
 .cols-2{grid-template-columns:repeat(2,1fr)}.cols-3{grid-template-columns:repeat(3,1fr)}.cols-4{grid-template-columns:repeat(4,1fr)}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:1.4rem;box-shadow:var(--shadow)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:1.4rem;box-shadow:var(--shadow)}
 .card h3{font-size:1rem;font-weight:800;margin-bottom:.2rem}
 .card p{color:var(--mut);font-size:.9rem}
-.stat b{font-size:1.7rem;font-weight:800;font-variant-numeric:tabular-nums;display:block}
+.stat-card{display:flex;align-items:center;gap:1rem}
+.stat-ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent);flex-shrink:0}
+.stat-ic svg{width:22px;height:22px}
+.stat b{font-size:1.6rem;font-weight:800;font-variant-numeric:tabular-nums;display:block;line-height:1.1}
 .stat span{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim)}
 label{display:block;font-weight:700;font-size:.82rem;margin-bottom:.35rem}
 input,textarea,select{width:100%;padding:.65rem .8rem;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-family:inherit;font-size:.92rem}
@@ -57,27 +84,47 @@ input:focus,textarea:focus,select:focus{outline:2px solid color-mix(in srgb,var(
 .field{margin-bottom:1rem}
 .hint{font-size:.78rem;color:var(--mut-dim);margin-top:.3rem}
 .err{color:var(--bad);font-size:.8rem;margin-top:.3rem}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;padding:.6rem 1.1rem;border-radius:10px;border:1px solid transparent;font-weight:700;font-size:.9rem;cursor:pointer;font-family:inherit;transition:transform .15s ease,background .15s ease,box-shadow .15s ease}
+.btn-primary{background:var(--accent);color:#241503}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 10px 22px -10px color-mix(in srgb,var(--accent) 70%,transparent)}
+.btn-ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.btn-ghost:hover{background:var(--soft)}
+.btn-sm{padding:.4rem .8rem;font-size:.82rem;border-radius:8px}
+.btn-block{width:100%}
 table{width:100%;border-collapse:collapse}
-th,td{text-align:left;padding:.7rem .6rem;border-bottom:1px solid var(--line);font-size:.9rem}
-th{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim);font-weight:800}
+th,td{text-align:left;padding:.8rem .6rem;border-bottom:1px solid var(--line);font-size:.9rem}
+th{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim);font-weight:800}
+tr:last-child td{border-bottom:none}
 .badge{font-size:.72rem;font-weight:800;padding:.2rem .55rem;border-radius:999px}
 .badge-ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
 .badge-warn{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
 .flash{padding:.85rem 1.1rem;border-radius:12px;margin-bottom:1.2rem;font-weight:600;font-size:.9rem;border:1px solid}
 .flash-ok{background:color-mix(in srgb,var(--ok) 12%,transparent);border-color:color-mix(in srgb,var(--ok) 40%,transparent);color:var(--ok)}
 .flash-bad{background:color-mix(in srgb,var(--bad) 12%,transparent);border-color:color-mix(in srgb,var(--bad) 40%,transparent);color:var(--bad)}
-.auth-shell{min-height:100vh;display:grid;place-items:center;padding:2rem 1.25rem}
-.auth-card{width:100%;max-width:26rem;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:2rem;box-shadow:var(--shadow)}
-.auth-logo{width:56px;height:56px;border-radius:14px;background:var(--accent);color:#241503;display:grid;place-items:center;font-weight:800;font-size:1.4rem;margin-bottom:1rem}
-.muted{color:var(--mut)}
-.stack{display:flex;flex-direction:column;gap:.4rem}
+.muted{color:var(--mut)}.stack{display:flex;flex-direction:column;gap:.4rem}
 .row-between{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 .notif{display:flex;gap:.75rem;padding:.8rem 0;border-bottom:1px solid var(--line)}
 .notif:last-child{border-bottom:none}
 .notif .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:.45rem;flex-shrink:0}
 .notif .dot.read{background:var(--mut-dim)}
 .notif b{font-size:.9rem}.notif small{color:var(--mut-dim)}
-@media(max-width:820px){.cols-4{grid-template-columns:repeat(2,1fr)}.cols-3{grid-template-columns:1fr}.cols-2{grid-template-columns:1fr}}
+
+/* ---- auth/bare pages ---- */
+.auth-shell{min-height:100vh;display:grid;place-items:center;padding:2rem 1.25rem}
+.auth-card{width:100%;max-width:26rem;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:2rem;box-shadow:var(--shadow)}
+.auth-logo{width:56px;height:56px;border-radius:14px;background:var(--accent);color:#241503;display:grid;place-items:center;font-weight:800;font-size:1.4rem;margin-bottom:1rem}
+.brand{font-weight:800;font-size:1.35rem;letter-spacing:-.01em}.brand em{font-style:normal;color:var(--accent)}
+
+@media(max-width:1000px){
+  .shell{grid-template-columns:1fr}
+  .side{position:fixed;left:0;top:0;width:264px;z-index:60;transform:translateX(-100%);transition:transform .25s ease}
+  .side.open{transform:none}
+  .menu-toggle{display:inline-grid}
+  .content{padding:1.4rem 1.1rem 3rem}
+  .cols-4{grid-template-columns:repeat(2,1fr)}.cols-3{grid-template-columns:1fr}.cols-2{grid-template-columns:1fr}
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:55;display:none}
+  .scrim.show{display:block}
+}
 </style>
 @stack('head')
 </head>
@@ -85,33 +132,78 @@ th{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--mu
 @hasSection('bare')
   @yield('content')
 @else
-<header class="topbar">
-  <div class="wrap topbar-row">
-    <a class="brand" href="{{ $homeUrl ?? url('/') }}">SK<em>U</em>LOS</a>
-    <div class="top-actions">
-      @auth
-        <span class="chip">{{ auth()->user()->name }}</span>
-      @endauth
-      <button class="icon-btn" id="themeToggle" aria-label="Switch theme" title="Switch theme">◐</button>
-      @auth
-        <form method="POST" action="{{ url('/logout') }}">@csrf<button class="btn btn-ghost btn-sm">Sign out</button></form>
-      @endauth
+@php
+  $portal = $portal ?? (auth()->user()?->is_super_admin ? 'admin' : 'school');
+  $sSlug = isset($school) ? $school->slug : null;
+  $cur = request()->route()?->getName();
+  $link = function($routeName, $params, $label, $icon, $active=false, $soon=false) {
+    return compact('routeName','params','label','icon','active','soon');
+  };
+@endphp
+<div class="shell">
+  <aside class="side" id="sideNav">
+    <div class="side-brand">SK<em>U</em>LOS</div>
+    @isset($school)
+      <div class="side-school">
+        <span class="side-badge">{{ strtoupper(substr($school->name,0,1)) }}</span>
+        <div><b>{{ \Illuminate\Support\Str::limit($school->name, 20) }}</b><span>{{ $school->slug }}.{{ config('app.domain') }}</span></div>
+      </div>
+    @endisset
+
+    <nav class="side-nav">
+      @include('layouts.partials.nav-'.$portal, ['school' => $school ?? null, 'cur' => $cur])
+    </nav>
+
+    <div class="side-foot">
+      <span class="side-avatar">{{ strtoupper(substr(auth()->user()->name ?? 'U',0,1)) }}</span>
+      <div class="who"><b>{{ auth()->user()->name }}</b><span>{{ $portal === 'admin' ? 'Platform admin' : 'Signed in' }}</span></div>
+    </div>
+  </aside>
+
+  <div class="scrim" id="scrim"></div>
+
+  <div class="main">
+    <header class="appbar">
+      <button class="iconbtn menu-toggle" id="menuToggle" aria-label="Menu">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+      <div>
+        <h2>@yield('heading', $pageTitle ?? 'Dashboard')</h2>
+        @hasSection('crumb')<div class="crumb">@yield('crumb')</div>@endif
+      </div>
+      <div class="appbar-spacer"></div>
+      @isset($notifCount)
+        <span class="iconbtn" title="Notifications">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          @if($notifCount > 0)<span class="badge-dot"></span>@endif
+        </span>
+      @endisset
+      <button class="iconbtn" id="themeToggle" aria-label="Theme">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+      <form method="POST" action="{{ url('/logout') }}">@csrf<button class="btn btn-ghost btn-sm">Sign out</button></form>
+    </header>
+    <div class="content">
+      @if(session('status'))<div class="flash flash-ok">{{ session('status') }}</div>@endif
+      @if(session('error'))<div class="flash flash-bad">{{ session('error') }}</div>@endif
+      @yield('content')
     </div>
   </div>
-</header>
-<main>
-  <div class="wrap">
-    @if(session('status'))<div class="flash flash-ok">{{ session('status') }}</div>@endif
-    @if(session('error'))<div class="flash flash-bad">{{ session('error') }}</div>@endif
-    @yield('content')
-  </div>
-</main>
+</div>
 @endif
+
 <script>
 document.getElementById('themeToggle')?.addEventListener('click',function(){
   var r=document.documentElement,cur=r.getAttribute('data-theme')||'light',next=cur==='light'?'dark':'light';
   r.setAttribute('data-theme',next);try{localStorage.setItem('skulos-theme',next)}catch(e){}
 });
+(function(){
+  var t=document.getElementById('menuToggle'),s=document.getElementById('sideNav'),sc=document.getElementById('scrim');
+  if(!t)return;
+  function close(){s.classList.remove('open');sc.classList.remove('show');}
+  t.addEventListener('click',function(){s.classList.toggle('open');sc.classList.toggle('show');});
+  sc?.addEventListener('click',close);
+})();
 </script>
 @stack('scripts')
 </body>

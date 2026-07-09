@@ -76,6 +76,22 @@ To make the platform clickable from **one entry point** fast, the product UI is 
 ## Vercel deploy 404 (user reported 2026-07-09) — FIXED
 - User imported the repo to Vercel and got `404: NOT_FOUND` because Vercel served the repo root (no index.html; site is in `/site`). Fixed `vercel.json` with rewrites mapping all requests into `/site` so a plain import works without changing project settings (or set Root Directory = site). Documented in DEPLOYMENT.md. User should redeploy.
 
+## Dashboard design references (user's 4 sample templates, seen 2026-07-09)
+
+User supplied 4 sample dashboards (in the repo `Templates/1..4.png`; too large for direct view, downscaled locally to see them). The 4 selectable dashboard layouts should map to these looks:
+1. **Vibrant** — playful, illustrated welcome banner, circular gauges, shortcut tiles, colourful.
+2. **Classic School** — purple sidebar, stat cards with coloured left accent bars + icons, calendar-attendance card, educational-stage bar chart + legend, activities list, top-3 students coloured cards. *(Flagship school look.)*
+3. **ERP** — dark navy sidebar + accent logo, dense: coloured stat tiles, notice board, social/summary cards, data tables with Due/Paid status badges.
+4. **Modern** — rounded sidebar, donut stat pills (Students/Faculties/Courses/Vehicles), student-info table with status pills, class-attendance bar chart, add-teachers panel.
+
+Progress toward these:
+- [x] **Sidebar app shell** built (`layouts/app.blade.php` + `partials/nav-admin`, `nav-school`, `icon`): dark sidebar with grouped nav + icons + active states + Soon badges, school badge, user footer; top appbar with heading/crumb, notifications bell, theme toggle, sign out; icon stat cards. Applied to platform admin + all school portal pages. Verified in browser (admin + school). This replaced the plain top-bar layout the user called "lazy/AI generated".
+- [ ] Re-skin the **4 dashboard-look layouts** to actually resemble templates 1-4 (accent-bar stat cards, donut pills, charts, top-students cards, notice board). Currently the 4 layouts are structural arrangements; next step is the rich per-template styling.
+- [ ] Bug fixed during this work: a `.scrim` mobile-overlay div had no base style, so on desktop it sat in the CSS grid and pushed the main content into a wrapped (blank) row. Fixed with `.scrim{display:none}` base. (Caught by browser QA, not tests — the HTML was correct, only the CSS layout was wrong.)
+
+## Login page design options (user request 2026-07-09) — IN PROGRESS
+- [ ] Several **named login-page designs** a school picks from (like the dashboard templates), including a SAFSIMS-style **split screen** (brand/illustration panel + form). `login_layout` column added to `schools`; config catalog started; the login views + picker + preview still to build.
+
 ## Build Log (live status while building — updated as we go)
 
 Per-item status for whatever is actively "in build," not a duplicate of the full backlog above. Use this format per entry:

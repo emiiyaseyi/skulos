@@ -1,4 +1,4 @@
-@extends('layouts.app', ['accent' => $accent, 'homeUrl' => route('school.dashboard', ['school' => $school->slug])])
+@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'notifCount' => $feed['unread'], 'pageTitle' => 'Dashboard'])
 @section('title', $school->name.' Dashboard')
 
 @php

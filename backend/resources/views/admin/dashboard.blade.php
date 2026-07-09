@@ -1,17 +1,12 @@
-@extends('layouts.app')
+@extends('layouts.app', ['portal' => 'admin', 'pageTitle' => 'Dashboard'])
 @section('title', 'Platform Admin')
+@section('heading', 'Platform Administration')
+@section('crumb', 'Overview of every school on SKULOS')
 @section('content')
-<div class="page-head">
-  <div>
-    <h1 class="title">Platform Administration</h1>
-    <p class="subtitle">Create and oversee every school on SKULOS from one place.</p>
-  </div>
-</div>
-
 <div class="grid cols-3" style="margin-bottom:1.5rem">
-  <div class="card stat"><b>{{ $stats['schools'] }}</b><span>Schools</span></div>
-  <div class="card stat"><b>{{ $stats['active'] }}</b><span>Active</span></div>
-  <div class="card stat"><b>{{ $stats['pending'] }}</b><span>Pending</span></div>
+  <div class="card stat-card"><span class="stat-ic">@include('layouts.partials.icon',['name'=>'school'])</span><span class="stat"><b>{{ $stats['schools'] }}</b><span>Schools</span></span></div>
+  <div class="card stat-card"><span class="stat-ic">@include('layouts.partials.icon',['name'=>'attendance'])</span><span class="stat"><b>{{ $stats['active'] }}</b><span>Active</span></span></div>
+  <div class="card stat-card"><span class="stat-ic">@include('layouts.partials.icon',['name'=>'calendar'])</span><span class="stat"><b>{{ $stats['pending'] }}</b><span>Pending</span></span></div>
 </div>
 
 <div class="grid cols-2" style="align-items:start">
@@ -55,15 +50,15 @@
       <table>
         <thead><tr><th>Name</th><th>Address</th><th>Status</th><th></th></tr></thead>
         <tbody>
-        @foreach($schools as $school)
+        @foreach($schools as $s)
           <tr>
-            <td><strong>{{ $school->name }}</strong></td>
-            <td class="muted">{{ $school->slug }}.{{ config('app.domain', 'localhost') }}</td>
+            <td><strong>{{ $s->name }}</strong></td>
+            <td class="muted">{{ $s->slug }}.{{ config('app.domain', 'localhost') }}</td>
             <td>
-              <span class="badge {{ $school->status === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucfirst($school->status) }}</span>
+              <span class="badge {{ $s->status === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucfirst($s->status) }}</span>
             </td>
             <td style="text-align:right">
-              <a class="btn btn-ghost btn-sm" href="{{ $school->portalUrl() }}" target="_blank" rel="noopener">Open</a>
+              <a class="btn btn-ghost btn-sm" href="{{ $s->portalUrl() }}" target="_blank" rel="noopener">Open</a>
             </td>
           </tr>
         @endforeach

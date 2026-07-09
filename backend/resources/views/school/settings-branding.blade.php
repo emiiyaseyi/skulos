@@ -1,4 +1,4 @@
-@extends('layouts.app', ['accent' => $accent, 'homeUrl' => route('school.dashboard', ['school' => $school->slug])])
+@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => 'Branding'])
 @section('title', 'School Branding')
 @section('content')
 <div class="page-head">

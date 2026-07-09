@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layouts.app', ['portal' => 'admin'])
 @section('title', $school->name)
 @section('content')
 <div class="page-head">
