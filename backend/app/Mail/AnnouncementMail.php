@@ -9,8 +9,8 @@ use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
 /**
- * Plain, dependable announcement email. Body is passed as text so it works
- * without a mail theme and reads the same everywhere.
+ * A school's announcement, delivered through the shared branded layout so
+ * it reads well and does not look like a bare, spam-prone email.
  */
 class AnnouncementMail extends Mailable
 {
@@ -31,9 +31,17 @@ class AnnouncementMail extends Mailable
 
     public function content(): Content
     {
+        $html = '<p style="margin:0 0 8px;font-size:12px;font-weight:bold;letter-spacing:0.4px;text-transform:uppercase;color:#7C8698;">'.e($this->schoolName).'</p>'
+            .'<p style="margin:0;white-space:pre-line;">'.e($this->bodyText).'</p>';
+
         return new Content(
-            htmlString: nl2br(e($this->bodyText))
-                ."<hr><p style=\"color:#64748B;font-size:12px\">Sent through SKULOS on behalf of {$this->schoolName}.</p>",
+            view: 'emails.layout',
+            text: 'emails.plain',
+            with: [
+                'subject' => $this->subjectLine,
+                'body' => $html,
+                'text' => "{$this->schoolName}\n\n{$this->bodyText}",
+            ],
         );
     }
 }

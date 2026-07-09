@@ -22,7 +22,7 @@ class TrialRequest extends Model
 
     protected $fillable = [
         'school_name', 'contact_name', 'email', 'phone', 'student_count', 'message',
-        'status', 'review_note', 'reviewed_by', 'reviewed_at',
+        'status', 'review_note', 'reviewed_by', 'reviewed_at', 'school_id',
     ];
 
     protected function casts(): array
@@ -33,6 +33,11 @@ class TrialRequest extends Model
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function school(): BelongsTo
+    {
+        return $this->belongsTo(School::class);
     }
 
     public function scopePending($query)

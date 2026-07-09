@@ -3,20 +3,41 @@
 namespace Tests\Feature;
 
 use App\Mail\TrialRequestStatusMail;
+use App\Models\School;
 use App\Models\TrialRequest;
 use App\Models\User;
+use App\Services\Tenancy\TenantManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 /**
  * The public "Start a Trial" lead form and the platform admin review
  * workflow (user request 2026-07-09): brief form, admin approves or
- * rejects, applicant is emailed either way.
+ * rejects. Approving now provisions the school automatically (a later
+ * request, 2026-07-09: "the school account should be setup
+ * automatically") and emails the applicant their sign in details.
  */
 class TrialRequestTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected string $tenantDir;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->tenantDir = storage_path('framework/testing/tenants-'.getmypid());
+        config(['tenancy.sqlite_path' => $this->tenantDir, 'tenancy.driver' => 'sqlite', 'app.domain' => 'localhost']);
+    }
+
+    protected function tearDown(): void
+    {
+        app(TenantManager::class)->forget();
+        File::deleteDirectory($this->tenantDir);
+        parent::tearDown();
+    }
 
     protected function superAdmin(): User
     {
@@ -70,7 +91,7 @@ class TrialRequestTest extends TestCase
         $this->assertSame(3, TrialRequest::count());
     }
 
-    public function test_platform_admin_can_approve_a_trial_request_and_the_applicant_is_emailed(): void
+    public function test_approving_a_trial_request_provisions_the_school_and_emails_sign_in_details(): void
     {
         Mail::fake();
         $admin = $this->superAdmin();
@@ -86,10 +107,34 @@ class TrialRequestTest extends TestCase
         $this->assertSame(TrialRequest::STATUS_APPROVED, $trial->status);
         $this->assertSame($admin->id, $trial->reviewed_by);
         $this->assertNotNull($trial->reviewed_at);
+        $this->assertNotNull($trial->school_id);
+
+        $school = School::find($trial->school_id);
+        $this->assertNotNull($school);
+        $this->assertSame('Bright Kids', $school->name);
+        $this->assertTrue($school->isProvisioned());
+
+        $newAdmin = User::where('email', 'ada@brightkids.test')->first();
+        $this->assertNotNull($newAdmin);
+        $this->assertTrue($newAdmin->isMemberOf($school));
 
         Mail::assertSent(TrialRequestStatusMail::class, function ($mail) use ($trial) {
-            return $mail->hasTo($trial->email) && $mail->trial->is($trial);
+            return $mail->hasTo($trial->email) && $mail->trial->is($trial) && ! empty($mail->credentials['password']);
         });
+    }
+
+    public function test_two_trials_with_the_same_school_name_get_distinct_slugs(): void
+    {
+        Mail::fake();
+        $admin = $this->superAdmin();
+        $first = TrialRequest::create(['school_name' => 'Same Name', 'contact_name' => 'A', 'email' => 'a@example.com']);
+        $second = TrialRequest::create(['school_name' => 'Same Name', 'contact_name' => 'B', 'email' => 'b@example.com']);
+
+        $this->actingAs($admin)->post(route('admin.trial-requests.approve', $first));
+        $this->actingAs($admin)->post(route('admin.trial-requests.approve', $second));
+
+        $slugs = School::whereIn('id', [$first->fresh()->school_id, $second->fresh()->school_id])->pluck('slug');
+        $this->assertCount(2, $slugs->unique());
     }
 
     public function test_platform_admin_can_reject_a_trial_request_and_the_applicant_is_emailed(): void
@@ -105,6 +150,7 @@ class TrialRequestTest extends TestCase
         ])->assertRedirect();
 
         $this->assertSame(TrialRequest::STATUS_REJECTED, $trial->fresh()->status);
+        $this->assertNull($trial->fresh()->school_id);
         Mail::assertSent(TrialRequestStatusMail::class, fn ($mail) => $mail->hasTo('tunde@far.test'));
     }
 

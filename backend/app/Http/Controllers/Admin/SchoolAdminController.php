@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\PasswordResetByAdminMail;
 use App\Models\Role;
 use App\Models\School;
 use App\Models\User;
@@ -13,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -200,8 +202,10 @@ class SchoolAdminController extends Controller
         $newPassword = Str::password(12);
         $user->update(['password' => Hash::make($newPassword)]);
 
+        Mail::to($user->email)->send(new PasswordResetByAdminMail($user, $school, $newPassword));
+
         return back()->with('status',
-            "Password for {$user->email} has been reset to: {$newPassword}. Share it securely and ask them to change it after signing in.");
+            "Password for {$user->email} has been reset to: {$newPassword} and emailed to them. Share it securely if they need it sooner.");
     }
 
     /**

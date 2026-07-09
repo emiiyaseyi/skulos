@@ -1,0 +1,58 @@
+<?php
+
+namespace App\Mail;
+
+use App\Models\School;
+use App\Models\User;
+use Illuminate\Bus\Queueable;
+use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Content;
+use Illuminate\Mail\Mailables\Envelope;
+use Illuminate\Queue\SerializesModels;
+
+/**
+ * Tells a school administrator the platform owner reset their password
+ * (user request 2026-07-09: "so it does not need me to see their
+ * password but they see it in a mail" — the platform admin still sees it
+ * too, this just makes sure the account owner also gets it directly).
+ */
+class PasswordResetByAdminMail extends Mailable
+{
+    use Queueable;
+    use SerializesModels;
+
+    public function __construct(public User $user, public School $school, public string $newPassword)
+    {
+    }
+
+    public function envelope(): Envelope
+    {
+        return new Envelope(subject: "Your {$this->school->name} password was reset");
+    }
+
+    public function content(): Content
+    {
+        $portalUrl = $this->school->portalUrl('/login');
+
+        $intro = "Hello {$this->user->name}, your password for {$this->school->name} on SKULOS was just reset by a platform administrator.";
+        $advice = 'If you did not expect this, contact us right away using the details below.';
+
+        $html = '<p style="margin:0 0 16px;">'.e($intro).'</p>'
+            .'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F7F8FA;border-radius:10px;margin:8px 0 20px;"><tr><td style="padding:18px 20px;">'
+            .'<p style="margin:0 0 10px;font-size:12px;font-weight:bold;letter-spacing:0.4px;text-transform:uppercase;color:#7C8698;">Your new sign in details</p>'
+            .'<p style="margin:0 0 4px;"><strong>Portal:</strong> <a href="'.e($portalUrl).'" style="color:#0B1420;">'.e($portalUrl).'</a></p>'
+            .'<p style="margin:0 0 4px;"><strong>Email:</strong> '.e($this->user->email).'</p>'
+            .'<p style="margin:0;"><strong>New password:</strong> '.e($this->newPassword).'</p>'
+            .'</td></tr></table>'
+            .'<p style="margin:0 0 16px;color:#7C8698;font-size:13px;">'.e($advice).'</p>'
+            .'<a href="'.e($portalUrl).'" style="display:inline-block;background-color:#E8A33D;color:#241503;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;">Sign in now</a>';
+
+        $text = "{$intro}\n\nYour new sign in details\nPortal: {$portalUrl}\nEmail: {$this->user->email}\nNew password: {$this->newPassword}\n\n{$advice}";
+
+        return new Content(
+            view: 'emails.layout',
+            text: 'emails.plain',
+            with: ['subject' => $this->envelope()->subject, 'body' => $html, 'text' => $text],
+        );
+    }
+}

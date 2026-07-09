@@ -63,6 +63,13 @@ Route::domain($appDomain)->group(function () {
         Route::post('/schools/{school}/backups', [\App\Http\Controllers\Admin\BackupAdminController::class, 'store'])->name('schools.backups.store');
         Route::get('/schools/{school}/backups/{backupId}/download', [\App\Http\Controllers\Admin\BackupAdminController::class, 'download'])->name('schools.backups.download');
         Route::post('/schools/{school}/backups/{backupId}/restore', [\App\Http\Controllers\Admin\BackupAdminController::class, 'restore'])->name('schools.backups.restore');
+
+        Route::prefix('settings/mail')->name('settings.mail.')->group(function () {
+            $mailSettings = \App\Http\Controllers\Admin\MailSettingsController::class;
+            Route::get('/', [$mailSettings, 'edit'])->name('edit');
+            Route::post('/', [$mailSettings, 'update'])->name('update');
+            Route::post('/test', [$mailSettings, 'sendTest'])->name('test');
+        });
     });
 });
 
@@ -150,6 +157,14 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/schedule', [$backups, 'updateSchedule'])->name('schedule');
             Route::get('/{backupId}/download', [$backups, 'download'])->name('download');
             Route::post('/{backupId}/restore', [$backups, 'restore'])->name('restore');
+        });
+
+        // Mail settings (optional per-school SMTP override).
+        Route::prefix('settings/mail')->name('school.settings.mail.')->group(function () {
+            $mailSettings = \App\Http\Controllers\School\MailSettingsController::class;
+            Route::get('/', [$mailSettings, 'edit'])->name('edit');
+            Route::post('/', [$mailSettings, 'update'])->name('update');
+            Route::post('/test', [$mailSettings, 'sendTest'])->name('test');
         });
     });
 });

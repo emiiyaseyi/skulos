@@ -12,21 +12,25 @@ use Illuminate\Queue\SerializesModels;
 /**
  * Tells a trial applicant their request was approved or rejected, with
  * the admin's note (setup status, demo/training arrangements, or the
- * reason for rejection). Plain text so it reads the same everywhere.
+ * reason for rejection). On approval, $credentials carries the new
+ * school's sign in details so the applicant can get in right away.
  */
 class TrialRequestStatusMail extends Mailable
 {
     use Queueable;
     use SerializesModels;
 
-    public function __construct(public TrialRequest $trial)
+    /**
+     * @param array{portal_url: string, email: string, password: string}|null $credentials
+     */
+    public function __construct(public TrialRequest $trial, public ?array $credentials = null)
     {
     }
 
     public function envelope(): Envelope
     {
         $subject = $this->trial->status === TrialRequest::STATUS_APPROVED
-            ? "Your SKULOS trial for {$this->trial->school_name} is approved"
+            ? "Your SKULOS trial for {$this->trial->school_name} is ready"
             : "About your SKULOS trial request for {$this->trial->school_name}";
 
         return new Envelope(subject: $subject);
@@ -34,18 +38,41 @@ class TrialRequestStatusMail extends Mailable
 
     public function content(): Content
     {
-        $intro = $this->trial->status === TrialRequest::STATUS_APPROVED
-            ? "Good news, {$this->trial->contact_name}. Your trial request for {$this->trial->school_name} has been approved."
+        $approved = $this->trial->status === TrialRequest::STATUS_APPROVED;
+
+        $intro = $approved
+            ? "Good news, {$this->trial->contact_name}. Your trial for {$this->trial->school_name} has been approved and is ready to use."
             : "Hello {$this->trial->contact_name}, thank you for your interest in SKULOS for {$this->trial->school_name}.";
 
         $note = $this->trial->review_note ?: (
-            $this->trial->status === TrialRequest::STATUS_APPROVED
-                ? 'Our team will be in touch shortly with your school setup, a demo, and training for your staff.'
+            $approved
+                ? 'Our team will be in touch shortly with a demo and training for your staff.'
                 : 'We were not able to move forward with this request at this time.'
         );
 
-        $body = "{$intro}\n\n{$note}\n\nQuestions any time: ".config('skulos.support.email').' or '.config('skulos.support.phone').'.';
+        $html = '<p style="margin:0 0 16px;">'.e($intro).'</p>'
+            .'<p style="margin:0 0 16px;">'.nl2br(e($note)).'</p>';
+        $text = "{$intro}\n\n{$note}";
 
-        return new Content(htmlString: nl2br(e($body)));
+        if ($approved && $this->credentials) {
+            $html .= '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F7F8FA;border-radius:10px;margin:8px 0 20px;"><tr><td style="padding:18px 20px;">'
+                .'<p style="margin:0 0 10px;font-size:12px;font-weight:bold;letter-spacing:0.4px;text-transform:uppercase;color:#7C8698;">Your sign in details</p>'
+                .'<p style="margin:0 0 4px;"><strong>Portal:</strong> <a href="'.e($this->credentials['portal_url']).'" style="color:#0B1420;">'.e($this->credentials['portal_url']).'</a></p>'
+                .'<p style="margin:0 0 4px;"><strong>Email:</strong> '.e($this->credentials['email']).'</p>'
+                .'<p style="margin:0;"><strong>Temporary password:</strong> '.e($this->credentials['password']).'</p>'
+                .'</td></tr></table>'
+                .'<p style="margin:0 0 16px;color:#7C8698;font-size:13px;">Please sign in and change this password as soon as you can.</p>';
+
+            $text .= "\n\nYour sign in details\nPortal: {$this->credentials['portal_url']}\nEmail: {$this->credentials['email']}\nTemporary password: {$this->credentials['password']}\n\nPlease sign in and change this password as soon as you can.";
+        }
+
+        $html .= '<a href="'.config('app.url').'" style="display:inline-block;background-color:#E8A33D;color:#241503;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;">'
+            .($approved ? 'Go to your school portal' : 'Visit SKULOS').'</a>';
+
+        return new Content(
+            view: 'emails.layout',
+            text: 'emails.plain',
+            with: ['subject' => $this->envelope()->subject, 'body' => $html, 'text' => $text],
+        );
     }
 }

@@ -39,3 +39,4 @@
 <div class="side-group">Settings</div>
 {!! $item('school.branding.edit', 'Branding', 'palette') !!}
 {!! $item('school.dashboard.edit', 'Dashboard look', 'settings') !!}
+{!! $item('school.settings.mail.edit', 'Mail Settings', 'settings') !!}

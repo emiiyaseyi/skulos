@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\School;
+use App\Models\TrialRequest;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -41,6 +42,7 @@ class PlatformDashboardController extends Controller
             'recentSchools' => $schools->sortByDesc('created_at')->take(5)->values(),
             'recentActivity' => AuditLog::orderByDesc('created_at')->limit(8)->get(),
             'trashedCount' => School::onlyTrashed()->count(),
+            'pendingTrials' => TrialRequest::pending()->count(),
         ]);
     }
 }

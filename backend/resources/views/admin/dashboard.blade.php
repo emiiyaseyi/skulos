@@ -23,10 +23,20 @@
   .pd-activity li:last-child{border-bottom:none;padding-bottom:0}
   .pd-activity .who{font-weight:700}
   .pd-activity .when{color:var(--mut-dim);white-space:nowrap}
+  .pd-alert{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;
+    background:color-mix(in srgb,var(--warn) 14%,var(--panel));border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);
+    border-radius:var(--radius);padding:1rem 1.3rem;margin-bottom:1.25rem}
 </style>
 @endpush
 
 @section('content')
+@if($pendingTrials > 0)
+  <div class="pd-alert">
+    <span><strong>{{ $pendingTrials }}</strong> new trial {{ \Illuminate\Support\Str::plural('request', $pendingTrials) }} waiting for your review.</span>
+    <a class="btn btn-primary btn-sm" href="{{ route('admin.trial-requests.index') }}">Review now</a>
+  </div>
+@endif
+
 <div class="pd-figs">
   <div class="pd-fig"><b>{{ $totalSchools }}</b><span>Total Schools</span></div>
   <div class="pd-fig"><b>{{ $byStatus['active'] }}</b><span>Active</span></div>

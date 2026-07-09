@@ -63,6 +63,7 @@ class SchoolAdminManagementTest extends TestCase
 
     public function test_platform_admin_can_reset_a_school_admins_password(): void
     {
+        \Illuminate\Support\Facades\Mail::fake();
         [$school, $owner] = $this->schoolWithOwner('resetpw');
         $platformAdmin = $this->superAdmin();
 
@@ -75,6 +76,11 @@ class SchoolAdminManagementTest extends TestCase
 
         $owner->refresh();
         $this->assertFalse(Hash::check('original-pass', $owner->password));
+
+        \Illuminate\Support\Facades\Mail::assertSent(
+            \App\Mail\PasswordResetByAdminMail::class,
+            fn ($mail) => $mail->hasTo($owner->email) && $mail->user->is($owner)
+        );
     }
 
     public function test_platform_admin_can_add_another_school_administrator(): void

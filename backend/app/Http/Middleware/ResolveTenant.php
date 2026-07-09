@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\School;
+use App\Services\Mail\MailSettingsService;
 use App\Services\Tenancy\TenantManager;
 use Closure;
 use Illuminate\Http\Request;
@@ -50,6 +51,16 @@ class ResolveTenant
 
         $this->tenants->use($school);
         $request->attributes->set('school', $school);
+
+        // This school's own SMTP settings, if it has set any, win over
+        // the platform default for the rest of this request (user
+        // request 2026-07-09).
+        try {
+            app(MailSettingsService::class)->applySchoolOverride();
+        } catch (\Throwable $e) {
+            // no override configured, or the Setting table has an issue —
+            // fall back to whatever the platform already applied.
+        }
 
         return $next($request);
     }
