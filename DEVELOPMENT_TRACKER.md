@@ -142,9 +142,16 @@ Entries are added here as work starts on each item — see the current build pha
 - Status: In progress (announcements + email + delivery log + tests done; in-app notifications + per-audience toggles being added next per 2026-07-09 request)
 - Started: 2026-07-09
 - Notes: tenant tables announcements + communication_logs (every send logged with channel + status, backing the future Notification Center). `AnnouncementMail` (plain, theme-free). `CommunicationService`: publishAnnouncement (marks published, emails recipients on enabled channels, audited), emailAnnouncement, sendEmail (one-off, e.g. fee reminders). Channels configurable in config/skulos.php (email on; sms/whatsapp/push placeholders). Tests use Mail::fake().
-- NEW (2026-07-09 user request, building next): announcements email Parents/Teachers/Staff/Students with an **admin toggle per audience** (who receives email); **everyone** gets an in-app/web notification regardless; a **notification section on every user's dashboard/welcome page** (frontend, when product UI is built).
 - Issues/Bugs: none this pass.
 - Resolution: 4 communication tests; full suite green.
+
+### In-app notifications + per-audience email toggle (§5, user request 2026-07-09)
+- Status: Done (backend; the dashboard notification section itself is frontend, pending product UI)
+- Started: 2026-07-09
+- Notes: tenant `notifications` table (one row per recipient user; read_at; announcement link) powers the per-user dashboard feed. `NotificationService::dispatchAnnouncement`: **everyone** in the recipient list gets an in-app notification; **email** goes only to audiences the admin has enabled. Per-audience email switches (parents/teachers/staff/students) default from config and are overridden per school in tenant settings via `setAudienceEmail` (admin toggle, nothing hardcoded). `Notification::feedFor(userId)` returns recent items + unread count for the dashboard section; `markRead()` clears unread. Dispatch audited.
+- Frontend follow-up (when product UI exists): render the notification section on every user's dashboard/welcome page from `feedFor`.
+- Issues/Bugs: none.
+- Resolution: 4 tests (everyone in-app + all-audiences email by default; admin turns off an audience's email while in-app still reaches them; dashboard feed + unread/markRead; audited). Full suite 76 tests / 219 assertions.
 
 ### Calendar & events (§5) + default notable days (user request 2026-07-09)
 - Status: Done (schema + model + service + default seeding + tests; product UI later)

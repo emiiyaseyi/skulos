@@ -94,6 +94,19 @@ return [
     ],
 
     /*
+    | Which audiences receive announcement EMAIL by default. Everyone always
+    | gets an in-app/web notification regardless of this. The admin can turn
+    | any audience's email on or off (stored per school in tenant settings
+    | under the same key, which overrides this default). Nothing hardcoded.
+    */
+    'announcement_email_audiences' => [
+        'parents' => true,
+        'teachers' => true,
+        'staff' => true,
+        'students' => true,
+    ],
+
+    /*
     | Default notable days seeded into a new school's calendar (user request
     | 2026-07-09). These are starting defaults only: the school admin can
     | edit, remove, or add more, and set the actual dates. Category drives
