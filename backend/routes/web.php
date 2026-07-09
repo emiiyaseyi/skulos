@@ -77,6 +77,12 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
 
     Route::middleware(['auth', 'school_member'])->group(function () {
         Route::get('/dashboard', [SchoolPortalController::class, 'dashboard'])->name('school.dashboard');
+
+        // Students
+        Route::get('/students', [\App\Http\Controllers\School\StudentController::class, 'index'])->name('school.students');
+        Route::get('/students/import', [\App\Http\Controllers\School\StudentController::class, 'importForm'])->name('school.students.import');
+        Route::post('/students/import', [\App\Http\Controllers\School\StudentController::class, 'import'])->name('school.students.import.run');
+        Route::get('/students/template.csv', [\App\Http\Controllers\School\StudentController::class, 'template'])->name('school.students.template');
         Route::post('/notifications/{id}/read', [SchoolPortalController::class, 'markNotificationRead'])->name('school.notifications.read');
         Route::get('/settings/branding', [SchoolPortalController::class, 'editBranding'])->name('school.branding.edit');
         Route::post('/settings/branding', [SchoolPortalController::class, 'updateBranding'])->name('school.branding.update');

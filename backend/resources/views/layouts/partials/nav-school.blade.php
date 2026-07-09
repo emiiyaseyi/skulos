@@ -18,7 +18,7 @@
 {!! $item('school.dashboard', 'Dashboard', 'dashboard') !!}
 
 <div class="side-group">People</div>
-{!! $soon('Students', 'students') !!}
+{!! $item('school.students', 'Students', 'students') !!}
 {!! $soon('Staff', 'staff') !!}
 {!! $soon('Parents', 'students') !!}
 

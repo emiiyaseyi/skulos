@@ -254,6 +254,20 @@ Entries are added here as work starts on each item — see the current build pha
 - Next build item: **Core modules** (tracker §5, minus §5b deferrals): Student records (unique ID = admission number; email optional), Staff records, Parent portal linkage (parent unique ID = email, platform-level), academic structure (sessions, terms, sections, classes, arms, subjects, houses), CA/examinations/results with configurable grading, attendance, timetable, calendar, communication incl. email notifications. Use the tenancy/RBAC/audit/bulk foundations — tenant models get `Auditable` + a real `Importer` subclass each.
 - Read CLAUDE.md first: environment paths (PHP 8.3 shims), conventions (no hardcoding, no dashes in on-screen text, security posture, commit-as-user with no trailer, push at every completed item).
 
+### Clickable platform UI (architecture pivot, 2026-07-08/09)
+- Status: Done (foundation) / ongoing as more module screens are added
+- Notes: pivoted from "separate Next.js SPA + REST API" to **Laravel server-rendered Blade** for the whole product UI (platform admin + branded school portals), so the platform is clickable end to end from one entry point without standing up a second app. Services stay UI-agnostic so a Next.js frontend can still be layered on later; nothing about this pivot removes API-first design from the services layer.
+- Built: sidebar dashboard shell (collapsible desktop rail + mobile drawer) for both the platform admin area and school portals; school creation now collects a dedicated school-admin login (name/email/password) at creation time instead of only attaching the platform super admin; 4 selectable/brandable login page designs (`centered`/`split`/`cover`/`showcase`) plus 4 selectable dashboard look templates (`classic`/`vibrant`/`erp`/`modern`, re-skinned to match user-supplied reference images) with per-widget show/hide toggles, all admin-editable and stored per school (nothing hardcoded); school lifecycle actions (suspend/archive/resume/delete) with access blocked accordingly; `EnsureSchoolMember` guard so a signed-in member of School A cannot view School B by URL.
+- Issues/Bugs: (2026-07-08) `SESSION_DOMAIN=.localhost` (leading dot) is rejected as an invalid cookie domain for the bare host `localhost`, so no session cookie was ever set and every POST 419'd, including in incognito. (2026-07-08) CSS grid bug: `.scrim` mobile overlay had no base `display:none`, so on desktop it occupied a grid cell and pushed `.main` out of view (blank page despite correct HTML). (2026-07-08) admin dashboard `@foreach($schools as $school)` leaked the last-looped `$school` into the shared layout's sidebar via Blade view scope.
+- Resolution: `SESSION_DOMAIN=null` for local dev (host-only cookies); documented that a real leading-dot domain is valid in production with real subdomains. Added `.scrim{display:none}` as a base rule. Renamed the admin dashboard loop variable to `$s`.
+
+### Students module screen (list + bulk CSV import UI, §5)
+- Status: Done
+- Started: 2026-07-09
+- Notes: `StudentController` (index with search/pagination, RBAC gated on `students.view`; import form + upload + CSV template download, RBAC gated on `students.bulk`) over the existing `StudentImporter` service. Search matches admission number, first name, or last name. Import UI shows imported/failed counts and a per-row error table (Excel-style row numbers) for both strict and partial mode, plus a "Download CSV template" link and column reference — matches the "every importer needs a downloadable template" requirement. Sidebar Students link wired to the real route.
+- Issues/Bugs: none found in QA (6 new feature tests covering index/search, permission gating on both the list and bulk-import pages, template download content, and a full upload-to-import cycle in both partial and strict mode).
+- Resolution: n/a. Full suite 106 tests / 329 assertions passing after this item.
+
 ---
 
 ## 0. Reference & Inspiration Links
