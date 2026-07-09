@@ -60,11 +60,13 @@ A working PHP 8.3 + Composer loop **was provisioned in-session on 2026-07-08** (
   site/                 static marketing site (index/about/pricing/contact.html)
                         deployed to GitHub Pages via .github/workflows/pages.yml
                         (Actions-based deploy — branch-based Pages can't serve /site)
-  backend/              Laravel 12 API + platform admin (being built from 2026-07-08)
-  web/                  Next.js frontend (not started yet)
+  backend/              Laravel 12 — API-agnostic services PLUS the whole product UI (see below)
+  web/                  Next.js frontend — not started, and not currently planned to be (see below)
 ```
 
 The marketing site in `/site` is a **stopgap**, hardcoded HTML, explicitly temporary until the admin-CMS-backed version replaces it (tracker §13). If you touch anything under `site/`, the Pages workflow redeploys it automatically on push.
+
+**Architecture pivot (decided 2026-07-08, still current):** the product UI (platform admin area + every branded school portal) is built as **Laravel server-rendered Blade pages** inside `backend/`, not the originally planned separate Next.js SPA talking to a REST API. This was to make the whole platform clickable end to end from one entry point without standing up a second app. The services layer (`app/Services/*`) stays UI-agnostic on purpose, so a Next.js frontend in `web/` could still be layered on later if ever wanted — but do not assume that's an active, in-progress goal. Building new screens means building Blade views + controllers in `backend/`, not React components in `web/`.
 
 ## Design system rules (apply to every future build — marketing site and product UI)
 
@@ -85,10 +87,8 @@ Established 2026-07-26 from direct design feedback. Full detail in tracker "Desi
 - **No dummy/placeholder info.** When real information is needed (contact details, pricing, legal names, etc.) and isn't known, ask — don't invent plausible-sounding fake details. Where content had to be authored ahead of real business info being available (About/Contact page copy), it was explicitly authorized by the user as real draft copy, not fabricated placeholder text — see tracker §13.
 - **Update the tracker as you go**, not just at the end of a session: mark items in progress, log issues/bugs found and how they were resolved, using the Build Log format defined near the top of the tracker.
 - Deferred scope (Admissions & Enrollment, Finance, Visitor Management, School Assets Management as of 2026-07-08) lives in tracker §5b — don't build these until they're explicitly moved back into active scope.
+- **Domain routing + route parameters gotcha (found 2026-07-09).** On any route under `Route::domain('{school}.'.$domain)` that also has its own path parameters (e.g. `/campuses/{campusId}`), do **not** declare those as typed method parameters on the controller action (`function destroy(Request $request, string $campusId)`). Laravel resolves untyped/scalar controller parameters **positionally** against the full route parameter list, domain parameter included, not by name — so `$campusId` silently receives the school's slug instead. It fails quietly: `findOrFail()` on the wrong value throws `ModelNotFoundException`, which Laravel renders as a clean 404 with no visible exception, so it looks like a routing problem rather than a parameter-binding one. Always read these via `$request->route('paramName')` instead. (A route-bound parameter typed `int` also throws a `TypeError` under Laravel's reflection-based dispatch even with no `declare(strict_types=1)` anywhere in the app — use `string` and let Eloquent/SQLite handle the numeric string.)
 
-## What's actually been built so far (as of 2026-07-08)
+## What's actually been built so far
 
-- Documentation: SKULOS.docx Volume 1 Chapters 1–7 (pre-existing, not authored by an agent)
-- DEVELOPMENT_TRACKER.md — full backlog derived from the docx + raw feature request
-- Static marketing site (index/about/pricing/contact.html) — see tracker §13, explicitly a stopgap
-- **No application code exists yet.** Backend, frontend, database schema — none of it has been started. The current build phase (starting 2026-07-08) is the first real application code: Core Modules per tracker §5, minus the four items deferred to §5b.
+This section intentionally stays brief — **[DEVELOPMENT_TRACKER.md](./DEVELOPMENT_TRACKER.md)'s Build Log is the live, authoritative status**, updated per item as work lands. As of 2026-07-09: full multi-tenant Laravel backend (tenancy, RBAC, audit trail, bulk import/export framework), core modules (students, staff, academic structure incl. configurable per-class subject offerings, attendance, configurable grading/results, calendar, communication/notifications), a complete server-rendered product UI (platform admin + branded, per-school portals with selectable dashboard and login page designs, role-specific dashboards, report card templates), and the static marketing site. See the tracker for exact scope per item and what remains (§5b deferrals, Results/Scores entry screen, guided setup wizard, marketing CMS).

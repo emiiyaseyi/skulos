@@ -19,6 +19,8 @@ class Subject extends Model
 
     public function classes(): BelongsToMany
     {
-        return $this->belongsToMany(SchoolClass::class, 'class_subject');
+        return $this->belongsToMany(SchoolClass::class, 'class_subject')
+            ->withPivot(['is_mandatory', 'is_examinable'])
+            ->withTimestamps();
     }
 }

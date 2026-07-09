@@ -42,13 +42,10 @@
 
 @php
   $show = fn($w) => ($widgets[$w] ?? false);
-  // 4 figures with a colour + icon each (real data we have)
-  $figs = [
-    ['n'=>number_format($stats['students']),'l'=>'Students','ic'=>'students','c'=>'#0EA5A0','pct'=>'72%'],
-    ['n'=>number_format($stats['staff']),'l'=>'Staff','ic'=>'staff','c'=>'#6D4FE0','pct'=>'64%'],
-    ['n'=>number_format($stats['events']),'l'=>'Calendar Events','ic'=>'calendar','c'=>'#E5901C','pct'=>'88%'],
-    ['n'=>number_format($feed['unread']),'l'=>'Unread','ic'=>'comms','c'=>'#E14F63','pct'=>'40%'],
-  ];
+  // Figures are role specific: an owner/admin sees school wide counts, a
+  // class teacher sees their own class, a subject teacher their own
+  // subjects, and so on. Built by App\Services\Dashboard\RoleDashboard.
+  $figs = $role['figs'];
 @endphp
 
 @section('content')
@@ -93,6 +90,10 @@
     @endswitch
   @endforeach
 </div>
+@endif
+
+@if($role['panel'])
+  @include('school.widgets.role-panel', ['panel' => $role['panel']])
 @endif
 
 @php

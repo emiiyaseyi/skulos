@@ -64,7 +64,7 @@ class Student extends Model
 
     public function fullName(): string
     {
-        return trim("{$this->first_name} {$this->other_names} {$this->last_name}");
+        return implode(' ', array_filter([$this->first_name, $this->other_names, $this->last_name]));
     }
 
     public function scopeActive($query)

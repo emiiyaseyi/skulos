@@ -23,13 +23,17 @@
 {!! $soon('Parents', 'students') !!}
 
 <div class="side-group">Academics</div>
-{!! $soon('Classes &amp; Subjects', 'academics') !!}
+{!! $item('school.academics.index', 'Classes &amp; Subjects', 'academics') !!}
 {!! $soon('Attendance', 'attendance') !!}
 {!! $soon('Results', 'results') !!}
+{!! $item('school.report-cards.edit', 'Report Cards', 'results') !!}
 {!! $soon('Calendar', 'calendar') !!}
 
 <div class="side-group">Communication</div>
 {!! $soon('Announcements', 'comms') !!}
+
+<div class="side-group">School</div>
+{!! $item('school.campuses', 'Campuses', 'school') !!}
 
 <div class="side-group">Settings</div>
 {!! $item('school.branding.edit', 'Branding', 'palette') !!}

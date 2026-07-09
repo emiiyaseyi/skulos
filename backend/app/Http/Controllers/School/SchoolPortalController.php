@@ -9,6 +9,7 @@ use App\Models\Tenant\Student;
 use App\Models\Tenant\Staff;
 use App\Models\Tenant\CalendarEvent;
 use App\Services\Dashboard\DashboardPreferences;
+use App\Services\Dashboard\RoleDashboard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -37,8 +38,8 @@ class SchoolPortalController extends Controller
         ]);
     }
 
-    /** Dashboard with the signed in user's notification feed. */
-    public function dashboard(Request $request, DashboardPreferences $prefs): \Illuminate\View\View
+    /** Dashboard with the signed in user's notification feed and role specific figures. */
+    public function dashboard(Request $request, DashboardPreferences $prefs, RoleDashboard $roleDashboard): \Illuminate\View\View
     {
         $school = $this->school($request);
         $feed = Notification::feedFor(Auth::id());
@@ -47,11 +48,7 @@ class SchoolPortalController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'feed' => $feed,
-            'stats' => [
-                'students' => Student::count(),
-                'staff' => Staff::count(),
-                'events' => CalendarEvent::count(),
-            ],
+            'role' => $roleDashboard->build(Auth::user(), $school, $feed['unread']),
             'upcoming' => CalendarEvent::upcoming()->limit(5)->get(),
             'layout' => $prefs->layout(),
             'widgets' => $prefs->widgets(),

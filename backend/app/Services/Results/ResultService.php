@@ -104,6 +104,57 @@ class ResultService
     }
 
     /**
+     * One subject's standing across a class arm for a term: every student's
+     * total, the class average/highest/lowest, and each student's position
+     * within that single subject (competition ranking, ties share a spot).
+     *
+     * @return array{average: float, highest: float, lowest: float, positions: array<int,int>, totals: array<int,float>}
+     */
+    public function subjectStats(int $classArmId, int $subjectId, int $termId): array
+    {
+        $studentIds = Score::where('class_arm_id', $classArmId)
+            ->where('subject_id', $subjectId)
+            ->where('term_id', $termId)
+            ->distinct()
+            ->pluck('student_id');
+
+        $totals = [];
+        foreach ($studentIds as $studentId) {
+            $totals[$studentId] = (float) Score::where('student_id', $studentId)
+                ->where('subject_id', $subjectId)
+                ->where('term_id', $termId)
+                ->sum('score');
+        }
+
+        if (empty($totals)) {
+            return ['average' => 0.0, 'highest' => 0.0, 'lowest' => 0.0, 'positions' => [], 'totals' => []];
+        }
+
+        $ranked = $totals;
+        arsort($ranked);
+        $positions = [];
+        $position = 0;
+        $seen = 0;
+        $lastTotal = null;
+        foreach ($ranked as $studentId => $total) {
+            $seen++;
+            if ($lastTotal === null || $total < $lastTotal) {
+                $position = $seen;
+                $lastTotal = $total;
+            }
+            $positions[$studentId] = $position;
+        }
+
+        return [
+            'average' => round(array_sum($totals) / count($totals), 2),
+            'highest' => max($totals),
+            'lowest' => min($totals),
+            'positions' => $positions,
+            'totals' => $totals,
+        ];
+    }
+
+    /**
      * Convenience: subject name => result for a student's full term report.
      *
      * @return array<string, array{total: float, grade: ?string, remark: ?string, components: array<string,float>}>

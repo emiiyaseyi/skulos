@@ -88,5 +88,33 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::post('/settings/branding', [SchoolPortalController::class, 'updateBranding'])->name('school.branding.update');
         Route::get('/settings/dashboard', [SchoolPortalController::class, 'editDashboard'])->name('school.dashboard.edit');
         Route::post('/settings/dashboard', [SchoolPortalController::class, 'updateDashboard'])->name('school.dashboard.update');
+
+        // Academics: sections, classes, and per-class subject offerings.
+        Route::prefix('academics')->name('school.academics.')->group(function () {
+            $academics = \App\Http\Controllers\School\AcademicsController::class;
+            Route::get('/', [$academics, 'index'])->name('index');
+            Route::post('/sections', [$academics, 'storeSection'])->name('sections.store');
+            Route::post('/classes', [$academics, 'storeClass'])->name('classes.store');
+            Route::get('/classes/{classId}/subjects', [$academics, 'subjects'])->name('subjects');
+            Route::post('/classes/{classId}/subjects/apply-defaults', [$academics, 'applyDefaults'])->name('subjects.apply-defaults');
+            Route::post('/classes/{classId}/subjects/attach', [$academics, 'attachSubject'])->name('subjects.attach');
+            Route::post('/classes/{classId}/subjects/new', [$academics, 'newSubject'])->name('subjects.new');
+            Route::post('/classes/{classId}/subjects/{subjectId}', [$academics, 'updateSubject'])->name('subjects.update');
+            Route::delete('/classes/{classId}/subjects/{subjectId}', [$academics, 'detachSubject'])->name('subjects.detach');
+        });
+
+        // Campuses.
+        Route::get('/campuses', [\App\Http\Controllers\School\CampusController::class, 'index'])->name('school.campuses');
+        Route::post('/campuses', [\App\Http\Controllers\School\CampusController::class, 'store'])->name('school.campuses.store');
+        Route::delete('/campuses/{campusId}', [\App\Http\Controllers\School\CampusController::class, 'destroy'])->name('school.campuses.destroy');
+
+        // Report cards: settings, preview, and the real per student render.
+        Route::prefix('report-cards')->name('school.report-cards.')->group(function () {
+            $reportCards = \App\Http\Controllers\School\ReportCardController::class;
+            Route::get('/settings', [$reportCards, 'edit'])->name('edit');
+            Route::post('/settings', [$reportCards, 'update'])->name('update');
+            Route::get('/preview/{template?}', [$reportCards, 'preview'])->name('preview');
+            Route::get('/{studentId}/{termId}', [$reportCards, 'show'])->name('show');
+        });
     });
 });
