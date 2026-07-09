@@ -181,7 +181,9 @@ class SchoolAdminController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('admin.school', ['school' => $school, 'admins' => $admins]);
+        $backups = \App\Models\Backup::where('school_id', $school->id)->orderByDesc('created_at')->get();
+
+        return view('admin.school', ['school' => $school, 'admins' => $admins, 'backups' => $backups]);
     }
 
     /**

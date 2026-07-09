@@ -34,6 +34,7 @@
 
 <div class="side-group">School</div>
 {!! $item('school.campuses', 'Campuses', 'school') !!}
+{!! $item('school.backups.index', 'Backups', 'settings') !!}
 
 <div class="side-group">Settings</div>
 {!! $item('school.branding.edit', 'Branding', 'palette') !!}

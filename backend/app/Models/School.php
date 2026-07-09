@@ -39,6 +39,8 @@ class School extends Model
         'login_box_side',
         'status',
         'settings',
+        'backup_frequency',
+        'backup_time',
     ];
 
     /**

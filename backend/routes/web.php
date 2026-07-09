@@ -59,6 +59,10 @@ Route::domain($appDomain)->group(function () {
         Route::post('/schools/{school}/archive', [SchoolAdminController::class, 'archive'])->name('schools.archive');
         Route::post('/schools/{school}/activate', [SchoolAdminController::class, 'activate'])->name('schools.activate');
         Route::delete('/schools/{school}', [SchoolAdminController::class, 'destroy'])->name('schools.destroy');
+
+        Route::post('/schools/{school}/backups', [\App\Http\Controllers\Admin\BackupAdminController::class, 'store'])->name('schools.backups.store');
+        Route::get('/schools/{school}/backups/{backupId}/download', [\App\Http\Controllers\Admin\BackupAdminController::class, 'download'])->name('schools.backups.download');
+        Route::post('/schools/{school}/backups/{backupId}/restore', [\App\Http\Controllers\Admin\BackupAdminController::class, 'restore'])->name('schools.backups.restore');
     });
 });
 
@@ -136,6 +140,16 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/settings', [$reportCards, 'update'])->name('update');
             Route::get('/preview/{template?}', [$reportCards, 'preview'])->name('preview');
             Route::get('/{studentId}/{termId}', [$reportCards, 'show'])->name('show');
+        });
+
+        // Backup and restore.
+        Route::prefix('backups')->name('school.backups.')->group(function () {
+            $backups = \App\Http\Controllers\School\BackupController::class;
+            Route::get('/', [$backups, 'index'])->name('index');
+            Route::post('/', [$backups, 'store'])->name('store');
+            Route::post('/schedule', [$backups, 'updateSchedule'])->name('schedule');
+            Route::get('/{backupId}/download', [$backups, 'download'])->name('download');
+            Route::post('/{backupId}/restore', [$backups, 'restore'])->name('restore');
         });
     });
 });

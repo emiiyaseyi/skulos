@@ -112,4 +112,39 @@
     <button class="btn btn-primary btn-sm" type="submit">Clone {{ $school->name }}</button>
   </form>
 </div>
+
+<div class="card" style="margin-top:1.25rem">
+  <div class="row-between" style="margin-bottom:.8rem">
+    <h3>Backups</h3>
+    <form method="POST" action="{{ route('admin.schools.backups.store', $school->id) }}">
+      @csrf
+      <button class="btn btn-primary btn-sm" type="submit">Back up now</button>
+    </form>
+  </div>
+  @if($backups->isEmpty())
+    <p class="muted">No backups yet.</p>
+  @else
+    <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Taken</th><th>Type</th><th>Size</th><th></th></tr></thead>
+      <tbody>
+        @foreach($backups as $backup)
+          <tr>
+            <td>{{ $backup->created_at->toDayDateTimeString() }}</td>
+            <td class="muted">{{ ucfirst($backup->type) }}</td>
+            <td class="muted">{{ $backup->humanSize() }}</td>
+            <td style="white-space:nowrap">
+              <a class="btn btn-ghost btn-sm" href="{{ route('admin.schools.backups.download', ['school' => $school->id, 'backupId' => $backup->id]) }}">Download</a>
+              <form method="POST" action="{{ route('admin.schools.backups.restore', ['school' => $school->id, 'backupId' => $backup->id]) }}" style="display:inline" onsubmit="return confirm('Restore {{ $school->name }} from this backup? Everything created after {{ $backup->created_at->toDayDateTimeString() }} will be lost.')">
+                @csrf
+                <button class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit">Restore</button>
+              </form>
+            </td>
+          </tr>
+        @endforeach
+      </tbody>
+    </table>
+    </div>
+  @endif
+</div>
 @endsection
