@@ -61,6 +61,16 @@ All shipped, committed, pushed, artifact republished. Backend core modules were 
 ## Queued backend requests (2026-07-08)
 - [ ] **SSO via Google and Outlook (Microsoft)** — add as enable-able options in the current auth build (TD-005 already lists OAuth/Google/Microsoft as planned; user wants it in scope now). Must be toggleable (nothing hardcoded), Sanctum-based session issuance after OAuth callback.
 
+## Architecture decision (2026-07-09): app UI is Laravel-rendered for now
+
+To make the platform clickable from **one entry point** fast, the product UI is built as **Laravel server-rendered Blade pages** (reusing the design system), not the separately-planned Next.js SPA + REST API. Rationale: one deployable, cPanel-friendly, reuses the tenancy/RBAC/audit/services already built, and reaches a working unified platform far quicker than standing up a separate SPA + token auth + CORS + two deployments. **API-first is preserved** — the services (TenantManager, Rbac, ResultService, NotificationService, importers, etc.) are UI-agnostic, so a Next.js frontend consuming a REST/JSON API can be layered on later without rework. If/when that happens, the Blade UI can remain for admin or be retired. Recorded here so a future agent doesn't think the Next.js frontend was skipped by mistake.
+
+## Queued: dashboard templates + widget toggles (user request 2026-07-09)
+- [ ] During school setup, admin picks one of **4 dashboard layout templates** for how their dashboard looks; changeable later in admin settings.
+- [ ] In settings, admin can **show/hide individual dashboard widgets**.
+- [ ] Store `dashboard_layout` + `dashboard_widgets` in tenant settings (admin-editable, nothing hardcoded).
+- Note: the 4 sample images the user shared could not be processed (over the size limit). Building 4 solid layout variants now; **refine to match the exact samples once re-shared smaller / as PDF.** Ask the user to re-share.
+
 ## Build Log (live status while building — updated as we go)
 
 Per-item status for whatever is actively "in build," not a duplicate of the full backlog above. Use this format per entry:
@@ -159,6 +169,14 @@ Entries are added here as work starts on each item — see the current build pha
 - Notes: tenant calendar_events (category-driven, nullable dates, is_default flag, optional session/term link). `CalendarService::seedDefaults()` seeds the default notable days from config/skulos.php and is idempotent; wired into TenantManager provisioning so every new school starts with them. Defaults (admin can edit/remove/add + set dates): Beginning of Term, Mid Term Break, End of Term, Children's Day, Art and Culture Day, Professional Day, Inter House Sports Day, Public Holiday. All are seed data the school owns; nothing hardcoded into calendar logic.
 - Issues/Bugs: none.
 - Resolution: 4 calendar tests (default seeding, idempotency, add/date/upcoming, dating a default); full suite 72 tests / 204 assertions.
+
+### Platform application shell (unified entry point) — user request 2026-07-09
+- Status: In progress (auth + super-admin school creation + branded tenant login/dashboard + branding settings done; dashboard templates + more module screens next)
+- Started: 2026-07-09
+- Notes: one Laravel app, two route surfaces. **Platform (main domain, `config('app.domain')`)**: `/login` (throttled, session auth), `/admin` super-admin area (create school → provisions DB + seeds calendar + attaches creator; lists schools with their subdomain + Open link). Super-admin area gated by `EnsureSuperAdmin` (404 to non-admins). **School portal (`{slug}.<domain>` subdomain, tenant middleware)**: branded welcome page, branded login (verifies the user is a member of that school before authenticating), dashboard showing the user's notification feed (`Notification::feedFor`) + quick stats + upcoming calendar, and **school branding settings** (logo upload, brand colour, welcome headline/message) with a live preview, reflected on the welcome/login page. `platform:make-super-admin` console command bootstraps the first admin. Shared Blade layout `layouts/app` carries the design system (light/dark, gold accent, per-school accent override), no dashes in UI copy. Subdomain resolution added to `ResolveTenant` (route param first, so `{slug}.localhost` works in local dev without hosts edits).
+- Security: super-admin area 404s for non-admins; school login rejects non-members before login; login throttled by email+IP; `is_super_admin`/`school_id` still non-mass-assignable; CSRF on all forms; logout regenerates session.
+- Issues/Bugs: (2026-07-09) platform `/` route (no domain constraint) shadowed subdomain routes → fixed by constraining platform routes to the base domain. Login-then-logout for non-members left them authenticated → refactored to verify password+membership BEFORE `Auth::login`. Blade `@section('bare')` block flag caused output-buffer "risky" warnings → switched to inline `@section('bare', true)`. Default ExampleTest expected `/`=200 (now redirects) → updated.
+- Resolution: 8 platform-flow feature tests (super-admin command, guest redirect, admin gate 404, create+provision school, branded welcome renders branding, member sign-in → dashboard, non-member rejected, branding update reflects). Full suite **84 tests / 250 assertions**. Login page verified rendering via headless screenshot.
 
 ### Multi-tenancy foundation (§4.1)
 - Status: Done (foundation scope)

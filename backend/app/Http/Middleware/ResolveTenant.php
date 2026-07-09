@@ -24,7 +24,11 @@ class ResolveTenant
 
     public function handle(Request $request, Closure $next): Response
     {
-        $slug = $request->headers->get(config('tenancy.header'))
+        // Resolution order: route {school} parameter (subdomain routing on
+        // any host, including localhost), then X-School header (API), then
+        // the host's subdomain.
+        $slug = $request->route('school')
+            ?: $request->headers->get(config('tenancy.header'))
             ?: $this->subdomainFrom($request->getHost());
 
         if (! $slug) {
