@@ -1,0 +1,132 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Role;
+use App\Models\School;
+use App\Models\User;
+use App\Services\Tenancy\TenantManager;
+use Database\Seeders\RbacSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Hash;
+use Tests\TestCase;
+
+/**
+ * Platform owner managing a school's own administrator accounts (user
+ * request 2026-07-09): reset a school admin's password, add another
+ * admin, or revoke one admin's access without touching the school itself.
+ */
+class SchoolAdminManagementTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected string $tenantDir;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->tenantDir = storage_path('framework/testing/tenants-'.getmypid());
+        config(['tenancy.sqlite_path' => $this->tenantDir, 'tenancy.driver' => 'sqlite', 'app.domain' => 'localhost']);
+        $this->seed(RbacSeeder::class);
+    }
+
+    protected function tearDown(): void
+    {
+        app(TenantManager::class)->forget();
+        File::deleteDirectory($this->tenantDir);
+        parent::tearDown();
+    }
+
+    protected function superAdmin(): User
+    {
+        $u = User::factory()->create();
+        $u->forceFill(['is_super_admin' => true])->save();
+
+        return $u;
+    }
+
+    protected function schoolWithOwner(string $slug): array
+    {
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => $slug]));
+        $owner = User::factory()->create(['email' => "owner@{$slug}.test", 'password' => bcrypt('original-pass')]);
+        $ownerRole = Role::whereNull('school_id')->where('slug', 'school-owner')->first();
+        $school->users()->attach($owner->id, ['role_id' => $ownerRole->id, 'status' => 'active']);
+
+        return [$school, $owner];
+    }
+
+    public function test_platform_admin_can_reset_a_school_admins_password(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('resetpw');
+        $platformAdmin = $this->superAdmin();
+
+        $response = $this->actingAs($platformAdmin)
+            ->post(route('admin.schools.admins.reset-password', ['school' => $school->id, 'user' => $owner->id]));
+
+        $response->assertRedirect();
+        $response->assertSessionHas('status');
+        $this->assertStringContainsString($owner->email, session('status'));
+
+        $owner->refresh();
+        $this->assertFalse(Hash::check('original-pass', $owner->password));
+    }
+
+    public function test_platform_admin_can_add_another_school_administrator(): void
+    {
+        [$school] = $this->schoolWithOwner('addadmin');
+        $platformAdmin = $this->superAdmin();
+
+        $this->actingAs($platformAdmin)->post(route('admin.schools.admins.store', ['school' => $school->id]), [
+            'name' => 'Second Admin',
+            'email' => 'second@addadmin.test',
+            'password' => 'secondpass123',
+        ])->assertRedirect();
+
+        $newAdmin = User::where('email', 'second@addadmin.test')->first();
+        $this->assertNotNull($newAdmin);
+        $this->assertTrue($newAdmin->isMemberOf($school));
+
+        // Sign out the platform admin first, or the "guest" middleware on
+        // /login bounces the request away before it is even processed.
+        auth()->logout();
+        $this->post("http://{$school->slug}.localhost/login", [
+            'email' => 'second@addadmin.test',
+            'password' => 'secondpass123',
+        ])->assertRedirect(route('school.dashboard', ['school' => $school->slug]));
+    }
+
+    public function test_platform_admin_can_revoke_and_restore_an_admins_access(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('revokeaccess');
+        $platformAdmin = $this->superAdmin();
+
+        $this->actingAs($platformAdmin)
+            ->post(route('admin.schools.admins.toggle-access', ['school' => $school->id, 'user' => $owner->id]))
+            ->assertRedirect();
+
+        $this->assertFalse($owner->fresh()->isMemberOf($school));
+
+        auth()->logout();
+        $this->post("http://{$school->slug}.localhost/login", [
+            'email' => $owner->email,
+            'password' => 'original-pass',
+        ])->assertSessionHasErrors('email');
+
+        $this->actingAs($platformAdmin)
+            ->post(route('admin.schools.admins.toggle-access', ['school' => $school->id, 'user' => $owner->id]))
+            ->assertRedirect();
+
+        $this->assertTrue($owner->fresh()->isMemberOf($school));
+    }
+
+    public function test_only_platform_super_admin_can_manage_school_administrators(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('notallowed');
+        $regularUser = User::factory()->create();
+
+        $this->actingAs($regularUser)
+            ->post(route('admin.schools.admins.reset-password', ['school' => $school->id, 'user' => $owner->id]))
+            ->assertNotFound();
+    }
+}

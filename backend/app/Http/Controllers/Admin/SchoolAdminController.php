@@ -114,6 +114,74 @@ class SchoolAdminController extends Controller
 
     public function show(School $school): \Illuminate\View\View
     {
-        return view('admin.school', ['school' => $school]);
+        $ownerRoleId = Role::whereNull('school_id')->where('slug', 'school-owner')->value('id');
+
+        $admins = $school->users()
+            ->wherePivot('role_id', $ownerRoleId)
+            ->withPivot(['status'])
+            ->orderBy('name')
+            ->get();
+
+        return view('admin.school', ['school' => $school, 'admins' => $admins]);
+    }
+
+    /**
+     * Reset a school administrator's password (user request 2026-07-09:
+     * the platform owner needs a way to help a locked out school admin
+     * without knowing their old password). Generates a new one and shows
+     * it once in the flash message; the admin should change it after
+     * signing in.
+     */
+    public function resetAdminPassword(School $school, User $user): RedirectResponse
+    {
+        abort_unless($school->users()->whereKey($user->id)->exists(), 404);
+
+        $newPassword = Str::password(12);
+        $user->update(['password' => Hash::make($newPassword)]);
+
+        return back()->with('status',
+            "Password for {$user->email} has been reset to: {$newPassword}. Share it securely and ask them to change it after signing in.");
+    }
+
+    /**
+     * Create another school-owner level administrator for this school, or
+     * reuse an existing platform user by email and attach them as one.
+     */
+    public function storeAdmin(Request $request, School $school): RedirectResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'email' => ['required', 'email', 'max:150'],
+            'password' => ['required', 'string', 'min:8', 'max:100'],
+        ]);
+
+        $email = Str::lower($data['email']);
+        $admin = User::firstOrNew(['email' => $email]);
+        $admin->name = $admin->name ?: $data['name'];
+        $admin->password = Hash::make($data['password']);
+        $admin->email_verified_at = $admin->email_verified_at ?: now();
+        $admin->save();
+
+        $ownerRoleId = Role::whereNull('school_id')->where('slug', 'school-owner')->value('id');
+        $school->users()->syncWithoutDetaching([$admin->id => ['role_id' => $ownerRoleId, 'status' => 'active']]);
+
+        return back()->with('status', "{$email} can now sign in as an administrator of {$school->name}.");
+    }
+
+    /**
+     * Grant or revoke one administrator's access to this school, without
+     * touching the school's own status or any other member.
+     */
+    public function toggleAdminAccess(School $school, User $user): RedirectResponse
+    {
+        abort_unless($school->users()->whereKey($user->id)->exists(), 404);
+
+        $current = $school->users()->whereKey($user->id)->first()->pivot->status;
+        $next = $current === 'active' ? 'suspended' : 'active';
+        $school->users()->updateExistingPivot($user->id, ['status' => $next]);
+
+        return back()->with('status', $next === 'active'
+            ? "{$user->email} can sign in to {$school->name} again."
+            : "{$user->email}'s access to {$school->name} has been revoked.");
     }
 }

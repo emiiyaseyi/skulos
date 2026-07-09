@@ -38,6 +38,9 @@ Route::domain($appDomain)->group(function () {
         Route::get('/', [SchoolAdminController::class, 'dashboard'])->name('dashboard');
         Route::post('/schools', [SchoolAdminController::class, 'store'])->name('schools.store');
         Route::get('/schools/{school}', [SchoolAdminController::class, 'show'])->name('schools.show');
+        Route::post('/schools/{school}/admins', [SchoolAdminController::class, 'storeAdmin'])->name('schools.admins.store');
+        Route::post('/schools/{school}/admins/{user}/reset-password', [SchoolAdminController::class, 'resetAdminPassword'])->name('schools.admins.reset-password');
+        Route::post('/schools/{school}/admins/{user}/toggle-access', [SchoolAdminController::class, 'toggleAdminAccess'])->name('schools.admins.toggle-access');
         Route::post('/schools/{school}/suspend', [SchoolAdminController::class, 'suspend'])->name('schools.suspend');
         Route::post('/schools/{school}/archive', [SchoolAdminController::class, 'archive'])->name('schools.archive');
         Route::post('/schools/{school}/activate', [SchoolAdminController::class, 'activate'])->name('schools.activate');
