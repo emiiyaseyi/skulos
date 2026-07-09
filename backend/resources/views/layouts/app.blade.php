@@ -67,6 +67,8 @@ a{color:inherit;text-decoration:none}
 .shell.collapsed .brandshort{display:inline}
 .collapse-btn{display:inline-grid}
 @media(max-width:1000px){.collapse-btn{display:none}}
+.impersonate-bar{position:sticky;top:0;z-index:35;background:var(--warn);color:#241503;display:flex;align-items:center;justify-content:center;gap:1rem;padding:.55rem 1rem;font-size:.85rem;font-weight:600;flex-wrap:wrap;text-align:center}
+.impersonate-bar .btn{background:#241503;color:#fff;border:none;padding:.35rem .8rem;border-radius:8px;font-weight:700}
 .appbar{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--panel) 90%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:1rem;padding:.8rem 1.6rem}
 .appbar h2{font-size:1rem;font-weight:800}
 .appbar .crumb{font-size:.78rem;color:var(--mut-dim)}
@@ -184,6 +186,15 @@ tr:last-child td{border-bottom:none}
   <div class="scrim" id="scrim"></div>
 
   <div class="main">
+    @if(session('impersonator_id'))
+      <div class="impersonate-bar">
+        <span>You are viewing as <strong>{{ auth()->user()->name }}</strong> for support.</span>
+        <form method="POST" action="{{ route('session.end-impersonation') }}">
+          @csrf
+          <button class="btn btn-sm" type="submit">End and return to my account</button>
+        </form>
+      </div>
+    @endif
     <header class="appbar">
       <button class="iconbtn menu-toggle" id="menuToggle" aria-label="Menu">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>

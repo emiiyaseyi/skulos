@@ -6,7 +6,7 @@
     <h1 class="title">Archive</h1>
     <p class="subtitle">Deleted schools. Their databases are kept, so any of these can be restored.</p>
   </div>
-  <a class="btn btn-ghost btn-sm" href="{{ route('admin.dashboard') }}">Back to schools</a>
+  <a class="btn btn-ghost btn-sm" href="{{ route('admin.schools.index') }}">Back to schools</a>
 </div>
 
 <div class="card">

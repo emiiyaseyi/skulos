@@ -1,97 +1,81 @@
 @extends('layouts.app', ['portal' => 'admin', 'pageTitle' => 'Dashboard'])
-@section('title', 'Platform Admin')
-@section('heading', 'Platform Administration')
-@section('crumb', 'Overview of every school on SKULOS')
+@section('title', 'Platform Dashboard')
+@section('heading', 'Platform Dashboard')
+@section('crumb', 'How SKULOS is doing across every school')
+
+@push('head')
+<style>
+  .pd-figs{display:grid;grid-template-columns:repeat(4,1fr);gap:1.1rem;margin-bottom:1.5rem}
+  .pd-fig{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:1.2rem 1.3rem;box-shadow:var(--shadow)}
+  .pd-fig b{font-size:1.7rem;font-weight:800;display:block}
+  .pd-fig span{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim)}
+  .pd-donut{width:120px;height:120px;border-radius:50%;margin:0 auto;
+    background:conic-gradient(
+      #12A97B 0 {{ $donutPct['active'] }}%,
+      #E5901C {{ $donutPct['active'] }}% {{ $donutPct['active'] + $donutPct['suspended'] }}%,
+      #E14F63 {{ $donutPct['active'] + $donutPct['suspended'] }}% {{ $donutPct['active'] + $donutPct['suspended'] + $donutPct['archived'] }}%,
+      var(--soft) {{ $donutPct['active'] + $donutPct['suspended'] + $donutPct['archived'] }}% 100%)}
+  .pd-legend{display:flex;flex-direction:column;gap:.5rem;margin-top:1rem}
+  .pd-legend span{display:flex;align-items:center;gap:.5rem;font-size:.85rem}
+  .pd-legend i{width:10px;height:10px;border-radius:50%;display:inline-block}
+  .pd-activity{list-style:none;display:flex;flex-direction:column;gap:.7rem}
+  .pd-activity li{display:flex;justify-content:space-between;gap:1rem;padding-bottom:.7rem;border-bottom:1px solid var(--line);font-size:.85rem}
+  .pd-activity li:last-child{border-bottom:none;padding-bottom:0}
+  .pd-activity .who{font-weight:700}
+  .pd-activity .when{color:var(--mut-dim);white-space:nowrap}
+</style>
+@endpush
+
 @section('content')
-<div class="grid cols-3" style="margin-bottom:1.5rem">
-  <div class="card stat-card"><span class="stat-ic">@include('layouts.partials.icon',['name'=>'school'])</span><span class="stat"><b>{{ $stats['schools'] }}</b><span>Schools</span></span></div>
-  <div class="card stat-card"><span class="stat-ic">@include('layouts.partials.icon',['name'=>'attendance'])</span><span class="stat"><b>{{ $stats['active'] }}</b><span>Active</span></span></div>
-  <div class="card stat-card"><span class="stat-ic">@include('layouts.partials.icon',['name'=>'calendar'])</span><span class="stat"><b>{{ $stats['pending'] }}</b><span>Pending</span></span></div>
+<div class="pd-figs">
+  <div class="pd-fig"><b>{{ $totalSchools }}</b><span>Total Schools</span></div>
+  <div class="pd-fig"><b>{{ $byStatus['active'] }}</b><span>Active</span></div>
+  <div class="pd-fig"><b>{{ $totalAdministrators }}</b><span>Administrators</span></div>
+  <div class="pd-fig"><b>{{ $trashedCount }}</b><span>In Archive</span></div>
 </div>
 
 <div class="grid cols-2" style="align-items:start">
   <div class="card">
-    <h3>Create a school</h3>
-    <p style="margin-bottom:1.1rem">A new school gets its own database, calendar defaults, subdomain, and an administrator who signs in to finish setup.</p>
-    <form method="POST" action="{{ route('admin.schools.store') }}">
-      @csrf
-      <div class="field">
-        <label for="name">School name</label>
-        <input id="name" name="name" value="{{ old('name') }}" required placeholder="Greenfield Academy" />
-        @error('name')<div class="err">{{ $message }}</div>@enderror
-      </div>
-      <div class="grid cols-2">
-        <div class="field">
-          <label for="slug">Subdomain</label>
-          <input id="slug" name="slug" value="{{ old('slug') }}" placeholder="greenfield" />
-          <div class="hint">Blank = from name. Becomes yourslug.{{ config('app.domain', 'localhost') }}</div>
-          @error('slug')<div class="err">{{ $message }}</div>@enderror
-        </div>
-        <div class="field">
-          <label for="phone">Contact phone</label>
-          <input id="phone" name="phone" value="{{ old('phone') }}" />
-        </div>
-      </div>
-
-      <div style="border-top:1px solid var(--line);margin:.3rem 0 1rem;padding-top:1rem">
-        <b style="font-size:.85rem">School administrator login</b>
-        <p class="hint" style="margin-bottom:.8rem">The details this school's administrator will sign in with to complete setup.</p>
-      </div>
-      <div class="field">
-        <label for="admin_name">Administrator name</label>
-        <input id="admin_name" name="admin_name" value="{{ old('admin_name') }}" required placeholder="Jane Doe" />
-        @error('admin_name')<div class="err">{{ $message }}</div>@enderror
-      </div>
-      <div class="grid cols-2">
-        <div class="field">
-          <label for="admin_email">Administrator email</label>
-          <input id="admin_email" name="admin_email" type="email" value="{{ old('admin_email') }}" required placeholder="admin@school.com" />
-          @error('admin_email')<div class="err">{{ $message }}</div>@enderror
-        </div>
-        <div class="field">
-          <label for="admin_password">Temporary password</label>
-          <input id="admin_password" name="admin_password" type="text" required placeholder="at least 8 characters" />
-          <div class="hint">Share this with the administrator.</div>
-          @error('admin_password')<div class="err">{{ $message }}</div>@enderror
-        </div>
-      </div>
-      <button class="btn btn-primary btn-block" type="submit">Create school and admin</button>
-    </form>
+    <h3 style="margin-bottom:1rem">Schools by status</h3>
+    <div class="pd-donut"></div>
+    <div class="pd-legend">
+      <span><i style="background:#12A97B"></i> Active ({{ $byStatus['active'] }})</span>
+      <span><i style="background:#E5901C"></i> Suspended ({{ $byStatus['suspended'] }})</span>
+      <span><i style="background:#E14F63"></i> Archived ({{ $byStatus['archived'] }})</span>
+      <span><i style="background:var(--soft);border:1px solid var(--line)"></i> Pending ({{ $byStatus['pending'] }})</span>
+    </div>
   </div>
 
   <div class="card">
-    <h3>Schools</h3>
-    <p style="margin-bottom:1rem">Every school and its address.</p>
-    @if($schools->isEmpty())
-      <p class="muted">No schools yet. Create your first one to test the platform.</p>
+    <h3 style="margin-bottom:1rem">Recently created</h3>
+    @if($recentSchools->isEmpty())
+      <p class="muted">No schools created yet.</p>
     @else
-      <div style="overflow-x:auto">
-      <table>
-        <thead><tr><th>Name</th><th>Address</th><th>Status</th><th></th></tr></thead>
-        <tbody>
-        @foreach($schools as $s)
-          <tr>
-            <td><strong>{{ $s->name }}</strong></td>
-            <td class="muted">{{ $s->slug }}.{{ config('app.domain', 'localhost') }}</td>
-            <td>
-              <span class="badge {{ $s->status === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucfirst($s->status) }}</span>
-            </td>
-            <td style="text-align:right;white-space:nowrap">
-              @if($s->status === 'active')
-                <a class="btn btn-ghost btn-sm" href="{{ $s->portalUrl() }}" target="_blank" rel="noopener">Open</a>
-                <form method="POST" action="{{ route('admin.schools.suspend', $s) }}" style="display:inline">@csrf<button class="btn btn-ghost btn-sm">Suspend</button></form>
-                <form method="POST" action="{{ route('admin.schools.archive', $s) }}" style="display:inline">@csrf<button class="btn btn-ghost btn-sm">Archive</button></form>
-              @else
-                <form method="POST" action="{{ route('admin.schools.activate', $s) }}" style="display:inline">@csrf<button class="btn btn-primary btn-sm">Resume</button></form>
-              @endif
-              <form method="POST" action="{{ route('admin.schools.destroy', $s) }}" style="display:inline" onsubmit="return confirm('Remove {{ $s->name }}? Its data is retained and it can be restored.')">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm" style="color:var(--bad)">Delete</button></form>
-            </td>
-          </tr>
+      <ul class="pd-activity">
+        @foreach($recentSchools as $s)
+          <li>
+            <span><a href="{{ route('admin.schools.show', $s) }}">{{ $s->name }}</a></span>
+            <span class="when">{{ $s->created_at?->diffForHumans() }}</span>
+          </li>
         @endforeach
-        </tbody>
-      </table>
-      </div>
+      </ul>
     @endif
   </div>
+</div>
+
+<div class="card" style="margin-top:1.25rem">
+  <h3 style="margin-bottom:1rem">Recent platform activity</h3>
+  @if($recentActivity->isEmpty())
+    <p class="muted">Nothing recorded yet.</p>
+  @else
+    <ul class="pd-activity">
+      @foreach($recentActivity as $log)
+        <li>
+          <span><span class="who">{{ $log->user?->name ?? 'System' }}</span> &middot; {{ str_replace('.', ' ', $log->action) }}</span>
+          <span class="when">{{ $log->created_at?->diffForHumans() }}</span>
+        </li>
+      @endforeach
+    </ul>
+  @endif
 </div>
 @endsection

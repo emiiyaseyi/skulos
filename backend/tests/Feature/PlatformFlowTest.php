@@ -69,7 +69,7 @@ class PlatformFlowTest extends TestCase
         $member = User::factory()->create();
         $this->actingAs($member)->get('http://localhost/admin')->assertNotFound(); // 404, not advertised
 
-        $this->actingAs($this->superAdmin())->get('http://localhost/admin')->assertOk()->assertSee('Platform Administration');
+        $this->actingAs($this->superAdmin())->get('http://localhost/admin')->assertOk()->assertSee('Platform Dashboard');
     }
 
     public function test_super_admin_can_create_a_school_with_its_own_admin(): void
@@ -82,7 +82,7 @@ class PlatformFlowTest extends TestCase
             'admin_name' => 'Jane Head',
             'admin_email' => 'jane@greenfield.test',
             'admin_password' => 'setup-pass-123',
-        ])->assertRedirect(route('admin.dashboard'));
+        ])->assertRedirect(route('admin.schools.index'));
 
         $school = School::where('slug', 'greenfield')->first();
         $this->assertNotNull($school);

@@ -35,7 +35,8 @@ Route::domain($appDomain)->group(function () {
     });
 
     Route::middleware(['auth', 'super_admin'])->prefix('admin')->name('admin.')->group(function () {
-        Route::get('/', [SchoolAdminController::class, 'dashboard'])->name('dashboard');
+        Route::get('/', [\App\Http\Controllers\Admin\PlatformDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/schools', [SchoolAdminController::class, 'schools'])->name('schools.index');
         Route::post('/schools', [SchoolAdminController::class, 'store'])->name('schools.store');
         Route::get('/schools/archive', [SchoolAdminController::class, 'trashed'])->name('schools.archive-list');
         Route::post('/schools/{schoolId}/restore', [SchoolAdminController::class, 'restore'])->name('schools.restore');
@@ -44,6 +45,7 @@ Route::domain($appDomain)->group(function () {
         Route::post('/schools/{school}/admins', [SchoolAdminController::class, 'storeAdmin'])->name('schools.admins.store');
         Route::post('/schools/{school}/admins/{user}/reset-password', [SchoolAdminController::class, 'resetAdminPassword'])->name('schools.admins.reset-password');
         Route::post('/schools/{school}/admins/{user}/toggle-access', [SchoolAdminController::class, 'toggleAdminAccess'])->name('schools.admins.toggle-access');
+        Route::post('/schools/{school}/admins/{user}/impersonate', [SchoolAdminController::class, 'impersonate'])->name('schools.admins.impersonate');
         Route::post('/schools/{school}/suspend', [SchoolAdminController::class, 'suspend'])->name('schools.suspend');
         Route::post('/schools/{school}/archive', [SchoolAdminController::class, 'archive'])->name('schools.archive');
         Route::post('/schools/{school}/activate', [SchoolAdminController::class, 'activate'])->name('schools.activate');
@@ -60,6 +62,8 @@ Route::domain($appDomain)->group(function () {
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 Route::post('/session/keep-alive', [\App\Http\Controllers\SessionController::class, 'keepAlive'])
     ->middleware('auth')->name('session.keep-alive');
+Route::post('/session/end-impersonation', [SchoolAdminController::class, 'endImpersonation'])
+    ->middleware('auth')->name('session.end-impersonation');
 
 Route::get('/auth/{provider}/redirect', [SsoController::class, 'redirect'])
     ->whereIn('provider', \App\Services\Auth\SsoManager::PROVIDERS)->name('sso.redirect');

@@ -7,7 +7,7 @@
     <p class="subtitle">{{ $school->slug }}.{{ config('app.domain','localhost') }}</p>
   </div>
   <div class="stack" style="flex-direction:row;gap:.6rem">
-    <a class="btn btn-ghost btn-sm" href="{{ route('admin.dashboard') }}">Back</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('admin.schools.index') }}">Back</a>
     <a class="btn btn-primary btn-sm" href="{{ $school->portalUrl() }}" target="_blank" rel="noopener">Open portal</a>
   </div>
 </div>
@@ -48,6 +48,12 @@
                   @csrf
                   <button class="btn btn-ghost btn-sm" type="submit">{{ $admin->pivot->status === 'active' ? 'Revoke access' : 'Restore access' }}</button>
                 </form>
+                @if($admin->pivot->status === 'active')
+                  <form method="POST" action="{{ route('admin.schools.admins.impersonate', ['school' => $school->id, 'user' => $admin->id]) }}">
+                    @csrf
+                    <button class="btn btn-ghost btn-sm" type="submit">View as this admin</button>
+                  </form>
+                @endif
               </div>
             </td>
           </tr>

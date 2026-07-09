@@ -6,26 +6,31 @@ use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\School;
 use App\Models\User;
+use App\Services\Auditing\Recorder;
 use App\Services\Tenancy\SchoolCloneService;
 use App\Services\Tenancy\TenantManager;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 /**
- * Platform super admin: create and oversee schools. Creating a school
- * provisions its dedicated database, seeds its calendar defaults, and gives
- * it a subdomain, all from this one place.
+ * Platform super admin: create and oversee schools (the Schools section,
+ * distinct from the platform wide Dashboard/analytics in
+ * PlatformDashboardController — user request 2026-07-09). Creating a
+ * school provisions its dedicated database, seeds its calendar defaults,
+ * and gives it a subdomain, all from this one place.
  */
 class SchoolAdminController extends Controller
 {
-    public function dashboard(): \Illuminate\View\View
+    /** The Schools section: create a school, and the full schools list. */
+    public function schools(): \Illuminate\View\View
     {
         $schools = School::orderByDesc('created_at')->get();
 
-        return view('admin.dashboard', [
+        return view('admin.schools-index', [
             'schools' => $schools,
             'stats' => [
                 'schools' => $schools->count(),
@@ -66,7 +71,7 @@ class SchoolAdminController extends Controller
         // setup, not the platform super admin.
         $this->attachAdmin($school, $data['admin_name'], $data['admin_email'], $data['admin_password']);
 
-        return redirect()->route('admin.dashboard')->with('status',
+        return redirect()->route('admin.schools.index')->with('status',
             "{$school->name} is ready. The administrator (".Str::lower($data['admin_email']).") can now sign in at {$school->slug}.".config('app.domain')." to finish setup.");
     }
 
@@ -111,7 +116,7 @@ class SchoolAdminController extends Controller
         $this->attachAdmin($clone, $data['admin_name'], $data['admin_email'], $data['admin_password']);
         $cloner->clone($school, $clone);
 
-        return redirect()->route('admin.dashboard')->with('status',
+        return redirect()->route('admin.schools.index')->with('status',
             "{$clone->name} has been created as a clone of {$school->name}'s setup. Student, staff, and parent records were not copied.");
     }
 
@@ -145,7 +150,7 @@ class SchoolAdminController extends Controller
         $name = $school->name;
         $school->delete();
 
-        return redirect()->route('admin.dashboard')
+        return redirect()->route('admin.schools.index')
             ->with('status', "{$name} has been removed and moved to the archive. Its database is retained and it can be restored at any time.");
     }
 
@@ -237,5 +242,54 @@ class SchoolAdminController extends Controller
         return back()->with('status', $next === 'active'
             ? "{$user->email} can sign in to {$school->name} again."
             : "{$user->email}'s access to {$school->name} has been revoked.");
+    }
+
+    /**
+     * Support access (user request 2026-07-09: "how to support a school
+     * with any issue, do we create a backdoor or not"). Deliberately NOT a
+     * backdoor: this signs the platform admin in AS the member using that
+     * member's own permissions (no elevation), every start/end is written
+     * to the audit trail with who/when, and a persistent banner is shown
+     * the whole time so it can never be silently forgotten. It replaces
+     * needing to reset a password just to see what a user sees.
+     */
+    public function impersonate(Request $request, School $school, User $user, Recorder $recorder): RedirectResponse
+    {
+        abort_unless($school->users()->whereKey($user->id)->wherePivot('status', 'active')->exists(), 404);
+
+        $admin = Auth::user();
+        $request->session()->put('impersonator_id', $admin->id);
+        Auth::login($user);
+        $request->session()->regenerate();
+
+        $recorder->record('support.impersonate.start', $user, new: [
+            'impersonator_id' => $admin->id,
+            'impersonator_email' => $admin->email,
+            'school_id' => $school->id,
+        ]);
+
+        return redirect()->route('school.dashboard', ['school' => $school->slug])
+            ->with('status', "You are now viewing {$school->name} as {$user->name} for support. End this from the banner at the top when you are done.");
+    }
+
+    /** Return to the platform admin's own session. */
+    public function endImpersonation(Request $request, Recorder $recorder): RedirectResponse
+    {
+        $impersonatorId = $request->session()->get('impersonator_id');
+        abort_unless($impersonatorId, 404);
+
+        $viewedAs = Auth::user();
+        $admin = User::findOrFail($impersonatorId);
+
+        $request->session()->forget('impersonator_id');
+        Auth::login($admin);
+        $request->session()->regenerate();
+
+        $recorder->record('support.impersonate.end', $viewedAs, new: [
+            'impersonator_id' => $admin->id,
+            'impersonator_email' => $admin->email,
+        ]);
+
+        return redirect()->route('admin.dashboard')->with('status', 'You are back in your own account.');
     }
 }

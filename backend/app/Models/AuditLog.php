@@ -38,6 +38,12 @@ class AuditLog extends Model
         ];
     }
 
+    /** Only meaningful for platform-DB rows; tenant DB user ids are never platform Users. */
+    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
     protected static function booted(): void
     {
         static::updating(function () {

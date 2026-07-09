@@ -144,7 +144,7 @@ class SchoolAdminManagementTest extends TestCase
             'admin_name' => 'Clone Admin',
             'admin_email' => 'cloneadmin@example.com',
             'admin_password' => 'clonepass123',
-        ])->assertRedirect(route('admin.dashboard'));
+        ])->assertRedirect(route('admin.schools.index'));
 
         $clone = School::where('name', 'Cloned School')->first();
         $this->assertNotNull($clone);
@@ -168,6 +168,39 @@ class SchoolAdminManagementTest extends TestCase
         // No student/staff data is copied; only the new admin is a member.
         $this->assertCount(1, $clone->users);
         $this->assertSame('cloneadmin@example.com', $clone->users->first()->email);
+    }
+
+    public function test_platform_admin_can_impersonate_a_school_admin_for_support_and_return(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('impersonate');
+        $platformAdmin = $this->superAdmin();
+
+        $response = $this->actingAs($platformAdmin)
+            ->post(route('admin.schools.admins.impersonate', ['school' => $school->id, 'user' => $owner->id]));
+
+        $response->assertRedirect(route('school.dashboard', ['school' => $school->slug]));
+        $this->assertAuthenticatedAs($owner);
+        $this->assertSame($platformAdmin->id, session('impersonator_id'));
+
+        $this->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()->assertSee('You are viewing as');
+
+        $this->post(route('session.end-impersonation'))->assertRedirect(route('admin.dashboard'));
+        $this->assertAuthenticatedAs($platformAdmin);
+        $this->assertNull(session('impersonator_id'));
+    }
+
+    public function test_impersonation_is_recorded_in_the_audit_trail(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('auditimp');
+        $platformAdmin = $this->superAdmin();
+
+        $this->actingAs($platformAdmin)
+            ->post(route('admin.schools.admins.impersonate', ['school' => $school->id, 'user' => $owner->id]));
+        $this->post(route('session.end-impersonation'));
+
+        $this->assertDatabaseHas('audit_logs', ['action' => 'support.impersonate.start', 'auditable_id' => $owner->id]);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'support.impersonate.end', 'auditable_id' => $owner->id]);
     }
 
     public function test_only_platform_super_admin_can_manage_school_administrators(): void
