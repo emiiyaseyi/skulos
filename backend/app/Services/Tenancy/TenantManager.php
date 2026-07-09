@@ -53,6 +53,12 @@ class TenantManager
 
         $this->migrate($school);
 
+        // Seed the school's default calendar (notable days). Admin can edit,
+        // remove, or add more afterwards.
+        $this->connectTo($school, function () {
+            app(\App\Services\Calendar\CalendarService::class)->seedDefaults();
+        });
+
         $school->forceFill([
             'status' => School::STATUS_ACTIVE,
             'provisioned_at' => now(),

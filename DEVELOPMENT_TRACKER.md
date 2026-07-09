@@ -138,6 +138,21 @@ Entries are added here as work starts on each item — see the current build pha
 - Issues/Bugs: none this pass.
 - Resolution: 6 results tests (configurable totals, component summing + grading, boundary grades, ranking, tie positions, alternate format); full suite 64 tests / 177 assertions.
 
+### Communication + email notifications (§5, user asked to bring into core)
+- Status: In progress (announcements + email + delivery log + tests done; in-app notifications + per-audience toggles being added next per 2026-07-09 request)
+- Started: 2026-07-09
+- Notes: tenant tables announcements + communication_logs (every send logged with channel + status, backing the future Notification Center). `AnnouncementMail` (plain, theme-free). `CommunicationService`: publishAnnouncement (marks published, emails recipients on enabled channels, audited), emailAnnouncement, sendEmail (one-off, e.g. fee reminders). Channels configurable in config/skulos.php (email on; sms/whatsapp/push placeholders). Tests use Mail::fake().
+- NEW (2026-07-09 user request, building next): announcements email Parents/Teachers/Staff/Students with an **admin toggle per audience** (who receives email); **everyone** gets an in-app/web notification regardless; a **notification section on every user's dashboard/welcome page** (frontend, when product UI is built).
+- Issues/Bugs: none this pass.
+- Resolution: 4 communication tests; full suite green.
+
+### Calendar & events (§5) + default notable days (user request 2026-07-09)
+- Status: Done (schema + model + service + default seeding + tests; product UI later)
+- Started: 2026-07-09
+- Notes: tenant calendar_events (category-driven, nullable dates, is_default flag, optional session/term link). `CalendarService::seedDefaults()` seeds the default notable days from config/skulos.php and is idempotent; wired into TenantManager provisioning so every new school starts with them. Defaults (admin can edit/remove/add + set dates): Beginning of Term, Mid Term Break, End of Term, Children's Day, Art and Culture Day, Professional Day, Inter House Sports Day, Public Holiday. All are seed data the school owns; nothing hardcoded into calendar logic.
+- Issues/Bugs: none.
+- Resolution: 4 calendar tests (default seeding, idempotency, add/date/upcoming, dating a default); full suite 72 tests / 204 assertions.
+
 ### Multi-tenancy foundation (§4.1)
 - Status: Done (foundation scope)
 - Started: 2026-07-08

@@ -81,6 +81,36 @@ return [
     */
     'attendance_statuses' => ['present', 'absent', 'late', 'excused'],
 
+    /*
+    | Communication channels. Only enabled channels are attempted. Email is
+    | wired now; SMS, WhatsApp and push are placeholders for later providers.
+    | A school will toggle these in the admin CMS; not hardcoded in code.
+    */
+    'communication_channels' => [
+        'email' => ['enabled' => true],
+        'sms' => ['enabled' => false],
+        'whatsapp' => ['enabled' => false],
+        'push' => ['enabled' => false],
+    ],
+
+    /*
+    | Default notable days seeded into a new school's calendar (user request
+    | 2026-07-09). These are starting defaults only: the school admin can
+    | edit, remove, or add more, and set the actual dates. Category drives
+    | display/colour. Nothing here is hardcoded into calendar logic; it is
+    | seed data a school owns once provisioned.
+    */
+    'default_calendar_events' => [
+        ['title' => 'Beginning of Term', 'category' => 'term'],
+        ['title' => 'Mid Term Break', 'category' => 'break'],
+        ['title' => 'End of Term', 'category' => 'term'],
+        ['title' => "Children's Day", 'category' => 'celebration'],
+        ['title' => 'Art and Culture Day', 'category' => 'celebration'],
+        ['title' => 'Professional Day', 'category' => 'staff'],
+        ['title' => 'Inter House Sports Day', 'category' => 'sports'],
+        ['title' => 'Public Holiday', 'category' => 'holiday'],
+    ],
+
     'permission_actions' => ['view', 'create', 'update', 'delete', 'export', 'bulk'],
 
     'extra_permissions' => [
