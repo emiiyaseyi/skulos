@@ -18,7 +18,7 @@
       <div class="flash flash-bad">{{ $errors->first() }}</div>
     @endif
 
-    <form method="POST" action="{{ $school ? route('school.login.submit') : url('/login') }}">
+    <form method="POST" action="{{ $school ? route('school.login.submit', ['school' => $school->slug]) : url('/login') }}">
       @csrf
       <div class="field">
         <label for="email">Email</label>

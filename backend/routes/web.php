@@ -71,7 +71,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:10,1')->name('school.login.submit');
     });
 
-    Route::middleware('auth')->group(function () {
+    Route::middleware(['auth', 'school_member'])->group(function () {
         Route::get('/dashboard', [SchoolPortalController::class, 'dashboard'])->name('school.dashboard');
         Route::post('/notifications/{id}/read', [SchoolPortalController::class, 'markNotificationRead'])->name('school.notifications.read');
         Route::get('/settings/branding', [SchoolPortalController::class, 'editBranding'])->name('school.branding.edit');

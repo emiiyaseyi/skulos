@@ -98,6 +98,16 @@ class PlatformFlowTest extends TestCase
             ->assertOk()->assertSee('Hello Bright Stars')->assertSee('#1B87D6');
     }
 
+    public function test_school_login_page_renders(): void
+    {
+        $school = $this->provisionSchool('portal', 'Portal School');
+
+        $this->get('http://portal.localhost/login')
+            ->assertOk()
+            ->assertSee('Portal School')
+            ->assertSee('Sign in');
+    }
+
     public function test_school_member_can_sign_in_and_see_dashboard(): void
     {
         $school = $this->provisionSchool('unity', 'Unity');
@@ -111,6 +121,30 @@ class PlatformFlowTest extends TestCase
 
         $this->actingAs($teacher)->get('http://unity.localhost/dashboard')
             ->assertOk()->assertSee('Unity');
+    }
+
+    public function test_member_of_one_school_cannot_view_another_schools_dashboard(): void
+    {
+        // Sessions are shared across subdomains, so this guard is what stops
+        // a signed in user of school A from reading school B's data.
+        $this->provisionSchool('alpha', 'Alpha School');
+        $beta = $this->provisionSchool('beta', 'Beta School');
+
+        $betaMember = User::factory()->create();
+        $beta->users()->attach($betaMember->id, ['status' => 'active']);
+
+        // Beta member reaches Beta.
+        $this->actingAs($betaMember)->get('http://beta.localhost/dashboard')->assertOk();
+
+        // But is bounced from Alpha (not a member) and logged out.
+        $this->actingAs($betaMember)->get('http://alpha.localhost/dashboard')
+            ->assertRedirect(route('school.login', ['school' => 'alpha']));
+    }
+
+    public function test_super_admin_can_view_any_school_dashboard(): void
+    {
+        $this->provisionSchool('omega', 'Omega School');
+        $this->actingAs($this->superAdmin())->get('http://omega.localhost/dashboard')->assertOk();
     }
 
     public function test_non_member_cannot_sign_in_to_a_school(): void
