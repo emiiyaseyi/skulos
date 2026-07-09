@@ -36,6 +36,7 @@ class School extends Model
         'welcome_headline',
         'welcome_message',
         'login_layout',
+        'login_box_side',
         'status',
         'settings',
     ];
@@ -56,6 +57,9 @@ class School extends Model
             'login_layout' => in_array($this->login_layout, $layouts, true)
                 ? $this->login_layout
                 : config('skulos.default_login_layout', 'centered'),
+            'login_box_side' => in_array($this->login_box_side, ['left', 'right'], true)
+                ? $this->login_box_side
+                : 'right',
         ];
     }
 

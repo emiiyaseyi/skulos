@@ -27,15 +27,22 @@ class SchoolPortalController extends Controller
         return $request->attributes->get('school');
     }
 
-    /** Branded welcome page (public). */
-    public function welcome(Request $request): \Illuminate\View\View
+    /**
+     * The school's root URL. A signed in member goes straight to their
+     * dashboard; everyone else goes straight to the sign in page (user
+     * request 2026-07-09: a separate low content "click here to sign in"
+     * page in between was confusing, not a real landing page).
+     */
+    public function welcome(Request $request): \Illuminate\Http\RedirectResponse
     {
         $school = $this->school($request);
+        $user = Auth::user();
 
-        return view('school.welcome', [
-            'school' => $school,
-            'accent' => $school->branding()['color'],
-        ]);
+        if ($user && ($user->is_super_admin || $user->isMemberOf($school))) {
+            return redirect()->route('school.dashboard', ['school' => $school->slug]);
+        }
+
+        return redirect()->route('school.login', ['school' => $school->slug]);
     }
 
     /** Dashboard with the signed in user's notification feed and role specific figures. */
@@ -109,6 +116,7 @@ class SchoolPortalController extends Controller
             'welcome_headline' => ['nullable', 'string', 'max:120'],
             'welcome_message' => ['nullable', 'string', 'max:400'],
             'login_layout' => ['nullable', Rule::in(array_keys(config('skulos.login_layouts')))],
+            'login_box_side' => ['nullable', Rule::in(['left', 'right'])],
             'logo' => ['nullable', 'image', 'max:2048'],
         ]);
 
@@ -122,6 +130,7 @@ class SchoolPortalController extends Controller
             'welcome_headline' => $data['welcome_headline'] ?? $school->welcome_headline,
             'welcome_message' => $data['welcome_message'] ?? $school->welcome_message,
             'login_layout' => $data['login_layout'] ?? $school->login_layout,
+            'login_box_side' => $data['login_box_side'] ?? $school->login_box_side,
         ])->save();
 
         return back()->with('status', 'Your school branding has been updated.');

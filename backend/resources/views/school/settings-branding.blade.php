@@ -73,6 +73,27 @@
         </div>
       </div>
 
+      <div class="field">
+        <label>Sign in box position</label>
+        <div class="hint" style="margin-bottom:.6rem">For the Split and Showcase designs: which side the sign in box appears on.</div>
+        <div class="login-picker" style="grid-template-columns:repeat(2,1fr)">
+          <label class="lpick">
+            <input type="radio" name="login_box_side" value="right" @checked(($b['login_box_side'] ?? 'right') === 'right') />
+            <div class="lpick-card">
+              <div class="lpick-mini"><span class="lpm-panel" style="width:55%"></span><span class="lpm-form"><i></i><i></i><b></b></span></div>
+              <div class="lpick-name">Right (default)</div>
+            </div>
+          </label>
+          <label class="lpick">
+            <input type="radio" name="login_box_side" value="left" @checked(($b['login_box_side'] ?? 'right') === 'left') />
+            <div class="lpick-card">
+              <div class="lpick-mini" style="flex-direction:row-reverse"><span class="lpm-panel" style="width:55%"></span><span class="lpm-form"><i></i><i></i><b></b></span></div>
+              <div class="lpick-name">Left</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
       <button class="btn btn-primary" type="submit">Save branding</button>
     </form>
   </div>

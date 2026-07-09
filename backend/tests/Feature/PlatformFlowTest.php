@@ -119,10 +119,14 @@ class PlatformFlowTest extends TestCase
 
     public function test_school_welcome_page_renders_branding(): void
     {
+        // The root URL is a guest redirect straight to the sign in page
+        // (no separate low content "click here" page in between), which
+        // renders the school's branding.
         $school = $this->provisionSchool('bright', 'Bright Stars');
         $school->update(['welcome_headline' => 'Hello Bright Stars', 'brand_color' => '#1B87D6']);
 
-        $this->get('http://bright.localhost/')
+        $this->get('http://bright.localhost/')->assertRedirect('http://bright.localhost/login');
+        $this->get('http://bright.localhost/login')
             ->assertOk()->assertSee('Hello Bright Stars')->assertSee('#1B87D6');
     }
 
@@ -251,6 +255,49 @@ class PlatformFlowTest extends TestCase
         $this->assertSame('showcase', $school->fresh()->login_layout);
     }
 
+    public function test_admin_can_choose_which_side_the_sign_in_box_appears_on(): void
+    {
+        $admin = $this->superAdmin();
+        $school = $this->provisionSchool('boxside', 'Box Side School');
+        $school->users()->syncWithoutDetaching([$admin->id => ['status' => 'active']]);
+
+        $this->assertSame('right', $school->branding()['login_box_side']);
+
+        $this->actingAs($admin)->post('http://boxside.localhost/settings/branding', [
+            'login_layout' => 'split',
+            'login_box_side' => 'left',
+        ])->assertRedirect();
+
+        $school->refresh();
+        $this->assertSame('left', $school->login_box_side);
+
+        // The "guest" middleware bounces an already signed in visitor away
+        // from /login, so sign out first to see the page as a visitor would.
+        $this->post('http://boxside.localhost/logout');
+        $this->get('http://boxside.localhost/login')->assertOk()->assertSee('box-left', false);
+    }
+
+    public function test_root_url_sends_guests_to_login_and_members_to_dashboard(): void
+    {
+        $school = $this->provisionSchool('rooturl', 'Root URL School');
+        $member = User::factory()->create();
+        $school->users()->attach($member->id, ['status' => 'active']);
+
+        $this->get('http://rooturl.localhost/')->assertRedirect('http://rooturl.localhost/login');
+        $this->actingAs($member)->get('http://rooturl.localhost/')
+            ->assertRedirect(route('school.dashboard', ['school' => 'rooturl']));
+    }
+
+    // The graceful-419 handler in bootstrap/app.php (a stale/expired CSRF
+    // token redirects back with a friendly message instead of Laravel's
+    // raw 419 page) is not covered by a feature test here: Laravel's
+    // VerifyCsrfToken middleware short circuits and skips verification
+    // entirely whenever runningUnitTests() is true, so a real
+    // TokenMismatchException cannot be triggered through the HTTP test
+    // client. Verified manually against the local dev server instead
+    // (a wrong _token now 302s back with session('error') set, where it
+    // previously rendered a bare 419 page).
+
     public function test_school_admin_can_update_branding(): void
     {
         $admin = $this->superAdmin();
@@ -266,6 +313,5 @@ class PlatformFlowTest extends TestCase
         $school->refresh();
         $this->assertSame('#12A97B', $school->brand_color);
         $this->assertSame('Welcome to Colorful School', $school->welcome_headline);
-        $this->get('http://colorful.localhost/')->assertSee('Welcome to Colorful School');
     }
 }

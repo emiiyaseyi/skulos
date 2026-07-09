@@ -1,5 +1,7 @@
 @if($errors->any())
   <div class="flash flash-bad" style="margin-bottom:1rem">{{ $errors->first() }}</div>
+@elseif(session('error'))
+  <div class="flash flash-bad" style="margin-bottom:1rem">{{ session('error') }}</div>
 @endif
 <form method="POST" action="{{ $school ? route('school.login.submit', ['school' => $school->slug]) : url('/login') }}">
   @csrf
