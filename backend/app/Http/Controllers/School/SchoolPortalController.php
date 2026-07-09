@@ -111,6 +111,7 @@ class SchoolPortalController extends Controller
             'brand_color' => ['nullable', 'regex:/^#([0-9a-fA-F]{6})$/'],
             'welcome_headline' => ['nullable', 'string', 'max:120'],
             'welcome_message' => ['nullable', 'string', 'max:400'],
+            'login_layout' => ['nullable', Rule::in(array_keys(config('skulos.login_layouts')))],
             'logo' => ['nullable', 'image', 'max:2048'],
         ]);
 
@@ -123,6 +124,7 @@ class SchoolPortalController extends Controller
             'brand_color' => $data['brand_color'] ?? $school->brand_color,
             'welcome_headline' => $data['welcome_headline'] ?? $school->welcome_headline,
             'welcome_message' => $data['welcome_message'] ?? $school->welcome_message,
+            'login_layout' => $data['login_layout'] ?? $school->login_layout,
         ])->save();
 
         return back()->with('status', 'Your school branding has been updated.');

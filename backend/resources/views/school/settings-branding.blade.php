@@ -1,5 +1,25 @@
 @extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => 'Branding'])
 @section('title', 'School Branding')
+
+@push('head')
+<style>
+  .login-picker{display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem}
+  .lpick{cursor:pointer}.lpick input{position:absolute;opacity:0}
+  .lpick-card{border:2px solid var(--line);border-radius:12px;padding:.5rem;transition:border-color .15s ease}
+  .lpick input:checked + .lpick-card{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+  .lpick-name{font-size:.8rem;font-weight:700;text-align:center;margin-top:.4rem}
+  .lpick-mini{height:60px;border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;background:var(--bg)}
+  .lpm-panel{background:color-mix(in srgb,var(--accent) 45%,transparent)}
+  .lpm-form{flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:8px}
+  .lpm-form i{height:6px;border-radius:3px;background:var(--soft);border:1px solid var(--line)}
+  .lpm-form b{height:9px;border-radius:3px;background:var(--accent);margin-top:2px}
+  .lpm-centered .lpm-panel{display:none}.lpm-centered .lpm-form{align-items:center}.lpm-centered .lpm-form i,.lpm-centered .lpm-form b{width:70%}
+  .lpm-split .lpm-panel{width:45%}
+  .lpm-cover{background:color-mix(in srgb,var(--accent) 20%,var(--bg))}.lpm-cover .lpm-panel{display:none}.lpm-cover .lpm-form{align-items:center}.lpm-cover .lpm-form i,.lpm-cover .lpm-form b{width:70%}
+  .lpm-showcase .lpm-panel{width:48%;background:var(--soft)}
+</style>
+@endpush
+
 @section('content')
 <div class="page-head">
   <div>
@@ -36,6 +56,23 @@
         <div class="hint">A square image works best. Up to 2 MB.</div>
         @error('logo')<div class="err">{{ $message }}</div>@enderror
       </div>
+
+      <div class="field">
+        <label>Login page design</label>
+        <div class="hint" style="margin-bottom:.6rem">How your school's sign in page is arranged. <a href="{{ route('school.login', ['school'=>$school->slug]) }}" target="_blank" rel="noopener">Preview it</a></div>
+        <div class="login-picker">
+          @foreach(config('skulos.login_layouts') as $key => $meta)
+            <label class="lpick">
+              <input type="radio" name="login_layout" value="{{ $key }}" @checked($b['login_layout'] === $key) />
+              <div class="lpick-card">
+                <div class="lpick-mini lpm-{{ $key }}"><span class="lpm-panel"></span><span class="lpm-form"><i></i><i></i><b></b></span></div>
+                <div class="lpick-name">{{ $meta['label'] }}</div>
+              </div>
+            </label>
+          @endforeach
+        </div>
+      </div>
+
       <button class="btn btn-primary" type="submit">Save branding</button>
     </form>
   </div>

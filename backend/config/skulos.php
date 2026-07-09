@@ -145,6 +145,19 @@ return [
         'calendar' => ['label' => 'Upcoming calendar', 'default' => true],
     ],
 
+    /*
+    | Login page designs a school can choose (like dashboard layouts). All
+    | render the same form; they differ in arrangement. Admin picks in
+    | branding settings; stored on schools.login_layout. Nothing hardcoded.
+    */
+    'login_layouts' => [
+        'centered' => ['label' => 'Centered', 'description' => 'A single clean card in the middle of the page.'],
+        'split' => ['label' => 'Split screen', 'description' => 'A branded panel beside the sign in form.'],
+        'cover' => ['label' => 'Cover', 'description' => 'A full brand colour background with the form floating on top.'],
+        'showcase' => ['label' => 'Showcase', 'description' => 'The form beside a welcome message and highlights.'],
+    ],
+    'default_login_layout' => 'split',
+
     'permission_actions' => ['view', 'create', 'update', 'delete', 'export', 'bulk'],
 
     'extra_permissions' => [

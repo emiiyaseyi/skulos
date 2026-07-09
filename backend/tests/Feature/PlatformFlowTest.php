@@ -72,21 +72,49 @@ class PlatformFlowTest extends TestCase
         $this->actingAs($this->superAdmin())->get('http://localhost/admin')->assertOk()->assertSee('Platform Administration');
     }
 
-    public function test_super_admin_can_create_a_school_which_gets_provisioned(): void
+    public function test_super_admin_can_create_a_school_with_its_own_admin(): void
     {
         $admin = $this->superAdmin();
 
         $this->actingAs($admin)->post('http://localhost/admin/schools', [
             'name' => 'Greenfield Academy',
             'slug' => 'greenfield',
+            'admin_name' => 'Jane Head',
+            'admin_email' => 'jane@greenfield.test',
+            'admin_password' => 'setup-pass-123',
         ])->assertRedirect(route('admin.dashboard'));
 
         $school = School::where('slug', 'greenfield')->first();
         $this->assertNotNull($school);
         $this->assertTrue($school->isProvisioned());
         $this->assertSame(School::STATUS_ACTIVE, $school->status);
-        // creator attached as a member
-        $this->assertTrue($admin->fresh()->isMemberOf($school));
+
+        // The school administrator was created and attached (not the super admin).
+        $schoolAdmin = User::where('email', 'jane@greenfield.test')->first();
+        $this->assertNotNull($schoolAdmin);
+        $this->assertFalse($schoolAdmin->is_super_admin);
+        $this->assertTrue($schoolAdmin->isMemberOf($school));
+    }
+
+    public function test_creating_a_school_requires_admin_login_details(): void
+    {
+        $this->actingAs($this->superAdmin())
+            ->post('http://localhost/admin/schools', ['name' => 'No Admin School'])
+            ->assertSessionHasErrors(['admin_name', 'admin_email', 'admin_password']);
+    }
+
+    public function test_the_created_school_admin_can_sign_in(): void
+    {
+        $this->actingAs($this->superAdmin())->post('http://localhost/admin/schools', [
+            'name' => 'Sunrise', 'slug' => 'sunrise',
+            'admin_name' => 'Sam Admin', 'admin_email' => 'sam@sunrise.test', 'admin_password' => 'sunrise-pass-1',
+        ]);
+        $this->app['auth']->forgetGuards(); // drop the super-admin session
+
+        $this->post('http://sunrise.localhost/login', [
+            'email' => 'sam@sunrise.test', 'password' => 'sunrise-pass-1',
+        ])->assertRedirect(route('school.dashboard', ['school' => 'sunrise']));
+        $this->assertAuthenticated();
     }
 
     public function test_school_welcome_page_renders_branding(): void
@@ -157,6 +185,34 @@ class PlatformFlowTest extends TestCase
             ->assertStatus(302)
             ->assertSessionHasErrors('email');
         $this->assertGuest(); // rejected: not a member of this school
+    }
+
+    public function test_school_login_uses_the_chosen_design(): void
+    {
+        $school = $this->provisionSchool('designed', 'Designed School');
+        $school->update(['login_layout' => 'split', 'welcome_headline' => 'Hello Designed']);
+
+        // split design renders the branded panel markup
+        $this->get('http://designed.localhost/login')
+            ->assertOk()
+            ->assertSee('lp-split', false)
+            ->assertSee('Hello Designed');
+
+        $school->update(['login_layout' => 'cover']);
+        $this->get('http://designed.localhost/login')->assertOk()->assertSee('lp-cover', false);
+    }
+
+    public function test_admin_can_change_login_design(): void
+    {
+        $admin = $this->superAdmin();
+        $school = $this->provisionSchool('pick', 'Pick School');
+        $school->users()->syncWithoutDetaching([$admin->id => ['status' => 'active']]);
+
+        $this->actingAs($admin)->post('http://pick.localhost/settings/branding', [
+            'login_layout' => 'showcase',
+        ])->assertRedirect();
+
+        $this->assertSame('showcase', $school->fresh()->login_layout);
     }
 
     public function test_school_admin_can_update_branding(): void

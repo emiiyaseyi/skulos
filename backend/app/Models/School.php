@@ -34,6 +34,7 @@ class School extends Model
         'brand_color',
         'welcome_headline',
         'welcome_message',
+        'login_layout',
         'status',
         'settings',
     ];
@@ -44,11 +45,16 @@ class School extends Model
      */
     public function branding(): array
     {
+        $layouts = array_keys(config('skulos.login_layouts', []));
+
         return [
             'color' => $this->brand_color ?: '#E8A33D',
             'logo' => $this->logo_path,
             'headline' => $this->welcome_headline ?: "Welcome to {$this->name}",
             'message' => $this->welcome_message ?: 'Sign in to continue to your school portal.',
+            'login_layout' => in_array($this->login_layout, $layouts, true)
+                ? $this->login_layout
+                : config('skulos.default_login_layout', 'centered'),
         ];
     }
 

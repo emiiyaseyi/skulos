@@ -89,8 +89,12 @@ Progress toward these:
 - [ ] Re-skin the **4 dashboard-look layouts** to actually resemble templates 1-4 (accent-bar stat cards, donut pills, charts, top-students cards, notice board). Currently the 4 layouts are structural arrangements; next step is the rich per-template styling.
 - [ ] Bug fixed during this work: a `.scrim` mobile-overlay div had no base style, so on desktop it sat in the CSS grid and pushed the main content into a wrapped (blank) row. Fixed with `.scrim{display:none}` base. (Caught by browser QA, not tests — the HTML was correct, only the CSS layout was wrong.)
 
-## Login page design options (user request 2026-07-09) — IN PROGRESS
-- [ ] Several **named login-page designs** a school picks from (like the dashboard templates), including a SAFSIMS-style **split screen** (brand/illustration panel + form). `login_layout` column added to `schools`; config catalog started; the login views + picker + preview still to build.
+## Login page design options (user request 2026-07-09) — DONE
+- [x] Four **named login designs** a school picks from: **Centered, Split screen, Cover, Showcase** (config `login_layouts`, stored on `schools.login_layout`, default split). The split design matches the SAFSIMS-style brand-panel-beside-form the user referenced; all use the school's brand colour + logo + welcome copy. Verified in browser (split renders branded per school).
+- [x] Picker with mini visual previews added to the school branding settings, plus a "Preview it" link to the live page. Enabled SSO buttons (Google/Outlook) render on the login form when configured. 4 tests.
+
+## School creation now provisions a school administrator (user request 2026-07-09) — DONE
+- [x] The create-school form now requires the **school administrator's name, email, and a temporary password**. On submit it creates (or reuses) that user, hashes the password, and attaches them as the school **owner** (school-owner role). That administrator signs in on the subdomain to finish setup; the platform super admin is no longer auto-attached (super admins can still access any school via the membership guard bypass). 3 tests (creates+attaches admin, requires the fields, the created admin can sign in).
 
 ## Build Log (live status while building — updated as we go)
 

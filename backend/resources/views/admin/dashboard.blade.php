@@ -12,7 +12,7 @@
 <div class="grid cols-2" style="align-items:start">
   <div class="card">
     <h3>Create a school</h3>
-    <p style="margin-bottom:1.1rem">A new school gets its own database, calendar defaults, and subdomain.</p>
+    <p style="margin-bottom:1.1rem">A new school gets its own database, calendar defaults, subdomain, and an administrator who signs in to finish setup.</p>
     <form method="POST" action="{{ route('admin.schools.store') }}">
       @csrf
       <div class="field">
@@ -20,23 +20,42 @@
         <input id="name" name="name" value="{{ old('name') }}" required placeholder="Greenfield Academy" />
         @error('name')<div class="err">{{ $message }}</div>@enderror
       </div>
-      <div class="field">
-        <label for="slug">Subdomain</label>
-        <input id="slug" name="slug" value="{{ old('slug') }}" placeholder="greenfield" />
-        <div class="hint">Leave blank to generate from the name. Becomes yourslug.{{ config('app.domain', 'localhost') }}</div>
-        @error('slug')<div class="err">{{ $message }}</div>@enderror
-      </div>
       <div class="grid cols-2">
         <div class="field">
-          <label for="email">Contact email</label>
-          <input id="email" name="email" type="email" value="{{ old('email') }}" />
+          <label for="slug">Subdomain</label>
+          <input id="slug" name="slug" value="{{ old('slug') }}" placeholder="greenfield" />
+          <div class="hint">Blank = from name. Becomes yourslug.{{ config('app.domain', 'localhost') }}</div>
+          @error('slug')<div class="err">{{ $message }}</div>@enderror
         </div>
         <div class="field">
           <label for="phone">Contact phone</label>
           <input id="phone" name="phone" value="{{ old('phone') }}" />
         </div>
       </div>
-      <button class="btn btn-primary btn-block" type="submit">Create school</button>
+
+      <div style="border-top:1px solid var(--line);margin:.3rem 0 1rem;padding-top:1rem">
+        <b style="font-size:.85rem">School administrator login</b>
+        <p class="hint" style="margin-bottom:.8rem">The details this school's administrator will sign in with to complete setup.</p>
+      </div>
+      <div class="field">
+        <label for="admin_name">Administrator name</label>
+        <input id="admin_name" name="admin_name" value="{{ old('admin_name') }}" required placeholder="Jane Doe" />
+        @error('admin_name')<div class="err">{{ $message }}</div>@enderror
+      </div>
+      <div class="grid cols-2">
+        <div class="field">
+          <label for="admin_email">Administrator email</label>
+          <input id="admin_email" name="admin_email" type="email" value="{{ old('admin_email') }}" required placeholder="admin@school.com" />
+          @error('admin_email')<div class="err">{{ $message }}</div>@enderror
+        </div>
+        <div class="field">
+          <label for="admin_password">Temporary password</label>
+          <input id="admin_password" name="admin_password" type="text" required placeholder="at least 8 characters" />
+          <div class="hint">Share this with the administrator.</div>
+          @error('admin_password')<div class="err">{{ $message }}</div>@enderror
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit">Create school and admin</button>
     </form>
   </div>
 
