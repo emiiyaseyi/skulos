@@ -16,6 +16,7 @@
 <div class="side-group">Platform</div>
 {!! $item('admin.dashboard', 'Dashboard', 'dashboard') !!}
 {!! $item('admin.dashboard', 'Schools', 'school') !!}
+{!! $item('admin.schools.archive-list', 'Archive', 'library') !!}
 
 <div class="side-group">Coming soon</div>
 {!! $soon('Billing', 'results') !!}

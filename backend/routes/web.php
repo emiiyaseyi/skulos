@@ -37,6 +37,8 @@ Route::domain($appDomain)->group(function () {
     Route::middleware(['auth', 'super_admin'])->prefix('admin')->name('admin.')->group(function () {
         Route::get('/', [SchoolAdminController::class, 'dashboard'])->name('dashboard');
         Route::post('/schools', [SchoolAdminController::class, 'store'])->name('schools.store');
+        Route::get('/schools/archive', [SchoolAdminController::class, 'trashed'])->name('schools.archive-list');
+        Route::post('/schools/{schoolId}/restore', [SchoolAdminController::class, 'restore'])->name('schools.restore');
         Route::get('/schools/{school}', [SchoolAdminController::class, 'show'])->name('schools.show');
         Route::post('/schools/{school}/admins', [SchoolAdminController::class, 'storeAdmin'])->name('schools.admins.store');
         Route::post('/schools/{school}/admins/{user}/reset-password', [SchoolAdminController::class, 'resetAdminPassword'])->name('schools.admins.reset-password');

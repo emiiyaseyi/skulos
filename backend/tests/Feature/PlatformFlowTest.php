@@ -251,6 +251,23 @@ class PlatformFlowTest extends TestCase
         $this->get('http://lifecycle.localhost/')->assertNotFound();
     }
 
+    public function test_a_deleted_school_appears_in_the_archive_and_can_be_restored(): void
+    {
+        $admin = $this->superAdmin();
+        $school = $this->provisionSchool('archivable', 'Archivable School');
+
+        $this->actingAs($admin)->delete("http://localhost/admin/schools/{$school->id}")->assertRedirect();
+
+        $this->actingAs($admin)->get('http://localhost/admin/schools/archive')
+            ->assertOk()->assertSee('Archivable School');
+
+        $this->actingAs($admin)->post("http://localhost/admin/schools/{$school->id}/restore")->assertRedirect();
+
+        $this->assertNull(School::find($school->id)?->deleted_at);
+        $this->assertDatabaseHas('schools', ['id' => $school->id, 'deleted_at' => null]);
+        $this->assertSame(0, School::onlyTrashed()->count());
+    }
+
     public function test_lifecycle_actions_require_super_admin(): void
     {
         $school = $this->provisionSchool('guarded', 'Guarded');

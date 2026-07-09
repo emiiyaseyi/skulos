@@ -109,7 +109,25 @@ class SchoolAdminController extends Controller
         $name = $school->name;
         $school->delete();
 
-        return back()->with('status', "{$name} has been removed. Its database is retained and it can be restored if needed.");
+        return redirect()->route('admin.dashboard')
+            ->with('status', "{$name} has been removed and moved to the archive. Its database is retained and it can be restored at any time.");
+    }
+
+    /** Deleted schools, still recoverable (user request 2026-07-09). */
+    public function trashed(): \Illuminate\View\View
+    {
+        $schools = School::onlyTrashed()->orderByDesc('deleted_at')->get();
+
+        return view('admin.trashed', ['schools' => $schools]);
+    }
+
+    /** Bring a deleted school back onto the active schools list. */
+    public function restore(string $schoolId): RedirectResponse
+    {
+        $school = School::onlyTrashed()->findOrFail($schoolId);
+        $school->restore();
+
+        return back()->with('status', "{$school->name} has been restored.");
     }
 
     public function show(School $school): \Illuminate\View\View
