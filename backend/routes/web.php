@@ -52,6 +52,8 @@ Route::domain($appDomain)->group(function () {
 */
 
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+Route::post('/session/keep-alive', [\App\Http\Controllers\SessionController::class, 'keepAlive'])
+    ->middleware('auth')->name('session.keep-alive');
 
 Route::get('/auth/{provider}/redirect', [SsoController::class, 'redirect'])
     ->whereIn('provider', \App\Services\Auth\SsoManager::PROVIDERS)->name('sso.redirect');

@@ -54,6 +54,18 @@ return [
     ],
 
     /*
+    | Platform support contact, shown on sign in pages so a locked out
+    | admin/user has somewhere to turn. Same details published on the
+    | marketing site's Privacy/Terms pages; kept here as the single
+    | source so both stay in sync (env overridable, never hardcoded
+    | into a view).
+    */
+    'support' => [
+        'email' => env('SKULOS_SUPPORT_EMAIL', 'info@skulos.app'),
+        'phone' => env('SKULOS_SUPPORT_PHONE', '+234 802 337 3302'),
+    ],
+
+    /*
     | Permission actions generated for every module: "{module}.{action}".
     | Modules can add extra actions of their own via "extra_permissions".
     */
@@ -80,6 +92,19 @@ return [
     | the model or validation.
     */
     'attendance_statuses' => ['present', 'absent', 'late', 'excused'],
+
+    /*
+    | Idle session security timeout (user request 2026-07-09). After no
+    | activity on an authenticated page for "idle_seconds", a warning
+    | modal counts down "warning_seconds" with a Resume or Log out
+    | choice; resuming extends the session, letting the countdown reach
+    | zero signs the user out automatically. Values are seconds and are
+    | admin editable later via env/config, never hardcoded in the JS.
+    */
+    'session_timeout' => [
+        'idle_seconds' => env('SESSION_IDLE_SECONDS', 30),
+        'warning_seconds' => env('SESSION_IDLE_WARNING_SECONDS', 15),
+    ],
 
     /*
     | Communication channels. Only enabled channels are attempted. Email is

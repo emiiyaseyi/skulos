@@ -155,6 +155,38 @@ class PlatformFlowTest extends TestCase
             ->assertOk()->assertSee('Unity');
     }
 
+    public function test_error_pages_use_the_branded_template_not_the_framework_default(): void
+    {
+        $school = $this->provisionSchool('errorpage', 'Error Page School');
+        $school->update(['status' => \App\Models\School::STATUS_SUSPENDED]);
+
+        $this->get('http://errorpage.localhost/login')
+            ->assertForbidden()
+            ->assertSee('SK', false)
+            ->assertSee('This school is currently suspended', false)
+            ->assertDontSee('Whoops');
+    }
+
+    public function test_idle_timeout_modal_and_keep_alive_route_are_wired_up(): void
+    {
+        $school = $this->provisionSchool('idlecheck', 'Idle Check');
+        $teacher = User::factory()->create();
+        $school->users()->attach($teacher->id, ['status' => 'active']);
+
+        $this->actingAs($teacher)->get('http://idlecheck.localhost/dashboard')
+            ->assertOk()
+            ->assertSee('idleScrim', false)
+            ->assertSee((string) config('skulos.session_timeout.idle_seconds'), false);
+
+        $this->actingAs($teacher)->post(route('session.keep-alive'))
+            ->assertOk()->assertJson(['ok' => true]);
+    }
+
+    public function test_keep_alive_requires_authentication(): void
+    {
+        $this->post(route('session.keep-alive'))->assertRedirect('/login');
+    }
+
     public function test_member_of_one_school_cannot_view_another_schools_dashboard(): void
     {
         // Sessions are shared across subdomains, so this guard is what stops

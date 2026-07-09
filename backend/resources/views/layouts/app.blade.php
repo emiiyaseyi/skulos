@@ -114,6 +114,14 @@ tr:last-child td{border-bottom:none}
 .flash{padding:.85rem 1.1rem;border-radius:12px;margin-bottom:1.2rem;font-weight:600;font-size:.9rem;border:1px solid}
 .flash-ok{background:color-mix(in srgb,var(--ok) 12%,transparent);border-color:color-mix(in srgb,var(--ok) 40%,transparent);color:var(--ok)}
 .flash-bad{background:color-mix(in srgb,var(--bad) 12%,transparent);border-color:color-mix(in srgb,var(--bad) 40%,transparent);color:var(--bad)}
+.idle-scrim{position:fixed;inset:0;background:rgba(8,12,20,.6);z-index:200;display:none;place-items:center;padding:1.25rem}
+.idle-scrim.show{display:grid}
+.idle-card{width:100%;max-width:22rem;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:1.8rem;box-shadow:var(--shadow);text-align:center}
+.idle-card .idle-count{font-size:2.4rem;font-weight:800;color:var(--bad);margin:.6rem 0 1rem;font-variant-numeric:tabular-nums}
+.idle-card h3{font-size:1.1rem;font-weight:800}
+.idle-card p{color:var(--mut);margin-top:.3rem}
+.idle-actions{display:flex;gap:.6rem;margin-top:1.3rem}
+.idle-actions button{flex:1}
 .muted{color:var(--mut)}.stack{display:flex;flex-direction:column;gap:.4rem}
 .row-between{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 .notif{display:flex;gap:.75rem;padding:.8rem 0;border-bottom:1px solid var(--line)}
@@ -206,6 +214,22 @@ tr:last-child td{border-bottom:none}
     </div>
   </div>
 </div>
+
+{{-- Idle session security timeout (user request 2026-07-09): after no
+     activity for session_timeout.idle_seconds, warn with a countdown of
+     session_timeout.warning_seconds before signing out automatically. --}}
+<div class="idle-scrim" id="idleScrim" role="alertdialog" aria-modal="true" aria-labelledby="idleTitle">
+  <div class="idle-card">
+    <h3 id="idleTitle">Are you still there?</h3>
+    <p>For your security, you will be signed out soon due to inactivity.</p>
+    <div class="idle-count" id="idleCount">15</div>
+    <div class="idle-actions">
+      <button class="btn btn-ghost" type="button" id="idleLogoutBtn">Log out</button>
+      <button class="btn btn-primary" type="button" id="idleResumeBtn">Resume</button>
+    </div>
+  </div>
+</div>
+<form method="POST" action="{{ url('/logout') }}" id="idleLogoutForm" style="display:none">@csrf</form>
 @endif
 
 <script>
@@ -228,6 +252,59 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
       try{ localStorage.setItem('skulos-side', shell.classList.contains('collapsed')?'collapsed':'open'); }catch(e){}
     });
   }
+})();
+(function(){
+  var scrim=document.getElementById('idleScrim');
+  if(!scrim) return; // bare pages (login, etc.) have no authenticated session to guard
+
+  var idleMs=({{ (int) config('skulos.session_timeout.idle_seconds', 30) }})*1000;
+  var warnMs=({{ (int) config('skulos.session_timeout.warning_seconds', 15) }})*1000;
+  var countEl=document.getElementById('idleCount'),
+      resumeBtn=document.getElementById('idleResumeBtn'),
+      logoutBtn=document.getElementById('idleLogoutBtn'),
+      logoutForm=document.getElementById('idleLogoutForm');
+  var idleTimer=null, countdownTimer=null, secondsLeft=0;
+
+  function doLogout(){ logoutForm.submit(); }
+
+  function tickCountdown(){
+    secondsLeft--;
+    countEl.textContent=secondsLeft;
+    if(secondsLeft<=0){ clearInterval(countdownTimer); doLogout(); }
+  }
+
+  function showWarning(){
+    secondsLeft=Math.round(warnMs/1000);
+    countEl.textContent=secondsLeft;
+    scrim.classList.add('show');
+    countdownTimer=setInterval(tickCountdown,1000);
+  }
+
+  function resetIdleTimer(){
+    clearTimeout(idleTimer);
+    idleTimer=setTimeout(showWarning,idleMs);
+  }
+
+  function resume(){
+    clearInterval(countdownTimer);
+    scrim.classList.remove('show');
+    resetIdleTimer();
+    fetch('{{ route('session.keep-alive') }}', {
+      method:'POST',
+      headers:{'X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]')?.content||'','Accept':'application/json'}
+    }).catch(function(){});
+  }
+
+  resumeBtn.addEventListener('click',resume);
+  logoutBtn.addEventListener('click',doLogout);
+
+  ['mousemove','keydown','click','scroll','touchstart'].forEach(function(evt){
+    document.addEventListener(evt,function(){
+      if(!scrim.classList.contains('show')) resetIdleTimer();
+    },{passive:true});
+  });
+
+  resetIdleTimer();
 })();
 </script>
 @stack('scripts')

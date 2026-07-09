@@ -14,6 +14,8 @@
   .sso-sep::before,.sso-sep::after{content:"";flex:1;height:1px;background:var(--line)}
   .sso-row{display:flex;flex-direction:column;gap:.5rem}
   .powered{font-size:.75rem;color:var(--mut-dim);margin-top:1.2rem;text-align:center}
+  .support-line{font-size:.75rem;color:var(--mut-dim);margin-top:.4rem;text-align:center}
+  .support-line a{color:inherit;text-decoration:underline;text-underline-offset:2px}
 
   /* centered */
   .lp-centered{display:grid;place-items:center;padding:2rem 1.25rem;position:relative;overflow:hidden}
@@ -116,7 +118,7 @@
           <div class="lp-head">Sign in</div>
           <p class="lp-sub">Welcome back. Please enter your details.</p>
           @include('auth.partials.login-form', ['school' => $school])
-          <div class="powered">Powered by <span class="skword">SK<em>U</em>LOS</span></div>
+          @include('auth.partials.powered')
         </div>
       </div>
     </div>
@@ -130,7 +132,7 @@
         <div class="lp-head">{{ $b['headline'] }}</div>
         <p class="lp-sub">{{ $b['message'] }}</p>
         @include('auth.partials.login-form', ['school' => $school])
-        <div class="powered">Powered by <span class="skword">SK<em>U</em>LOS</span></div>
+        @include('auth.partials.powered')
       </div>
     </div>
     @break
@@ -155,6 +157,7 @@
           <div class="lp-head">Sign in</div>
           <p class="lp-sub">Continue to your school portal.</p>
           @include('auth.partials.login-form', ['school' => $school])
+          @include('auth.partials.powered')
         </div>
       </div>
     </div>
@@ -168,7 +171,15 @@
         <div class="lp-head">{{ $b['headline'] }}</div>
         <p class="lp-sub">{{ $b['message'] }}</p>
         @include('auth.partials.login-form', ['school' => $school])
-        @unless($school)<p class="powered">Platform administration</p>@endunless
+        @if($school)
+          @include('auth.partials.powered')
+        @else
+          <p class="powered">Platform administration</p>
+          <div class="support-line">
+            Need help? <a href="mailto:{{ config('skulos.support.email') }}">{{ config('skulos.support.email') }}</a>
+            &middot; <a href="tel:{{ str_replace(' ', '', config('skulos.support.phone')) }}">{{ config('skulos.support.phone') }}</a>
+          </div>
+        @endif
       </div>
     </div>
 @endswitch
