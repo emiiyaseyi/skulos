@@ -76,5 +76,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::post('/notifications/{id}/read', [SchoolPortalController::class, 'markNotificationRead'])->name('school.notifications.read');
         Route::get('/settings/branding', [SchoolPortalController::class, 'editBranding'])->name('school.branding.edit');
         Route::post('/settings/branding', [SchoolPortalController::class, 'updateBranding'])->name('school.branding.update');
+        Route::get('/settings/dashboard', [SchoolPortalController::class, 'editDashboard'])->name('school.dashboard.edit');
+        Route::post('/settings/dashboard', [SchoolPortalController::class, 'updateDashboard'])->name('school.dashboard.update');
     });
 });

@@ -8,8 +8,10 @@ use App\Models\Tenant\Notification;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\Staff;
 use App\Models\Tenant\CalendarEvent;
+use App\Services\Dashboard\DashboardPreferences;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 /**
  * The per-school portal: a branded welcome/login page, a dashboard with the
@@ -36,7 +38,7 @@ class SchoolPortalController extends Controller
     }
 
     /** Dashboard with the signed in user's notification feed. */
-    public function dashboard(Request $request): \Illuminate\View\View
+    public function dashboard(Request $request, DashboardPreferences $prefs): \Illuminate\View\View
     {
         $school = $this->school($request);
         $feed = Notification::feedFor(Auth::id());
@@ -51,7 +53,35 @@ class SchoolPortalController extends Controller
                 'events' => CalendarEvent::count(),
             ],
             'upcoming' => CalendarEvent::upcoming()->limit(5)->get(),
+            'layout' => $prefs->layout(),
+            'widgets' => $prefs->widgets(),
         ]);
+    }
+
+    /** Dashboard appearance settings: layout template + widget visibility. */
+    public function editDashboard(Request $request, DashboardPreferences $prefs): \Illuminate\View\View
+    {
+        $school = $this->school($request);
+
+        return view('school.settings-dashboard', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'currentLayout' => $prefs->layout(),
+            'widgets' => $prefs->widgets(),
+        ]);
+    }
+
+    public function updateDashboard(Request $request, DashboardPreferences $prefs): \Illuminate\Http\RedirectResponse
+    {
+        $data = $request->validate([
+            'layout' => ['required', 'string', Rule::in(array_keys(config('skulos.dashboard_layouts')))],
+            'widgets' => ['array'],
+        ]);
+
+        $prefs->setLayout($data['layout']);
+        $prefs->setWidgets($request->input('widgets', []));
+
+        return back()->with('status', 'Your dashboard look has been updated.');
     }
 
     public function markNotificationRead(Request $request, string $school, int $id): \Illuminate\Http\RedirectResponse

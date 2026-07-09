@@ -1,57 +1,59 @@
 @extends('layouts.app', ['accent' => $accent, 'homeUrl' => route('school.dashboard', ['school' => $school->slug])])
 @section('title', $school->name.' Dashboard')
+
+@php
+  // Widget partials rendered by the chosen layout, honouring visibility.
+  $show = fn($w) => ($widgets[$w] ?? false);
+@endphp
+
 @section('content')
 <div class="page-head">
   <div>
     <h1 class="title">{{ $school->name }}</h1>
-    <p class="subtitle">Welcome back, {{ auth()->user()->name }}.</p>
+    @if($show('greeting'))<p class="subtitle">Welcome back, {{ auth()->user()->name }}. Here is what is happening today.</p>@endif
   </div>
-  <a class="btn btn-ghost btn-sm" href="{{ route('school.branding.edit', ['school' => $school->slug]) }}">School branding</a>
+  <div class="stack" style="flex-direction:row;gap:.5rem">
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.dashboard.edit', ['school' => $school->slug]) }}">Dashboard look</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.branding.edit', ['school' => $school->slug]) }}">Branding</a>
+  </div>
 </div>
 
-<div class="grid cols-3" style="margin-bottom:1.5rem">
-  <div class="card stat"><b>{{ $stats['students'] }}</b><span>Students</span></div>
-  <div class="card stat"><b>{{ $stats['staff'] }}</b><span>Staff</span></div>
-  <div class="card stat"><b>{{ $stats['events'] }}</b><span>Calendar Events</span></div>
-</div>
+@php
+  $stats = view('school.widgets.stats', ['stats' => $stats])->render();
+  $notes = view('school.widgets.notifications', ['feed' => $feed, 'school' => $school])->render();
+  $cal = view('school.widgets.calendar', ['upcoming' => $upcoming])->render();
+@endphp
 
-<div class="grid cols-2" style="align-items:start">
-  <div class="card">
-    <div class="row-between" style="margin-bottom:.6rem">
-      <h3>Notifications</h3>
-      @if($feed['unread'] > 0)<span class="badge badge-warn">{{ $feed['unread'] }} new</span>@endif
+@switch($layout)
+  @case('focus')
+    @if($show('stats'))<div class="grid cols-4" style="margin-bottom:1.25rem">{!! $stats !!}</div>@endif
+    <div class="grid" style="gap:1.1rem">
+      @if($show('notifications')){!! $notes !!}@endif
+      @if($show('calendar')){!! $cal !!}@endif
     </div>
-    @forelse($feed['items'] as $n)
-      <div class="notif">
-        <span class="dot {{ $n->read_at ? 'read' : '' }}"></span>
-        <div style="flex:1">
-          <b>{{ $n->title }}</b>
-          @if($n->body)<div class="muted" style="font-size:.85rem">{{ \Illuminate\Support\Str::limit($n->body, 120) }}</div>@endif
-          <small>{{ $n->created_at->diffForHumans() }}</small>
-        </div>
-        @unless($n->read_at)
-          <form method="POST" action="{{ route('school.notifications.read', ['school' => $school->slug, 'id' => $n->id]) }}">
-            @csrf<button class="btn btn-ghost btn-sm">Mark read</button>
-          </form>
-        @endunless
-      </div>
-    @empty
-      <p class="muted">You have no notifications yet. School announcements will appear here.</p>
-    @endforelse
-  </div>
+    @break
 
-  <div class="card">
-    <h3>Upcoming on the calendar</h3>
-    <p style="margin-bottom:.8rem">Notable days and events for your school.</p>
-    @forelse($upcoming as $event)
-      <div class="notif">
-        <span class="dot"></span>
-        <div style="flex:1"><b>{{ $event->title }}</b><small> {{ $event->starts_on?->toFormattedDateString() }}</small></div>
-        <span class="badge badge-ok">{{ ucfirst($event->category) }}</span>
-      </div>
-    @empty
-      <p class="muted">No dated events yet. Your calendar was seeded with default notable days you can date in settings.</p>
-    @endforelse
-  </div>
-</div>
+  @case('analytics')
+    @if($show('stats'))<div class="grid cols-3" style="margin-bottom:1.25rem">{!! $stats !!}</div>@endif
+    <div class="grid cols-2" style="align-items:start">
+      @if($show('calendar')){!! $cal !!}@endif
+      @if($show('notifications')){!! $notes !!}@endif
+    </div>
+    @break
+
+  @case('compact')
+    <div class="grid" style="gap:1rem;max-width:38rem">
+      @if($show('stats'))<div class="grid cols-3">{!! $stats !!}</div>@endif
+      @if($show('notifications')){!! $notes !!}@endif
+      @if($show('calendar')){!! $cal !!}@endif
+    </div>
+    @break
+
+  @default {{-- classic --}}
+    @if($show('stats'))<div class="grid cols-3" style="margin-bottom:1.5rem">{!! $stats !!}</div>@endif
+    <div class="grid cols-2" style="align-items:start">
+      @if($show('notifications')){!! $notes !!}@endif
+      @if($show('calendar')){!! $cal !!}@endif
+    </div>
+@endswitch
 @endsection

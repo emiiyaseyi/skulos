@@ -124,6 +124,27 @@ return [
         ['title' => 'Public Holiday', 'category' => 'holiday'],
     ],
 
+    /*
+    | Dashboard look. A school picks one layout at setup and can change it in
+    | settings; it can also show or hide individual widgets. Both are stored
+    | per school in tenant settings (admin editable, nothing hardcoded); the
+    | values here are the catalog + defaults.
+    */
+    'dashboard_layouts' => [
+        'classic' => ['label' => 'Classic', 'description' => 'A stats row above two columns of notifications and calendar.'],
+        'focus' => ['label' => 'Focus', 'description' => 'Notifications front and centre, stats as a slim strip.'],
+        'analytics' => ['label' => 'Analytics', 'description' => 'Large headline figures with supporting panels below.'],
+        'compact' => ['label' => 'Compact', 'description' => 'A single dense column, good for smaller screens.'],
+    ],
+    'default_dashboard_layout' => 'classic',
+
+    'dashboard_widgets' => [
+        'greeting' => ['label' => 'Welcome greeting', 'default' => true],
+        'stats' => ['label' => 'Key figures', 'default' => true],
+        'notifications' => ['label' => 'Notifications', 'default' => true],
+        'calendar' => ['label' => 'Upcoming calendar', 'default' => true],
+    ],
+
     'permission_actions' => ['view', 'create', 'update', 'delete', 'export', 'bulk'],
 
     'extra_permissions' => [
