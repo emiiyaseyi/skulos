@@ -131,10 +131,10 @@ return [
     | values here are the catalog + defaults.
     */
     'dashboard_layouts' => [
-        'classic' => ['label' => 'Classic', 'description' => 'A stats row above two columns of notifications and calendar.'],
-        'focus' => ['label' => 'Focus', 'description' => 'Notifications front and centre, stats as a slim strip.'],
-        'analytics' => ['label' => 'Analytics', 'description' => 'Large headline figures with supporting panels below.'],
-        'compact' => ['label' => 'Compact', 'description' => 'A single dense column, good for smaller screens.'],
+        'classic' => ['label' => 'Classic School', 'description' => 'Accent bar figure cards above notifications and the calendar.'],
+        'vibrant' => ['label' => 'Vibrant', 'description' => 'A colourful welcome banner with rounded figure tiles.'],
+        'erp' => ['label' => 'ERP', 'description' => 'Solid colour figure tiles with a notice board, a dense admin look.'],
+        'modern' => ['label' => 'Modern', 'description' => 'A welcome banner with ringed figure pills and clean panels.'],
     ],
     'default_dashboard_layout' => 'classic',
 

@@ -51,10 +51,10 @@ class DashboardPreferencesTest extends TestCase
     public function test_setting_layout_and_widgets_persists(): void
     {
         $prefs = app(DashboardPreferences::class);
-        $prefs->setLayout('analytics');
+        $prefs->setLayout('erp');
         $prefs->setWidgets(['stats' => true, 'notifications' => false, 'calendar' => true, 'greeting' => true]);
 
-        $this->assertSame('analytics', app(DashboardPreferences::class)->layout());
+        $this->assertSame('erp', app(DashboardPreferences::class)->layout());
         $this->assertFalse(app(DashboardPreferences::class)->shows('notifications'));
     }
 
@@ -68,18 +68,18 @@ class DashboardPreferencesTest extends TestCase
     {
         $res = $this->actingAs($this->member)->get('http://dash.localhost/settings/dashboard');
         $res->assertOk()
-            ->assertSee('Classic')->assertSee('Focus')
-            ->assertSee('Analytics')->assertSee('Compact');
+            ->assertSee('Classic School')->assertSee('Vibrant')
+            ->assertSee('ERP')->assertSee('Modern');
     }
 
     public function test_admin_can_change_layout_through_the_settings_form(): void
     {
         $this->actingAs($this->member)->post('http://dash.localhost/settings/dashboard', [
-            'layout' => 'compact',
+            'layout' => 'modern',
             'widgets' => ['stats' => '1', 'notifications' => '1'],
         ])->assertRedirect();
 
-        $this->assertSame('compact', app(DashboardPreferences::class)->layout());
+        $this->assertSame('modern', app(DashboardPreferences::class)->layout());
         $this->assertFalse(app(DashboardPreferences::class)->shows('calendar')); // unchecked
     }
 

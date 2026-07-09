@@ -47,20 +47,20 @@
             <div class="layout-desc">{{ $meta['description'] }}</div>
             <div class="mini">
               @switch($key)
-                @case('focus')
-                  <div class="mini-row"><div class="box"></div><div class="box"></div><div class="box"></div></div>
-                  <div class="bar" style="flex:1"></div>
+                @case('vibrant')
+                  <div class="bar" style="height:20px"></div>
+                  <div class="mini-row" style="height:26px"><div class="bar"></div><div class="bar"></div><div class="bar"></div></div>
                   @break
-                @case('analytics')
+                @case('erp')
                   <div class="mini-row" style="height:30px"><div class="bar"></div><div class="bar"></div><div class="bar"></div></div>
+                  <div class="box" style="flex:1"></div>
+                  @break
+                @case('modern')
+                  <div class="bar" style="height:18px"></div>
+                  <div class="mini-row" style="height:20px;border-radius:999px"><div class="box" style="border-radius:999px"></div><div class="box" style="border-radius:999px"></div><div class="box" style="border-radius:999px"></div></div>
                   <div class="mini-two"><div class="box"></div><div class="box"></div></div>
                   @break
-                @case('compact')
-                  <div class="box" style="height:16px"></div>
-                  <div class="box" style="flex:1"></div>
-                  <div class="box" style="height:16px"></div>
-                  @break
-                @default
+                @default {{-- classic --}}
                   <div class="mini-row"><div class="box"></div><div class="box"></div><div class="box"></div></div>
                   <div class="mini-two"><div class="box"></div><div class="box"></div></div>
               @endswitch

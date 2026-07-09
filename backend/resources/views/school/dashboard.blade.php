@@ -1,59 +1,107 @@
 @extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'notifCount' => $feed['unread'], 'pageTitle' => 'Dashboard'])
 @section('title', $school->name.' Dashboard')
 
+@push('head')
+<style>
+  /* figure cards, 4 across */
+  .figs{display:grid;grid-template-columns:repeat(4,1fr);gap:1.1rem;margin-bottom:1.5rem}
+  .fig b{font-size:1.7rem;font-weight:800;font-variant-numeric:tabular-nums;display:block;line-height:1.1}
+  .fig span{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim)}
+  .fig .fic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;flex-shrink:0}
+  .fig .fic svg{width:22px;height:22px}
+  /* classic: left accent bar */
+  .fig-classic{display:flex;align-items:center;gap:1rem;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:1.2rem 1.3rem;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+  .fig-classic::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--fc)}
+  .fig-classic .fic{background:color-mix(in srgb,var(--fc) 16%,transparent);color:var(--fc)}
+  /* erp: solid colour tile */
+  .fig-erp{display:flex;align-items:center;gap:1rem;border-radius:var(--radius);padding:1.3rem;color:#fff;background:var(--fc);box-shadow:var(--shadow)}
+  .fig-erp span{color:rgba(255,255,255,.85)}
+  .fig-erp .fic{background:rgba(255,255,255,.2);color:#fff}
+  /* modern: ringed pill */
+  .fig-modern{display:flex;align-items:center;gap:1rem;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:.9rem 1.3rem;box-shadow:var(--shadow)}
+  .fig-modern .ring{width:48px;height:48px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;
+    background:conic-gradient(var(--fc) var(--pct,70%), color-mix(in srgb,var(--fc) 15%,transparent) 0)}
+  .fig-modern .ring i{width:36px;height:36px;border-radius:50%;background:var(--panel);display:grid;place-items:center;color:var(--fc)}
+  .fig-modern .ring i svg{width:18px;height:18px}
+  /* vibrant: rounded colour-tint tile */
+  .fig-vibrant{border-radius:18px;padding:1.3rem;background:color-mix(in srgb,var(--fc) 14%,var(--panel));border:1px solid color-mix(in srgb,var(--fc) 30%,transparent)}
+  .fig-vibrant .fic{background:var(--fc);color:#fff;margin-bottom:.7rem}
+  .fig-vibrant b{color:var(--ink)}
+
+  .banner{border-radius:18px;padding:1.8rem 2rem;color:#fff;position:relative;overflow:hidden;margin-bottom:1.5rem;
+    background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#10121a))}
+  .banner h2{font-size:1.5rem;font-weight:800;margin-bottom:.3rem}
+  .banner p{opacity:.9;max-width:46ch}
+  .banner .bl{position:absolute;border-radius:50%;background:rgba(255,255,255,.12)}
+  .banner .bl1{width:200px;height:200px;right:-40px;top:-60px}.banner .bl2{width:120px;height:120px;right:120px;bottom:-60px;background:rgba(255,255,255,.08)}
+
+  @media(max-width:1000px){.figs{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.figs{grid-template-columns:1fr}}
+</style>
+@endpush
+
 @php
-  // Widget partials rendered by the chosen layout, honouring visibility.
   $show = fn($w) => ($widgets[$w] ?? false);
+  // 4 figures with a colour + icon each (real data we have)
+  $figs = [
+    ['n'=>number_format($stats['students']),'l'=>'Students','ic'=>'students','c'=>'#0EA5A0','pct'=>'72%'],
+    ['n'=>number_format($stats['staff']),'l'=>'Staff','ic'=>'staff','c'=>'#6D4FE0','pct'=>'64%'],
+    ['n'=>number_format($stats['events']),'l'=>'Calendar Events','ic'=>'calendar','c'=>'#E5901C','pct'=>'88%'],
+    ['n'=>number_format($feed['unread']),'l'=>'Unread','ic'=>'comms','c'=>'#E14F63','pct'=>'40%'],
+  ];
 @endphp
 
 @section('content')
-<div class="page-head">
-  <div>
-    <h1 class="title">{{ $school->name }}</h1>
-    @if($show('greeting'))<p class="subtitle">Welcome back, {{ auth()->user()->name }}. Here is what is happening today.</p>@endif
+
+@if($layout === 'vibrant' || $layout === 'modern')
+  @if($show('greeting'))
+  <div class="banner">
+    <span class="bl bl1"></span><span class="bl bl2"></span>
+    <div style="position:relative">
+      <h2>Hello, {{ \Illuminate\Support\Str::before(auth()->user()->name,' ') ?: auth()->user()->name }}.</h2>
+      <p>Welcome to {{ $school->name }}. Here is a snapshot of your school today.</p>
+    </div>
   </div>
-  <div class="stack" style="flex-direction:row;gap:.5rem">
-    <a class="btn btn-ghost btn-sm" href="{{ route('school.dashboard.edit', ['school' => $school->slug]) }}">Dashboard look</a>
-    <a class="btn btn-ghost btn-sm" href="{{ route('school.branding.edit', ['school' => $school->slug]) }}">Branding</a>
+  @endif
+@else
+  @if($show('greeting'))
+  <div class="page-head">
+    <div><h1 class="title">{{ $school->name }}</h1><p class="subtitle">Welcome back, {{ auth()->user()->name }}.</p></div>
+    <div class="stack" style="flex-direction:row;gap:.5rem">
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.dashboard.edit', ['school' => $school->slug]) }}">Dashboard look</a>
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.branding.edit', ['school' => $school->slug]) }}">Branding</a>
+    </div>
   </div>
+  @endif
+@endif
+
+@if($show('stats'))
+<div class="figs">
+  @foreach($figs as $f)
+    @switch($layout)
+      @case('erp')
+        <div class="fig fig-erp" style="--fc:{{ $f['c'] }}"><span class="fic">@include('layouts.partials.icon',['name'=>$f['ic']])</span><span><b>{{ $f['n'] }}</b><span>{{ $f['l'] }}</span></span></div>
+        @break
+      @case('modern')
+        <div class="fig fig-modern" style="--fc:{{ $f['c'] }};--pct:{{ $f['pct'] }}"><span class="ring"><i>@include('layouts.partials.icon',['name'=>$f['ic']])</i></span><span><b>{{ $f['n'] }}</b><span>{{ $f['l'] }}</span></span></div>
+        @break
+      @case('vibrant')
+        <div class="fig fig-vibrant" style="--fc:{{ $f['c'] }}"><span class="fic">@include('layouts.partials.icon',['name'=>$f['ic']])</span><b>{{ $f['n'] }}</b><span>{{ $f['l'] }}</span></div>
+        @break
+      @default
+        <div class="fig fig-classic" style="--fc:{{ $f['c'] }}"><span class="fic">@include('layouts.partials.icon',['name'=>$f['ic']])</span><span><b>{{ $f['n'] }}</b><span>{{ $f['l'] }}</span></span></div>
+    @endswitch
+  @endforeach
 </div>
+@endif
 
 @php
-  $stats = view('school.widgets.stats', ['stats' => $stats])->render();
   $notes = view('school.widgets.notifications', ['feed' => $feed, 'school' => $school])->render();
   $cal = view('school.widgets.calendar', ['upcoming' => $upcoming])->render();
 @endphp
 
-@switch($layout)
-  @case('focus')
-    @if($show('stats'))<div class="grid cols-4" style="margin-bottom:1.25rem">{!! $stats !!}</div>@endif
-    <div class="grid" style="gap:1.1rem">
-      @if($show('notifications')){!! $notes !!}@endif
-      @if($show('calendar')){!! $cal !!}@endif
-    </div>
-    @break
-
-  @case('analytics')
-    @if($show('stats'))<div class="grid cols-3" style="margin-bottom:1.25rem">{!! $stats !!}</div>@endif
-    <div class="grid cols-2" style="align-items:start">
-      @if($show('calendar')){!! $cal !!}@endif
-      @if($show('notifications')){!! $notes !!}@endif
-    </div>
-    @break
-
-  @case('compact')
-    <div class="grid" style="gap:1rem;max-width:38rem">
-      @if($show('stats'))<div class="grid cols-3">{!! $stats !!}</div>@endif
-      @if($show('notifications')){!! $notes !!}@endif
-      @if($show('calendar')){!! $cal !!}@endif
-    </div>
-    @break
-
-  @default {{-- classic --}}
-    @if($show('stats'))<div class="grid cols-3" style="margin-bottom:1.5rem">{!! $stats !!}</div>@endif
-    <div class="grid cols-2" style="align-items:start">
-      @if($show('notifications')){!! $notes !!}@endif
-      @if($show('calendar')){!! $cal !!}@endif
-    </div>
-@endswitch
+<div class="grid cols-2" style="align-items:start">
+  @if($show('notifications')){!! $notes !!}@endif
+  @if($show('calendar')){!! $cal !!}@endif
+</div>
 @endsection
