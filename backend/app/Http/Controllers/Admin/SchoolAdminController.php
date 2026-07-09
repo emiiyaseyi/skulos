@@ -79,6 +79,39 @@ class SchoolAdminController extends Controller
             "{$school->name} is ready. The administrator ({$adminEmail}) can now sign in at {$school->slug}.".config('app.domain')." to finish setup.");
     }
 
+    /** Suspend a school (temporary): access blocked, data kept. */
+    public function suspend(School $school): RedirectResponse
+    {
+        $school->update(['status' => School::STATUS_SUSPENDED]);
+
+        return back()->with('status', "{$school->name} has been suspended. Its users can no longer sign in until you resume it.");
+    }
+
+    /** Archive a school (long term): access blocked, data kept. */
+    public function archive(School $school): RedirectResponse
+    {
+        $school->update(['status' => School::STATUS_ARCHIVED]);
+
+        return back()->with('status', "{$school->name} has been archived. Resume it any time to restore access.");
+    }
+
+    /** Resume a suspended or archived school. */
+    public function activate(School $school): RedirectResponse
+    {
+        $school->update(['status' => School::STATUS_ACTIVE]);
+
+        return back()->with('status', "{$school->name} is active again. Its users can sign in.");
+    }
+
+    /** Remove a school (soft delete): hidden from the platform, recoverable. */
+    public function destroy(School $school): RedirectResponse
+    {
+        $name = $school->name;
+        $school->delete();
+
+        return back()->with('status', "{$name} has been removed. Its database is retained and it can be restored if needed.");
+    }
+
     public function show(School $school): \Illuminate\View\View
     {
         return view('admin.school', ['school' => $school]);

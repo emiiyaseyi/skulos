@@ -22,6 +22,7 @@ class School extends Model
     public const STATUS_PENDING = 'pending';
     public const STATUS_ACTIVE = 'active';
     public const STATUS_SUSPENDED = 'suspended';
+    public const STATUS_ARCHIVED = 'archived';
 
     protected $fillable = [
         'name',

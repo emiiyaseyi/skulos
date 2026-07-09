@@ -18,7 +18,11 @@
   /* centered */
   .lp-centered{display:grid;place-items:center;padding:2rem 1.25rem}
   /* split */
-  .lp-split{display:grid;grid-template-columns:1.05fr .95fr}
+  .lp-split{display:grid;grid-template-columns:1.05fr .95fr;min-height:100vh}
+  .skword{font-family:var(--font);font-weight:800;letter-spacing:-.01em}
+  .skword em{font-style:normal;color:#E8A33D}
+  .powered{margin-top:1.4rem;text-align:center;color:var(--mut-dim);font-size:.85rem;display:flex;align-items:center;justify-content:center;gap:.4rem}
+  .powered .skword{font-size:1.15rem;color:var(--ink)}
   .lp-brandpanel{position:relative;overflow:hidden;color:#fff;display:flex;flex-direction:column;justify-content:center;padding:3rem;
     background:linear-gradient(150deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #10121a))}
   .lp-brandpanel .bp-logo{width:60px;height:60px;border-radius:16px;background:rgba(255,255,255,.16);display:grid;place-items:center;font-weight:800;font-size:1.5rem;margin-bottom:1.5rem;overflow:hidden}
@@ -71,7 +75,7 @@
           <div class="lp-head">Sign in</div>
           <p class="lp-sub">Welcome back. Please enter your details.</p>
           @include('auth.partials.login-form', ['school' => $school])
-          <div class="powered">Powered by SKULOS</div>
+          <div class="powered">Powered by <span class="skword">SK<em>U</em>LOS</span></div>
         </div>
       </div>
     </div>
@@ -84,7 +88,7 @@
         <div class="lp-head">{{ $b['headline'] }}</div>
         <p class="lp-sub">{{ $b['message'] }}</p>
         @include('auth.partials.login-form', ['school' => $school])
-        <div class="powered">Powered by SKULOS</div>
+        <div class="powered">Powered by <span class="skword">SK<em>U</em>LOS</span></div>
       </div>
     </div>
     @break

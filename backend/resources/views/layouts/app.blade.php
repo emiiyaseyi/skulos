@@ -54,6 +54,19 @@ a{color:inherit;text-decoration:none}
 
 .main{min-width:0;display:flex;flex-direction:column}
 .scrim{display:none}
+/* collapsed sidebar (desktop): icon rail */
+.shell.collapsed{grid-template-columns:74px 1fr}
+.shell.collapsed .side-brand{justify-content:center;font-size:1.1rem;padding-inline:0}
+.shell.collapsed .side-brand .brandfull{display:none}
+.shell.collapsed .side-school{justify-content:center;padding-inline:0}
+.shell.collapsed .side-school div,.shell.collapsed .side-group,.shell.collapsed .side-link span:not(.ic),.shell.collapsed .side-link .soon,.shell.collapsed .side-foot .who{display:none}
+.shell.collapsed .side-nav{padding-inline:.55rem}
+.shell.collapsed .side-link{justify-content:center;padding-inline:0}
+.shell.collapsed .side-foot{justify-content:center}
+.brandshort{display:none}
+.shell.collapsed .brandshort{display:inline}
+.collapse-btn{display:inline-grid}
+@media(max-width:1000px){.collapse-btn{display:none}}
 .appbar{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--panel) 90%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:1rem;padding:.8rem 1.6rem}
 .appbar h2{font-size:1rem;font-weight:800}
 .appbar .crumb{font-size:.78rem;color:var(--mut-dim)}
@@ -140,9 +153,9 @@ tr:last-child td{border-bottom:none}
     return compact('routeName','params','label','icon','active','soon');
   };
 @endphp
-<div class="shell">
+<div class="shell" id="shell">
   <aside class="side" id="sideNav">
-    <div class="side-brand">SK<em>U</em>LOS</div>
+    <div class="side-brand"><span class="brandfull">SK<em>U</em>LOS</span><span class="brandshort">S<em style="color:var(--accent)"></em></span></div>
     @isset($school)
       <div class="side-school">
         <span class="side-badge">{{ strtoupper(substr($school->name,0,1)) }}</span>
@@ -166,6 +179,9 @@ tr:last-child td{border-bottom:none}
     <header class="appbar">
       <button class="iconbtn menu-toggle" id="menuToggle" aria-label="Menu">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+      <button class="iconbtn collapse-btn" id="collapseBtn" aria-label="Collapse menu" title="Collapse menu">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3v18M4 7l-2 5 2 5"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
       </button>
       <div>
         <h2>@yield('heading', $pageTitle ?? 'Dashboard')</h2>
@@ -199,10 +215,19 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
 });
 (function(){
   var t=document.getElementById('menuToggle'),s=document.getElementById('sideNav'),sc=document.getElementById('scrim');
-  if(!t)return;
-  function close(){s.classList.remove('open');sc.classList.remove('show');}
-  t.addEventListener('click',function(){s.classList.toggle('open');sc.classList.toggle('show');});
-  sc?.addEventListener('click',close);
+  if(t){
+    function close(){s.classList.remove('open');sc.classList.remove('show');}
+    t.addEventListener('click',function(){s.classList.toggle('open');sc.classList.toggle('show');});
+    sc?.addEventListener('click',close);
+  }
+  var shell=document.getElementById('shell'),cb=document.getElementById('collapseBtn');
+  if(shell&&cb){
+    try{ if(localStorage.getItem('skulos-side')==='collapsed') shell.classList.add('collapsed'); }catch(e){}
+    cb.addEventListener('click',function(){
+      shell.classList.toggle('collapsed');
+      try{ localStorage.setItem('skulos-side', shell.classList.contains('collapsed')?'collapsed':'open'); }catch(e){}
+    });
+  }
 })();
 </script>
 @stack('scripts')

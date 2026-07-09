@@ -187,6 +187,42 @@ class PlatformFlowTest extends TestCase
         $this->assertGuest(); // rejected: not a member of this school
     }
 
+    public function test_super_admin_can_suspend_resume_archive_and_delete_a_school(): void
+    {
+        $admin = $this->superAdmin();
+        $school = $this->provisionSchool('lifecycle', 'Lifecycle School');
+        $member = User::factory()->create();
+        $school->users()->attach($member->id, ['status' => 'active']);
+
+        // suspend -> members blocked
+        $this->actingAs($admin)->post("http://localhost/admin/schools/{$school->id}/suspend")->assertRedirect();
+        $this->assertSame(School::STATUS_SUSPENDED, $school->fresh()->status);
+        $this->actingAs($member)->get('http://lifecycle.localhost/dashboard')->assertForbidden();
+
+        // resume -> active again
+        $this->actingAs($admin)->post("http://localhost/admin/schools/{$school->id}/activate")->assertRedirect();
+        $this->assertSame(School::STATUS_ACTIVE, $school->fresh()->status);
+        $this->actingAs($member)->get('http://lifecycle.localhost/dashboard')->assertOk();
+
+        // archive -> blocked
+        $this->actingAs($admin)->post("http://localhost/admin/schools/{$school->id}/archive")->assertRedirect();
+        $this->assertSame(School::STATUS_ARCHIVED, $school->fresh()->status);
+        $this->actingAs($member)->get('http://lifecycle.localhost/dashboard')->assertForbidden();
+
+        // delete (soft) -> gone from platform, subdomain 404s
+        $this->actingAs($admin)->delete("http://localhost/admin/schools/{$school->id}")->assertRedirect();
+        $this->assertSoftDeleted('schools', ['id' => $school->id]);
+        $this->get('http://lifecycle.localhost/')->assertNotFound();
+    }
+
+    public function test_lifecycle_actions_require_super_admin(): void
+    {
+        $school = $this->provisionSchool('guarded', 'Guarded');
+        $member = User::factory()->create();
+
+        $this->actingAs($member)->post("http://localhost/admin/schools/{$school->id}/suspend")->assertNotFound();
+    }
+
     public function test_school_login_uses_the_chosen_design(): void
     {
         $school = $this->provisionSchool('designed', 'Designed School');

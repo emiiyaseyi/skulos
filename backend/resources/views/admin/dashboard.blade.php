@@ -76,8 +76,15 @@
             <td>
               <span class="badge {{ $s->status === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucfirst($s->status) }}</span>
             </td>
-            <td style="text-align:right">
-              <a class="btn btn-ghost btn-sm" href="{{ $s->portalUrl() }}" target="_blank" rel="noopener">Open</a>
+            <td style="text-align:right;white-space:nowrap">
+              @if($s->status === 'active')
+                <a class="btn btn-ghost btn-sm" href="{{ $s->portalUrl() }}" target="_blank" rel="noopener">Open</a>
+                <form method="POST" action="{{ route('admin.schools.suspend', $s) }}" style="display:inline">@csrf<button class="btn btn-ghost btn-sm">Suspend</button></form>
+                <form method="POST" action="{{ route('admin.schools.archive', $s) }}" style="display:inline">@csrf<button class="btn btn-ghost btn-sm">Archive</button></form>
+              @else
+                <form method="POST" action="{{ route('admin.schools.activate', $s) }}" style="display:inline">@csrf<button class="btn btn-primary btn-sm">Resume</button></form>
+              @endif
+              <form method="POST" action="{{ route('admin.schools.destroy', $s) }}" style="display:inline" onsubmit="return confirm('Remove {{ $s->name }}? Its data is retained and it can be restored.')">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm" style="color:var(--bad)">Delete</button></form>
             </td>
           </tr>
         @endforeach

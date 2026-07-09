@@ -41,8 +41,11 @@ class ResolveTenant
             abort(404, 'School not found.');
         }
 
+        if ($school->status === School::STATUS_SUSPENDED) {
+            abort(403, 'This school is currently suspended. Please contact your administrator.');
+        }
         if ($school->status !== School::STATUS_ACTIVE) {
-            abort(403, 'This school is currently suspended.');
+            abort(403, 'This school is not currently available.');
         }
 
         $this->tenants->use($school);

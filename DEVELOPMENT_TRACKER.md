@@ -96,6 +96,12 @@ Progress toward these:
 ## School creation now provisions a school administrator (user request 2026-07-09) — DONE
 - [x] The create-school form now requires the **school administrator's name, email, and a temporary password**. On submit it creates (or reuses) that user, hashes the password, and attaches them as the school **owner** (school-owner role). That administrator signs in on the subdomain to finish setup; the platform super admin is no longer auto-attached (super admins can still access any school via the membership guard bypass). 3 tests (creates+attaches admin, requires the fields, the created admin can sign in).
 
+## Fixes + additions 2026-07-09 (session/login/sidebar/lifecycle)
+- [x] **419 Page Expired on school login FIXED (root cause).** `SESSION_DOMAIN=.localhost` was being rejected by browsers (leading-dot `.localhost` is not a valid cookie domain), so no session cookie was stored and every POST failed CSRF, even in incognito. Set `SESSION_DOMAIN=null` (host-only cookies) for local; documented that production with real subdomains can use `.yourdomain.tld`. Verified the full login POST cycle now returns 302 to the dashboard, not 419. Trade-off: sessions are per-subdomain locally (no cross-subdomain SSO), which is fine and safer; the EnsureSchoolMember guard still applies.
+- [x] Login page now fills the **full screen** (added `min-height:100vh` to the split layout) and "Powered by SKULOS" is bigger using the marketing wordmark (SK**U**LOS with gold U).
+- [x] **Collapsible sidebar**: a collapse button on the appbar toggles the sidebar to an icon-only rail (labels/groups hidden), persisted in localStorage. Desktop only; mobile keeps the slide-in drawer.
+- [x] **School lifecycle actions** (super admin, on the schools table): **Suspend** (temporary block), **Archive** (long-term block), **Resume** (back to active), **Delete** (soft delete, data retained/recoverable). Access is blocked for suspended/archived (403) and soft-deleted schools 404 on their subdomain. 2 tests (full lifecycle + super-admin-only guard).
+
 ## Build Log (live status while building — updated as we go)
 
 Per-item status for whatever is actively "in build," not a duplicate of the full backlog above. Use this format per entry:
