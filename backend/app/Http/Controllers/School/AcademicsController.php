@@ -5,6 +5,8 @@ namespace App\Http\Controllers\School;
 use App\Http\Controllers\Controller;
 use App\Models\School;
 use App\Models\Tenant\AcademicSession;
+use App\Models\Tenant\Arm;
+use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\Section;
 use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Subject;
@@ -53,7 +55,7 @@ class AcademicsController extends Controller
 
         $sections = Section::with(['classes' => function ($q) {
             $q->withCount('subjects')->orderBy('sequence');
-        }])->orderBy('sequence')->get();
+        }, 'classes.arms.arm'])->orderBy('sequence')->get();
 
         $sessions = AcademicSession::with(['terms' => fn ($q) => $q->orderBy('sequence')])
             ->orderByDesc('name')
@@ -64,6 +66,7 @@ class AcademicsController extends Controller
             'accent' => $school->branding()['color'],
             'sections' => $sections,
             'sessions' => $sessions,
+            'classCatalogs' => config('skulos.default_class_structure'),
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'academics.update'),
         ]);
     }
@@ -144,6 +147,26 @@ class AcademicsController extends Controller
         return back()->with('status', "{$term->name} is now the current term.");
     }
 
+    /**
+     * One click, one or more tiers: ticking Nursery/Primary/JSS/SS creates
+     * each tier's Section, classes (each with a default ClassArm), and
+     * default subjects together (user request 2026-07-10), rather than
+     * building a class at a time and separately loading subjects per
+     * class as the existing flow requires.
+     */
+    public function applyClassStructure(Request $request, AcademicDefaults $defaults): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.create');
+        $data = $request->validate([
+            'tiers' => ['required', 'array', 'min:1'],
+            'tiers.*' => ['string', 'in:'.implode(',', array_keys(config('skulos.default_class_structure')))],
+        ]);
+
+        $result = $defaults->applyClassStructure($data['tiers']);
+
+        return back()->with('status', "{$result['classes']} class(es) and {$result['subjects']} subject(s) added.");
+    }
+
     public function storeSection(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'academics.create');
@@ -159,6 +182,14 @@ class AcademicsController extends Controller
         return back()->with('status', 'Section added.');
     }
 
+    /**
+     * A class needs at least one ClassArm to actually hold students
+     * (Student.current_class_arm_id points at a ClassArm, not a
+     * SchoolClass) — creating one here with arm_id null (a single,
+     * unnamed stream) means a brand new class is immediately usable
+     * without forcing every school to name an arm it doesn't need.
+     * Schools that do run multiple streams add named ones via storeArm().
+     */
     public function storeClass(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'academics.create');
@@ -167,13 +198,40 @@ class AcademicsController extends Controller
             'name' => ['required', 'string', 'max:80'],
             'sequence' => ['nullable', 'integer', 'min:1'],
         ]);
-        SchoolClass::create([
+        $class = SchoolClass::create([
             'section_id' => $data['section_id'],
             'name' => $data['name'],
             'sequence' => $data['sequence'] ?? 1,
         ]);
+        ClassArm::create(['school_class_id' => $class->id, 'arm_id' => null]);
 
         return back()->with('status', 'Class added.');
+    }
+
+    /**
+     * Add a named stream/arm to a class, e.g. "B" on "JSS 1" once a
+     * school outgrows a single stream. Find-or-create the Arm by name so
+     * the same label (e.g. "A") is reused across classes rather than
+     * duplicated per class.
+     */
+    public function storeArm(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.create');
+        $data = $request->validate([
+            'school_class_id' => ['required', 'exists:tenant.school_classes,id'],
+            'name' => ['required', 'string', 'max:40'],
+        ]);
+
+        $class = SchoolClass::findOrFail($data['school_class_id']);
+        $arm = Arm::firstOrCreate(['name' => $data['name']]);
+
+        if (ClassArm::where('school_class_id', $class->id)->where('arm_id', $arm->id)->exists()) {
+            return back()->with('error', "{$class->name} {$arm->name} already exists.");
+        }
+
+        ClassArm::create(['school_class_id' => $class->id, 'arm_id' => $arm->id]);
+
+        return back()->with('status', "{$class->name} {$arm->name} added.");
     }
 
     public function subjects(Request $request, AcademicDefaults $defaults): \Illuminate\View\View

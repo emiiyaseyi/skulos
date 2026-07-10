@@ -87,6 +87,22 @@
   @endif
 </div>
 
+@if($canManage)
+<div class="card" style="margin-bottom:1.1rem">
+  <h3 style="margin-bottom:.4rem">Load a default class structure</h3>
+  <p class="muted" style="margin-bottom:.8rem">Tick any tier to create its section, classes, and default subjects together, in one click. You can edit, add, or remove anything afterwards.</p>
+  <form method="POST" action="{{ route('school.academics.class-structure.apply', ['school' => $school->slug]) }}">
+    @csrf
+    <div class="flagbox" style="margin-bottom:.8rem;flex-wrap:wrap">
+      @foreach($classCatalogs as $key => $tier)
+        <label><input type="checkbox" name="tiers[]" value="{{ $key }}" style="width:auto" /> {{ config('skulos.default_subjects.'.$key.'.label', ucfirst($key)) }}</label>
+      @endforeach
+    </div>
+    <button class="btn btn-primary btn-sm" type="submit">Load selected tiers</button>
+  </form>
+</div>
+@endif
+
 @if($sections->isEmpty())
   <div class="card"><p class="muted">No sections yet. Add one below to get started, e.g. "Nursery", "Primary", or "Secondary".</p></div>
 @else
@@ -100,11 +116,22 @@
       @else
         <div style="overflow-x:auto">
         <table>
-          <thead><tr><th>Class</th><th>Subjects offered</th><th></th></tr></thead>
+          <thead><tr><th>Class</th><th>Streams</th><th>Subjects offered</th><th></th></tr></thead>
           <tbody>
             @foreach($section->classes as $class)
               <tr>
                 <td><strong>{{ $class->name }}</strong></td>
+                <td class="muted">
+                  {{ $class->arms->map(fn($ca) => $ca->arm?->name ?: 'Single stream')->join(', ') }}
+                  @if($canManage)
+                    <form method="POST" action="{{ route('school.academics.arms.store', ['school' => $school->slug]) }}" style="display:inline-flex;gap:.3rem;margin-left:.5rem">
+                      @csrf
+                      <input type="hidden" name="school_class_id" value="{{ $class->id }}" />
+                      <input name="name" placeholder="e.g. B" style="width:5rem;padding:.3rem .5rem" />
+                      <button class="btn btn-ghost btn-sm" type="submit">Add stream</button>
+                    </form>
+                  @endif
+                </td>
                 <td class="muted">{{ $class->subjects_count }}</td>
                 <td><a class="btn btn-ghost btn-sm" href="{{ route('school.academics.subjects', ['school' => $school->slug, 'classId' => $class->id]) }}">Manage subjects</a></td>
               </tr>

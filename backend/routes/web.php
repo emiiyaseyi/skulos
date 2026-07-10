@@ -149,8 +149,10 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/sessions/{sessionId}/make-current', [$academics, 'makeSessionCurrent'])->name('sessions.make-current');
             Route::post('/terms', [$academics, 'storeTerm'])->name('terms.store');
             Route::post('/terms/{termId}/make-current', [$academics, 'makeTermCurrent'])->name('terms.make-current');
+            Route::post('/class-structure', [$academics, 'applyClassStructure'])->name('class-structure.apply');
             Route::post('/sections', [$academics, 'storeSection'])->name('sections.store');
             Route::post('/classes', [$academics, 'storeClass'])->name('classes.store');
+            Route::post('/arms', [$academics, 'storeArm'])->name('arms.store');
             Route::get('/classes/{classId}/subjects', [$academics, 'subjects'])->name('subjects');
             Route::post('/classes/{classId}/subjects/apply-defaults', [$academics, 'applyDefaults'])->name('subjects.apply-defaults');
             Route::post('/classes/{classId}/subjects/attach', [$academics, 'attachSubject'])->name('subjects.attach');

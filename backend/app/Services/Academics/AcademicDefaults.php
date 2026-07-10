@@ -2,6 +2,7 @@
 
 namespace App\Services\Academics;
 
+use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\GradingBand;
 use App\Models\Tenant\GradingScale;
 use App\Models\Tenant\Section;
@@ -66,6 +67,55 @@ class AcademicDefaults
         }
 
         return $applied;
+    }
+
+    /**
+     * Load one or more class structure tiers (user request 2026-07-10):
+     * for each tier key, find-or-create its Section, find-or-create each
+     * listed class under it (with a default single-stream ClassArm so
+     * it is immediately usable), then apply that tier's default subject
+     * catalog to every class. Idempotent, same as applySubjectCatalog:
+     * re-running it after the admin has renamed/removed things only
+     * fills in what is still missing, by name.
+     *
+     * @param  list<string>  $catalogKeys
+     * @return array{sections: int, classes: int, subjects: int}
+     */
+    public function applyClassStructure(array $catalogKeys): array
+    {
+        $sectionsTouched = 0;
+        $classesCreated = 0;
+        $subjectsApplied = 0;
+
+        foreach ($catalogKeys as $key) {
+            $tier = config("skulos.default_class_structure.{$key}");
+            if (! $tier) {
+                continue;
+            }
+
+            $section = Section::firstOrCreate(
+                ['name' => $tier['section']],
+                ['sequence' => (int) Section::max('sequence') + 1]
+            );
+            if ($section->wasRecentlyCreated) {
+                $sectionsTouched++;
+            }
+
+            foreach ($tier['classes'] as $index => $className) {
+                $class = SchoolClass::firstOrCreate(
+                    ['section_id' => $section->id, 'name' => $className],
+                    ['sequence' => $index + 1]
+                );
+                if ($class->wasRecentlyCreated) {
+                    $classesCreated++;
+                    ClassArm::create(['school_class_id' => $class->id, 'arm_id' => null]);
+                }
+
+                $subjectsApplied += $this->applySubjectCatalog($class, $key);
+            }
+        }
+
+        return ['sections' => $sectionsTouched, 'classes' => $classesCreated, 'subjects' => $subjectsApplied];
     }
 
     /**

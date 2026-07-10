@@ -459,6 +459,25 @@ return [
     'default_login_layout' => 'split',
 
     /*
+    | Default class structure a school can load, one tier at a time (user
+    | request 2026-07-10). Ticking a tier creates its Section (found or
+    | created by name) and each listed class (found or created, each with
+    | a default single-stream ClassArm so it is immediately usable), then
+    | applies that tier's default_subjects catalog to every class it
+    | created. Uses the same 4 keys as default_subjects so the two stay in
+    | lockstep; "jss" and "ss" share one "Secondary" section since most
+    | schools run junior and senior secondary as one section, not two.
+    | Entirely optional and idempotent, same as default_subjects below —
+    | a school is never forced into these and can edit anything after.
+    */
+    'default_class_structure' => [
+        'nursery' => ['section' => 'Nursery', 'classes' => ['Creche', 'Pre-Nursery', 'Nursery 1', 'Nursery 2']],
+        'primary' => ['section' => 'Primary', 'classes' => ['Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6']],
+        'jss' => ['section' => 'Secondary', 'classes' => ['JSS 1', 'JSS 2', 'JSS 3']],
+        'ss' => ['section' => 'Secondary', 'classes' => ['SS 1', 'SS 2', 'SS 3']],
+    ],
+
+    /*
     | Default subject catalogs a school can load per section (user request
     | 2026-07-09, sourced from "List of subjects and Grading system.docx").
     | "match" is a list of lowercase keywords checked against a section's

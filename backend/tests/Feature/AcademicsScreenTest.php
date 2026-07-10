@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\School;
 use App\Models\Tenant\AcademicSession;
+use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\Section;
 use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Subject;
@@ -135,6 +136,74 @@ class AcademicsScreenTest extends TestCase
         $this->assertSame(0, $stillOffered);
     }
 
+    /**
+     * Regression test: a class created via the UI used to only ever
+     * produce a SchoolClass, never a ClassArm, so it could not actually
+     * hold a student (Student.current_class_arm_id points at a ClassArm).
+     * Every class now gets one default (unnamed, single stream) ClassArm
+     * automatically so it is usable the moment it is created.
+     */
+    public function test_creating_a_class_also_creates_a_usable_class_arm(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadten');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/classes", [
+            'section_id' => $section->id, 'name' => 'Basic 1',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $class = SchoolClass::where('name', 'Basic 1')->first();
+        $classArm = ClassArm::where('school_class_id', $class->id)->first();
+        app(TenantManager::class)->forget();
+
+        $this->assertNotNull($classArm, 'a class must have at least one ClassArm to actually hold students');
+        $this->assertNull($classArm->arm_id);
+    }
+
+    public function test_a_named_stream_can_be_added_to_a_class(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadeleven');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Secondary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS 1', 'sequence' => 1]);
+        $classId = $class->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/arms", [
+            'school_class_id' => $classId, 'name' => 'B',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $exists = ClassArm::whereHas('arm', fn ($q) => $q->where('name', 'B'))
+            ->where('school_class_id', $classId)->exists();
+        app(TenantManager::class)->forget();
+        $this->assertTrue($exists);
+    }
+
+    public function test_the_same_stream_cannot_be_added_twice(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadtwelve');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Secondary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS 2', 'sequence' => 1]);
+        $classId = $class->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/arms", ['school_class_id' => $classId, 'name' => 'A']);
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/arms", ['school_class_id' => $classId, 'name' => 'A']);
+
+        app(TenantManager::class)->use($school);
+        $count = ClassArm::where('school_class_id', $classId)->count();
+        app(TenantManager::class)->forget();
+        $this->assertSame(1, $count);
+    }
+
     public function test_creating_a_session_generates_its_three_terms_with_nigerian_naming(): void
     {
         [$school, $admin] = $this->schoolWithMember('school-owner', 'acadfive');
@@ -219,6 +288,68 @@ class AcademicsScreenTest extends TestCase
 
         $this->actingAs($teacher)->post("http://{$school->slug}.localhost/academics/sessions", ['start_year' => 2025])
             ->assertForbidden();
+    }
+
+    public function test_loading_a_default_class_structure_creates_section_classes_arms_and_subjects(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadthirteen');
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/class-structure", [
+            'tiers' => ['primary'],
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $section = Section::where('name', 'Primary')->first();
+        $this->assertNotNull($section);
+        $classes = SchoolClass::where('section_id', $section->id)->orderBy('sequence')->get();
+        $this->assertSame(['Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6'], $classes->pluck('name')->all());
+
+        $firstClass = $classes->first();
+        $classArm = ClassArm::where('school_class_id', $firstClass->id)->first();
+        $subjectCount = $firstClass->subjects()->count();
+        app(TenantManager::class)->forget();
+
+        $this->assertNotNull($classArm, 'each loaded class must have a usable ClassArm');
+        $this->assertGreaterThan(5, $subjectCount, 'default subjects should be attached automatically');
+    }
+
+    public function test_loading_the_same_tier_twice_does_not_duplicate_classes(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadfourteen');
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/class-structure", ['tiers' => ['nursery']]);
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/class-structure", ['tiers' => ['nursery']]);
+
+        app(TenantManager::class)->use($school);
+        $count = SchoolClass::whereHas('section', fn ($q) => $q->where('name', 'Nursery'))->count();
+        app(TenantManager::class)->forget();
+        $this->assertSame(4, $count); // Creche, Pre-Nursery, Nursery 1, Nursery 2, not 8
+    }
+
+    public function test_jss_and_ss_share_one_secondary_section(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadfifteen');
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/class-structure", [
+            'tiers' => ['jss', 'ss'],
+        ]);
+
+        app(TenantManager::class)->use($school);
+        $sectionCount = Section::where('name', 'Secondary')->count();
+        $classCount = SchoolClass::whereHas('section', fn ($q) => $q->where('name', 'Secondary'))->count();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(1, $sectionCount, 'JSS and SS should not create two separate sections');
+        $this->assertSame(6, $classCount); // JSS 1-3 + SS 1-3
+    }
+
+    public function test_a_teacher_without_academics_create_cannot_load_a_class_structure(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'acadsixteen');
+
+        $this->actingAs($teacher)->post("http://{$school->slug}.localhost/academics/class-structure", [
+            'tiers' => ['primary'],
+        ])->assertForbidden();
     }
 
     public function test_a_teacher_without_academics_update_cannot_manage_subjects(): void
