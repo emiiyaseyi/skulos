@@ -4,6 +4,7 @@ namespace App\Http\Controllers\School;
 
 use App\Http\Controllers\Controller;
 use App\Models\School;
+use App\Models\Tenant\Setting;
 use App\Models\Tenant\Student;
 use App\Services\Bulk\CsvReader;
 use App\Services\Bulk\Importer;
@@ -70,6 +71,7 @@ class StudentController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'columns' => (new StudentImporter)->columns(),
+            'requiredFields' => Setting::grab('student_required_fields', []),
         ]);
     }
 
@@ -107,7 +109,41 @@ class StudentController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'columns' => (new StudentImporter)->columns(),
+            'requiredFields' => Setting::grab('student_required_fields', []),
             'result' => $result,
         ]);
+    }
+
+    /**
+     * Which optional student fields this school requires (user request
+     * 2026-07-10). admission_number/first/last name are always required
+     * and email is never required, neither is shown here since neither is
+     * actually a choice. Affects both this bulk importer and, later, the
+     * single student create/edit form once it exists.
+     */
+    public function editSettings(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'students.manage_settings');
+        $school = $this->school($request);
+
+        return view('school.students.settings', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'fields' => config('skulos.student_optional_fields'),
+            'required' => Setting::grab('student_required_fields', []),
+        ]);
+    }
+
+    public function updateSettings(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.manage_settings');
+        $data = $request->validate([
+            'required_fields' => ['array'],
+            'required_fields.*' => ['string', 'in:'.implode(',', array_keys(config('skulos.student_optional_fields')))],
+        ]);
+
+        Setting::put('student_required_fields', $data['required_fields'] ?? []);
+
+        return back()->with('status', 'Student field settings updated.');
     }
 }

@@ -133,6 +133,8 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::get('/students/import', [\App\Http\Controllers\School\StudentController::class, 'importForm'])->name('school.students.import');
         Route::post('/students/import', [\App\Http\Controllers\School\StudentController::class, 'import'])->name('school.students.import.run');
         Route::get('/students/template.csv', [\App\Http\Controllers\School\StudentController::class, 'template'])->name('school.students.template');
+        Route::get('/students/settings', [\App\Http\Controllers\School\StudentController::class, 'editSettings'])->name('school.students.settings.edit');
+        Route::post('/students/settings', [\App\Http\Controllers\School\StudentController::class, 'updateSettings'])->name('school.students.settings.update');
         Route::post('/notifications/{id}/read', [SchoolPortalController::class, 'markNotificationRead'])->name('school.notifications.read');
         Route::get('/settings/branding', [SchoolPortalController::class, 'editBranding'])->name('school.branding.edit');
         Route::post('/settings/branding', [SchoolPortalController::class, 'updateBranding'])->name('school.branding.update');

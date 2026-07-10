@@ -91,9 +91,33 @@ class StudentScreenTest extends TestCase
         $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/students/template.csv");
         $response->assertOk();
         $this->assertSame(
-            "admission_number,first_name,last_name,other_names,gender,date_of_birth,email,parent_mobile\n",
+            "admission_number,first_name,last_name,other_names,gender,date_of_birth,email,parent_mobile,class,house,state_of_origin,lga,address\n",
             $response->getContent()
         );
+    }
+
+    public function test_admin_can_view_and_update_which_student_fields_are_required(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'fieldsettings');
+
+        $this->actingAs($admin)->get("http://{$school->slug}.localhost/students/settings")
+            ->assertOk()->assertSee('State of Origin');
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/settings", [
+            'required_fields' => ['class', 'lga'],
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $stored = \App\Models\Tenant\Setting::grab('student_required_fields', []);
+        app(TenantManager::class)->forget();
+        $this->assertSame(['class', 'lga'], $stored);
+    }
+
+    public function test_a_teacher_cannot_manage_student_field_settings(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'fieldsettingsblocked');
+
+        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/students/settings")->assertForbidden();
     }
 
     public function test_full_upload_and_import_cycle_via_the_controller(): void

@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Tenant\Enrollment;
+use App\Models\Tenant\House;
+use App\Models\Tenant\Setting;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\StudentGuardian;
 use App\Models\School;
@@ -82,7 +84,81 @@ class StudentTest extends TestCase
     public function test_importer_template_matches_columns(): void
     {
         $template = (new StudentImporter)->template();
-        $this->assertSame("admission_number,first_name,last_name,other_names,gender,date_of_birth,email,parent_mobile\n", $template);
+        $this->assertSame(
+            "admission_number,first_name,last_name,other_names,gender,date_of_birth,email,parent_mobile,class,house,state_of_origin,lga,address\n",
+            $template
+        );
+    }
+
+    public function test_import_resolves_class_and_house_by_name(): void
+    {
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Basic 1', 'sequence' => 1]);
+        $arm = Arm::create(['name' => 'A']);
+        $classArm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => $arm->id]);
+        $house = House::create(['name' => 'Red House']);
+
+        $rows = [[
+            'admission_number' => 'ADM/300', 'first_name' => 'Ada', 'last_name' => 'Obi',
+            'class' => 'Basic 1 A', 'house' => 'red house', // case-insensitive match
+            'state_of_origin' => 'Lagos', 'lga' => 'Ikeja', 'address' => '1 School Road',
+        ]];
+
+        $result = (new StudentImporter)->import($rows, Importer::MODE_STRICT);
+        $this->assertSame(1, $result->imported);
+
+        $student = Student::where('admission_number', 'ADM/300')->first();
+        $this->assertSame($classArm->id, $student->current_class_arm_id);
+        $this->assertSame($house->id, $student->house_id);
+        $this->assertSame('Lagos', $student->state_of_origin);
+        $this->assertSame('Ikeja', $student->lga);
+        $this->assertSame('1 School Road', $student->address);
+    }
+
+    public function test_import_rejects_an_unknown_class_or_house_name(): void
+    {
+        $rows = [[
+            'admission_number' => 'ADM/301', 'first_name' => 'Ada', 'last_name' => 'Obi',
+            'class' => 'Nonexistent Class',
+        ]];
+
+        $result = (new StudentImporter)->import($rows, Importer::MODE_STRICT);
+
+        $this->assertSame(0, $result->imported);
+        $this->assertSame(1, $result->failed());
+        $this->assertFalse(Student::where('admission_number', 'ADM/301')->exists());
+    }
+
+    public function test_admin_configured_required_fields_are_enforced_on_import(): void
+    {
+        Setting::put('student_required_fields', ['class', 'state_of_origin']);
+
+        $rows = [[
+            'admission_number' => 'ADM/302', 'first_name' => 'Ada', 'last_name' => 'Obi',
+            // class and state_of_origin deliberately omitted
+        ]];
+
+        $result = (new StudentImporter)->import($rows, Importer::MODE_STRICT);
+
+        $this->assertSame(0, $result->imported);
+        $errors = $result->errors[0]['errors'];
+        $this->assertArrayHasKey('class', $errors);
+        $this->assertArrayHasKey('state_of_origin', $errors);
+    }
+
+    public function test_email_can_never_be_marked_required(): void
+    {
+        // Even if someone stored "email" in the setting directly (bypassing the
+        // admin UI's validated field list), the importer must not honor it.
+        Setting::put('student_required_fields', ['email']);
+
+        $rows = [[
+            'admission_number' => 'ADM/303', 'first_name' => 'Ada', 'last_name' => 'Obi',
+        ]];
+
+        $result = (new StudentImporter)->import($rows, Importer::MODE_STRICT);
+
+        $this->assertSame(1, $result->imported, 'email must stay optional regardless of stored settings');
     }
 
     public function test_bulk_import_valid_and_invalid_rows(): void

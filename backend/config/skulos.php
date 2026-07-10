@@ -346,6 +346,29 @@ return [
     'attendance_statuses' => ['present', 'absent', 'late', 'excused'],
 
     /*
+    | Student record fields a school can mark as required (user request
+    | 2026-07-10). admission_number/first_name/last_name are always
+    | required (core identity) and email must never be required (a
+    | standing confirmed business decision), so neither appear here; every
+    | key below defaults to optional until a school's admin turns it on
+    | via the Student Settings screen, stored per school in tenant
+    | settings under the key "student_required_fields". "class" and
+    | "house" are matched against the school's own ClassArm/House names
+    | during bulk import, not stored as this literal string.
+    */
+    'student_optional_fields' => [
+        'class' => 'Class',
+        'house' => 'House',
+        'gender' => 'Gender',
+        'date_of_birth' => 'Date of Birth',
+        'other_names' => 'Other Names',
+        'parent_mobile' => 'Parent Mobile',
+        'state_of_origin' => 'State of Origin',
+        'lga' => 'LGA',
+        'address' => 'Address',
+    ],
+
+    /*
     | Idle session security timeout (user request 2026-07-09). After no
     | activity on an authenticated page for "idle_seconds", a warning
     | modal counts down "warning_seconds" with a Resume or Log out
@@ -626,6 +649,7 @@ return [
         'examinations' => ['approve_results', 'publish_results'],
         'communication' => ['broadcast'],
         'school_info' => ['manage_settings'],
+        'students' => ['manage_settings'],
     ],
 
     /*

@@ -74,10 +74,13 @@
     <p class="muted" style="margin-bottom:1rem">Download the template, fill in one student per row, then upload it. Problems are reported by row number so you can fix and re upload.</p>
     <a class="btn btn-ghost" href="{{ route('school.students.template', ['school' => $school->slug]) }}">Download CSV template</a>
     <div style="margin-top:1.2rem">
-      <b style="font-size:.82rem">Columns</b>
-      <ul style="list-style:none;margin-top:.5rem;display:flex;flex-direction:column;gap:.3rem">
+      <div class="row-between" style="margin-bottom:.5rem">
+        <b style="font-size:.82rem">Columns</b>
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.students.settings.edit', ['school' => $school->slug]) }}">Which fields are required</a>
+      </div>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:.3rem">
         @foreach($columns as $key => $label)
-          <li class="muted" style="font-size:.85rem"><strong style="color:var(--ink)">{{ $key }}</strong> — {{ $label }}</li>
+          <li class="muted" style="font-size:.85rem"><strong style="color:var(--ink)">{{ $key }}</strong>, {{ $label }}@if(isset($requiredFields) && in_array($key, $requiredFields, true))<span class="badge badge-warn" style="margin-left:.4rem">Required</span>@endif</li>
         @endforeach
       </ul>
     </div>
