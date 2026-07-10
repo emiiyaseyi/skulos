@@ -30,7 +30,7 @@ class SchoolAdminController extends Controller
     /** The Schools section: create a school, and the full schools list. */
     public function schools(): \Illuminate\View\View
     {
-        $schools = School::orderByDesc('created_at')->get();
+        $schools = School::with('plan')->orderByDesc('created_at')->get();
 
         return view('admin.schools-index', [
             'schools' => $schools,
@@ -40,6 +40,53 @@ class SchoolAdminController extends Controller
                 'pending' => $schools->where('status', School::STATUS_PENDING)->count(),
             ],
         ]);
+    }
+
+    /**
+     * A quick read only overview for the Schools list "View" action (user
+     * request 2026-07-10): name, address, plan, next billing date, and
+     * live counts pulled from the school's own tenant database. Kept
+     * separate from the full "Manage" page so the list doesn't need to
+     * navigate away just to see who/how many are in a school.
+     */
+    public function overview(School $school, TenantManager $tenants): \Illuminate\Http\JsonResponse
+    {
+        $counts = ['students' => 0, 'staff' => 0, 'parents' => 0, 'classes' => 0];
+
+        if ($school->isProvisioned()) {
+            $tenants->use($school);
+            $counts = [
+                'students' => \App\Models\Tenant\Student::count(),
+                'staff' => \App\Models\Tenant\Staff::count(),
+                'parents' => \App\Models\Tenant\StudentGuardian::whereNotNull('email')->distinct('email')->count('email'),
+                'classes' => \App\Models\Tenant\ClassArm::count(),
+            ];
+            $tenants->forget();
+        }
+
+        return response()->json([
+            'name' => $school->name,
+            'address' => $school->address,
+            'email' => $school->email,
+            'phone' => $school->phone,
+            'subdomain' => $school->slug.'.'.config('app.domain', 'localhost'),
+            'status' => ucfirst($school->status),
+            'plan' => $school->plan?->name ?? 'No plan set',
+            'next_billing_date' => $school->next_billing_date?->toFormattedDateString(),
+            'provisioned' => $school->isProvisioned(),
+            'provisioned_at' => $school->provisioned_at?->toFormattedDateString(),
+            'admins' => $school->users()->wherePivot('status', 'active')->count(),
+            'counts' => $counts,
+        ]);
+    }
+
+    /** Set or clear a school's next billing date, admin entered for now. */
+    public function updateBillingDate(Request $request, School $school): \Illuminate\Http\RedirectResponse
+    {
+        $data = $request->validate(['next_billing_date' => ['nullable', 'date']]);
+        $school->update(['next_billing_date' => $data['next_billing_date'] ?? null]);
+
+        return back()->with('status', "Next billing date updated for {$school->name}.");
     }
 
     public function store(Request $request, TenantManager $tenants): RedirectResponse

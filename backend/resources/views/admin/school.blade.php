@@ -19,6 +19,17 @@
       <tr><th>Contact email</th><td>{{ $school->email ?: 'Not set' }}</td></tr>
       <tr><th>Contact phone</th><td>{{ $school->phone ?: 'Not set' }}</td></tr>
       <tr><th>Provisioned</th><td>{{ $school->provisioned_at?->toDayDateTimeString() ?: 'No' }}</td></tr>
+      <tr>
+        <th>Next billing date</th>
+        <td>
+          <form method="POST" action="{{ route('admin.schools.billing-date', $school) }}" style="display:flex;gap:.5rem;align-items:center">
+            @csrf
+            <input type="date" name="next_billing_date" value="{{ $school->next_billing_date?->toDateString() }}" style="max-width:11rem" />
+            <button class="btn btn-ghost btn-sm" type="submit">Save</button>
+          </form>
+          <p class="hint" style="margin-top:.3rem">Set by hand for now, there is no automatic invoicing yet.</p>
+        </td>
+      </tr>
     </tbody>
   </table>
 </div>
@@ -121,6 +132,27 @@
       <button class="btn btn-primary btn-sm" type="submit">Back up now</button>
     </form>
   </div>
+
+  <b style="font-size:.82rem">Automatic backups</b>
+  <p class="muted" style="font-size:.82rem;margin-bottom:.6rem">Set a default schedule so this happens on its own, without the school admin needing to remember.</p>
+  <form method="POST" action="{{ route('admin.schools.backups.schedule', $school->id) }}" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1.1rem">
+    @csrf
+    <div class="field" style="margin-bottom:0">
+      <label for="backup_frequency">Frequency</label>
+      <select id="backup_frequency" name="backup_frequency">
+        <option value="none" @selected($school->backup_frequency === 'none' || ! $school->backup_frequency)>Off</option>
+        <option value="daily" @selected($school->backup_frequency === 'daily')>Daily</option>
+        <option value="weekly" @selected($school->backup_frequency === 'weekly')>Weekly (Monday)</option>
+        <option value="monthly" @selected($school->backup_frequency === 'monthly')>Monthly (1st)</option>
+      </select>
+    </div>
+    <div class="field" style="margin-bottom:0">
+      <label for="backup_time">Time of day</label>
+      <input id="backup_time" name="backup_time" type="time" value="{{ $school->backup_time ? substr($school->backup_time,0,5) : '02:00' }}" />
+    </div>
+    <button class="btn btn-ghost btn-sm" type="submit">Save schedule</button>
+  </form>
+
   @if($backups->isEmpty())
     <p class="muted">No backups yet.</p>
   @else

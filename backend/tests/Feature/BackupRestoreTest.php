@@ -131,6 +131,41 @@ class BackupRestoreTest extends TestCase
         $this->assertSame('03:30', $school->backup_time);
     }
 
+    public function test_platform_admin_can_also_set_a_backup_schedule(): void
+    {
+        $admin = User::factory()->create();
+        $admin->forceFill(['is_super_admin' => true])->save();
+        [$school] = $this->schoolWithOwner('adminschedule');
+
+        $this->actingAs($admin)->post(route('admin.schools.backups.schedule', $school->id), [
+            'backup_frequency' => 'weekly',
+            'backup_time' => '04:15',
+        ])->assertRedirect();
+
+        $school->refresh();
+        $this->assertSame('weekly', $school->backup_frequency);
+        $this->assertSame('04:15', $school->backup_time);
+    }
+
+    /**
+     * Regression test for the 2026-07-10 fix: the scheduled command used
+     * to run hourly (only at "HH:00"), so a schedule set to any other
+     * minute, like the 03:30 used in the test above, could never actually
+     * fire. This proves a non "HH:00" time is now picked up.
+     */
+    public function test_a_backup_due_at_a_non_zero_minute_actually_runs(): void
+    {
+        [$school] = $this->schoolWithOwner('duebackup');
+        $school->update(['backup_frequency' => 'daily', 'backup_time' => '03:30']);
+
+        $this->travelTo(now()->setTime(3, 30));
+        $this->artisan('backups:run-scheduled');
+
+        $this->assertSame(1, Backup::where('school_id', $school->id)->count());
+
+        $this->travelBack();
+    }
+
     public function test_a_non_admin_member_cannot_manage_backups(): void
     {
         $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'nobackup']));

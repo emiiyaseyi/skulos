@@ -43,6 +43,7 @@ class School extends Model
         'backup_frequency',
         'backup_time',
         'plan_id',
+        'next_billing_date',
     ];
 
     /**
@@ -72,6 +73,7 @@ class School extends Model
         return [
             'settings' => 'array',
             'provisioned_at' => 'datetime',
+            'next_billing_date' => 'date',
         ];
     }
 

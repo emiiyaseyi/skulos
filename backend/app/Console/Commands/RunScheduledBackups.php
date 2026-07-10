@@ -8,10 +8,11 @@ use App\Services\Tenancy\BackupService;
 use Illuminate\Console\Command;
 
 /**
- * Runs any school's backup whose configured schedule is due this hour
+ * Runs any school's backup whose configured schedule is due this minute
  * (user request 2026-07-09: a default backup time/date, not just manual).
- * Registered hourly in routes/console.php; a school with
- * backup_frequency "none" is never picked up.
+ * Registered every minute in routes/console.php so an exact "HH:MM" time
+ * can actually be matched; a school with backup_frequency "none" is
+ * never picked up.
  */
 class RunScheduledBackups extends Command
 {

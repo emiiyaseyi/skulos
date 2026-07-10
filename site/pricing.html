@@ -724,6 +724,11 @@ section:last-of-type{ padding-bottom:clamp(2.25rem,4vw,3.25rem); }
 .tier-flag-soon{
   background:var(--glass); border:1px solid var(--glass-border); color:var(--mist);
 }
+.tier-badge{
+  width:2.75rem; height:2.75rem; border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.25rem; margin:0 auto .9rem;
+}
 .tier h3{ font-family:var(--font-body); font-size:1.1rem; font-weight:800; text-align:center; }
 .tier .who{ font-size:.8rem; color:var(--mist-dim); margin-top:.3rem; margin-bottom:1.25rem; text-align:center; }
 .tier .price{ text-align:center; margin-bottom:1.4rem; }
@@ -734,7 +739,59 @@ section:last-of-type{ padding-bottom:clamp(2.25rem,4vw,3.25rem); }
 .tier li{ font-size:.83rem; color:var(--mist); display:flex; gap:.55rem; }
 .tier li::before{ content:"\2192"; color:var(--gold-soft); flex-shrink:0; font-weight:800; }
 .tier .btn{ width:100%; }
-.pricing-note{ text-align:center; color:var(--mist-dim); font-size:.85rem; margin-top:2rem; }
+.tier-more{
+  background:none; border:none; color:var(--gold-soft); font-size:.8rem; font-weight:700;
+  cursor:pointer; margin:-.7rem 0 .9rem; text-align:center; text-decoration:underline;
+  text-underline-offset:.2rem;
+}
+.tier-more:hover{ color:var(--gold); }
+.pricing-note{ text-align:center; color:var(--mist-dim); font-size:.85rem; margin-top:1.3rem; }
+.inclusions{
+  margin-top:2.2rem; border-radius:18px; border:1px solid var(--glass-border); background:var(--glass);
+  padding:1.7rem 1.9rem;
+}
+.inclusions-head{
+  text-align:center; font-size:.72rem; font-weight:800; text-transform:uppercase;
+  letter-spacing:.08em; color:var(--gold-soft); margin-bottom:1.1rem;
+}
+.inclusions-grid{ list-style:none; display:grid; grid-template-columns:repeat(3,1fr); gap:.7rem 1.6rem; }
+.inclusions-grid li{ display:flex; gap:.55rem; font-size:.85rem; color:var(--mist); }
+.inclusions-grid li::before{ content:"\2713"; color:var(--gold-soft); font-weight:800; flex-shrink:0; }
+@media(max-width:640px){ .inclusions-grid{ grid-template-columns:1fr; } }
+
+/* ---------- feature modal ---------- */
+.feature-modal{
+  position:fixed; inset:0; z-index:200;
+  display:flex; align-items:center; justify-content:center; padding:1.5rem;
+  opacity:0; pointer-events:none; transition:opacity .2s ease;
+}
+.feature-modal.is-open{ opacity:1; pointer-events:auto; }
+.feature-modal-backdrop{
+  position:absolute; inset:0; background:rgba(8,10,16,.72); backdrop-filter:blur(3px);
+}
+.feature-modal-panel{
+  position:relative; z-index:1; width:100%; max-width:38rem; max-height:80vh;
+  background:var(--night-2); border:1px solid var(--glass-border); border-radius:20px;
+  padding:2rem; overflow-y:auto; box-shadow:0 24px 60px var(--shadow);
+  transform:translateY(12px); transition:transform .2s ease;
+}
+.feature-modal.is-open .feature-modal-panel{ transform:translateY(0); }
+.feature-modal-close{
+  position:absolute; top:1rem; right:1rem; width:2rem; height:2rem; border-radius:50%;
+  border:1px solid var(--glass-border); background:var(--glass); color:var(--mist);
+  font-size:1.1rem; line-height:1; cursor:pointer;
+}
+.feature-modal-close:hover{ color:var(--paper); }
+.feature-modal-panel h3{ font-family:var(--font-body); font-size:1.25rem; font-weight:800; text-align:center; margin-bottom:1.4rem; }
+.feature-group{ margin-bottom:1.3rem; }
+.feature-group:last-child{ margin-bottom:0; }
+.feature-group h4{ font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--gold-soft); margin-bottom:.6rem; }
+.feature-group ul{ list-style:none; display:grid; grid-template-columns:repeat(2,1fr); gap:.5rem .8rem; }
+.feature-group li{ font-size:.83rem; color:var(--mist); display:flex; gap:.5rem; text-align:left; }
+.feature-group li::before{ content:"\2713"; color:var(--gold-soft); flex-shrink:0; font-weight:800; }
+@media (max-width:640px){
+  .feature-group ul{ grid-template-columns:1fr; }
+}
 
 /* ---------- contact form ---------- */
 .contact-grid{ display:grid; grid-template-columns:1.2fr .8fr; gap:2rem; align-items:start; }
@@ -964,6 +1021,7 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
  <section class="wrap" id="pricing">
  <div class="pricing-grid">
  <div class="tier">
+ <div class="tier-badge hue-emerald">🌱</div>
  <h3>Foundation</h3>
  <p class="who">Small schools starting their digital journey</p>
  <div class="price"><b>₦500</b><span>per student / term</span></div>
@@ -973,10 +1031,12 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
  <li>Bank transfer fee payments</li>
  <li>In app notifications &amp; announcements</li>
  </ul>
+ <button type="button" class="tier-more" data-plan="foundation">See all features</button>
  <a href="trial.html" class="btn btn-ghost">Start free term</a>
  </div>
  <div class="tier is-featured">
  <span class="tier-flag">Most chosen</span>
+ <div class="tier-badge hue-sky">🚀</div>
  <h3>Advance</h3>
  <p class="who">Schools ready to drop the spreadsheets</p>
  <div class="price"><b>₦800</b><span>per student / term</span></div>
@@ -986,10 +1046,12 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
  <li>Timetable management</li>
  <li>Custom report card designer</li>
  </ul>
+ <button type="button" class="tier-more" data-plan="advance">See all features</button>
  <a href="trial.html" class="btn btn-gold">Start free term</a>
  </div>
  <div class="tier is-soon">
  <span class="tier-flag tier-flag-soon">Coming soon</span>
+ <div class="tier-badge hue-violet">💎</div>
  <h3>Professional</h3>
  <p class="who">Full administrative control, one platform</p>
  <div class="price"><b>₦1,200</b><span>per student / term</span></div>
@@ -999,10 +1061,12 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
  <li>HR, payroll &amp; learning management</li>
  <li>CBT examinations &amp; AI report comments</li>
  </ul>
+ <button type="button" class="tier-more" data-plan="professional">See all features</button>
  <a href="contact.html" class="btn btn-ghost">Join the waitlist</a>
  </div>
  <div class="tier is-soon">
  <span class="tier-flag tier-flag-soon">Coming soon</span>
+ <div class="tier-badge hue-coral">🏛</div>
  <h3>Enterprise</h3>
  <p class="who">Multi campus groups &amp; school networks</p>
  <div class="price"><b>₦1,500</b><span>per student / term</span></div>
@@ -1012,11 +1076,38 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
  <li>Multi school management</li>
  <li>API access &amp; single sign on</li>
  </ul>
+ <button type="button" class="tier-more" data-plan="enterprise">See all features</button>
  <a href="contact.html" class="btn btn-ghost">Join the waitlist</a>
  </div>
  </div>
- <p class="pricing-note">Included with every plan: a free one term trial, free data migration, free staff onboarding and training, automatic system updates, secure cloud backup, SSL security, and unlimited administrators. Annual billing is available at 3 times the termly rate. Add ons such as SMS bundles, extra storage and a custom domain are purchasable on any plan.</p>
+ <div class="inclusions">
+ <div class="inclusions-head">Included with every SKULOS plan</div>
+ <ul class="inclusions-grid">
+ <li>Free one term trial</li>
+ <li>Free data migration</li>
+ <li>Free staff onboarding and training</li>
+ <li>Automatic system updates</li>
+ <li>Secure cloud backup</li>
+ <li>SSL security</li>
+ <li>Responsive web access</li>
+ <li>Unlimited administrators</li>
+ <li>Regular feature updates</li>
+ </ul>
+ </div>
+ <p class="pricing-note">Annual billing is available at 3 times the termly rate. Add ons such as SMS bundles, extra storage and a custom domain are purchasable on any plan.</p>
  </section>
+
+ <!-- FEATURE MODAL: full checklist per plan, data generated from the seeded Plan
+      records to stay consistent with the admin Billing screen (tracker section 14) -->
+ <div class="feature-modal" id="featureModal" aria-hidden="true">
+ <div class="feature-modal-backdrop" data-close></div>
+ <div class="feature-modal-panel" role="dialog" aria-modal="true" aria-labelledby="featureModalTitle">
+ <button class="feature-modal-close" type="button" data-close aria-label="Close">&times;</button>
+ <h3 id="featureModalTitle"></h3>
+ <div class="feature-modal-body"></div>
+ </div>
+ </div>
+ <script type="application/json" id="planFeaturesData">{"foundation":[["Academic",["Student Records","Staff Records","School Sections","Classes & Arms","Subject Management","School Houses","Academic Sessions & Terms","Attendance Management","Continuous Assessment","Result Management","Basic Report Cards","Student Promotion","Academic Calendar"]],["Administration",["User & Role Management","Parent Portal","Student Portal","Teacher Portal","School Profile","School Branding","Dashboard"]],["Communication",["In App Notifications","Announcements","Birthday & Anniversary Notifications","Parent Broadcast"]],["Finance",["Bank Transfer Payment Option","Payment Evidence Upload","Payment Verification","Basic Fee Records"]],["Reports & Analytics",["Student Reports","Attendance Reports","Basic Analytics Dashboard","Export to PDF","Export to Excel","Bulk Import","Bulk Export","Student Performance Dashboard","Attendance Dashboard"]],["Support",["Knowledge Base","Staff Onboarding & Training","Standard Support"]]],"advance":[["Academic",["Student Records","Staff Records","School Sections","Classes & Arms","Subject Management","School Houses","Academic Sessions & Terms","Attendance Management","Continuous Assessment","Result Management","Basic Report Cards","Student Promotion","Academic Calendar","Timetable Management","Teacher Workload","Advanced Report Cards","Unlimited Grading Systems","Custom Report Card Designer","Class Position & Ranking"]],["Admissions",["Online Admissions","Admission Workflow","Applicant Tracking","Admission Letters","Online Document Upload"]],["Administration",["User & Role Management","Parent Portal","Student Portal","Teacher Portal","School Profile","School Branding","Dashboard"]],["Communication",["In App Notifications","Announcements","Birthday & Anniversary Notifications","Email Notifications","Parent Broadcast","Communication History"]],["Finance",["Bank Transfer Payment Option","Payment Evidence Upload","Payment Verification","Basic Fee Records","Installment Payment Plans"]],["Reports & Analytics",["Student Reports","Attendance Reports","Basic Analytics Dashboard","Export to PDF","Export to Excel","Bulk Import","Bulk Export","Custom Report Builder","Student Performance Dashboard","Attendance Dashboard","Academic Insights"]],["Support",["Knowledge Base","Staff Onboarding & Training","Standard Support","Priority Email Support","Implementation Assistance"]]],"professional":[["Academic",["Student Records","Staff Records","School Sections","Classes & Arms","Subject Management","School Houses","Academic Sessions & Terms","Attendance Management","Continuous Assessment","Result Management","Basic Report Cards","Student Promotion","Academic Calendar","Timetable Management","Teacher Workload","Advanced Report Cards","Unlimited Grading Systems","Custom Report Card Designer","Class Position & Ranking"]],["Admissions",["Online Admissions","Admission Workflow","Applicant Tracking","Admission Letters","Online Document Upload"]],["Administration",["User & Role Management","Parent Portal","Student Portal","Teacher Portal","School Profile","School Branding","Dashboard"]],["Communication",["In App Notifications","Announcements","Birthday & Anniversary Notifications","Email Notifications","Parent Broadcast","Communication History","SMS Notifications","WhatsApp Notifications","Automated Notifications"]],["Finance",["Bank Transfer Payment Option","Payment Evidence Upload","Payment Verification","Basic Fee Records","Installment Payment Plans","Online Payment Gateway Integration","School Fees Management","Discounts & Scholarships","Expense Management","Income Management","Payroll","Financial Reports","Financial Dashboard","Automated Receipts","Automated Invoicing","Outstanding Fee Tracking"]],["Human Resources",["HR Management","Staff Attendance","Leave Management","Performance Appraisal","Staff Document Management"]],["Learning",["Learning Management System","Courses","Assignments","Quizzes","Learning Resources","Discussion Boards","Certificates"]],["Examination",["CBT Examination","LearnGuard Secure Browser","Webcam Monitoring","Browser Lockdown","Question Bank","Random Questions","Examination Analytics"]],["Artificial Intelligence",["AI Report Comments","AI Student Performance Insights","AI Lesson Planning","AI Question Generator","AI Risk Analysis"]],["Automation",["Workflow Automation","Scheduled Reports","Approval Workflows"]],["Reports & Analytics",["Student Reports","Attendance Reports","Basic Analytics Dashboard","Export to PDF","Export to Excel","Bulk Import","Bulk Export","Custom Report Builder","Student Performance Dashboard","Attendance Dashboard","Academic Insights","Advanced Analytics","Executive Dashboard","Financial Analytics","Custom KPIs"]],["Support",["Knowledge Base","Staff Onboarding & Training","Standard Support","Priority Email Support","Implementation Assistance","Priority Support","Dedicated Customer Success"]]],"enterprise":[["Academic",["Student Records","Staff Records","School Sections","Classes & Arms","Subject Management","School Houses","Academic Sessions & Terms","Attendance Management","Continuous Assessment","Result Management","Basic Report Cards","Student Promotion","Academic Calendar","Timetable Management","Teacher Workload","Advanced Report Cards","Unlimited Grading Systems","Custom Report Card Designer","Class Position & Ranking"]],["Admissions",["Online Admissions","Admission Workflow","Applicant Tracking","Admission Letters","Online Document Upload"]],["Administration",["User & Role Management","Parent Portal","Student Portal","Teacher Portal","School Profile","School Branding","Dashboard"]],["Communication",["In App Notifications","Announcements","Birthday & Anniversary Notifications","Email Notifications","Parent Broadcast","Communication History","SMS Notifications","WhatsApp Notifications","Automated Notifications"]],["Finance",["Bank Transfer Payment Option","Payment Evidence Upload","Payment Verification","Basic Fee Records","Installment Payment Plans","Online Payment Gateway Integration","School Fees Management","Discounts & Scholarships","Expense Management","Income Management","Payroll","Financial Reports","Financial Dashboard","Automated Receipts","Automated Invoicing","Outstanding Fee Tracking"]],["Human Resources",["HR Management","Staff Attendance","Leave Management","Performance Appraisal","Staff Document Management"]],["Learning",["Learning Management System","Courses","Assignments","Quizzes","Learning Resources","Discussion Boards","Certificates"]],["Examination",["CBT Examination","LearnGuard Secure Browser","Webcam Monitoring","Browser Lockdown","Question Bank","Random Questions","Examination Analytics"]],["Artificial Intelligence",["AI Report Comments","AI Student Performance Insights","AI Lesson Planning","AI Question Generator","AI Risk Analysis"]],["Automation",["Workflow Automation","Scheduled Reports","Approval Workflows"]],["Reports & Analytics",["Student Reports","Attendance Reports","Basic Analytics Dashboard","Export to PDF","Export to Excel","Bulk Import","Bulk Export","Custom Report Builder","Student Performance Dashboard","Attendance Dashboard","Academic Insights","Advanced Analytics","Executive Dashboard","Financial Analytics","Custom KPIs"]],["Support",["Knowledge Base","Staff Onboarding & Training","Standard Support","Priority Email Support","Implementation Assistance","Priority Support","Dedicated Customer Success"]],["School Operations",["Library Management","Inventory Management","Asset Management","Medical Management","Hostel Management","Transport Management","Visitor Management","Discipline Management"]],["Multi School Management",["Multi Campus Management","Multi School Dashboard","Central Administration","School Switching","Shared Staff (Optional)"]],["Enterprise Features",["API Access","Third Party Integrations","Plugin Marketplace","Developer API","Webhooks","Single Sign On (SSO)","Audit Centre"]],["Advanced Intelligence",["AI Predictive Analytics","School Benchmarking","Custom Executive Dashboards","Data Warehouse"]],["Premium Services",["Dedicated Account Manager","Data Migration","Priority Technical Support","Early Access to New Features"]],["Future Features",["School Website Builder","Alumni Management","Mobile Apps","White Label (Optional)","Marketplace Access","Custom Module Development","Advanced Security Policies"]]]}</script>
 
  <!-- FAQ -->
  <section class="wrap">
@@ -1251,6 +1342,58 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
       });
     });
   });
+
+  (function(){
+    var modal = document.getElementById('featureModal');
+    var dataEl = document.getElementById('planFeaturesData');
+    if(!modal || !dataEl) return;
+    var planFeatures = JSON.parse(dataEl.textContent);
+    var titleEl = modal.querySelector('#featureModalTitle');
+    var bodyEl = modal.querySelector('.feature-modal-body');
+    var lastFocused = null;
+
+    function render(planKey, planLabel){
+      var groups = planFeatures[planKey] || [];
+      var total = groups.reduce(function(sum, g){ return sum + g[1].length; }, 0);
+      titleEl.textContent = planLabel + ': ' + total + ' features';
+      bodyEl.innerHTML = groups.map(function(group){
+        var items = group[1].map(function(f){ return '<li>' + f + '</li>'; }).join('');
+        return '<div class="feature-group"><h4>' + group[0] + '</h4><ul>' + items + '</ul></div>';
+      }).join('');
+    }
+
+    function open(planKey, planLabel){
+      render(planKey, planLabel);
+      lastFocused = document.activeElement;
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+      modal.querySelector('.feature-modal-close').focus();
+      document.body.style.overflow = 'hidden';
+    }
+
+    function close(){
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+      if(lastFocused) lastFocused.focus();
+    }
+
+    document.querySelectorAll('.tier-more').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var plan = btn.getAttribute('data-plan');
+        var label = btn.closest('.tier').querySelector('h3').textContent;
+        open(plan, label);
+      });
+    });
+
+    modal.querySelectorAll('[data-close]').forEach(function(el){
+      el.addEventListener('click', close);
+    });
+
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape' && modal.classList.contains('is-open')) close();
+    });
+  })();
 </script>
 <script src="assets/widget.js" defer></script>
 </body>
