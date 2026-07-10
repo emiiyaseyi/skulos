@@ -4,6 +4,7 @@ namespace App\Models\Tenant;
 
 use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A school house, e.g. "Red House". housemaster_staff_id references a Staff
@@ -17,4 +18,9 @@ class House extends Model
     protected $connection = 'tenant';
 
     protected $fillable = ['name', 'color', 'housemaster_staff_id'];
+
+    public function students(): HasMany
+    {
+        return $this->hasMany(Student::class);
+    }
 }

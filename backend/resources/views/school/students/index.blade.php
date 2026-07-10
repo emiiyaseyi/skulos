@@ -27,7 +27,7 @@
           <tr>
             <td class="muted" style="font-variant-numeric:tabular-nums">{{ $student->admission_number }}</td>
             <td><strong>{{ $student->fullName() }}</strong></td>
-            <td>{{ $student->gender ? ucfirst($student->gender) : '—' }}</td>
+            <td>{{ $student->gender ? ucfirst($student->gender) : 'Not set' }}</td>
             <td><span class="badge {{ $student->status === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucfirst($student->status) }}</span></td>
           </tr>
         @endforeach

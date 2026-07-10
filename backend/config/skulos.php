@@ -578,6 +578,15 @@ return [
     ],
 
     /*
+    | Default house names a school can load in one action (user request
+    | 2026-07-10): most schools run 4. Colour based and neutral on
+    | purpose, not any specific school's real house names, since those
+    | would be fabricated. Idempotent by name, same pattern as every
+    | other "default_*" catalog here, editable/removable after loading.
+    */
+    'default_houses' => ['Red House', 'Blue House', 'Green House', 'Yellow House'],
+
+    /*
     | Default grading scales a school can load (same "user request 2026-07-09"
     | source). Loading one creates a GradingScale + its bands only if a scale
     | of that name does not already exist (idempotent); the admin can edit,

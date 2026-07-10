@@ -21,6 +21,7 @@
 {!! $item('school.students', 'Students', 'students') !!}
 {!! $soon('Staff', 'staff') !!}
 {!! $soon('Parents', 'students') !!}
+{!! $item('school.houses.index', 'Houses', 'school') !!}
 
 <div class="side-group">Academics</div>
 {!! $item('school.academics.index', 'Classes &amp; Subjects', 'academics') !!}

@@ -135,6 +135,18 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::get('/students/template.csv', [\App\Http\Controllers\School\StudentController::class, 'template'])->name('school.students.template');
         Route::get('/students/settings', [\App\Http\Controllers\School\StudentController::class, 'editSettings'])->name('school.students.settings.edit');
         Route::post('/students/settings', [\App\Http\Controllers\School\StudentController::class, 'updateSettings'])->name('school.students.settings.update');
+
+        Route::prefix('houses')->name('school.houses.')->group(function () {
+            $houses = \App\Http\Controllers\School\HouseController::class;
+            Route::get('/', [$houses, 'index'])->name('index');
+            Route::post('/', [$houses, 'store'])->name('store');
+            Route::post('/apply-defaults', [$houses, 'applyDefaults'])->name('apply-defaults');
+            Route::delete('/{houseId}', [$houses, 'destroy'])->name('destroy');
+            Route::get('/assign', [$houses, 'assignForm'])->name('assign-form');
+            Route::post('/assign/{studentId}', [$houses, 'assign'])->name('assign');
+            Route::get('/bulk-template', [$houses, 'bulkTemplate'])->name('bulk-template');
+            Route::post('/bulk-assign', [$houses, 'bulkAssign'])->name('bulk-assign');
+        });
         Route::post('/notifications/{id}/read', [SchoolPortalController::class, 'markNotificationRead'])->name('school.notifications.read');
         Route::get('/settings/branding', [SchoolPortalController::class, 'editBranding'])->name('school.branding.edit');
         Route::post('/settings/branding', [SchoolPortalController::class, 'updateBranding'])->name('school.branding.update');
