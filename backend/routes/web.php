@@ -164,6 +164,12 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             $examinations = \App\Http\Controllers\School\ExaminationController::class;
             Route::get('/', [$examinations, 'index'])->name('index');
             Route::post('/scores', [$examinations, 'save'])->name('scores.save');
+
+            $assessment = \App\Http\Controllers\School\AssessmentController::class;
+            Route::get('/structure', [$assessment, 'index'])->name('structure');
+            Route::post('/structure', [$assessment, 'store'])->name('structure.store');
+            Route::post('/structure/{componentId}', [$assessment, 'update'])->name('structure.update');
+            Route::delete('/structure/{componentId}', [$assessment, 'destroy'])->name('structure.destroy');
         });
 
         // Campuses.
