@@ -19,16 +19,18 @@ Established 2026-07-26 from direct feedback on the first landing page draft. The
 
 ## Confirmed Business Decisions (post-launch-doc updates)
 
-- [x] **Pricing (confirmed 2026-07-26)**, per student per term — supersedes the "illustrative only" figures in §6.10 and the "TBD" flag in §11:
-  - Starter: ₦500 / child / term
-  - Growth: ₦800 / child / term
+- [x] **Pricing tiers renamed (confirmed 2026-07-10)**, sourced from `SKULOS PRICING PLAN AND FEATURES.docx`: **Starter → Foundation**, **Growth → Advance**, Professional and Enterprise keep their names. Same 4 tiers, same order, same prices, only the bottom two names and the entire feature catalog per tier changed. See section 14 for the full catalog, build status audit, and launch scope. Old names (Starter/Growth) are retired; use Foundation/Advance everywhere from this point.
+- [x] **Pricing (confirmed 2026-07-26, tier names updated 2026-07-10)**, per student per term:
+  - Foundation (was Starter): ₦500 / child / term
+  - Advance (was Growth): ₦800 / child / term
   - Professional: ₦1,200 / child / term
   - Enterprise: ₦1,500 / child / term
   - Figures and the feature list shown under each plan must be **admin-editable**, not hardcoded — see the Marketing Site / Admin CMS section below. The admin settings page must expose a checkbox per feature per plan so the Platform Super Admin controls what each tier displays without a code change.
+- [x] **Launch scope (confirmed 2026-07-10):** SKULOS goes live with **Foundation and Advance only**. Every feature listed under those two tiers in section 14 must be genuinely built and working before launch, not just cataloged. Professional and Enterprise stay visible on the public pricing page with their full feature lists marked **Coming soon** (for credibility/upsell) but are not purchasable or provisioned until built.
 - [x] **Unique identifiers (confirmed 2026-07-08):**
-  - **Student** unique ID is the **Admission Number** (school-assigned, not auto-incrementing DB id) — this is the field used to look up/reference a student throughout the system, including bulk import matching (e.g. the "Row 15 — Admission Number already exists" validation example in §4.3).
+  - **Student** unique ID is the **Admission Number** (school-assigned, not auto-incrementing DB id) — this is the field used to look up/reference a student throughout the system, including bulk import matching (e.g. the "Row 15 — Admission Number already exists" validation example in section 4.3).
   - **Student email address is optional** — students must not be blocked from admission/record-creation for lacking one. Design student login/notifications so email is an enhancement (e.g. enables direct student portal login if present), not a requirement.
-  - **Parent** unique ID is their **email address** — this is what a parent logs in with and what the system uses to detect "this is the same parent" across multiple children/schools (see §4.2 multi-child/multi-school parent account merging). Parent records must therefore enforce email as required + unique at the platform level, not per-school.
+  - **Parent** unique ID is their **email address** — this is what a parent logs in with and what the system uses to detect "this is the same parent" across multiple children/schools (see section 4.2 multi-child/multi-school parent account merging). Parent records must therefore enforce email as required + unique at the platform level, not per-school.
 
 ## Working conventions reminder (read CLAUDE.md for the full list)
 
@@ -136,21 +138,21 @@ Entries are added here as work starts on each item — see the current build pha
 - Issues/Bugs: (2026-07-08) `composer create-project laravel/laravel` now defaults to **Laravel 13** — contradicts documented TD-001 (Laravel 12). Also one transient AV-related "Permission denied" on a package temp file mid-install. Also stock `phpunit.xml` ships with the in-memory test DB lines commented out, so the first `artisan test` run silently migrated/used the **dev** `database.sqlite`.
 - Resolution: recreated pinned to `laravel/laravel:^12.0` (12.63.0). Flag for user: revisit "12 vs 13" deliberately someday. Retried install (succeeded). Uncommented `DB_CONNECTION=sqlite` / `DB_DATABASE=:memory:` in phpunit.xml — tests now isolated from dev data.
 
-### Academic structure (§5: sessions, terms, sections, classes, arms, subjects, houses)
+### Academic structure (section 5: sessions, terms, sections, classes, arms, subjects, houses)
 - Status: In progress (schema + models + tests done; default-structure service + wizard still to come)
 - Started: 2026-07-08
 - Notes: tenant tables in one migration (`create_academic_structure_tables`): academic_sessions, terms (sequence-based so 2/3/N terms all work), sections, school_classes, arms, class_arms (the enrollable unit; arm_id null = single stream; `class_teacher_staff_id` is a plain id/no FK so it can be set once staff exist), subjects, class_subject pivot, houses (housemaster_staff_id plain id). All names/counts/sequences are data (TD-007, nothing hardcoded). Models in `app/Models/Tenant/`, all `$connection='tenant'` + `Auditable`. `makeCurrent()` enforces a single current session/term.
 - Issues/Bugs: (2026-07-08) test used `assertDatabaseHas('houses', ...)` which checks the default (platform) connection where the tenant-only `houses` table does not exist — "no such table: houses".
 - Resolution: assert via the tenant-connection model instead. 6 academic tests passing; full suite 39 tests / 103 assertions.
 
-### Student records (§5)
+### Student records (section 5)
 - Status: In progress (schema + models + CSV importer + tests done; UI/API + parent-portal query + custom-fields UI later)
 - Started: 2026-07-08
 - Notes: tenant tables students / student_guardians / enrollments. Admission number is the unique key (unique index), email nullable (never required, enforced by validation allowing null). Guardians link to a platform parent by `guardian_user_id` (plain id, no cross-db FK; parent unique ID = email at platform level). Enrollments give per-session placement history for promotion/transcripts. Extended profile fields + a `custom` json column for the future custom-fields engine. `StudentImporter` extends the bulk framework: CSV template (`admission_number,first_name,...`), per-row validation, in-file + in-DB admission-number duplicate detection, strict/partial modes, audited. Downloadable template satisfied via `Importer::template()`.
 - Issues/Bugs: none this pass.
 - Resolution: 5 student tests (uniqueness, optional email, full name/guardians/enrollment, template, partial + strict bulk import with Excel-row-numbered errors); full suite 44 tests / 120 assertions passing.
 
-### Staff records (§5)
+### Staff records (section 5)
 - Status: In progress (schema + models + CSV importer + tests; UI/API later)
 - Started: 2026-07-08
 - Notes: tenant tables staff / teaching_assignments. Staff ID is the unique key. `position` is a descriptive free label; actual permissions come from the RBAC role, not this field (kept separate deliberately). Class-teacher recorded on class_arms.class_teacher_staff_id; subject teaching via teaching_assignments (staff + subject + class_arm, unique). `StaffImporter` mirrors the student one (CSV template, row-level validation, duplicate detection, audited).
@@ -165,28 +167,28 @@ Entries are added here as work starts on each item — see the current build pha
 - Issues/Bugs: live OAuth not exercisable here (no real Google/Microsoft app credentials).
 - Resolution: 5 tests via mocked Socialite cover the enable gate, 404s, new-user provisioning + login, email account-linking, and audit. Full suite 53 tests / 151 assertions passing.
 
-### Attendance (§5)
+### Attendance (section 5)
 - Status: In progress (schema + model + service + tests; UI/API + register screen later)
 - Started: 2026-07-08
 - Notes: single tenant `attendance` table for both students and staff (person_type discriminator, one row per person per day, unique). class_arm_id set for students. Status values come from `config/skulos.php` attendance_statuses (configurable, not a hardcoded enum). `AttendanceService`: `markClass` (idempotent whole-class register, correct-in-place), `markStaff`, `classSummary` (counts by status). Bulk class marking audited.
 - Issues/Bugs: (2026-07-08) `date` cast serialized to "YYYY-MM-DD 00:00:00", so the idempotent `updateOrCreate` match on "YYYY-MM-DD" never matched and re-inserted, hitting the unique constraint. Also a summary assertion was order-sensitive.
 - Resolution: store `date` as a plain date string (dropped the datetime cast; documented why in the model) so the match is exact; made the summary assertion canonicalizing. 5 attendance tests; full suite 58 tests / 161 assertions.
 
-### Configurable grading + results (§5 — a core product promise)
+### Configurable grading + results (section 5 — a core product promise)
 - Status: In progress (grading engine + scoring + broadsheet + tests; result approval workflow, publishing, report card designer still to come)
 - Started: 2026-07-08
 - Notes: fully configurable, nothing hardcoded. Tenant tables grading_scales/grading_bands (any number of scales; a band maps a score range to grade + remark + optional GPA points), assessment_components (the CA format, e.g. 20/20/60 or 30/20/50 or 40/60 — any components summing to any total), scores (one component score per student/subject/term/class-arm, unique). `ResultService`: `subjectResult` (sums components, grades via the active scale), `classBroadsheet` (per-subject totals, overall total/average, competition-ranked positions with ties sharing a place), `studentReport`. A test rebuilds a totally different CA format to prove nothing is baked in.
 - Issues/Bugs: none this pass.
 - Resolution: 6 results tests (configurable totals, component summing + grading, boundary grades, ranking, tie positions, alternate format); full suite 64 tests / 177 assertions.
 
-### Communication + email notifications (§5, user asked to bring into core)
+### Communication + email notifications (section 5, user asked to bring into core)
 - Status: In progress (announcements + email + delivery log + tests done; in-app notifications + per-audience toggles being added next per 2026-07-09 request)
 - Started: 2026-07-09
 - Notes: tenant tables announcements + communication_logs (every send logged with channel + status, backing the future Notification Center). `AnnouncementMail` (plain, theme-free). `CommunicationService`: publishAnnouncement (marks published, emails recipients on enabled channels, audited), emailAnnouncement, sendEmail (one-off, e.g. fee reminders). Channels configurable in config/skulos.php (email on; sms/whatsapp/push placeholders). Tests use Mail::fake().
 - Issues/Bugs: none this pass.
 - Resolution: 4 communication tests; full suite green.
 
-### In-app notifications + per-audience email toggle (§5, user request 2026-07-09)
+### In-app notifications + per-audience email toggle (section 5, user request 2026-07-09)
 - Status: Done (backend; the dashboard notification section itself is frontend, pending product UI)
 - Started: 2026-07-09
 - Notes: tenant `notifications` table (one row per recipient user; read_at; announcement link) powers the per-user dashboard feed. `NotificationService::dispatchAnnouncement`: **everyone** in the recipient list gets an in-app notification; **email** goes only to audiences the admin has enabled. Per-audience email switches (parents/teachers/staff/students) default from config and are overridden per school in tenant settings via `setAudienceEmail` (admin toggle, nothing hardcoded). `Notification::feedFor(userId)` returns recent items + unread count for the dashboard section; `markRead()` clears unread. Dispatch audited.
@@ -194,7 +196,7 @@ Entries are added here as work starts on each item — see the current build pha
 - Issues/Bugs: none.
 - Resolution: 4 tests (everyone in-app + all-audiences email by default; admin turns off an audience's email while in-app still reaches them; dashboard feed + unread/markRead; audited). Full suite 76 tests / 219 assertions.
 
-### Calendar & events (§5) + default notable days (user request 2026-07-09)
+### Calendar & events (section 5) + default notable days (user request 2026-07-09)
 - Status: Done (schema + model + service + default seeding + tests; product UI later)
 - Started: 2026-07-09
 - Notes: tenant calendar_events (category-driven, nullable dates, is_default flag, optional session/term link). `CalendarService::seedDefaults()` seeds the default notable days from config/skulos.php and is idempotent; wired into TenantManager provisioning so every new school starts with them. Defaults (admin can edit/remove/add + set dates): Beginning of Term, Mid Term Break, End of Term, Children's Day, Art and Culture Day, Professional Day, Inter House Sports Day, Public Holiday. All are seed data the school owns; nothing hardcoded into calendar logic.
@@ -209,22 +211,22 @@ Entries are added here as work starts on each item — see the current build pha
 - Issues/Bugs: (2026-07-09) platform `/` route (no domain constraint) shadowed subdomain routes → fixed by constraining platform routes to the base domain. Login-then-logout for non-members left them authenticated → refactored to verify password+membership BEFORE `Auth::login`. Blade `@section('bare')` block flag caused output-buffer "risky" warnings → switched to inline `@section('bare', true)`. Default ExampleTest expected `/`=200 (now redirects) → updated.
 - Resolution: 8 platform-flow feature tests (super-admin command, guest redirect, admin gate 404, create+provision school, branded welcome renders branding, member sign-in → dashboard, non-member rejected, branding update reflects). Full suite **84 tests / 250 assertions**. Login page verified rendering via headless screenshot.
 
-### Multi-tenancy foundation (§4.1)
+### Multi-tenancy foundation (section 4.1)
 - Status: Done (foundation scope)
 - Started: 2026-07-08
 - Notes: hand-rolled lean tenancy (no stancl/tenancy dependency — keeps cPanel path simple and the mechanism fully ours). Platform DB holds `schools`, `users` (+phone, +is_super_admin), `roles` (shell; RBAC fills in next), `school_user` pivot. Per-school DB: `TenantManager` provisions (SQLite file locally / `CREATE DATABASE` on MySQL), runs `database/migrations/tenant/*` against a runtime-repointed `tenant` connection. `ResolveTenant` middleware (alias `tenant`) resolves school by `X-School` header or subdomain, rejects unknown/unprovisioned (404) and suspended (403). `school:provision` artisan command works end-to-end (demo school provisioned in dev). First tenant table: `settings` key/value (backs TD-007 configurability).
 - Issues/Bugs: none beyond the phpunit.xml one logged above.
 - Resolution: 8 feature tests passing: provisioning creates dedicated DB w/ tenant schema, two schools fully isolated, idempotent provisioning, header resolution, unknown/unprovisioned/suspended rejection.
 
-### RBAC engine + module toggles (§4.2)
+### RBAC engine + module toggles (section 4.2)
 - Status: Done
 - Started: 2026-07-08
-- Notes: platform-DB tables `permissions` (catalog, seeded from `config/skulos.php` — 26 modules × standard actions + extras = 160 codes), `permission_role`, `user_permissions` (per-user allow/deny overrides), `modules`, `module_states` (Enable/Disable/Hidden/Read-only at school/role/user scope). 21 built-in role templates (school_id null) seeded; schools customize via `Rbac::cloneTemplateRole()` so templates stay shared and untouched. Resolution rules: permission = super admin > user deny > user allow > role grant > **deny by default**; module state = user > role > school > catalog default (core modules default enabled, optional + deferred default disabled). Deferred modules (admissions/finance/visitors/assets, §5b) are cataloged so toggles stay stable, but nothing is built for them.
+- Notes: platform-DB tables `permissions` (catalog, seeded from `config/skulos.php` — 26 modules × standard actions + extras = 160 codes), `permission_role`, `user_permissions` (per-user allow/deny overrides), `modules`, `module_states` (Enable/Disable/Hidden/Read-only at school/role/user scope). 21 built-in role templates (school_id null) seeded; schools customize via `Rbac::cloneTemplateRole()` so templates stay shared and untouched. Resolution rules: permission = super admin > user deny > user allow > role grant > **deny by default**; module state = user > role > school > catalog default (core modules default enabled, optional + deferred default disabled). Deferred modules (admissions/finance/visitors/assets, section 5b) are cataloged so toggles stay stable, but nothing is built for them.
 - Security posture baked in: deny-by-default everywhere; unknown permission codes and unknown modules resolve to "no"; suspended memberships denied; `is_super_admin` and `school_id` not mass-assignable (console/forceFill only); permission catalog not user-editable (schools grant/revoke, never invent codes).
 - Issues/Bugs: (2026-07-08) `db:seed` on dev DB failed first run — new migration hadn't been applied to dev database (tests run on in-memory DB, so they didn't catch a stale dev DB).
 - Resolution: ran `migrate` then reseeded — dev DB now has 26 modules / 160 permissions / 21 template roles. 10 RBAC feature tests + full suite (18 tests) passing.
 
-### Audit trail engine (§4.3)
+### Audit trail engine (section 4.3)
 - Status: Done
 - Started: 2026-07-08
 - Notes: identical `audit_logs` tables in the platform DB **and** every tenant DB — a school's audit history lives inside its own database, so tenant isolation holds for logs too. `Auditable` trait (created/updated/deleted/force_deleted/restored, old/new value diffs, changed-keys-only on update) + `Recorder` service (captures user_id, IP, user-agent, URL; marks console actions; also takes custom action names like "results.published" for non-model events). Wired into `School`, `User`, and the tenant `Setting` model; every future model just adds the trait. No cross-DB FK on user_id (impossible tenant→platform) — deliberate.
@@ -232,7 +234,7 @@ Entries are added here as work starts on each item — see the current build pha
 - Issues/Bugs: (2026-07-08) first draft registered the `restored` listener per-instance (would have duplicated log rows); caught in review before commit.
 - Resolution: moved to `bootAuditable` with a `SoftDeletes` trait check — fires once per class. 8 audit tests passing; full suite 26 passing.
 
-### Bulk operations framework + import validation (§4.3)
+### Bulk operations framework + import validation (section 4.3)
 - Status: Done
 - Started: 2026-07-08
 - Notes: `app/Services/Bulk/` — `CsvReader` (dependency-free CSV parsing: BOM, blank lines, Excel trailing columns), abstract `Importer` (per-row Laravel validation, **strict** mode = all-or-nothing in one transaction vs **partial** mode = import valid rows and report the rest, in-file duplicate detection via `uniqueBy()` e.g. the same admission number twice in one upload, CSV template generation from `columns()`), `ImportResult` (row numbers reported Excel-style: header is row 1, first data row is 2 — matches the tracker's "Row 15: Admission Number already exists" requirement), `BulkActionRunner` (applies an action across many ids, collecting per-id success/failure instead of dying on the first error). Every import and bulk action writes an audit record into the tenant DB automatically. First real subclass will be the Students importer in the core-modules phase.
@@ -240,18 +242,18 @@ Entries are added here as work starts on each item — see the current build pha
 - Resolution: fixed. 7 bulk framework tests passing; full suite 33 tests / 81 assertions passing.
 - Confirmed 2026-07-08 (user): **CSV** is the chosen format for both templates and import files (not Excel/xlsx). Base `Importer::template()` already emits CSV. **Every** importer must expose a downloadable template so users can fill and re-upload — this is a hard requirement per importer, wire a download endpoint/button for each in the core-modules phase.
 
-### Marketing site: no-dashes copy sweep (§ Design System Rules)
+### Marketing site: no-dashes copy sweep (Design System Rules section)
 - Status: Done
 - Started: 2026-07-08
 - Notes: applied the "no dashes in on-screen text" directive to all four marketing pages (site/index, about, pricing, contact) and to the published Artifact source. Swept only visible text nodes (protected `<style>`, `<script>`, tags, and the embedded base64 fonts): em/en dashes to commas, hyphenated compounds spaced ("role based", "drag and drop", "at risk", "real time", "add ons", "multi school", etc.), demo domain simplified to greenfield.skulos.app, page titles cleaned (e.g. "About SKULOS", "SKULOS. The Operating System..."). Verified 0 dashes remain in visible text on every page. Artifact republished to the same URL (086cc9bb...).
-- Note on "nothing hardcoded" for the marketing site: the static HTML is inherently hardcoded; genuinely satisfying that directive requires the CMS-backed rebuild already tracked in §13 (pricing/features/contact read from DB). The dash sweep is done now; the de-hardcoding is the larger §13 item, not yet built. Did not fake it.
+- Note on "nothing hardcoded" for the marketing site: the static HTML is inherently hardcoded; genuinely satisfying that directive requires the CMS-backed rebuild already tracked in section 13 (pricing/features/contact read from DB). The dash sweep is done now; the de-hardcoding is the larger section 13 item, not yet built. Did not fake it.
 - Issues/Bugs: —
 - Resolution: —
 
 ### ⚠️ Handoff note (agent switch planned after this item, 2026-07-08)
 - Everything above (env, reorg, scaffold, tenancy, RBAC, audit, bulk framework) is **done and tested**: 33 tests passing. Committed locally.
 - **Push may be pending**: GitHub was unreachable (DNS failure on the dev machine) at the time of the last commits. First thing next session: `git log origin/main..main --oneline` and push anything unpushed.
-- Next build item: **Core modules** (tracker §5, minus §5b deferrals): Student records (unique ID = admission number; email optional), Staff records, Parent portal linkage (parent unique ID = email, platform-level), academic structure (sessions, terms, sections, classes, arms, subjects, houses), CA/examinations/results with configurable grading, attendance, timetable, calendar, communication incl. email notifications. Use the tenancy/RBAC/audit/bulk foundations — tenant models get `Auditable` + a real `Importer` subclass each.
+- Next build item: **Core modules** (tracker section 5, minus section 5b deferrals): Student records (unique ID = admission number; email optional), Staff records, Parent portal linkage (parent unique ID = email, platform-level), academic structure (sessions, terms, sections, classes, arms, subjects, houses), CA/examinations/results with configurable grading, attendance, timetable, calendar, communication incl. email notifications. Use the tenancy/RBAC/audit/bulk foundations — tenant models get `Auditable` + a real `Importer` subclass each.
 - Read CLAUDE.md first: environment paths (PHP 8.3 shims), conventions (no hardcoding, no dashes in on-screen text, security posture, commit-as-user with no trailer, push at every completed item).
 
 ### Clickable platform UI (architecture pivot, 2026-07-08/09)
@@ -261,7 +263,7 @@ Entries are added here as work starts on each item — see the current build pha
 - Issues/Bugs: (2026-07-08) `SESSION_DOMAIN=.localhost` (leading dot) is rejected as an invalid cookie domain for the bare host `localhost`, so no session cookie was ever set and every POST 419'd, including in incognito. (2026-07-08) CSS grid bug: `.scrim` mobile overlay had no base `display:none`, so on desktop it occupied a grid cell and pushed `.main` out of view (blank page despite correct HTML). (2026-07-08) admin dashboard `@foreach($schools as $school)` leaked the last-looped `$school` into the shared layout's sidebar via Blade view scope.
 - Resolution: `SESSION_DOMAIN=null` for local dev (host-only cookies); documented that a real leading-dot domain is valid in production with real subdomains. Added `.scrim{display:none}` as a base rule. Renamed the admin dashboard loop variable to `$s`.
 
-### Students module screen (list + bulk CSV import UI, §5)
+### Students module screen (list + bulk CSV import UI, section 5)
 - Status: Done
 - Started: 2026-07-09
 - Notes: `StudentController` (index with search/pagination, RBAC gated on `students.view`; import form + upload + CSV template download, RBAC gated on `students.bulk`) over the existing `StudentImporter` service. Search matches admission number, first name, or last name. Import UI shows imported/failed counts and a per-row error table (Excel-style row numbers) for both strict and partial mode, plus a "Download CSV template" link and column reference — matches the "every importer needs a downloadable template" requirement. Sidebar Students link wired to the real route.
@@ -312,7 +314,7 @@ Entries are added here as work starts on each item — see the current build pha
   - `Student::fullName()`/`Staff::fullName()` (fixed in an earlier item, worth restating) produced a double space when `other_names` was blank — visible on every screen rendering a person's name.
   - An earlier, improperly isolated test (`TrialRequestTest`, before this pass added proper `tenancy.sqlite_path` isolation) had left a stray real tenant SQLite file (`storage/tenants/bright_kids.sqlite`) in the actual local dev environment from a prior run; found and removed during this pass.
 - QA: every item above has its own feature tests (SchoolAdminManagementTest, BackupRestoreTest, TrialRequestTest, MailSettingsTest, and additions to PlatformFlowTest), each run individually and as part of the full suite before committing. Full suite **153 tests / 529 assertions passing** at the end of this pass. Manually verified via real HTTP requests against the local dev server (not just the test suite) for the login redesign, error pages, dashboard/schools split, and mail template rendering, since these are primarily visual/experiential changes.
-- Not built in this pass (kept in scope for later, not fabricated): Billing (per-school plans/features, a free-term override, upgrade/downgrade, ad hoc extra features — see tracker §7/§13), a Results/Scores entry screen, a guided setup wizard at school creation, real production SMTP/domain deployment (repo is deployment-ready per `DEPLOYMENT.md`'s free-tier section, but no live deploy has actually happened).
+- Not built in this pass (kept in scope for later, not fabricated): Billing (per-school plans/features, a free-term override, upgrade/downgrade, ad hoc extra features — see tracker section 7/section 13), a Results/Scores entry screen, a guided setup wizard at school creation, real production SMTP/domain deployment (repo is deployment-ready per `DEPLOYMENT.md`'s free-tier section, but no live deploy has actually happened).
 
 ---
 
@@ -339,7 +341,7 @@ Kept centrally here since the source document scatters them across multiple chap
 - [ ] https://github.com/niruhan/school-management-backend — API/backend organization reference
 
 ### Own prior project to integrate (not just reference — planned dependency)
-- [ ] LearnGuard Secure Browser — https://github.com/emiiyaseyi/Learn-Proctor-Secure-Browser — will be integrated into the Examination module for secure CBT instead of building proctoring from scratch (see §6.16)
+- [ ] LearnGuard Secure Browser — https://github.com/emiiyaseyi/Learn-Proctor-Secure-Browser — will be integrated into the Examination module for secure CBT instead of building proctoring from scratch (see section 6.16)
 
 ---
 
@@ -587,7 +589,7 @@ These are cross-cutting capabilities every module depends on — build these fou
 
 ## 5. Core Modules (mandatory — always available)
 
-> **Build phase note (2026-07-08):** Active build has started. Four modules below were moved out to §5b (Deferred) at the user's direction so the first build phase stays focused on the academic/people/communication backbone. Email notification (previously just a bullet under Communication) is called out and prioritized as part of this phase rather than left for later.
+> **Build phase note (2026-07-08):** Active build has started. Four modules below were moved out to section 5b (Deferred) at the user's direction so the first build phase stays focused on the academic/people/communication backbone. Email notification (previously just a bullet under Communication) is called out and prioritized as part of this phase rather than left for later.
 
 - [ ] **Student Records**
   - Core fields: **Admission Number (unique student identifier — see Confirmed Business Decisions)**, First Name, Last Name, Other Names, Gender, Date of Birth, Session of Admission, Parent Mobile Number, Class, School House
@@ -627,13 +629,13 @@ These are cross-cutting capabilities every module depends on — build these fou
   - [ ] Attendance reports
   - [ ] Enrollment reports
   - [ ] Fee collection / defaulters
-  - [ ] Custom report builder (see §4.3)
+  - [ ] Custom report builder (see section 4.3)
 
 ---
 
 ## 5b. Deferred to Later Build (moved out of Core Modules, 2026-07-08)
 
-Moved out at the user's explicit direction so the first build phase can focus on the academic/people/communication backbone. These are **not cancelled** — they remain required, just sequenced later. Move back into §5 (with a status update) when their build phase starts.
+Moved out at the user's explicit direction so the first build phase can focus on the academic/people/communication backbone. These are **not cancelled** — they remain required, just sequenced later. Move back into section 5 (with a status update) when their build phase starts.
 
 - [ ] **Admissions / Enrollment** — online application forms, entrance examinations conducted in-platform, CBT with webcam monitoring via LearnGuard integration
 - [ ] **Finance** — school fees, discounts, scholarships, installment plans, automatic invoicing, receipts, expenses, income, payroll, budgets, ledger, bank accounts, payment gateway integration, bank transfer + proof-of-payment upload, refunds, financial reports & revenue analytics
@@ -654,7 +656,7 @@ Reasoning: these four are either commerce-adjacent (Finance, Admissions involve 
 - [ ] **Inventory Management** — Assets, Consumables, Suppliers, Purchase Orders, Stores, Stock, Low Stock Alerts, Transfers
 - [ ] **Medical / Clinic Management** — Clinic visits, Drugs, Vaccination records, Allergies, Medical reports, Sick Bay
 - [ ] **Library Management** — Books, Borrow/Return, Barcode, QR Code, Fines, Reservations, Digital Books
-- [ ] **SMS Messaging** as a standalone toggle (credits-based, see §8 revenue streams)
+- [ ] **SMS Messaging** as a standalone toggle (credits-based, see section 8 revenue streams)
 - [ ] **Biometric Attendance** (fingerprint devices, RFID cards, QR-code attendance)
 - [ ] **AI Assistant / AI Features**
   - [ ] Automatic report card comments
@@ -703,7 +705,7 @@ Reasoning: these four are either commerce-adjacent (Finance, Admissions involve 
 
 - [ ] Payment gateways: **Paystack** (primary mention) + support for **any gateway the school prefers** (Flutterwave, Monnify, Remita named as candidates) — must be pluggable, not hardcoded to one provider
 - [ ] Bank transfer + manual proof-of-payment upload/verification flow
-- [ ] SMS provider — **not yet selected**; doc explicitly requests "cheap and fast options for Nigeria/Africa" — needs vendor evaluation before build (see §9 Open Decisions)
+- [ ] SMS provider — **not yet selected**; doc explicitly requests "cheap and fast options for Nigeria/Africa" — needs vendor evaluation before build (see section 9 Open Decisions)
 - [ ] WhatsApp Business API notifications
 - [ ] Google Classroom
 - [ ] Microsoft 365
@@ -719,9 +721,9 @@ Reasoning: these four are either commerce-adjacent (Finance, Admissions involve 
 ## 9. Security & Compliance
 
 - [ ] Two-Factor Authentication (2FA)
-- [ ] Audit Logs / Login History (see §4.3 audit trail — this is the security-facing view of it)
+- [ ] Audit Logs / Login History (see section 4.3 audit trail — this is the security-facing view of it)
 - [ ] IP Restriction
-- [ ] Permission Matrix (visual management of the RBAC system in §4.2)
+- [ ] Permission Matrix (visual management of the RBAC system in section 4.2)
 - [ ] Password Policy enforcement
 - [ ] Session Timeout controls
 - [ ] Device Management (see logged-in devices, revoke sessions)
@@ -754,7 +756,7 @@ Flagged directly from the source document — these need answers before the rele
 - [ ] Final subdomain/domain naming convention (docs use `skulos.app` as a placeholder only)
 - [ ] White-label launch phase / timeline (feature is architecturally required now, commercially deferred — no date set)
 - [ ] Marketplace commission structure for third-party plugin developers
-- [ ] No ERD, wireframes, or formal API spec exist yet — all of Volumes 2–7 (§1 above) block detailed engineering estimates until produced
+- [ ] No ERD, wireframes, or formal API spec exist yet — all of Volumes 2–7 (section 1 above) block detailed engineering estimates until produced
 - [ ] Legal business name, contact email/phone/WhatsApp, physical address (if any), and social links for the public marketing site — not yet provided; About/Contact pages are blocked on this until supplied through the admin CMS (see below) rather than hardcoded
 
 ---
@@ -773,6 +775,144 @@ Distinct from the product itself: the public-facing marketing site (landing page
 
 ---
 
+## 14. SKULOS Pricing Plan & Feature Catalog (confirmed 2026-07-10, supersedes section 6/section 7 tier framing)
+
+> Source: `SKULOS PRICING PLAN AND FEATURES.docx` (uploaded to repo root 2026-07-10). This is now **the** authoritative feature catalog per tier, replacing the looser lists in section 5/section 5b/section 6. It does not replace section 5/section 5b/section 6 as the module inventory, but it decides **which modules must be genuinely working, per tier, before that tier can be sold.**
+>
+> Tier rename (see Confirmed Business Decisions): **Foundation** (was Starter, ₦500/student/term), **Advance** (was Growth, ₦800/student/term), **Professional** (₦1,200/student/term), **Enterprise** (₦1,500/student/term).
+>
+> **Launch scope:** only Foundation and Advance need to be sellable at launch. Professional and Enterprise are documented in full below for completeness and marketing display (shown "Coming soon" on the public pricing page, not purchasable), but nothing under them blocks launch.
+>
+> Status tags used below: **BUILT** (working end to end in the product UI), **PARTIAL** (model/service exists but no usable screen, or a screen exists but a supporting piece like account provisioning is missing), **NOT BUILT** (nothing exists). Audited directly against the codebase 2026-07-10.
+
+### SKULOS FOUNDATION — launch blocking
+
+**Academic**
+- [x] Student Records — BUILT
+- [x] Staff Records — BUILT
+- [x] School Sections — BUILT
+- [x] Classes & Arms — BUILT
+- [x] Subject Management — BUILT
+- [x] School Houses — BUILT
+- [x] Academic Sessions & Terms — BUILT
+- [ ] Attendance Management — PARTIAL: `Attendance` model and `AttendanceService` exist and are unit tested, but no controller/route/view lets a school actually mark or view attendance yet
+- [x] Continuous Assessment — BUILT
+- [x] Result Management — BUILT
+- [x] Basic Report Cards — BUILT
+- [ ] Student Promotion — NOT BUILT: `Enrollment::STATUS_PROMOTED` exists as a constant only, no promotion flow (bulk or single) anywhere
+- [x] Academic Calendar — BUILT
+
+**Administration**
+- [x] User & Role Management — BUILT
+- [ ] Parent Portal — PARTIAL: `RoleDashboard::parent()` renders a real dashboard once a parent account exists and is linked via `StudentGuardian`, but there is no screen to create/invite a parent account in the first place
+- [ ] Student Portal — PARTIAL: same gap as Parent Portal, dashboard exists, no account provisioning flow
+- [x] Teacher Portal — BUILT
+- [x] School Profile — BUILT
+- [x] School Branding — BUILT
+- [x] Dashboard — BUILT
+
+**Communication**
+- [x] In-App Notifications — BUILT
+- [ ] Announcements — PARTIAL: `Announcement` model, `CommunicationService`, `AnnouncementMail` all exist and are unit tested, but nothing in the UI lets an admin write and send one (nav literally shows "Soon")
+- [ ] Birthday & Anniversary Notifications — NOT BUILT: no code references birthdays or anniversaries anywhere
+
+**Finance** (a deliberately minimal slice, not the full deferred Finance module from section 5b)
+- [ ] Bank Transfer Payment Option — NOT BUILT
+- [ ] Payment Evidence Upload — NOT BUILT
+- [ ] Payment Verification — NOT BUILT
+- [ ] Basic Fee Records — NOT BUILT
+
+**Reports & Analytics**
+- [ ] Student Reports — PARTIAL: bulk export framework exists, no dedicated "student report" view
+- [ ] Attendance Reports — NOT BUILT (blocked on Attendance Management itself being wired up first)
+- [ ] Basic Analytics Dashboard — PARTIAL: the school home dashboard shows about 4 KPI tiles (student/staff/class counts, term average), not a dedicated analytics page
+- [x] Export to PDF — BUILT
+- [x] Export to Excel — BUILT (CSV, per the project's bulk-template convention; confirm this satisfies "Excel" or add native .xlsx if the user wants a literal Excel file)
+- [x] Bulk Import — BUILT
+- [x] Bulk Export — BUILT
+
+**Support**
+- [ ] Knowledge Base — NOT BUILT
+- [ ] Staff Onboarding & Training — process/content item, not code; needs materials and a checklist, tracked here so it isn't forgotten before launch
+- [ ] Standard Support — process item: needs a defined support inbox/SLA, not a software feature by itself
+
+### SKULOS ADVANCE — launch blocking (everything in Foundation, plus)
+
+**Admissions** (this is the whole Admissions module deferred at section 5b — now required for Advance)
+- [ ] Online Admissions — NOT BUILT
+- [ ] Admission Workflow — NOT BUILT
+- [ ] Applicant Tracking — NOT BUILT
+- [ ] Admission Letters — NOT BUILT
+- [ ] Online Document Upload — NOT BUILT
+
+**Academics**
+- [ ] Timetable Management — NOT BUILT: `timetable` only exists as a permission-grant string (e.g. `vice-principal` gets `timetable.*`); no model, controller, or view exists at all
+- [ ] Teacher Workload — NOT BUILT
+- [ ] Advanced Report Cards — NOT BUILT beyond the current 4 fixed templates
+- [x] Unlimited Grading Systems — BUILT: grading scales are already unlimited and per-school
+- [ ] Custom Report Card Designer — NOT BUILT: only a picker between 4 fixed templates (classic/modern/formal/compact) plus a fields-visibility toggle exists; no freeform/drag-and-drop designer
+- [ ] Class Position & Ranking — PARTIAL: `ResultService::classBroadsheet` already computes position and averages and surfaces them on the student dashboard; needs confirming/extending onto the actual report card and a class-wide broadsheet view
+
+**Communication**
+- [x] In-App Notifications — BUILT
+- [ ] Email Notifications — PARTIAL: SMTP/mail infrastructure is built and used for password resets and trial status, but not wired to Announcements
+- [ ] Parent Broadcast — NOT BUILT (depends on Announcements UI, above)
+- [ ] Communication History — NOT BUILT: `CommunicationLog` model exists, no browsing UI
+
+**Finance**
+- [ ] Bank Transfer Payment Option — NOT BUILT (see Foundation)
+- [ ] Payment Evidence Upload — NOT BUILT
+- [ ] Payment Verification — NOT BUILT
+- [ ] Installment Payment Plans — NOT BUILT
+
+**Reports & Analytics**
+- [ ] Custom Report Builder — NOT BUILT
+- [ ] Basic Analytics Dashboard — PARTIAL (see Foundation)
+- [ ] Student Performance Dashboard — NOT BUILT as a standalone page
+- [ ] Attendance Dashboard — NOT BUILT
+- [ ] Academic Insights — NOT BUILT
+
+**Support**
+- [ ] Staff Onboarding & Training — process item (see Foundation)
+- [ ] Priority Email Support — process/ops item, needs a defined SLA and a way to flag Advance-tier schools for priority handling
+- [ ] Implementation Assistance — process/ops item: an onboarding service, not code
+
+### SKULOS PROFESSIONAL — documented, not launch blocking
+
+Everything in Advance, plus: Online Payment Gateway Integration, School Fees Management, Discounts & Scholarships, Expense Management, Income Management, Payroll, Financial Reports, Financial Dashboard, Automated Receipts, Automated Invoicing, Outstanding Fee Tracking (Finance); HR Management, Staff Attendance, Leave Management, Performance Appraisal, Staff Document Management (Human Resources); LMS with Courses, Assignments, Quizzes, Learning Resources, Discussion Boards, Certificates (Learning); CBT Examination, LearnGuard Secure Browser, Webcam Monitoring, Browser Lockdown, Question Bank, Random Questions, Examination Analytics (Examination); AI Report Comments, AI Student Performance Insights, AI Lesson Planning, AI Question Generator, AI Risk Analysis (Artificial Intelligence); SMS Notifications, WhatsApp Notifications, Automated Notifications (Communication); Workflow Automation, Scheduled Reports, Approval Workflows (Automation); Advanced Analytics, Executive Dashboard, Financial Analytics, Custom KPIs (Reports & Analytics); Priority Support, Dedicated Customer Success (Support).
+
+### SKULOS ENTERPRISE — documented, not launch blocking
+
+Everything in Professional, plus: Library Management, Inventory Management, Asset Management, Medical Management, Hostel Management, Transport Management, Visitor Management, **Discipline Management** (new module, not yet in `config/skulos.php`'s catalog — add when this tier is built) (School Operations); Multi-Campus Management, Multi-School Dashboard, Central Administration, School Switching, Shared Staff optional (Multi-School Management); API Access, Third-Party Integrations, Plugin Marketplace, Developer API, Webhooks, Single Sign-On, Audit Centre (Enterprise Features); AI Predictive Analytics, School Benchmarking, Custom Executive Dashboards, Data Warehouse (Advanced Intelligence); Dedicated Account Manager, Data Migration, Staff Onboarding & Training, Priority Technical Support, Early Access to New Features (Premium Services); School Website Builder, Alumni Management, Mobile Apps, White Label optional, Marketplace Access, Custom Module Development, Advanced Security Policies (Future Features).
+
+### Optional Add-ons — build now (confirmed 2026-07-10, launch blocking alongside Foundation/Advance)
+
+Purchasable on **any** plan regardless of tier, per the source document. This generalizes the ad hoc "toggle one feature beyond the plan" mechanism already sketched in the paused Billing work (`BillingController::toggleFeature`) — that scaffolding is the right starting point, it just needs to become a real add-on purchase/subscription record per school rather than a free admin toggle.
+- School Operations: Library Management, Inventory Management, Medical Management, Hostel Management, Transport Management, Visitor Management, Discipline Management
+- Finance: Additional Payment Gateway, Accounting Integration
+- Communication: SMS Bundles, WhatsApp Messaging, Branded Email Services
+- Learning: Extra LMS Storage, Video Streaming, Additional AI Credits
+- Platform: Additional Storage, Additional Student Capacity, Additional Schools, Custom Domain, Premium Themes, White Label, API Access
+
+None of these exist as purchasable add-ons today (some, like Library/Hostel/Transport/Medical, exist only as free RBAC module toggles with no billing attached). Needs: an `add_ons` catalog (name, price, recurring or one time, which modules/limits it grants), a per-school `school_add_ons` purchase record, and admin UI on both the platform side (see what a school has bought) and eventually a school-facing "buy more" screen.
+
+### Marketing site action items tied to this catalog
+
+- [ ] Rename tiers on `site/pricing.html` and anywhere else Starter/Growth appear: Foundation, Advance, Professional, Enterprise
+- [ ] Replace each tier's feature list on the marketing site with the catalog above
+- [ ] Mark Professional and Enterprise cards "Coming soon" (visible, full feature list, not purchasable) per the launch scope decision above
+- [ ] Add the source document's recommended universal footer beneath every pricing card: "Included in every SKULOS plan: Free One Term Trial, Free Data Migration (within defined limits), Free Staff Onboarding & Training, Automatic System Updates, Secure Cloud Backup, SSL Security, Responsive Web Access, Unlimited Administrators (based on roles and permissions), Regular Feature Updates"
+- [ ] Feed the same renamed tiers/catalog into the admin-editable Pricing Plans CMS work already tracked at section 13, and into `PlanSeeder`/`BillingController` once Billing work resumes (currently paused, uncommitted, using the old tier names and a technical rather than customer-facing feature list — needs a full rework against this catalog)
+
+### Suggested build order (not yet started, proposed 2026-07-10, pending user go-ahead)
+
+1. **Foundation completion** — wire up what already has backend code: Attendance UI + reports, Announcements UI + Birthday/Anniversary job, Student Promotion flow, Parent/Student account provisioning, the minimal Foundation Finance slice (bank transfer + evidence upload + verification + basic fee records), Student Reports view, expanded Basic Analytics Dashboard, Knowledge Base page.
+2. **Advance build out** — Admissions module (previously deferred, now required), Timetable Management (net new), Custom Report Card Designer, Communication History UI, Installment Payment Plans on top of the Foundation Finance slice, Custom Report Builder, Student Performance/Attendance dashboards, Academic Insights.
+3. **Add-on marketplace** — add-on catalog + per-school purchase records + admin/school UI, reusing and extending the paused Billing scaffolding.
+4. **Marketing site + Billing rework** — apply the renamed tiers and real catalog to `site/pricing.html`, resume and rewrite the paused Billing feature (`PlanSeeder`, `BillingController`, views, tests) against this catalog instead of the old placeholder module lists.
+
+---
+
 ## 12. Original Raw Requirement Recap (source-of-truth cross-check)
 
 Kept verbatim-in-spirit from Michael's original request at the start of the discovery conversation, to make sure nothing from the very first ask got lost in the later expansion:
@@ -780,16 +920,16 @@ Kept verbatim-in-spirit from Michael's original request at the start of the disc
 - [ ] General **mandatory** features: Results & Records Management, Exam Management, School Information System, School Calendar & Event Planner, Timetable Management, Internal Messaging, Email Messaging, Memo to Parents
 - [ ] **Optional** (toggleable) features: Enrollment & Admission Management, Learning Management, Human Resource Management, Hostel Management, Transport Management, Inventory Management, Medical Management, Library Management, Fee Management, Expense Management, Income Management, Payroll Management, SMS Messaging
 - [ ] User account types: Super Admin, School Owner, Admin, Staff, Parents (one profile sees all their children), Students
-- [ ] Every module needs both **single** and **bulk** update capability (formalized in §4.3)
+- [ ] Every module needs both **single** and **bulk** update capability (formalized in section 4.3)
 - [ ] Feature enable/disable is **exclusively** a Super Admin capability, configurable per school
-- [ ] Platform must support cloning a school build and/or assigning a subdomain per school, in service of the monetization model (see §4.1, §7)
-- [ ] Onboarding inputs originally requested from the school (folded into the Setup Wizard, §4.1): Student data (Admission/Serial No., First/Last/Other Names, Gender, DOB, Session of Admission, Parent Mobile Number, Class, School House); Staff data (Staff ID, First/Last/Other Names, Gender, Class/Subjects, unique position); School Sections; School Classes (with section mapping); Subjects (ordered by section); School Houses (with housemasters + members); CA formats per section; a sample report card; School logo and slogan/motto; full address (email + mobile)
+- [ ] Platform must support cloning a school build and/or assigning a subdomain per school, in service of the monetization model (see section 4.1, section 7)
+- [ ] Onboarding inputs originally requested from the school (folded into the Setup Wizard, section 4.1): Student data (Admission/Serial No., First/Last/Other Names, Gender, DOB, Session of Admission, Parent Mobile Number, Class, School House); Staff data (Staff ID, First/Last/Other Names, Gender, Class/Subjects, unique position); School Sections; School Classes (with section mapping); Subjects (ordered by section); School Houses (with housemasters + members); CA formats per section; a sample report card; School logo and slogan/motto; full address (email + mobile)
 
 ---
 
 ## How to keep this tracker useful
 
-- When a chapter/volume of documentation is finished, check it off in §1 and note the date.
-- When a build item ships, check it off in §§4–10 and link the PR/commit if useful.
-- When an open question in §11 gets answered, move the decision into the relevant section above and check it off here.
+- When a chapter/volume of documentation is finished, check it off in section 1 and note the date.
+- When a build item ships, check it off in sections 4–10 and link the PR/commit if useful.
+- When an open question in section 11 gets answered, move the decision into the relevant section above and check it off here.
 - Don't delete sections — if scope is cut, strike through and note why, so the reasoning survives.
