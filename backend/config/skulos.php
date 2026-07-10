@@ -13,7 +13,7 @@
 | modules default to disabled until the Platform Super Administrator (or
 | subscription logic, later) turns them on. Deferred modules exist in the
 | catalog so toggles/permissions are stable, but nothing ships UI for them
-| yet — see tracker §5b.
+| yet — see tracker section 5b.
 |
 */
 
@@ -34,7 +34,7 @@ return [
         'analytics' => ['name' => 'Analytics & Reporting', 'core' => true],
         'school_info' => ['name' => 'School Information', 'core' => true],
 
-        // Optional / toggleable (tracker §6)
+        // Optional / toggleable (tracker section 6)
         'lms' => ['name' => 'Learning Management', 'core' => false],
         'hr' => ['name' => 'Human Resources', 'core' => false],
         'payroll' => ['name' => 'Payroll', 'core' => false],
@@ -46,11 +46,263 @@ return [
         'biometric' => ['name' => 'Biometric Attendance', 'core' => false],
         'ai' => ['name' => 'AI Assistant', 'core' => false],
 
-        // Deferred to a later build (tracker §5b) — cataloged, not built
+        // Deferred to a later build (tracker section 5b) — cataloged, not built
         'admissions' => ['name' => 'Admissions & Enrollment', 'core' => false],
         'finance' => ['name' => 'Finance', 'core' => false],
         'visitors' => ['name' => 'Visitor Management', 'core' => false],
         'assets' => ['name' => 'School Assets', 'core' => false],
+        'discipline' => ['name' => 'Discipline Management', 'core' => false],
+    ],
+
+    /*
+    | The full commercial feature catalog behind pricing (tracker section 14,
+    | sourced from "SKULOS PRICING PLAN AND FEATURES.docx"). This is the
+    | admin-editable checklist a Plan's "features" column picks from for
+    | marketing/CMS display; it is deliberately broader than the RBAC
+    | "modules" catalog above, since many bullets here (e.g. "Standard
+    | Support", "Data Migration") are service commitments, not toggleable
+    | screens. Grouped for the settings/pricing-page UI. Nothing here is
+    | hardcoded per plan; Plan::features stores which keys apply.
+    */
+    'plan_feature_catalog' => [
+        'academic' => ['label' => 'Academic', 'features' => [
+            'student_records' => 'Student Records',
+            'staff_records' => 'Staff Records',
+            'school_sections' => 'School Sections',
+            'classes_arms' => 'Classes & Arms',
+            'subject_management' => 'Subject Management',
+            'school_houses' => 'School Houses',
+            'academic_sessions_terms' => 'Academic Sessions & Terms',
+            'attendance_management' => 'Attendance Management',
+            'continuous_assessment' => 'Continuous Assessment',
+            'result_management' => 'Result Management',
+            'basic_report_cards' => 'Basic Report Cards',
+            'student_promotion' => 'Student Promotion',
+            'academic_calendar' => 'Academic Calendar',
+            'timetable_management' => 'Timetable Management',
+            'teacher_workload' => 'Teacher Workload',
+            'advanced_report_cards' => 'Advanced Report Cards',
+            'unlimited_grading_systems' => 'Unlimited Grading Systems',
+            'custom_report_card_designer' => 'Custom Report Card Designer',
+            'class_position_ranking' => 'Class Position & Ranking',
+        ]],
+        'admissions' => ['label' => 'Admissions', 'features' => [
+            'online_admissions' => 'Online Admissions',
+            'admission_workflow' => 'Admission Workflow',
+            'applicant_tracking' => 'Applicant Tracking',
+            'admission_letters' => 'Admission Letters',
+            'online_document_upload' => 'Online Document Upload',
+        ]],
+        'administration' => ['label' => 'Administration', 'features' => [
+            'user_role_management' => 'User & Role Management',
+            'parent_portal' => 'Parent Portal',
+            'student_portal' => 'Student Portal',
+            'teacher_portal' => 'Teacher Portal',
+            'school_profile' => 'School Profile',
+            'school_branding' => 'School Branding',
+            'dashboard' => 'Dashboard',
+        ]],
+        'communication' => ['label' => 'Communication', 'features' => [
+            'in_app_notifications' => 'In App Notifications',
+            'announcements' => 'Announcements',
+            'birthday_anniversary_notifications' => 'Birthday & Anniversary Notifications',
+            'email_notifications' => 'Email Notifications',
+            'parent_broadcast' => 'Parent Broadcast',
+            'communication_history' => 'Communication History',
+            'sms_notifications' => 'SMS Notifications',
+            'whatsapp_notifications' => 'WhatsApp Notifications',
+            'automated_notifications' => 'Automated Notifications',
+        ]],
+        'finance' => ['label' => 'Finance', 'features' => [
+            'bank_transfer_payment_option' => 'Bank Transfer Payment Option',
+            'payment_evidence_upload' => 'Payment Evidence Upload',
+            'payment_verification' => 'Payment Verification',
+            'basic_fee_records' => 'Basic Fee Records',
+            'installment_payment_plans' => 'Installment Payment Plans',
+            'online_payment_gateway_integration' => 'Online Payment Gateway Integration',
+            'school_fees_management' => 'School Fees Management',
+            'discounts_scholarships' => 'Discounts & Scholarships',
+            'expense_management' => 'Expense Management',
+            'income_management' => 'Income Management',
+            'payroll' => 'Payroll',
+            'financial_reports' => 'Financial Reports',
+            'financial_dashboard' => 'Financial Dashboard',
+            'automated_receipts' => 'Automated Receipts',
+            'automated_invoicing' => 'Automated Invoicing',
+            'outstanding_fee_tracking' => 'Outstanding Fee Tracking',
+        ]],
+        'human_resources' => ['label' => 'Human Resources', 'features' => [
+            'hr_management' => 'HR Management',
+            'staff_attendance' => 'Staff Attendance',
+            'leave_management' => 'Leave Management',
+            'performance_appraisal' => 'Performance Appraisal',
+            'staff_document_management' => 'Staff Document Management',
+        ]],
+        'learning' => ['label' => 'Learning', 'features' => [
+            'lms' => 'Learning Management System',
+            'courses' => 'Courses',
+            'assignments' => 'Assignments',
+            'quizzes' => 'Quizzes',
+            'learning_resources' => 'Learning Resources',
+            'discussion_boards' => 'Discussion Boards',
+            'certificates' => 'Certificates',
+        ]],
+        'examination' => ['label' => 'Examination', 'features' => [
+            'cbt_examination' => 'CBT Examination',
+            'learnguard_secure_browser' => 'LearnGuard Secure Browser',
+            'webcam_monitoring' => 'Webcam Monitoring',
+            'browser_lockdown' => 'Browser Lockdown',
+            'question_bank' => 'Question Bank',
+            'random_questions' => 'Random Questions',
+            'examination_analytics' => 'Examination Analytics',
+        ]],
+        'artificial_intelligence' => ['label' => 'Artificial Intelligence', 'features' => [
+            'ai_report_comments' => 'AI Report Comments',
+            'ai_student_performance_insights' => 'AI Student Performance Insights',
+            'ai_lesson_planning' => 'AI Lesson Planning',
+            'ai_question_generator' => 'AI Question Generator',
+            'ai_risk_analysis' => 'AI Risk Analysis',
+        ]],
+        'automation' => ['label' => 'Automation', 'features' => [
+            'workflow_automation' => 'Workflow Automation',
+            'scheduled_reports' => 'Scheduled Reports',
+            'approval_workflows' => 'Approval Workflows',
+        ]],
+        'reports_analytics' => ['label' => 'Reports & Analytics', 'features' => [
+            'student_reports' => 'Student Reports',
+            'attendance_reports' => 'Attendance Reports',
+            'basic_analytics_dashboard' => 'Basic Analytics Dashboard',
+            'export_to_pdf' => 'Export to PDF',
+            'export_to_excel' => 'Export to Excel',
+            'bulk_import' => 'Bulk Import',
+            'bulk_export' => 'Bulk Export',
+            'custom_report_builder' => 'Custom Report Builder',
+            'student_performance_dashboard' => 'Student Performance Dashboard',
+            'attendance_dashboard' => 'Attendance Dashboard',
+            'academic_insights' => 'Academic Insights',
+            'advanced_analytics' => 'Advanced Analytics',
+            'executive_dashboard' => 'Executive Dashboard',
+            'financial_analytics' => 'Financial Analytics',
+            'custom_kpis' => 'Custom KPIs',
+        ]],
+        'support' => ['label' => 'Support', 'features' => [
+            'knowledge_base' => 'Knowledge Base',
+            'staff_onboarding_training' => 'Staff Onboarding & Training',
+            'standard_support' => 'Standard Support',
+            'priority_email_support' => 'Priority Email Support',
+            'implementation_assistance' => 'Implementation Assistance',
+            'priority_support' => 'Priority Support',
+            'dedicated_customer_success' => 'Dedicated Customer Success',
+        ]],
+        'school_operations' => ['label' => 'School Operations', 'features' => [
+            'library_management' => 'Library Management',
+            'inventory_management' => 'Inventory Management',
+            'asset_management' => 'Asset Management',
+            'medical_management' => 'Medical Management',
+            'hostel_management' => 'Hostel Management',
+            'transport_management' => 'Transport Management',
+            'visitor_management' => 'Visitor Management',
+            'discipline_management' => 'Discipline Management',
+        ]],
+        'multi_school_management' => ['label' => 'Multi School Management', 'features' => [
+            'multi_campus_management' => 'Multi Campus Management',
+            'multi_school_dashboard' => 'Multi School Dashboard',
+            'central_administration' => 'Central Administration',
+            'school_switching' => 'School Switching',
+            'shared_staff' => 'Shared Staff (Optional)',
+        ]],
+        'enterprise_features' => ['label' => 'Enterprise Features', 'features' => [
+            'api_access' => 'API Access',
+            'third_party_integrations' => 'Third Party Integrations',
+            'plugin_marketplace' => 'Plugin Marketplace',
+            'developer_api' => 'Developer API',
+            'webhooks' => 'Webhooks',
+            'single_sign_on' => 'Single Sign On (SSO)',
+            'audit_centre' => 'Audit Centre',
+        ]],
+        'advanced_intelligence' => ['label' => 'Advanced Intelligence', 'features' => [
+            'ai_predictive_analytics' => 'AI Predictive Analytics',
+            'school_benchmarking' => 'School Benchmarking',
+            'custom_executive_dashboards' => 'Custom Executive Dashboards',
+            'data_warehouse' => 'Data Warehouse',
+        ]],
+        'premium_services' => ['label' => 'Premium Services', 'features' => [
+            'dedicated_account_manager' => 'Dedicated Account Manager',
+            'data_migration' => 'Data Migration',
+            'priority_technical_support' => 'Priority Technical Support',
+            'early_access_new_features' => 'Early Access to New Features',
+        ]],
+        'future_features' => ['label' => 'Future Features', 'features' => [
+            'school_website_builder' => 'School Website Builder',
+            'alumni_management' => 'Alumni Management',
+            'mobile_apps' => 'Mobile Apps',
+            'white_label' => 'White Label (Optional)',
+            'marketplace_access' => 'Marketplace Access',
+            'custom_module_development' => 'Custom Module Development',
+            'advanced_security_policies' => 'Advanced Security Policies',
+        ]],
+    ],
+
+    /*
+    | Included with every plan regardless of tier (tracker section 14,
+    | the source document's own recommendation for the pricing page).
+    | Shown as one shared line beneath every pricing card, not per-plan
+    | data, so it lives here rather than on the Plan model.
+    */
+    'plan_universal_inclusions' => [
+        'Free One Term Trial',
+        'Free Data Migration (within defined limits)',
+        'Free Staff Onboarding & Training',
+        'Automatic System Updates',
+        'Secure Cloud Backup',
+        'SSL Security',
+        'Responsive Web Access',
+        'Unlimited Administrators (based on roles and permissions)',
+        'Regular Feature Updates',
+    ],
+
+    /*
+    | Add ons purchasable on any plan regardless of tier (tracker section 14).
+    | "module" links an add on to an RBAC module code above so granting it
+    | can also flip that module on; add ons with "module" => null are
+    | recorded as a genuine purchase/entitlement but have no enforcement
+    | code yet (no storage metering, no custom domain routing, no live
+    | payment gateway) — granting them is honest bookkeeping, not a faked
+    | working feature. Extend the relevant service once each is built.
+    */
+    'add_on_catalog' => [
+        'school_operations' => ['label' => 'School Operations', 'items' => [
+            'library' => ['name' => 'Library Management', 'module' => 'library'],
+            'inventory' => ['name' => 'Inventory Management', 'module' => 'inventory'],
+            'medical' => ['name' => 'Medical Management', 'module' => 'medical'],
+            'hostel' => ['name' => 'Hostel Management', 'module' => 'hostel'],
+            'transport' => ['name' => 'Transport Management', 'module' => 'transport'],
+            'visitor_management' => ['name' => 'Visitor Management', 'module' => 'visitors'],
+            'discipline' => ['name' => 'Discipline Management', 'module' => 'discipline'],
+        ]],
+        'finance' => ['label' => 'Finance', 'items' => [
+            'additional_payment_gateway' => ['name' => 'Additional Payment Gateway', 'module' => null],
+            'accounting_integration' => ['name' => 'Accounting Integration', 'module' => null],
+        ]],
+        'communication' => ['label' => 'Communication', 'items' => [
+            'sms_bundles' => ['name' => 'SMS Bundles', 'module' => null],
+            'whatsapp_messaging' => ['name' => 'WhatsApp Messaging', 'module' => null],
+            'branded_email_services' => ['name' => 'Branded Email Services', 'module' => null],
+        ]],
+        'learning' => ['label' => 'Learning', 'items' => [
+            'extra_lms_storage' => ['name' => 'Extra LMS Storage', 'module' => null],
+            'video_streaming' => ['name' => 'Video Streaming', 'module' => null],
+            'additional_ai_credits' => ['name' => 'Additional AI Credits', 'module' => null],
+        ]],
+        'platform' => ['label' => 'Platform', 'items' => [
+            'additional_storage' => ['name' => 'Additional Storage', 'module' => null],
+            'additional_student_capacity' => ['name' => 'Additional Student Capacity', 'module' => null],
+            'additional_schools' => ['name' => 'Additional Schools', 'module' => null],
+            'custom_domain' => ['name' => 'Custom Domain', 'module' => null],
+            'premium_themes' => ['name' => 'Premium Themes', 'module' => null],
+            'white_label' => ['name' => 'White Label', 'module' => null],
+            'api_access' => ['name' => 'API Access', 'module' => null],
+        ]],
     ],
 
     /*
@@ -377,7 +629,7 @@ return [
     ],
 
     /*
-    | Built-in role templates (tracker §4.2) seeded with school_id = null.
+    | Built-in role templates (tracker section 4.2) seeded with school_id = null.
     | Every school can clone/customize these. "grants" gives the default
     | permission set: "*" = everything, "module.*" = whole module,
     | otherwise explicit codes. Schools adjust from there — defaults are a

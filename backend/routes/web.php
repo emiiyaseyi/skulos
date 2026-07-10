@@ -70,6 +70,21 @@ Route::domain($appDomain)->group(function () {
             Route::post('/', [$mailSettings, 'update'])->name('update');
             Route::post('/test', [$mailSettings, 'sendTest'])->name('test');
         });
+
+        Route::prefix('billing')->name('billing.')->group(function () {
+            $billing = \App\Http\Controllers\Admin\BillingController::class;
+            Route::get('/', [$billing, 'index'])->name('index');
+            Route::post('/plans', [$billing, 'storePlan'])->name('plans.store');
+            Route::post('/plans/{plan}', [$billing, 'updatePlan'])->name('plans.update');
+            Route::post('/plans/{plan}/toggle-active', [$billing, 'togglePlanActive'])->name('plans.toggle-active');
+            Route::post('/plans/{plan}/toggle-purchasable', [$billing, 'togglePlanPurchasable'])->name('plans.toggle-purchasable');
+            Route::post('/schools/{school}/assign-plan', [$billing, 'assignPlan'])->name('schools.assign-plan');
+            Route::post('/schools/{school}/toggle-feature', [$billing, 'toggleFeature'])->name('schools.toggle-feature');
+            Route::post('/schools/{school}/add-ons', [$billing, 'grantAddOn'])->name('schools.add-ons.store');
+            Route::delete('/add-ons/{addOn}', [$billing, 'revokeAddOn'])->name('add-ons.destroy');
+            Route::post('/schools/{school}/waivers', [$billing, 'addWaiver'])->name('schools.waivers.store');
+            Route::delete('/waivers/{waiver}', [$billing, 'removeWaiver'])->name('waivers.destroy');
+        });
     });
 });
 

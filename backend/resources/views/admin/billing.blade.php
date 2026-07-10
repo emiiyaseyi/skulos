@@ -1,0 +1,157 @@
+@extends('layouts.app', ['portal' => 'admin', 'pageTitle' => 'Billing'])
+@section('title', 'Billing')
+@section('heading', 'Billing')
+@section('crumb', 'Plans, features, add ons, and free term waivers')
+@section('content')
+
+<div class="card" style="margin-bottom:1.25rem">
+  <h3 style="margin-bottom:.4rem">Plans</h3>
+  <p class="muted" style="margin-bottom:1rem">Per student, per term. Foundation and Advance are open for signup today; Professional and Enterprise show as Coming soon until built, and cannot be assigned to a school until then.</p>
+  <div style="overflow-x:auto">
+  <table>
+    <thead><tr><th>Plan</th><th>Price / student / term</th><th>Features</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      @foreach($plans as $plan)
+        <tr>
+          <td><strong>{{ $plan->name }}</strong></td>
+          <td class="muted">&#8358;{{ number_format($plan->price_per_student_per_term, 2) }}</td>
+          <td class="muted">{{ count($plan->features ?? []) }} features, {{ count($plan->modules ?? []) }} modules</td>
+          <td style="white-space:nowrap">
+            <span class="badge {{ $plan->is_active ? 'badge-ok' : 'badge-warn' }}">{{ $plan->is_active ? 'Offered' : 'Retired' }}</span>
+            <span class="badge {{ $plan->is_purchasable ? 'badge-ok' : 'badge-warn' }}">{{ $plan->is_purchasable ? 'Sellable' : 'Coming soon' }}</span>
+          </td>
+          <td style="white-space:nowrap">
+            <button class="btn btn-ghost btn-sm" type="button" onclick="document.getElementById('edit-plan-{{ $plan->id }}').classList.toggle('show')">Edit</button>
+            <form method="POST" action="{{ route('admin.billing.plans.toggle-active', $plan) }}" style="display:inline">
+              @csrf
+              <button class="btn btn-ghost btn-sm" type="submit">{{ $plan->is_active ? 'Retire' : 'Offer again' }}</button>
+            </form>
+            <form method="POST" action="{{ route('admin.billing.plans.toggle-purchasable', $plan) }}" style="display:inline">
+              @csrf
+              <button class="btn btn-ghost btn-sm" type="submit">{{ $plan->is_purchasable ? 'Mark Coming soon' : 'Mark sellable' }}</button>
+            </form>
+          </td>
+        </tr>
+        <tr id="edit-plan-{{ $plan->id }}" class="plan-edit-row">
+          <td colspan="5">
+            <form method="POST" action="{{ route('admin.billing.plans.update', $plan) }}" style="padding:.8rem 0">
+              @csrf
+              <div class="grid cols-2" style="margin-bottom:.8rem">
+                <div class="field"><label>Name</label><input name="name" value="{{ $plan->name }}" required /></div>
+                <div class="field"><label>Price per student per term</label><input name="price_per_student_per_term" type="number" step="0.01" min="0" value="{{ $plan->price_per_student_per_term }}" required /></div>
+              </div>
+
+              <label style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim)">RBAC modules included</label>
+              <div class="module-grid" style="margin-bottom:.8rem">
+                @foreach($optionalModules as $code => $meta)
+                  <label class="module-check"><input type="checkbox" name="modules[]" value="{{ $code }}" @checked(in_array($code, $plan->modules ?? [])) /> {{ $meta['name'] }}</label>
+                @endforeach
+              </div>
+
+              <label style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim)">Marketing feature checklist</label>
+              <div style="margin-bottom:.8rem">
+                @foreach($featureCatalog as $catKey => $category)
+                  <details style="margin-bottom:.4rem">
+                    <summary style="cursor:pointer;font-size:.82rem;font-weight:600;padding:.3rem 0">{{ $category['label'] }}</summary>
+                    <div class="module-grid">
+                      @foreach($category['features'] as $fKey => $fLabel)
+                        <label class="module-check"><input type="checkbox" name="features[]" value="{{ $fKey }}" @checked(in_array($fKey, $plan->features ?? [])) /> {{ $fLabel }}</label>
+                      @endforeach
+                    </div>
+                  </details>
+                @endforeach
+              </div>
+
+              <button class="btn btn-primary btn-sm" type="submit">Save {{ $plan->name }}</button>
+            </form>
+          </td>
+        </tr>
+      @endforeach
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:1.25rem">
+  <h3 style="margin-bottom:.8rem">Add a plan</h3>
+  <form method="POST" action="{{ route('admin.billing.plans.store') }}">
+    @csrf
+    <div class="grid cols-2" style="margin-bottom:.8rem">
+      <div class="field"><label for="np_name">Name</label><input id="np_name" name="name" required /></div>
+      <div class="field"><label for="np_price">Price per student per term</label><input id="np_price" name="price_per_student_per_term" type="number" step="0.01" min="0" required /></div>
+    </div>
+
+    <label style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim)">RBAC modules included</label>
+    <div class="module-grid" style="margin-bottom:.8rem">
+      @foreach($optionalModules as $code => $meta)
+        <label class="module-check"><input type="checkbox" name="modules[]" value="{{ $code }}" /> {{ $meta['name'] }}</label>
+      @endforeach
+    </div>
+
+    <label style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim)">Marketing feature checklist</label>
+    <div style="margin-bottom:.8rem">
+      @foreach($featureCatalog as $catKey => $category)
+        <details style="margin-bottom:.4rem">
+          <summary style="cursor:pointer;font-size:.82rem;font-weight:600;padding:.3rem 0">{{ $category['label'] }}</summary>
+          <div class="module-grid">
+            @foreach($category['features'] as $fKey => $fLabel)
+              <label class="module-check"><input type="checkbox" name="features[]" value="{{ $fKey }}" /> {{ $fLabel }}</label>
+            @endforeach
+          </div>
+        </details>
+      @endforeach
+    </div>
+
+    <button class="btn btn-primary btn-sm" type="submit">Add plan</button>
+  </form>
+</div>
+
+<div class="card" style="margin-bottom:1.25rem">
+  <h3 style="margin-bottom:.4rem">Add on catalog</h3>
+  <p class="muted" style="margin-bottom:.8rem">Purchasable on any plan, regardless of tier. Grant or remove these per school from that school's page.</p>
+  <div class="module-grid">
+    @foreach($addOnCatalog as $category)
+      @foreach($category['items'] as $code => $item)
+        <span class="badge badge-ok" style="justify-content:flex-start">{{ $item['name'] }}</span>
+      @endforeach
+    @endforeach
+  </div>
+</div>
+
+<div class="card">
+  <h3 style="margin-bottom:.8rem">Schools</h3>
+  <div style="overflow-x:auto">
+  <table>
+    <thead><tr><th>School</th><th>Current plan</th><th>Change plan</th><th></th></tr></thead>
+    <tbody>
+      @foreach($schools as $school)
+        <tr>
+          <td><strong>{{ $school->name }}</strong></td>
+          <td class="muted">{{ $school->plan?->name ?? 'No plan set' }}</td>
+          <td>
+            <form method="POST" action="{{ route('admin.billing.schools.assign-plan', $school) }}" style="display:flex;gap:.5rem">
+              @csrf
+              <select name="plan_id">
+                @foreach($plans->where('is_active', true)->where('is_purchasable', true) as $plan)
+                  <option value="{{ $plan->id }}" @selected($school->plan_id === $plan->id)>{{ $plan->name }}</option>
+                @endforeach
+              </select>
+              <button class="btn btn-ghost btn-sm" type="submit">Apply</button>
+            </form>
+          </td>
+          <td><a class="btn btn-ghost btn-sm" href="{{ route('admin.schools.show', $school) }}">Manage features, add ons & waivers</a></td>
+        </tr>
+      @endforeach
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<style>
+  .plan-edit-row{display:none}
+  .plan-edit-row.show{display:table-row}
+  .module-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.4rem .8rem}
+  .module-check{display:flex;align-items:center;gap:.4rem;font-size:.82rem;font-weight:500}
+  .module-check input{width:auto}
+</style>
+@endsection

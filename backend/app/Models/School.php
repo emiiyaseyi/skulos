@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -41,6 +42,7 @@ class School extends Model
         'settings',
         'backup_frequency',
         'backup_time',
+        'plan_id',
     ];
 
     /**
@@ -78,6 +80,11 @@ class School extends Model
         return $this->belongsToMany(User::class, 'school_user')
             ->withPivot(['role_id', 'status'])
             ->withTimestamps();
+    }
+
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class);
     }
 
     public function isProvisioned(): bool

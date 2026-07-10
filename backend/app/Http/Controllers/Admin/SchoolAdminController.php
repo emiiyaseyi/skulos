@@ -185,7 +185,18 @@ class SchoolAdminController extends Controller
 
         $backups = \App\Models\Backup::where('school_id', $school->id)->orderByDesc('created_at')->get();
 
-        return view('admin.school', ['school' => $school, 'admins' => $admins, 'backups' => $backups]);
+        $optionalModules = collect(config('skulos.modules'))->filter(fn ($m) => ! $m['core'])->all();
+        $rbac = app(\App\Services\Rbac\Rbac::class);
+        $moduleStates = collect($optionalModules)->keys()
+            ->mapWithKeys(fn ($code) => [$code => $rbac->moduleState($school, $code)])->all();
+        $waivers = \App\Models\BillingWaiver::where('school_id', $school->id)->orderByDesc('created_at')->get();
+        $schoolAddOns = \App\Models\SchoolAddOn::where('school_id', $school->id)->orderByDesc('created_at')->get();
+
+        return view('admin.school', [
+            'school' => $school, 'admins' => $admins, 'backups' => $backups,
+            'optionalModules' => $optionalModules, 'moduleStates' => $moduleStates, 'waivers' => $waivers,
+            'addOnCatalog' => config('skulos.add_on_catalog'), 'schoolAddOns' => $schoolAddOns,
+        ]);
     }
 
     /**

@@ -18,10 +18,8 @@
 {!! $item('admin.dashboard', 'Dashboard', 'dashboard') !!}
 {!! $item('admin.schools.index', 'Schools', 'school') !!}
 {!! $item('admin.trial-requests.index', 'Trial Requests', 'comms', $pendingTrialCount ?? 0) !!}
+{!! $item('admin.billing.index', 'Billing', 'results') !!}
 {!! $item('admin.schools.archive-list', 'Archive', 'library') !!}
 
 <div class="side-group">Settings</div>
 {!! $item('admin.settings.mail.edit', 'Mail Settings', 'settings') !!}
-
-<div class="side-group">Coming soon</div>
-{!! $soon('Billing', 'results') !!}

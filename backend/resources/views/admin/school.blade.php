@@ -147,4 +147,81 @@
     </div>
   @endif
 </div>
+
+<div class="card" style="margin-top:1.25rem">
+  <h3 style="margin-bottom:.4rem">Billing</h3>
+  <p class="muted" style="margin-bottom:.8rem">Current plan: <strong style="color:var(--ink)">{{ $school->plan?->name ?? 'No plan set' }}</strong>{{ $school->plan ? ' ('.number_format($school->plan->price_per_student_per_term,2).' per student per term)' : '' }}. Manage plans from <a href="{{ route('admin.billing.index') }}">Billing</a>.</p>
+
+  <b style="font-size:.82rem">Optional modules for this school</b>
+  <p class="muted" style="font-size:.82rem;margin-bottom:.6rem">These add to (or override) whatever the plan includes.</p>
+  <div class="module-grid" style="margin-bottom:1.1rem">
+    @foreach($optionalModules as $code => $meta)
+      <form method="POST" action="{{ route('admin.billing.schools.toggle-feature', $school) }}" style="display:inline">
+        @csrf
+        <input type="hidden" name="module" value="{{ $code }}" />
+        <button class="btn btn-sm {{ ($moduleStates[$code] ?? 'disabled') === 'enabled' ? 'btn-primary' : 'btn-ghost' }}" type="submit">{{ $meta['name'] }}</button>
+      </form>
+    @endforeach
+  </div>
+
+  <b style="font-size:.82rem">Add ons</b>
+  <p class="muted" style="font-size:.82rem;margin-bottom:.6rem">Purchasable on any plan, regardless of tier.</p>
+  @if($schoolAddOns->isEmpty())
+    <p class="muted" style="font-size:.85rem;margin:.4rem 0 .8rem">None on record.</p>
+  @else
+    <ul style="list-style:none;margin:.5rem 0 1rem;display:flex;flex-direction:column;gap:.4rem">
+      @foreach($schoolAddOns as $addOn)
+        <li style="display:flex;justify-content:space-between;align-items:center;background:var(--bg);border-radius:8px;padding:.5rem .7rem;font-size:.85rem">
+          <span><strong>{{ $addOn->catalogEntry()['name'] ?? $addOn->add_on_code }}</strong>@if($addOn->note) &middot; {{ $addOn->note }}@endif</span>
+          <form method="POST" action="{{ route('admin.billing.add-ons.destroy', $addOn) }}">
+            @csrf @method('DELETE')
+            <button class="btn btn-ghost btn-sm" type="submit">Remove</button>
+          </form>
+        </li>
+      @endforeach
+    </ul>
+  @endif
+  <form method="POST" action="{{ route('admin.billing.schools.add-ons.store', $school) }}" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.1rem">
+    @csrf
+    <select name="add_on_code" required style="flex:1;min-width:12rem">
+      <option value="">Select an add on</option>
+      @foreach($addOnCatalog as $category)
+        <optgroup label="{{ $category['label'] }}">
+          @foreach($category['items'] as $code => $item)
+            <option value="{{ $code }}">{{ $item['name'] }}</option>
+          @endforeach
+        </optgroup>
+      @endforeach
+    </select>
+    <input name="note" placeholder="Note (optional)" style="flex:1;min-width:12rem" />
+    <button class="btn btn-primary btn-sm" type="submit">Grant add on</button>
+  </form>
+
+  <b style="font-size:.82rem">Free term waivers</b>
+  @if($waivers->isEmpty())
+    <p class="muted" style="font-size:.85rem;margin:.4rem 0 .8rem">None on record.</p>
+  @else
+    <ul style="list-style:none;margin:.5rem 0 1rem;display:flex;flex-direction:column;gap:.4rem">
+      @foreach($waivers as $waiver)
+        <li style="display:flex;justify-content:space-between;align-items:center;background:var(--bg);border-radius:8px;padding:.5rem .7rem;font-size:.85rem">
+          <span><strong>{{ $waiver->label }}</strong>@if($waiver->note) &middot; {{ $waiver->note }}@endif</span>
+          <form method="POST" action="{{ route('admin.billing.waivers.destroy', $waiver) }}">
+            @csrf @method('DELETE')
+            <button class="btn btn-ghost btn-sm" type="submit">Remove</button>
+          </form>
+        </li>
+      @endforeach
+    </ul>
+  @endif
+  <form method="POST" action="{{ route('admin.billing.schools.waivers.store', $school) }}" style="display:flex;gap:.5rem;flex-wrap:wrap">
+    @csrf
+    <input name="label" placeholder="e.g. First Term 2025/2026" required style="flex:1;min-width:12rem" />
+    <input name="note" placeholder="Note (optional)" style="flex:1;min-width:12rem" />
+    <button class="btn btn-primary btn-sm" type="submit">Mark free</button>
+  </form>
+</div>
+
+<style>
+  .module-grid{display:flex;flex-wrap:wrap;gap:.5rem}
+</style>
 @endsection

@@ -711,21 +711,28 @@ section:last-of-type{ padding-bottom:clamp(2.25rem,4vw,3.25rem); }
   border-color:rgba(232,163,61,.45);
   position:relative;
 }
+.tier.is-soon{
+  opacity:.82;
+  position:relative;
+}
 .tier-flag{
   position:absolute; top:-.7rem; right:1.4rem;
   background:var(--gold); color:#2B1704;
   font-size:.68rem; font-weight:800; letter-spacing:.05em; text-transform:uppercase;
   padding:.25rem .65rem; border-radius:999px;
 }
+.tier-flag-soon{
+  background:var(--glass); border:1px solid var(--glass-border); color:var(--mist);
+}
 .tier h3{ font-family:var(--font-body); font-size:1.1rem; font-weight:800; text-align:center; }
 .tier .who{ font-size:.8rem; color:var(--mist-dim); margin-top:.3rem; margin-bottom:1.25rem; text-align:center; }
 .tier .price{ text-align:center; margin-bottom:1.4rem; }
 .tier .price b{ font-family:var(--font-display); font-size:2.1rem; font-weight:700; font-variant-numeric:tabular-nums; }
 .tier .price span{ font-size:.8rem; color:var(--mist-dim); display:block; margin-top:.15rem; }
-/* feature checklist stays left-aligned by design — a bulleted list justified or centered loses its scan-down-the-left-edge readability */
+/* feature checklist stays left-aligned by design, a bulleted list justified or centered loses its scan-down-the-left-edge readability */
 .tier ul{ list-style:none; display:flex; flex-direction:column; gap:.6rem; margin-bottom:1.5rem; flex:1; text-align:left; }
 .tier li{ font-size:.83rem; color:var(--mist); display:flex; gap:.55rem; }
-.tier li::before{ content:"¹3"; color:var(--gold-soft); flex-shrink:0; font-weight:800; }
+.tier li::before{ content:"\2192"; color:var(--gold-soft); flex-shrink:0; font-weight:800; }
 .tier .btn{ width:100%; }
 .pricing-note{ text-align:center; color:var(--mist-dim); font-size:.85rem; margin-top:2rem; }
 
@@ -950,62 +957,65 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
 
  <!-- PRICING GRID -->
  <!-- NOTE: figures and per-plan feature checklists are the current confirmed
-       business decision (see DEVELOPMENT_TRACKER.md, "Confirmed Business Decisions").
-       Once the admin CMS ships (tracker §13), this section reads from the Pricing
+       business decision (see DEVELOPMENT_TRACKER.md, "Confirmed Business Decisions",
+       and tracker section 14 for the full catalog this was built from). Once the
+       admin CMS ships (tracker section 13), this section reads from the Pricing
        Plans table instead of being hardcoded here. -->
  <section class="wrap" id="pricing">
  <div class="pricing-grid">
  <div class="tier">
- <h3>Starter</h3>
- <p class="who">Small schools finding their footing</p>
+ <h3>Foundation</h3>
+ <p class="who">Small schools starting their digital journey</p>
  <div class="price"><b>₦500</b><span>per student / term</span></div>
  <ul>
  <li>Core academics, attendance &amp; results</li>
- <li>Finance &amp; fee collection</li>
- <li>Parent &amp; teacher portals</li>
- <li>Email &amp; SMS notifications</li>
- </ul>
- <a href="trial.html" class="btn btn-ghost">Start free term</a>
- </div>
- <div class="tier">
- <h3>Growth</h3>
- <p class="who">Schools ready to drop the spreadsheets</p>
- <div class="price"><b>₦800</b><span>per student / term</span></div>
- <ul>
- <li>Everything in Starter</li>
- <li>Library &amp; inventory</li>
- <li>WhatsApp notifications</li>
- <li>Custom report card designer</li>
+ <li>Parent, student &amp; teacher portals</li>
+ <li>Bank transfer fee payments</li>
+ <li>In app notifications &amp; announcements</li>
  </ul>
  <a href="trial.html" class="btn btn-ghost">Start free term</a>
  </div>
  <div class="tier is-featured">
  <span class="tier-flag">Most chosen</span>
+ <h3>Advance</h3>
+ <p class="who">Schools ready to drop the spreadsheets</p>
+ <div class="price"><b>₦800</b><span>per student / term</span></div>
+ <ul>
+ <li>Everything in Foundation</li>
+ <li>Online admissions &amp; applicant tracking</li>
+ <li>Timetable management</li>
+ <li>Custom report card designer</li>
+ </ul>
+ <a href="trial.html" class="btn btn-gold">Start free term</a>
+ </div>
+ <div class="tier is-soon">
+ <span class="tier-flag tier-flag-soon">Coming soon</span>
  <h3>Professional</h3>
  <p class="who">Full administrative control, one platform</p>
  <div class="price"><b>₦1,200</b><span>per student / term</span></div>
  <ul>
- <li>Everything in Growth</li>
- <li>HR, payroll &amp; hostel</li>
- <li>Learning management (LMS)</li>
- <li>AI report comments &amp; insights</li>
+ <li>Everything in Advance</li>
+ <li>Full finance suite &amp; payment gateway</li>
+ <li>HR, payroll &amp; learning management</li>
+ <li>CBT examinations &amp; AI report comments</li>
  </ul>
- <a href="trial.html" class="btn btn-gold">Start free term</a>
+ <a href="contact.html" class="btn btn-ghost">Join the waitlist</a>
  </div>
- <div class="tier">
+ <div class="tier is-soon">
+ <span class="tier-flag tier-flag-soon">Coming soon</span>
  <h3>Enterprise</h3>
  <p class="who">Multi campus groups &amp; school networks</p>
  <div class="price"><b>₦1,500</b><span>per student / term</span></div>
  <ul>
  <li>Everything in Professional</li>
+ <li>Library, hostel, transport &amp; medical</li>
  <li>Multi school management</li>
- <li>Priority support &amp; onboarding</li>
- <li>Custom modules on request</li>
+ <li>API access &amp; single sign on</li>
  </ul>
- <a href="contact.html" class="btn btn-ghost">Talk to us</a>
+ <a href="contact.html" class="btn btn-ghost">Join the waitlist</a>
  </div>
  </div>
- <p class="pricing-note">Annual billing available at 3× the termly rate. Module and storage add ons available on every plan.</p>
+ <p class="pricing-note">Included with every plan: a free one term trial, free data migration, free staff onboarding and training, automatic system updates, secure cloud backup, SSL security, and unlimited administrators. Annual billing is available at 3 times the termly rate. Add ons such as SMS bundles, extra storage and a custom domain are purchasable on any plan.</p>
  </section>
 
  <!-- FAQ -->
