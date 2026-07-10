@@ -25,7 +25,7 @@
 <div class="side-group">Academics</div>
 {!! $item('school.academics.index', 'Classes &amp; Subjects', 'academics') !!}
 {!! $soon('Attendance', 'attendance') !!}
-{!! $soon('Results', 'results') !!}
+{!! $item('school.examinations.index', 'Results', 'results') !!}
 {!! $item('school.report-cards.edit', 'Report Cards', 'results') !!}
 {!! $soon('Calendar', 'calendar') !!}
 

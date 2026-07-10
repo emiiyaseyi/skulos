@@ -153,6 +153,13 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::delete('/classes/{classId}/subjects/{subjectId}', [$academics, 'detachSubject'])->name('subjects.detach');
         });
 
+        // Results entry: a teacher enters scores per component for a class + subject + term.
+        Route::prefix('examinations')->name('school.examinations.')->group(function () {
+            $examinations = \App\Http\Controllers\School\ExaminationController::class;
+            Route::get('/', [$examinations, 'index'])->name('index');
+            Route::post('/scores', [$examinations, 'save'])->name('scores.save');
+        });
+
         // Campuses.
         Route::get('/campuses', [\App\Http\Controllers\School\CampusController::class, 'index'])->name('school.campuses');
         Route::post('/campuses', [\App\Http\Controllers\School\CampusController::class, 'store'])->name('school.campuses.store');
