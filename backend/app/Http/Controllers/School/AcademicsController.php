@@ -4,9 +4,11 @@ namespace App\Http\Controllers\School;
 
 use App\Http\Controllers\Controller;
 use App\Models\School;
+use App\Models\Tenant\AcademicSession;
 use App\Models\Tenant\Section;
 use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Subject;
+use App\Models\Tenant\Term;
 use App\Services\Academics\AcademicDefaults;
 use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
@@ -53,12 +55,93 @@ class AcademicsController extends Controller
             $q->withCount('subjects')->orderBy('sequence');
         }])->orderBy('sequence')->get();
 
+        $sessions = AcademicSession::with(['terms' => fn ($q) => $q->orderBy('sequence')])
+            ->orderByDesc('name')
+            ->get();
+
         return view('school.academics.index', [
             'school' => $school,
             'accent' => $school->branding()['color'],
             'sections' => $sections,
+            'sessions' => $sessions,
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'academics.update'),
         ]);
+    }
+
+    /**
+     * One click: creates an academic session named "{start}/{end} Session"
+     * (Nigerian convention, user request 2026-07-10) with its three terms
+     * "First/Second/Third Term {start}/{end}" already attached. A school
+     * that runs a different number of terms can still add/remove terms
+     * individually afterwards via storeTerm(); nothing here forces exactly
+     * three, it is just the fast path for the common case.
+     */
+    public function storeSession(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.create');
+        $data = $request->validate([
+            'start_year' => ['required', 'integer', 'min:2000', 'max:2100'],
+        ]);
+
+        $startYear = (int) $data['start_year'];
+        $yearLabel = $startYear.'/'.($startYear + 1);
+        $name = "{$yearLabel} Session";
+
+        if (AcademicSession::where('name', $name)->exists()) {
+            return back()->with('error', "{$name} already exists.");
+        }
+
+        $session = AcademicSession::create(['name' => $name]);
+        foreach (['First' => 1, 'Second' => 2, 'Third' => 3] as $ordinal => $sequence) {
+            Term::create([
+                'academic_session_id' => $session->id,
+                'name' => "{$ordinal} Term {$yearLabel}",
+                'sequence' => $sequence,
+            ]);
+        }
+
+        if (! AcademicSession::current()->exists()) {
+            $session->makeCurrent();
+        }
+
+        return back()->with('status', "{$name} created with its three terms.");
+    }
+
+    public function makeSessionCurrent(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.update');
+        $session = AcademicSession::findOrFail($request->route('sessionId'));
+        $session->makeCurrent();
+
+        return back()->with('status', "{$session->name} is now the current session.");
+    }
+
+    /** Add an extra/custom term to a session, e.g. a school running semesters instead of three terms. */
+    public function storeTerm(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.create');
+        $data = $request->validate([
+            'academic_session_id' => ['required', 'exists:tenant.academic_sessions,id'],
+            'name' => ['required', 'string', 'max:80'],
+            'sequence' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        Term::create([
+            'academic_session_id' => $data['academic_session_id'],
+            'name' => $data['name'],
+            'sequence' => $data['sequence'] ?? ((int) Term::where('academic_session_id', $data['academic_session_id'])->max('sequence') + 1),
+        ]);
+
+        return back()->with('status', 'Term added.');
+    }
+
+    public function makeTermCurrent(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.update');
+        $term = Term::findOrFail($request->route('termId'));
+        $term->makeCurrent();
+
+        return back()->with('status', "{$term->name} is now the current term.");
     }
 
     public function storeSection(Request $request): \Illuminate\Http\RedirectResponse

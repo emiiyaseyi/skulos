@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\School;
+use App\Models\Tenant\AcademicSession;
 use App\Models\Tenant\Section;
 use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Subject;
+use App\Models\Tenant\Term;
 use App\Models\User;
 use App\Services\Rbac\Rbac;
 use App\Services\Tenancy\TenantManager;
@@ -131,6 +133,92 @@ class AcademicsScreenTest extends TestCase
         $stillOffered = SchoolClass::find($classId)->subjects()->count();
         app(TenantManager::class)->forget();
         $this->assertSame(0, $stillOffered);
+    }
+
+    public function test_creating_a_session_generates_its_three_terms_with_nigerian_naming(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadfive');
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/sessions", [
+            'start_year' => 2025,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $session = AcademicSession::where('name', '2025/2026 Session')->first();
+        $this->assertNotNull($session);
+        $this->assertTrue($session->is_current, 'the first session created should become current automatically');
+        $terms = Term::where('academic_session_id', $session->id)->orderBy('sequence')->pluck('name')->all();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(['First Term 2025/2026', 'Second Term 2025/2026', 'Third Term 2025/2026'], $terms);
+    }
+
+    public function test_creating_the_same_session_twice_is_rejected(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadsix');
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/sessions", ['start_year' => 2025]);
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/sessions", ['start_year' => 2025])
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $count = AcademicSession::where('name', '2025/2026 Session')->count();
+        app(TenantManager::class)->forget();
+        $this->assertSame(1, $count);
+    }
+
+    public function test_admin_can_switch_the_current_session_and_term(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadseven');
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/sessions", ['start_year' => 2024]);
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/sessions", ['start_year' => 2025]);
+
+        app(TenantManager::class)->use($school);
+        $olderSession = AcademicSession::where('name', '2024/2025 Session')->first();
+        $newerSession = AcademicSession::where('name', '2025/2026 Session')->first();
+        $this->assertTrue($olderSession->is_current, 'the first session created should be current by default');
+        $secondTermOfNewer = Term::where('academic_session_id', $newerSession->id)->where('sequence', 2)->first();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/sessions/{$newerSession->id}/make-current")
+            ->assertRedirect();
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/terms/{$secondTermOfNewer->id}/make-current")
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertFalse($olderSession->fresh()->is_current);
+        $this->assertTrue($newerSession->fresh()->is_current);
+        $this->assertTrue($secondTermOfNewer->fresh()->is_current);
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_a_custom_term_can_be_added_to_a_session(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadeight');
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/sessions", ['start_year' => 2025]);
+
+        app(TenantManager::class)->use($school);
+        $session = AcademicSession::first();
+        $sessionId = $session->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/terms", [
+            'academic_session_id' => $sessionId,
+            'name' => 'Summer Term 2025/2026',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $exists = Term::where('academic_session_id', $sessionId)->where('name', 'Summer Term 2025/2026')->exists();
+        app(TenantManager::class)->forget();
+        $this->assertTrue($exists);
+    }
+
+    public function test_a_teacher_without_academics_create_cannot_create_a_session(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'acadnine');
+
+        $this->actingAs($teacher)->post("http://{$school->slug}.localhost/academics/sessions", ['start_year' => 2025])
+            ->assertForbidden();
     }
 
     public function test_a_teacher_without_academics_update_cannot_manage_subjects(): void

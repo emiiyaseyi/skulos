@@ -143,6 +143,10 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::prefix('academics')->name('school.academics.')->group(function () {
             $academics = \App\Http\Controllers\School\AcademicsController::class;
             Route::get('/', [$academics, 'index'])->name('index');
+            Route::post('/sessions', [$academics, 'storeSession'])->name('sessions.store');
+            Route::post('/sessions/{sessionId}/make-current', [$academics, 'makeSessionCurrent'])->name('sessions.make-current');
+            Route::post('/terms', [$academics, 'storeTerm'])->name('terms.store');
+            Route::post('/terms/{termId}/make-current', [$academics, 'makeTermCurrent'])->name('terms.make-current');
             Route::post('/sections', [$academics, 'storeSection'])->name('sections.store');
             Route::post('/classes', [$academics, 'storeClass'])->name('classes.store');
             Route::get('/classes/{classId}/subjects', [$academics, 'subjects'])->name('subjects');
