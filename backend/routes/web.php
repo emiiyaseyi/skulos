@@ -74,6 +74,11 @@ Route::domain($appDomain)->group(function () {
             Route::post('/', [$mailSettings, 'update'])->name('update');
             Route::post('/test', [$mailSettings, 'sendTest'])->name('test');
         });
+        Route::prefix('settings/idle-timeout')->name('settings.idle-timeout.')->group(function () {
+            $idleTimeout = \App\Http\Controllers\Admin\IdleTimeoutController::class;
+            Route::get('/', [$idleTimeout, 'edit'])->name('edit');
+            Route::post('/', [$idleTimeout, 'update'])->name('update');
+        });
 
         Route::prefix('billing')->name('billing.')->group(function () {
             $billing = \App\Http\Controllers\Admin\BillingController::class;
@@ -260,6 +265,13 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/', [$mailSettings, 'edit'])->name('edit');
             Route::post('/', [$mailSettings, 'update'])->name('update');
             Route::post('/test', [$mailSettings, 'sendTest'])->name('test');
+        });
+
+        // Idle timeout (optional per-school override of the platform default).
+        Route::prefix('settings/idle-timeout')->name('school.settings.idle-timeout.')->group(function () {
+            $idleTimeout = \App\Http\Controllers\School\IdleTimeoutController::class;
+            Route::get('/', [$idleTimeout, 'edit'])->name('edit');
+            Route::post('/', [$idleTimeout, 'update'])->name('update');
         });
     });
 });

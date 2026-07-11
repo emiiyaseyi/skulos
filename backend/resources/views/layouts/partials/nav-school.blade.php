@@ -44,3 +44,4 @@
 {!! $item('school.dashboard.edit', 'Dashboard look', 'settings') !!}
 {!! $item('school.students.settings.edit', 'Student Fields', 'students') !!}
 {!! $item('school.settings.mail.edit', 'Mail Settings', 'settings') !!}
+{!! $item('school.settings.idle-timeout.edit', 'Idle Timeout', 'settings') !!}

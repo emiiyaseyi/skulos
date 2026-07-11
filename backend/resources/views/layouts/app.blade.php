@@ -162,6 +162,7 @@ tr:last-child td{border-bottom:none}
   $portal = $portal ?? (auth()->user()?->is_super_admin ? 'admin' : 'school');
   $sSlug = isset($school) ? $school->slug : null;
   $cur = request()->route()?->getName();
+  $idleSettings = app(\App\Services\Security\IdleTimeoutService::class)->effective();
   $link = function($routeName, $params, $label, $icon, $active=false, $soon=false) {
     return compact('routeName','params','label','icon','active','soon');
   };
@@ -229,9 +230,10 @@ tr:last-child td{border-bottom:none}
   </div>
 </div>
 
-{{-- Idle session security timeout (user request 2026-07-09): after no
-     activity for session_timeout.idle_seconds, warn with a countdown of
-     session_timeout.warning_seconds before signing out automatically. --}}
+{{-- Idle session security timeout (user request 2026-07-09, made admin
+     configurable 2026-07-11: platform default + optional per-school
+     override + an off switch, previously hardcoded). --}}
+@if($idleSettings['enabled'])
 <div class="idle-scrim" id="idleScrim" role="alertdialog" aria-modal="true" aria-labelledby="idleTitle">
   <div class="idle-card">
     <h3 id="idleTitle">Are you still there?</h3>
@@ -244,6 +246,7 @@ tr:last-child td{border-bottom:none}
   </div>
 </div>
 <form method="POST" action="{{ url('/logout') }}" id="idleLogoutForm" style="display:none">@csrf</form>
+@endif
 @endif
 
 <script>
@@ -271,8 +274,8 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
   var scrim=document.getElementById('idleScrim');
   if(!scrim) return; // bare pages (login, etc.) have no authenticated session to guard
 
-  var idleMs=({{ (int) config('skulos.session_timeout.idle_seconds', 30) }})*1000;
-  var warnMs=({{ (int) config('skulos.session_timeout.warning_seconds', 15) }})*1000;
+  var idleMs=({{ (int) ($idleSettings['idle_seconds'] ?? 30) }})*1000;
+  var warnMs=({{ (int) ($idleSettings['warning_seconds'] ?? 15) }})*1000;
   var countEl=document.getElementById('idleCount'),
       resumeBtn=document.getElementById('idleResumeBtn'),
       logoutBtn=document.getElementById('idleLogoutBtn'),
