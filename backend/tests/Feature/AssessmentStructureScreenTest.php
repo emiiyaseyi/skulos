@@ -84,6 +84,52 @@ class AssessmentStructureScreenTest extends TestCase
         $this->assertSame(100.0, $total);
     }
 
+    /**
+     * One-click default structure (guided setup wizard, user request
+     * 2026-07-11): two CAs plus one exam summing to 100, only ever loaded
+     * onto an empty structure so it never overwrites a school's own.
+     */
+    public function test_owner_can_load_the_default_structure(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'structeleven');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/examinations/structure/apply-defaults")
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $names = AssessmentComponent::orderBy('sequence')->pluck('name')->all();
+        $total = AssessmentComponent::totalPossible();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(['First CA', 'Second CA', 'Exam'], $names);
+        $this->assertSame(100.0, $total);
+    }
+
+    public function test_loading_defaults_does_not_overwrite_an_existing_structure(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'structtwelve');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/examinations/structure", [
+            'name' => 'Custom CA', 'type' => 'ca', 'max_score' => 30,
+        ]);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/examinations/structure/apply-defaults")
+            ->assertRedirect()->assertSessionHas('error');
+
+        app(TenantManager::class)->use($school);
+        $count = AssessmentComponent::count();
+        app(TenantManager::class)->forget();
+        $this->assertSame(1, $count, 'the default loader must not touch an already-defined structure');
+    }
+
+    public function test_a_teacher_without_approve_results_cannot_load_defaults(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'structthirteen');
+
+        $this->actingAs($teacher)->post("http://{$school->slug}.localhost/examinations/structure/apply-defaults")
+            ->assertForbidden();
+    }
+
     public function test_the_structure_page_groups_components_by_type(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'structtwo');

@@ -115,4 +115,30 @@ class AssessmentController extends Controller
 
         return back()->with('status', "\"{$name}\" removed.");
     }
+
+    /**
+     * One click starting structure (guided setup wizard, user request
+     * 2026-07-11), the common two CA plus one exam split. Only ever
+     * loaded onto an empty structure, a school that already defined its
+     * own components is never overwritten.
+     */
+    public function applyDefaults(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'examinations.approve_results');
+
+        if (AssessmentComponent::exists()) {
+            return back()->with('error', 'An assessment structure already exists, defaults are only for starting from empty.');
+        }
+
+        foreach (config('skulos.default_assessment_components') as $index => $component) {
+            AssessmentComponent::create([
+                'name' => $component['name'],
+                'type' => $component['type'],
+                'max_score' => $component['max_score'],
+                'sequence' => $index + 1,
+            ]);
+        }
+
+        return back()->with('status', 'Default assessment structure loaded: '.count(config('skulos.default_assessment_components')).' component(s).');
+    }
 }

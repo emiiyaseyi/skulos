@@ -51,6 +51,11 @@ class SchoolPortalController extends Controller
         $school = $this->school($request);
         $feed = Notification::feedFor(Auth::id());
 
+        $setupComplete = \App\Models\Tenant\AcademicSession::exists()
+            && \App\Models\Tenant\Section::whereHas('classes')->exists()
+            && \App\Models\Tenant\House::exists()
+            && \App\Models\Tenant\AssessmentComponent::exists();
+
         return view('school.dashboard', [
             'school' => $school,
             'accent' => $school->branding()['color'],
@@ -59,6 +64,7 @@ class SchoolPortalController extends Controller
             'upcoming' => CalendarEvent::upcoming()->limit(5)->get(),
             'layout' => $prefs->layout(),
             'widgets' => $prefs->widgets(),
+            'setupComplete' => $setupComplete,
         ]);
     }
 

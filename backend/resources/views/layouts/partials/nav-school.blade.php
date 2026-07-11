@@ -16,6 +16,7 @@
 
 <div class="side-group">Main</div>
 {!! $item('school.dashboard', 'Dashboard', 'dashboard') !!}
+{!! $item('school.setup', 'Guided Setup', 'settings') !!}
 
 <div class="side-group">People</div>
 {!! $item('school.students', 'Students', 'students') !!}

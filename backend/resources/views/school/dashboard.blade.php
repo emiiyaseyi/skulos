@@ -50,6 +50,15 @@
 
 @section('content')
 
+@unless($setupComplete)
+  <div class="card" style="margin-bottom:1.1rem;border-color:var(--accent)">
+    <div class="row-between" style="flex-wrap:wrap;gap:.6rem">
+      <p style="margin:0">Your school still has some one time setup left, sessions and terms, class structure, houses, or assessment structure.</p>
+      <a class="btn btn-primary btn-sm" href="{{ route('school.setup', ['school' => $school->slug]) }}">Finish setup</a>
+    </div>
+  </div>
+@endunless
+
 @if($layout === 'vibrant' || $layout === 'modern')
   @if($show('greeting'))
   <div class="banner">

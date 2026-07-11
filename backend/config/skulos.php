@@ -616,6 +616,19 @@ return [
     'default_houses' => ['Red House', 'Blue House', 'Green House', 'Yellow House'],
 
     /*
+    | One-click starting assessment structure (part of the guided setup
+    | wizard, user request 2026-07-08/2026-07-11): the common Nigerian
+    | school split of two continuous assessments plus one exam, summing
+    | to 100. A school can add, remove, rename, or reweight any component
+    | afterwards, this is only a fast starting point, never forced.
+    */
+    'default_assessment_components' => [
+        ['name' => 'First CA', 'type' => 'ca', 'max_score' => 20],
+        ['name' => 'Second CA', 'type' => 'ca', 'max_score' => 20],
+        ['name' => 'Exam', 'type' => 'exam', 'max_score' => 60],
+    ],
+
+    /*
     | Default grading scales a school can load (same "user request 2026-07-09"
     | source). Loading one creates a GradingScale + its bands only if a scale
     | of that name does not already exist (idempotent); the admin can edit,

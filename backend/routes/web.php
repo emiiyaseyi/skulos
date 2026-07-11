@@ -176,6 +176,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/{houseId}/members.csv', [$houses, 'downloadMembers'])->name('download-members');
             Route::delete('/{houseId}', [$houses, 'destroy'])->name('destroy');
         });
+        Route::get('/setup', [\App\Http\Controllers\School\SetupController::class, 'index'])->name('school.setup');
         Route::post('/notifications/{id}/read', [SchoolPortalController::class, 'markNotificationRead'])->name('school.notifications.read');
         Route::get('/settings/branding', [SchoolPortalController::class, 'editBranding'])->name('school.branding.edit');
         Route::post('/settings/branding', [SchoolPortalController::class, 'updateBranding'])->name('school.branding.update');
@@ -218,6 +219,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
 
             $assessment = \App\Http\Controllers\School\AssessmentController::class;
             Route::get('/structure', [$assessment, 'index'])->name('structure');
+            Route::post('/structure/apply-defaults', [$assessment, 'applyDefaults'])->name('structure.apply-defaults');
             Route::post('/structure', [$assessment, 'store'])->name('structure.store');
             Route::post('/structure/{componentId}', [$assessment, 'update'])->name('structure.update');
             Route::delete('/structure/{componentId}', [$assessment, 'destroy'])->name('structure.destroy');

@@ -10,6 +10,17 @@
   <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.index', ['school' => $school->slug]) }}">Back to Results</a>
 </div>
 
+@if($canManage && $caComponents->isEmpty() && $examComponents->isEmpty())
+  <div class="card" style="margin-bottom:1.1rem">
+    <h3 style="margin-bottom:.4rem">Load a default structure</h3>
+    <p class="muted" style="margin-bottom:.8rem">Two Continuous Assessments (20 marks each) plus one Exam (60 marks), the common Nigerian school split. You can add, remove, rename, or reweight anything afterwards.</p>
+    <form method="POST" action="{{ route('school.examinations.structure.apply-defaults', ['school' => $school->slug]) }}">
+      @csrf
+      <button class="btn btn-primary btn-sm" type="submit">Load default structure</button>
+    </form>
+  </div>
+@endif
+
 <div class="grid cols-2" style="align-items:start">
   <div class="card">
     <h3 style="margin-bottom:.8rem">Test / Continuous Assessment</h3>
