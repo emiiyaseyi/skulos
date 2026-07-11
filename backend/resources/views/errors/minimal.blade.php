@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>{{ $code }} {{ $title ?? 'Something went wrong' }} | SKULOS</title>
+<link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}" />
 <style>
   :root{--accent:#E8A33D;--bg:#EEF1F6;--panel:#FFFFFF;--ink:#0B1420;--mut:rgba(11,20,32,.60);--line:rgba(11,20,32,.10)}
   *{box-sizing:border-box}
