@@ -89,6 +89,25 @@ class School extends Model
         return $this->belongsTo(Plan::class);
     }
 
+    /**
+     * Whether this school's plan includes a `plan_feature_catalog` key
+     * (user request 2026-07-11: "once a plan is given to a school, it
+     * should automatically appear under the school end for respective
+     * users" — if it's a plan/feature that was given to a school, the
+     * feature should appear appropriately; if it's not a plan/feature
+     * that was given to a school, the feature should not appear at all,
+     * hidden entirely, not shown locked/greyed out). A school with no
+     * plan assigned yet falls back to the platform's default plan
+     * (Plan::is_default), so a brand new/trial school is not treated as
+     * having zero features while its billing is still being set up.
+     */
+    public function hasFeature(string $key): bool
+    {
+        $plan = $this->plan ?? Plan::where('is_default', true)->first();
+
+        return in_array($key, $plan?->features ?? [], true);
+    }
+
     public function isProvisioned(): bool
     {
         return $this->database !== null && $this->provisioned_at !== null;
