@@ -28,7 +28,7 @@ class Student extends Model
         'admission_number', 'first_name', 'last_name', 'other_names',
         'gender', 'date_of_birth', 'email', 'phone', 'parent_mobile',
         'admission_session_id', 'current_class_arm_id', 'house_id',
-        'nationality', 'state_of_origin', 'lga', 'religion', 'blood_group',
+        'nationality', 'country', 'state_of_origin', 'lga', 'religion', 'blood_group',
         'genotype', 'previous_school', 'address', 'passport_path',
         'admitted_on', 'custom', 'status', 'user_id',
     ];

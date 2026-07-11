@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\SchoolAdminController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\SsoController;
+use App\Http\Controllers\GeoController;
 use App\Http\Controllers\School\SchoolPortalController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -107,6 +108,23 @@ Route::get('/auth/{provider}/redirect', [SsoController::class, 'redirect'])
     ->whereIn('provider', \App\Services\Auth\SsoManager::PROVIDERS)->name('sso.redirect');
 Route::get('/auth/{provider}/callback', [SsoController::class, 'callback'])
     ->whereIn('provider', \App\Services\Auth\SsoManager::PROVIDERS)->name('sso.callback');
+
+/*
+|--------------------------------------------------------------------------
+| Geo reference lookups (country/state/LGA picker, any host)
+|--------------------------------------------------------------------------
+| Platform level reference data behind the reusable geo picker (user
+| request 2026-07-11). No domain constraint on purpose: the picker is used
+| from school subdomain pages (e.g. the student form), but this data has
+| nothing to do with any one school, so it must not sit inside either
+| domain-constrained group above.
+*/
+
+Route::prefix('geo')->name('geo.')->group(function () {
+    Route::get('/countries', [GeoController::class, 'countries'])->name('countries');
+    Route::get('/countries/{countryId}/states', [GeoController::class, 'states'])->name('states');
+    Route::get('/states/{stateId}/lgas', [GeoController::class, 'lgas'])->name('lgas');
+});
 
 /*
 |--------------------------------------------------------------------------

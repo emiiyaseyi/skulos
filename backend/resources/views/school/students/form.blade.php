@@ -84,16 +84,17 @@
         </select>
         @error('house_id')<div class="err">{{ $message }}</div>@enderror
       </div>
-      <div class="field">
-        <label @class(['req' => in_array('state_of_origin', $requiredFields)]) for="state_of_origin">State of Origin</label>
-        <input id="state_of_origin" name="state_of_origin" value="{{ old('state_of_origin', $student->state_of_origin) }}" @required(in_array('state_of_origin', $requiredFields)) />
-        @error('state_of_origin')<div class="err">{{ $message }}</div>@enderror
-      </div>
-      <div class="field">
-        <label @class(['req' => in_array('lga', $requiredFields)]) for="lga">LGA</label>
-        <input id="lga" name="lga" value="{{ old('lga', $student->lga) }}" @required(in_array('lga', $requiredFields)) />
-        @error('lga')<div class="err">{{ $message }}</div>@enderror
-      </div>
+      <x-geo-picker
+        country-name="country"
+        state-name="state_of_origin"
+        lga-name="lga"
+        :country-value="old('country', $student->country)"
+        :state-value="old('state_of_origin', $student->state_of_origin)"
+        :lga-value="old('lga', $student->lga)"
+        :country-required="in_array('country', $requiredFields)"
+        :state-required="in_array('state_of_origin', $requiredFields)"
+        :lga-required="in_array('lga', $requiredFields)"
+      />
     </div>
     <div class="field">
       <label @class(['req' => in_array('address', $requiredFields)]) for="address">Address</label>
