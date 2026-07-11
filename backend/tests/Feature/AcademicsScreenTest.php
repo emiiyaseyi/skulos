@@ -204,6 +204,51 @@ class AcademicsScreenTest extends TestCase
         $this->assertSame(1, $count);
     }
 
+    /**
+     * Regression test for a 2026-07-11 request: adding the first named
+     * stream to a class that only has the default single stream (created
+     * automatically by storeClass()) must convert that stream, not
+     * duplicate it, e.g. "JSS 1" splitting into "JSS 1 A" should not
+     * leave an orphaned unnamed stream sitting alongside "JSS 1 A".
+     */
+    public function test_adding_the_first_stream_converts_the_default_single_stream_not_duplicates_it(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadseventeen');
+
+        // Via the real endpoint, so the default ClassArm is actually created.
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Secondary', 'sequence' => 1]);
+        app(TenantManager::class)->forget();
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/classes", [
+            'section_id' => $section->id, 'name' => 'JSS 1',
+        ]);
+
+        app(TenantManager::class)->use($school);
+        $class = SchoolClass::where('name', 'JSS 1')->first();
+        $defaultArm = ClassArm::where('school_class_id', $class->id)->first();
+        $student = \App\Models\Tenant\Student::create([
+            'admission_number' => 'A1', 'first_name' => 'Ada', 'last_name' => 'Obi',
+            'current_class_arm_id' => $defaultArm->id,
+        ]);
+        $classId = $class->id;
+        $defaultArmId = $defaultArm->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/arms", [
+            'school_class_id' => $classId, 'name' => 'A',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $arms = ClassArm::where('school_class_id', $classId)->get();
+        $studentAfter = \App\Models\Tenant\Student::find($student->id);
+        app(TenantManager::class)->forget();
+
+        $this->assertCount(1, $arms, 'the default stream should be converted, not duplicated');
+        $this->assertSame($defaultArmId, $arms->first()->id, 'the same ClassArm row should be reused, not replaced');
+        $this->assertNotNull($arms->first()->arm_id);
+        $this->assertSame($defaultArmId, $studentAfter->current_class_arm_id, 'the already-enrolled student must stay correctly assigned');
+    }
+
     public function test_creating_a_session_generates_its_three_terms_with_nigerian_naming(): void
     {
         [$school, $admin] = $this->schoolWithMember('school-owner', 'acadfive');
@@ -323,7 +368,7 @@ class AcademicsScreenTest extends TestCase
         app(TenantManager::class)->use($school);
         $count = SchoolClass::whereHas('section', fn ($q) => $q->where('name', 'Nursery'))->count();
         app(TenantManager::class)->forget();
-        $this->assertSame(4, $count); // Creche, Pre-Nursery, Nursery 1, Nursery 2, not 8
+        $this->assertSame(5, $count); // Creche/Toddler, Reception 1, Reception 2, Nursery 1, Nursery 2, not 10
     }
 
     public function test_jss_and_ss_share_one_secondary_section(): void

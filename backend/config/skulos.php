@@ -471,7 +471,7 @@ return [
     | a school is never forced into these and can edit anything after.
     */
     'default_class_structure' => [
-        'nursery' => ['section' => 'Nursery', 'classes' => ['Creche', 'Pre-Nursery', 'Nursery 1', 'Nursery 2']],
+        'nursery' => ['section' => 'Nursery', 'classes' => ['Creche/Toddler', 'Reception 1', 'Reception 2', 'Nursery 1', 'Nursery 2']],
         'primary' => ['section' => 'Primary', 'classes' => ['Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6']],
         'jss' => ['section' => 'Secondary', 'classes' => ['JSS 1', 'JSS 2', 'JSS 3']],
         'ss' => ['section' => 'Secondary', 'classes' => ['SS 1', 'SS 2', 'SS 3']],
@@ -491,7 +491,7 @@ return [
     'default_subjects' => [
         'nursery' => [
             'label' => 'Nursery / Kindergarten',
-            'match' => ['nursery', 'kindergarten', 'kg', 'pre-nursery', 'playgroup', 'creche', 'crèche', 'daycare'],
+            'match' => ['nursery', 'kindergarten', 'kg', 'pre-nursery', 'reception', 'playgroup', 'creche', 'crèche', 'toddler', 'daycare'],
             'subjects' => [
                 ['name' => 'Literacy', 'mandatory' => true, 'examinable' => true],
                 ['name' => 'Numeracy', 'mandatory' => true, 'examinable' => true],

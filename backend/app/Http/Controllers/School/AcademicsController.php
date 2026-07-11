@@ -214,6 +214,17 @@ class AcademicsController extends Controller
      * the same label (e.g. "A") is reused across classes rather than
      * duplicated per class.
      */
+    /**
+     * Adding the first named stream to a class that only has the default
+     * single (unnamed) stream converts that existing ClassArm into the
+     * new named one, rather than creating a second row alongside it
+     * (user request 2026-07-11, closing the "known rough edge" noted
+     * when the default ClassArm was introduced). This keeps the ClassArm
+     * id stable, so any student already on it stays correctly assigned,
+     * it is a rename, not a new enrollment. Once a class has any named
+     * stream, further additions create new rows as before, there is no
+     * more single default stream left to convert.
+     */
     public function storeArm(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'academics.create');
@@ -227,6 +238,15 @@ class AcademicsController extends Controller
 
         if (ClassArm::where('school_class_id', $class->id)->where('arm_id', $arm->id)->exists()) {
             return back()->with('error', "{$class->name} {$arm->name} already exists.");
+        }
+
+        $existingArms = ClassArm::where('school_class_id', $class->id)->get();
+        $defaultStream = $existingArms->count() === 1 ? $existingArms->first() : null;
+
+        if ($defaultStream && $defaultStream->arm_id === null) {
+            $defaultStream->update(['arm_id' => $arm->id]);
+
+            return back()->with('status', "{$class->name} is now split into streams, starting with {$arm->name}.");
         }
 
         ClassArm::create(['school_class_id' => $class->id, 'arm_id' => $arm->id]);
