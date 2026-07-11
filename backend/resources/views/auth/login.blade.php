@@ -5,7 +5,7 @@
 @push('head')
 <style>
   .login-page{min-height:100vh}
-  .lp-logo{width:64px;height:64px;border-radius:16px;background:var(--accent);color:#241503;display:grid;place-items:center;font-weight:800;font-size:1.6rem;margin:0 auto 1.1rem;overflow:hidden}
+  .lp-logo{width:64px;height:64px;border-radius:16px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:800;font-size:1.6rem;margin:0 auto 1.1rem;overflow:hidden}
   .lp-logo img{width:100%;height:100%;object-fit:contain}
   .lp-head{font-size:1.55rem;font-weight:800;line-height:1.15;letter-spacing:-.01em;text-align:center}
   .lp-sub{color:var(--mut);margin:.4rem 0 1.5rem;text-align:center}

@@ -14,7 +14,7 @@
 .rc-mini .row{height:8px;border-radius:2px;background:var(--soft);border:1px solid var(--line)}
 .rc-mini .row.hi{background:color-mix(in srgb,var(--accent) 35%,var(--soft))}
 .tick{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);display:inline-grid;place-items:center;font-size:11px}
-.rc-opt input:checked + .rc-card .tick{background:var(--accent);border-color:var(--accent);color:#241503}
+.rc-opt input:checked + .rc-card .tick{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .ftoggle{display:flex;align-items:center;gap:.6rem;padding:.6rem 0;border-bottom:1px solid var(--line)}
 .ftoggle:last-child{border-bottom:none}
 .ftoggle input{width:auto}

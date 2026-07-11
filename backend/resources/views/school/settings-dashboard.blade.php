@@ -17,7 +17,7 @@
 .mini-row{display:grid;grid-template-columns:repeat(3,1fr);gap:.35rem;height:22px}
 .mini-two{display:grid;grid-template-columns:1fr 1fr;gap:.35rem;flex:1}
 .tick{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);display:inline-grid;place-items:center;font-size:11px}
-.layout-opt input:checked + .layout-card .tick{background:var(--accent);border-color:var(--accent);color:#241503}
+.layout-opt input:checked + .layout-card .tick{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .wtoggle{display:flex;align-items:center;gap:.6rem;padding:.7rem 0;border-bottom:1px solid var(--line)}
 .wtoggle:last-child{border-bottom:none}
 .wtoggle input{width:auto}

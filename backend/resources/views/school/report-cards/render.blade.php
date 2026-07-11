@@ -7,7 +7,7 @@
   body{background:#e9ebee}
   .rc-wrap{max-width:56rem;margin:0 auto;padding:2rem 1.25rem 4rem}
   .rc-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
-  .rc-bar .tag{font-size:.75rem;font-weight:700;padding:.3rem .7rem;border-radius:999px;background:var(--accent);color:#241503}
+  .rc-bar .tag{font-size:.75rem;font-weight:700;padding:.3rem .7rem;border-radius:999px;background:var(--accent);color:var(--accent-ink)}
   .rc-sheet{background:#fff;color:#1a1a1a;border-radius:10px;padding:2rem;box-shadow:0 8px 30px rgba(0,0,0,.12)}
   .rc-head{text-align:center;border-bottom:3px solid var(--accent);padding-bottom:1rem;margin-bottom:1rem}
   .rc-head h1{font-size:1.4rem;font-weight:800}
