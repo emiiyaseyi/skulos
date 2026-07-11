@@ -269,6 +269,14 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
       try{ localStorage.setItem('skulos-side', shell.classList.contains('collapsed')?'collapsed':'open'); }catch(e){}
     });
   }
+  // Keep the selected nav item in view on every full page load (user
+  // request 2026-07-11: clicking a menu item further down the list used
+  // to lose your place, since each click is a full server navigation and
+  // the sidebar always reopened scrolled to the top). "nearest" only
+  // scrolls if the active item is actually out of view, so it never
+  // jumps unnecessarily when it is already visible.
+  var activeLink=document.querySelector('.side-nav .side-link.active');
+  activeLink?.scrollIntoView({block:'nearest'});
 })();
 (function(){
   var scrim=document.getElementById('idleScrim');
