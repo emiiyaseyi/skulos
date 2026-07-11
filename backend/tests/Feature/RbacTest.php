@@ -113,6 +113,46 @@ class RbacTest extends TestCase
         $this->assertSame(Module::STATE_DISABLED, $this->rbac->moduleState($school, 'not_a_module'));
     }
 
+    /**
+     * Found 2026-07-11 from a user report that changing a school's plan
+     * did not affect what a role could actually do: setModuleState() was
+     * updating the Module rows correctly, but check() never consulted
+     * them, so a role with the raw permission granted could still use a
+     * module the school's plan does not include. A librarian's role
+     * grants library.* regardless, the library module itself must gate
+     * it on top of that role grant.
+     */
+    public function test_a_disabled_module_denies_access_even_with_the_permission_granted(): void
+    {
+        [$school, $librarian] = $this->schoolWithMember('librarian');
+
+        // library is an optional module, disabled by default for every school.
+        $this->assertFalse($this->rbac->check($librarian, $school, 'library.view'));
+
+        $this->rbac->setModuleState($school, 'library', Module::STATE_ENABLED);
+        $this->assertTrue($this->rbac->check($librarian, $school, 'library.view'));
+
+        $this->rbac->setModuleState($school, 'library', Module::STATE_DISABLED);
+        $this->assertFalse($this->rbac->check($librarian, $school, 'library.view'), 'downgrading away from a module must revoke access, not just leave it stale');
+    }
+
+    public function test_a_readonly_module_allows_view_but_not_mutating_actions(): void
+    {
+        [$school, $librarian] = $this->schoolWithMember('librarian');
+        $this->rbac->setModuleState($school, 'library', Module::STATE_READONLY);
+
+        $this->assertTrue($this->rbac->check($librarian, $school, 'library.view'));
+        $this->assertFalse($this->rbac->check($librarian, $school, 'library.create'));
+    }
+
+    /** Core modules (students, academics, ...) are always enabled and unaffected by plan changes. */
+    public function test_a_core_modules_permission_is_unaffected_by_module_state(): void
+    {
+        [$school, $registrar] = $this->schoolWithMember('registrar');
+
+        $this->assertTrue($this->rbac->check($registrar, $school, 'students.view'));
+    }
+
     public function test_module_state_precedence_user_over_role_over_school(): void
     {
         [$school, $teacher, $role] = $this->schoolWithMember('teacher');

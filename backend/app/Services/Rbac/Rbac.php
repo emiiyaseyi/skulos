@@ -56,7 +56,29 @@ class Rbac
             return false;
         }
 
-        return $role->permissions()->whereKey($permission->id)->exists();
+        if (! $role->permissions()->whereKey($permission->id)->exists()) {
+            return false;
+        }
+
+        // A permission's module is always the part of its code before the
+        // first dot (RbacSeeder generates every code as "{module}.{action}"
+        // from config('skulos.modules') keys, so this is exact, not a
+        // guess). Found 2026-07-11: changing a school's plan updated
+        // Module state via setModuleState() correctly, but nothing ever
+        // consulted it here, so a downgraded/never-purchased module's
+        // permissions kept working regardless. disabled/hidden always
+        // deny; readonly only allows .view actions, not mutating ones.
+        $moduleCode = strstr($code, '.', true) ?: $code;
+        $state = $this->moduleState($school, $moduleCode, $user);
+
+        if ($state === Module::STATE_DISABLED || $state === Module::STATE_HIDDEN) {
+            return false;
+        }
+        if ($state === Module::STATE_READONLY && ! str_ends_with($code, '.view')) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
