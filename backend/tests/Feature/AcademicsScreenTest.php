@@ -400,7 +400,7 @@ class AcademicsScreenTest extends TestCase
         app(TenantManager::class)->use($school);
         $count = SchoolClass::whereHas('section', fn ($q) => $q->where('name', 'Nursery'))->count();
         app(TenantManager::class)->forget();
-        $this->assertSame(5, $count); // Creche/Toddler, Reception 1, Reception 2, Nursery 1, Nursery 2, not 10
+        $this->assertSame(3, $count); // Creche/Reception, Nursery 1, Nursery 2, not 6
     }
 
     public function test_jss_and_ss_share_one_secondary_section(): void

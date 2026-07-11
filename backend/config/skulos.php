@@ -500,10 +500,10 @@ return [
     | a school is never forced into these and can edit anything after.
     */
     'default_class_structure' => [
-        'nursery' => ['section' => 'Nursery', 'classes' => ['Creche/Toddler', 'Reception 1', 'Reception 2', 'Nursery 1', 'Nursery 2']],
+        'nursery' => ['section' => 'Nursery', 'classes' => ['Creche/Reception', 'Nursery 1', 'Nursery 2']],
         'primary' => ['section' => 'Primary', 'classes' => ['Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6']],
         'jss' => ['section' => 'Secondary', 'classes' => ['JSS 1', 'JSS 2', 'JSS 3']],
-        'ss' => ['section' => 'Secondary', 'classes' => ['SS 1', 'SS 2', 'SS 3']],
+        'ss' => ['section' => 'Secondary', 'classes' => ['SSS 1', 'SSS 2', 'SSS 3']],
     ],
 
     /*
@@ -575,8 +575,8 @@ return [
             ],
         ],
         'ss' => [
-            'label' => 'Senior Secondary (SS 1-3 / Grade 10-12)',
-            'match' => ['ss1', 'ss2', 'ss3', 'ss 1', 'ss 2', 'ss 3', 'senior secondary', 'grade 10', 'grade 11', 'grade 12'],
+            'label' => 'Senior Secondary (SSS 1-3 / Grade 10-12)',
+            'match' => ['sss1', 'sss2', 'sss3', 'sss 1', 'sss 2', 'sss 3', 'ss1', 'ss2', 'ss3', 'ss 1', 'ss 2', 'ss 3', 'senior secondary', 'grade 10', 'grade 11', 'grade 12'],
             'subjects' => [
                 ['name' => 'English Language', 'mandatory' => true, 'examinable' => true],
                 ['name' => 'Mathematics', 'mandatory' => true, 'examinable' => true],
@@ -720,6 +720,7 @@ return [
         'school-owner' => ['name' => 'School Owner', 'grants' => ['*']],
         'school-admin' => ['name' => 'School Admin', 'grants' => ['*']],
         'principal' => ['name' => 'Principal', 'grants' => ['*']],
+        'head-teacher' => ['name' => 'Head Teacher', 'grants' => ['*']],
         'vice-principal' => ['name' => 'Vice Principal', 'grants' => [
             'students.*', 'staff.*', 'academics.*', 'attendance.*',
             'examinations.*', 'report_cards.*', 'timetable.*', 'calendar.*',
