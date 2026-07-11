@@ -28,6 +28,18 @@ class ColorContrastTest extends TestCase
         $this->assertSame('#FFFFFF', ColorContrast::inkFor('#6C4FE0'));
     }
 
+    /**
+     * The exact colour from the user's "not fixed" follow up screenshot:
+     * a mid saturated green where black text technically has a *higher*
+     * WCAG contrast ratio than white (5.9:1 vs 3.0:1), yet reads as
+     * unreadable in practice, this is why the threshold is 0.4, not the
+     * plain WCAG crossover of 0.179.
+     */
+    public function test_a_mid_saturated_green_that_technically_passes_wcag_with_black_still_gets_white(): void
+    {
+        $this->assertSame('#FFFFFF', ColorContrast::inkFor('#12A97B'));
+    }
+
     public function test_an_invalid_or_missing_colour_falls_back_to_dark_ink(): void
     {
         $this->assertSame('#241503', ColorContrast::inkFor(null));

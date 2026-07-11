@@ -8,10 +8,21 @@ namespace App\Support;
  * it can no longer assume a fixed dark ink reads well, a school that
  * picks a dark colour (navy, purple, black) with hardcoded dark text
  * becomes unreadable (user report 2026-07-11, a screenshot of a "Resume"
- * button with black text on a dark green background). Standard WCAG
- * relative luminance: pick black ink above the crossover point where
- * black and white contrast equally against the background, white below
- * it, so text stays readable against any colour a school could pick.
+ * button with black text on a dark green background).
+ *
+ * The plain WCAG "equal contrast" crossover point (luminance 0.179) is
+ * the wrong threshold here: by that standard, black text on a mid
+ * saturated green like #12A97B technically has a higher contrast ratio
+ * than white text does (5.9:1 vs 3.0:1), yet the user flagged that exact
+ * green button as unreadable. Saturated mid tones read as "a colour", not
+ * "light enough for dark text", regardless of what the contrast ratio
+ * says. The threshold below is picked from two real data points instead:
+ * the default brand gold #E8A33D (luminance 0.437, dark text keeps
+ * working fine, unchanged) must stay above it, the reported green
+ * #12A97B (luminance 0.299) must fall below it. 0.4 sits between them —
+ * effectively "only a genuinely light/pale colour gets dark text, every
+ * other colour gets white", matching "black only works fine on white
+ * background" rather than a strict contrast-ratio reading.
  */
 class ColorContrast
 {
@@ -34,8 +45,6 @@ class ColorContrast
 
         $luminance = 0.2126 * $r + 0.7152 * $g + 0.0722 * $b;
 
-        // Crossover point where a background contrasts black and white
-        // equally (WCAG relative luminance of sRGB gray at that point).
-        return $luminance > 0.179 ? $darkInk : $lightInk;
+        return $luminance > 0.4 ? $darkInk : $lightInk;
     }
 }
