@@ -66,6 +66,38 @@ class StudentScreenTest extends TestCase
         $filtered->assertOk()->assertSee('ADM/001')->assertDontSee('ADM/002');
     }
 
+    /**
+     * Browsing (no search) groups students by section then class (user
+     * request 2026-07-11: "all students should be categorized by their
+     * section... first and then their classes while we retain the search
+     * by name and admission number box"). A search still returns a flat
+     * list, grouping the few matches across a dozen classes would be
+     * worse than just showing them.
+     */
+    public function test_browsing_without_a_search_groups_students_by_section_and_class(): void
+    {
+        [$school, $user] = $this->schoolWithMember('registrar', 'groupone');
+
+        app(TenantManager::class)->use($school);
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $arm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $class->id, 'arm_id' => null]);
+        Student::create(['admission_number' => 'P1/001', 'first_name' => 'Ada', 'last_name' => 'Obi', 'current_class_arm_id' => $arm->id]);
+        Student::create(['admission_number' => 'P1/002', 'first_name' => 'Bode', 'last_name' => 'Ade', 'current_class_arm_id' => $arm->id]);
+        Student::create(['admission_number' => 'NOCLASS/001', 'first_name' => 'Chika', 'last_name' => 'Uzo']);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/students");
+
+        $response->assertOk()
+            ->assertSee('Primary')
+            ->assertSee('Primary 1')
+            ->assertSee('2') // headcount for Primary 1
+            ->assertDontSee('Ada Obi') // individual names not listed under a grouped class row
+            ->assertSee('No class assigned')
+            ->assertSee('Chika Uzo'); // unassigned students are still individually listed
+    }
+
     public function test_students_index_requires_permission(): void
     {
         [$school, $user] = $this->schoolWithMember('parent', 'noaccess');

@@ -7,6 +7,7 @@ use App\Models\School;
 use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\GradingScale;
 use App\Models\Tenant\House;
+use App\Models\Tenant\Section;
 use App\Models\Tenant\Setting;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\Term;
@@ -40,30 +41,66 @@ class StudentController extends Controller
         );
     }
 
+    /**
+     * Grouped by section then class when just browsing (user request
+     * 2026-07-11: "all students should be categorized by their section
+     * Nursery, Primary, Secondary first and then their classes"), a flat
+     * search-result list when actually searching (grouping a name/
+     * admission number search across every class would scatter the few
+     * matches across a dozen mostly empty groups, worse than a plain
+     * list). Grouping reuses the class detail page's own roster
+     * (`school.academics.classes.show`) rather than duplicating a full
+     * student table here, each class just shows its headcount and a link.
+     */
     public function index(Request $request): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'students.view');
         $school = $this->school($request);
 
         $search = trim((string) $request->query('q'));
-        $students = Student::query()
-            ->when($search, function ($query) use ($search) {
-                $query->where(function ($w) use ($search) {
+
+        if ($search) {
+            $students = Student::query()
+                ->where(function ($w) use ($search) {
                     $w->where('admission_number', 'like', "%{$search}%")
                         ->orWhere('first_name', 'like', "%{$search}%")
                         ->orWhere('last_name', 'like', "%{$search}%");
-                });
-            })
-            ->orderBy('last_name')
-            ->paginate(20)
-            ->withQueryString();
+                })
+                ->orderBy('last_name')
+                ->paginate(20)
+                ->withQueryString();
+
+            return view('school.students.index', [
+                'school' => $school,
+                'accent' => $school->branding()['color'],
+                'students' => $students,
+                'search' => $search,
+                'total' => Student::count(),
+                'sections' => null,
+                'canImport' => app(Rbac::class)->check(Auth::user(), $school, 'students.bulk'),
+                'canCreate' => app(Rbac::class)->check(Auth::user(), $school, 'students.create'),
+            ]);
+        }
+
+        $counts = Student::whereNotNull('current_class_arm_id')
+            ->selectRaw('current_class_arm_id, count(*) as c')
+            ->groupBy('current_class_arm_id')
+            ->pluck('c', 'current_class_arm_id');
+        $unassigned = Student::whereNull('current_class_arm_id')->orderBy('last_name')->get();
+
+        $sections = Section::with(['classes' => fn ($q) => $q->orderBy('sequence'), 'classes.arms.arm'])
+            ->orderBy('sequence')
+            ->get();
 
         return view('school.students.index', [
             'school' => $school,
             'accent' => $school->branding()['color'],
-            'students' => $students,
+            'students' => null,
             'search' => $search,
             'total' => Student::count(),
+            'sections' => $sections,
+            'classCounts' => $counts,
+            'unassigned' => $unassigned,
             'canImport' => app(Rbac::class)->check(Auth::user(), $school, 'students.bulk'),
             'canCreate' => app(Rbac::class)->check(Auth::user(), $school, 'students.create'),
         ]);

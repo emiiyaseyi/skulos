@@ -420,8 +420,15 @@ class AcademicsController extends Controller
      */
     public function showClass(Request $request): \Illuminate\View\View
     {
-        $this->authorizeAction($request, 'academics.view');
+        // Serves both the Classes & Subjects area and the Students list's
+        // "view this class's roster" link, so either permission suffices,
+        // not just academics.view (found 2026-07-11: a subject-teacher
+        // can view Students but not Classes & Subjects, and this page's
+        // content is mostly a student roster, not academic structure).
         $school = $this->school($request);
+        $allowed = app(Rbac::class)->check(Auth::user(), $school, 'academics.view')
+            || app(Rbac::class)->check(Auth::user(), $school, 'students.view');
+        abort_unless($allowed, 403, 'You do not have permission for this.');
         $class = SchoolClass::with(['section', 'arms.arm', 'arms.classTeacher', 'arms.assistantTeacher', 'subjects'])
             ->findOrFail($request->route('classId'));
 
