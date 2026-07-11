@@ -77,6 +77,7 @@ Local dev uses SQLite as a stand in for MySQL. Production uses MySQL per the con
 - PHP 8.2+ with the usual Laravel extensions, plus a MySQL user allowed to `CREATE DATABASE` (needed for per school tenant databases).
 - Point the domain document root at `backend/public`.
 - Set `.env` for production (APP_ENV=production, MySQL credentials, `TENANCY_DRIVER=mysql`), run `composer install --no-dev`, `php artisan migrate --force`, `php artisan db:seed --force`.
+- **Every deploy that adds or changes a file under `database/migrations/tenant/`, also run `php artisan tenants:migrate` right after `php artisan migrate --force`.** The platform migration only updates the shared platform database; each school's own database only gets tenant migrations applied at the moment it is provisioned, an existing school never receives a later one on its own (this caused a real live 500 once, see CLAUDE.md). Run it locally too before every deploy that touches tenant migrations, not just in production.
 - Redis and Meilisearch are optional locally; wire them in production for queues, cache, and search.
 - Add `php artisan schedule:run` to cPanel's cron every minute (`* * * * * php /path/to/artisan schedule:run >> /dev/null 2>&1`), or nothing scheduled (backups, etc) will ever fire. Confirm with `php artisan schedule:list` after setup.
 
