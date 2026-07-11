@@ -7,7 +7,7 @@
     <h1 class="title">Promotion Requirement</h1>
     <p class="subtitle">Set once as part of setup, and editable any time. Used automatically when a term is ended for the last time in a session.</p>
   </div>
-  <a class="btn btn-ghost btn-sm" href="{{ route('school.academics.index', ['school' => $school->slug]) }}">Back to Classes &amp; Subjects</a>
+  <a class="btn btn-ghost btn-sm" href="{{ route('school.settings.calendar.edit', ['school' => $school->slug]) }}">Back to Sessions &amp; Terms</a>
 </div>
 
 <div class="card" style="max-width:32rem">

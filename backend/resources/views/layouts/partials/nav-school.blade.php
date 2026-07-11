@@ -38,6 +38,7 @@
 {!! $item('school.backups.index', 'Backups', 'settings') !!}
 
 <div class="side-group">Settings</div>
+{!! $item('school.settings.calendar.edit', 'Sessions &amp; Terms', 'calendar') !!}
 {!! $item('school.branding.edit', 'Branding', 'palette') !!}
 {!! $item('school.dashboard.edit', 'Dashboard look', 'settings') !!}
 {!! $item('school.students.settings.edit', 'Student Fields', 'students') !!}

@@ -59,15 +59,10 @@ class AcademicsController extends Controller
             $q->withCount('subjects')->orderBy('sequence');
         }, 'classes.arms.arm'])->orderBy('sequence')->get();
 
-        $sessions = AcademicSession::with(['terms' => fn ($q) => $q->orderBy('sequence')])
-            ->orderByDesc('name')
-            ->get();
-
         return view('school.academics.index', [
             'school' => $school,
             'accent' => $school->branding()['color'],
             'sections' => $sections,
-            'sessions' => $sessions,
             'classCatalogs' => config('skulos.default_class_structure'),
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'academics.update'),
         ]);
@@ -218,6 +213,58 @@ class AcademicsController extends Controller
         return back()->with('status',
             "{$currentTerm->session->name} has ended. {$nextSession->name} is now current. ".
             "{$result['promoted']} student(s) promoted, {$result['repeated']} repeating their class, {$result['graduated']} graduated.");
+    }
+
+    /**
+     * Sessions and terms live under Settings (user request 2026-07-11:
+     * this is one-time setup information, not a day-to-day Classes &
+     * Subjects concern). Also surfaces a "today falls under this term"
+     * suggestion when terms have their start/end dates filled in, so an
+     * admin who has entered the school calendar does not have to work out
+     * which term is current by hand; a school that has not entered dates
+     * simply picks a session and term manually via the existing
+     * "Make current" buttons, both are supported.
+     */
+    public function editCalendar(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'academics.view');
+        $school = $this->school($request);
+
+        $sessions = AcademicSession::with(['terms' => fn ($q) => $q->orderBy('sequence')])
+            ->orderByDesc('name')
+            ->get();
+
+        $today = now()->toDateString();
+        $suggestedTerm = Term::whereNotNull('starts_on')
+            ->whereNotNull('ends_on')
+            ->whereDate('starts_on', '<=', $today)
+            ->whereDate('ends_on', '>=', $today)
+            ->where('is_current', false)
+            ->with('session')
+            ->first();
+
+        return view('school.settings-academic-calendar', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'sessions' => $sessions,
+            'suggestedTerm' => $suggestedTerm,
+            'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'academics.update'),
+        ]);
+    }
+
+    /** Optional start/end dates for a term, used to auto-suggest the current term by today's date. */
+    public function updateTermDates(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.update');
+        $term = Term::findOrFail($request->route('termId'));
+        $data = $request->validate([
+            'starts_on' => ['nullable', 'date'],
+            'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
+        ]);
+
+        $term->update($data);
+
+        return back()->with('status', "Dates saved for {$term->name}.");
     }
 
     public function editPromotionSettings(Request $request, PromotionService $promotions): \Illuminate\View\View

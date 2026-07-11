@@ -162,6 +162,11 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::post('/settings/branding', [SchoolPortalController::class, 'updateBranding'])->name('school.branding.update');
         Route::get('/settings/dashboard', [SchoolPortalController::class, 'editDashboard'])->name('school.dashboard.edit');
         Route::post('/settings/dashboard', [SchoolPortalController::class, 'updateDashboard'])->name('school.dashboard.update');
+        Route::prefix('settings/calendar')->name('school.settings.calendar.')->group(function () {
+            $academics = \App\Http\Controllers\School\AcademicsController::class;
+            Route::get('/', [$academics, 'editCalendar'])->name('edit');
+            Route::post('/terms/{termId}/dates', [$academics, 'updateTermDates'])->name('terms.dates');
+        });
 
         // Academics: sections, classes, and per-class subject offerings.
         Route::prefix('academics')->name('school.academics.')->group(function () {
