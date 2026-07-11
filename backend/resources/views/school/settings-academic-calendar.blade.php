@@ -65,6 +65,7 @@
             </td>
             <td>
               @foreach($session->terms as $term)
+                <div class="badge" style="margin-bottom:.2rem">{{ $term->name }}</div>
                 @if($canManage)
                   <form method="POST" action="{{ route('school.settings.calendar.terms.dates', ['school' => $school->slug, 'termId' => $term->id]) }}" style="display:flex;gap:.3rem;align-items:center;margin-bottom:.4rem;flex-wrap:wrap">
                     @csrf
