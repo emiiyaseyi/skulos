@@ -18,7 +18,7 @@ class ClassArm extends Model
 
     protected $connection = 'tenant';
 
-    protected $fillable = ['school_class_id', 'arm_id', 'class_teacher_staff_id', 'capacity'];
+    protected $fillable = ['school_class_id', 'arm_id', 'class_teacher_staff_id', 'assistant_teacher_staff_id', 'capacity'];
 
     protected function casts(): array
     {
@@ -33,6 +33,16 @@ class ClassArm extends Model
     public function arm(): BelongsTo
     {
         return $this->belongsTo(Arm::class);
+    }
+
+    public function classTeacher(): BelongsTo
+    {
+        return $this->belongsTo(Staff::class, 'class_teacher_staff_id');
+    }
+
+    public function assistantTeacher(): BelongsTo
+    {
+        return $this->belongsTo(Staff::class, 'assistant_teacher_staff_id');
     }
 
     /**

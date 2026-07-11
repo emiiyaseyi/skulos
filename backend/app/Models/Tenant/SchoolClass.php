@@ -20,11 +20,11 @@ class SchoolClass extends Model
 
     protected $table = 'school_classes';
 
-    protected $fillable = ['section_id', 'name', 'sequence'];
+    protected $fillable = ['section_id', 'name', 'sequence', 'is_active'];
 
     protected function casts(): array
     {
-        return ['sequence' => 'integer'];
+        return ['sequence' => 'integer', 'is_active' => 'boolean'];
     }
 
     public function section(): BelongsTo
@@ -42,5 +42,10 @@ class SchoolClass extends Model
         return $this->belongsToMany(Subject::class, 'class_subject')
             ->withPivot(['is_mandatory', 'is_examinable'])
             ->withTimestamps();
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
     }
 }

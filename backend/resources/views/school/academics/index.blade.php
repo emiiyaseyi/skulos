@@ -43,7 +43,10 @@
           <tbody>
             @foreach($section->classes as $class)
               <tr>
-                <td><strong>{{ $class->name }}</strong></td>
+                <td>
+                  <a href="{{ route('school.academics.classes.show', ['school' => $school->slug, 'classId' => $class->id]) }}"><strong>{{ $class->name }}</strong></a>
+                  @unless($class->is_active)<span class="badge badge-warn" style="margin-left:.4rem">Retired</span>@endunless
+                </td>
                 <td class="muted">
                   {{ $class->arms->map(fn($ca) => $ca->arm?->name ?: 'Single stream')->join(', ') }}
                   @if($canManage)
@@ -56,7 +59,7 @@
                   @endif
                 </td>
                 <td class="muted">{{ $class->subjects_count }}</td>
-                <td><a class="btn btn-ghost btn-sm" href="{{ route('school.academics.subjects', ['school' => $school->slug, 'classId' => $class->id]) }}">Manage subjects</a></td>
+                <td><a class="btn btn-ghost btn-sm" href="{{ route('school.academics.classes.show', ['school' => $school->slug, 'classId' => $class->id]) }}">View</a></td>
               </tr>
             @endforeach
           </tbody>

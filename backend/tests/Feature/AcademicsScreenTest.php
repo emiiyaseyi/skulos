@@ -444,4 +444,133 @@ class AcademicsScreenTest extends TestCase
             'catalog' => 'ss',
         ])->assertForbidden();
     }
+
+    /**
+     * Class edit/rename/retire/delete plus a detail page (user request
+     * 2026-07-11: "there is no way to delete, edit, rename, retire etc a
+     * class").
+     */
+    public function test_a_class_can_be_renamed_retired_and_reactivated(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadnineteen');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Basic 1', 'sequence' => 1]);
+        $classId = $class->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/classes/{$classId}", [
+            'name' => 'Primary 1',
+        ])->assertRedirect();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/classes/{$classId}/toggle-active")
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $updated = SchoolClass::find($classId);
+        app(TenantManager::class)->forget();
+
+        $this->assertSame('Primary 1', $updated->name);
+        $this->assertFalse($updated->is_active);
+    }
+
+    public function test_a_class_with_enrolled_students_cannot_be_deleted(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadtwenty');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => null]);
+        \App\Models\Tenant\Student::create(['admission_number' => 'A1', 'first_name' => 'Ada', 'last_name' => 'Obi', 'current_class_arm_id' => $arm->id]);
+        $classId = $class->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->delete("http://{$school->slug}.localhost/academics/classes/{$classId}")
+            ->assertRedirect()->assertSessionHas('error');
+
+        app(TenantManager::class)->use($school);
+        $stillExists = SchoolClass::find($classId);
+        app(TenantManager::class)->forget();
+        $this->assertNotNull($stillExists);
+    }
+
+    public function test_a_class_with_no_students_can_be_deleted(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadtwentyone');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 2', 'sequence' => 2]);
+        $classId = $class->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->delete("http://{$school->slug}.localhost/academics/classes/{$classId}")
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $gone = SchoolClass::find($classId);
+        app(TenantManager::class)->forget();
+        $this->assertNull($gone);
+    }
+
+    public function test_the_class_detail_page_shows_students_teacher_and_subjects(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadtwentytwo');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 3', 'sequence' => 3]);
+        $arm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => null]);
+        \App\Models\Tenant\Student::create(['admission_number' => 'A1', 'first_name' => 'Ada', 'last_name' => 'Obi', 'current_class_arm_id' => $arm->id]);
+        $staff = \App\Models\Tenant\Staff::create(['staff_id' => 'STF/0001', 'first_name' => 'Tunde', 'last_name' => 'Bello', 'position' => 'Class Teacher', 'status' => 'active']);
+        $arm->update(['class_teacher_staff_id' => $staff->id]);
+        $classId = $class->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->get("http://{$school->slug}.localhost/academics/classes/{$classId}")
+            ->assertOk()
+            ->assertSee('Ada Obi')
+            ->assertSee('Tunde Bello');
+    }
+
+    public function test_assigning_a_class_teacher_updates_the_arm(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadtwentythree');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 4', 'sequence' => 4]);
+        $arm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => null]);
+        $staff = \App\Models\Tenant\Staff::create(['staff_id' => 'STF/0002', 'first_name' => 'Bimpe', 'last_name' => 'Ade', 'position' => 'Teacher', 'status' => 'active']);
+        $armId = $arm->id;
+        $staffId = $staff->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/arms/{$armId}/assign-teacher", [
+            'role' => 'assistant_teacher', 'staff_id' => $staffId,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $updated = ClassArm::find($armId);
+        app(TenantManager::class)->forget();
+        $this->assertSame($staffId, $updated->assistant_teacher_staff_id);
+    }
+
+    public function test_a_teacher_without_academics_update_cannot_rename_or_delete_a_class(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'acadtwentyfour');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 5', 'sequence' => 5]);
+        $classId = $class->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacher)->post("http://{$school->slug}.localhost/academics/classes/{$classId}", ['name' => 'Renamed'])
+            ->assertForbidden();
+        $this->actingAs($teacher)->delete("http://{$school->slug}.localhost/academics/classes/{$classId}")
+            ->assertForbidden();
+    }
 }

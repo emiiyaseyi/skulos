@@ -202,7 +202,12 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/class-structure', [$academics, 'applyClassStructure'])->name('class-structure.apply');
             Route::post('/sections', [$academics, 'storeSection'])->name('sections.store');
             Route::post('/classes', [$academics, 'storeClass'])->name('classes.store');
+            Route::get('/classes/{classId}', [$academics, 'showClass'])->name('classes.show');
+            Route::post('/classes/{classId}', [$academics, 'updateClass'])->name('classes.update');
+            Route::post('/classes/{classId}/toggle-active', [$academics, 'toggleClassActive'])->name('classes.toggle-active');
+            Route::delete('/classes/{classId}', [$academics, 'destroyClass'])->name('classes.destroy');
             Route::post('/arms', [$academics, 'storeArm'])->name('arms.store');
+            Route::post('/arms/{armId}/assign-teacher', [$academics, 'assignArmTeacher'])->name('arms.assign-teacher');
             Route::get('/classes/{classId}/subjects', [$academics, 'subjects'])->name('subjects');
             Route::post('/classes/{classId}/subjects/apply-defaults', [$academics, 'applyDefaults'])->name('subjects.apply-defaults');
             Route::post('/classes/{classId}/subjects/attach', [$academics, 'attachSubject'])->name('subjects.attach');

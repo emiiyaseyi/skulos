@@ -10,13 +10,17 @@ use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\Section;
 use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Setting;
+use App\Models\Tenant\Staff;
+use App\Models\Tenant\Student;
 use App\Models\Tenant\Subject;
+use App\Models\Tenant\TeachingAssignment;
 use App\Models\Tenant\Term;
 use App\Services\Academics\AcademicDefaults;
 use App\Services\Academics\PromotionService;
 use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 /**
  * Sections, classes, and which subjects each class offers (mandatory or
@@ -351,6 +355,114 @@ class AcademicsController extends Controller
         ClassArm::create(['school_class_id' => $class->id, 'arm_id' => null]);
 
         return back()->with('status', 'Class added.');
+    }
+
+    /** Rename a class or move it to a different sequence position (user request 2026-07-11). */
+    public function updateClass(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.update');
+        $class = SchoolClass::findOrFail($request->route('classId'));
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:80', Rule::unique('tenant.school_classes', 'name')->where('section_id', $class->section_id)->ignore($class->id)],
+            'sequence' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $class->update([
+            'name' => $data['name'],
+            'sequence' => $data['sequence'] ?? $class->sequence,
+        ]);
+
+        return back()->with('status', "\"{$class->name}\" updated.");
+    }
+
+    /** Retire (hide from new enrollment/loaders) or reactivate a class without deleting it. */
+    public function toggleClassActive(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.update');
+        $class = SchoolClass::findOrFail($request->route('classId'));
+        $class->update(['is_active' => ! $class->is_active]);
+
+        return back()->with('status', $class->is_active
+            ? "\"{$class->name}\" is active again."
+            : "\"{$class->name}\" is retired. Existing students keep their assignment, but it can no longer be selected for new enrollment.");
+    }
+
+    /**
+     * Refuses to delete a class with any currently enrolled student,
+     * across any of its streams (user request 2026-07-11: "there is no
+     * way to delete... a class"), the same refuse-rather-than-silently-
+     * unassign posture already used for a House with members and an
+     * AssessmentComponent with scores. An admin who really means it
+     * retires the class or moves its students out first.
+     */
+    public function destroyClass(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.update');
+        $class = SchoolClass::with('arms')->findOrFail($request->route('classId'));
+
+        $armIds = $class->arms->pluck('id');
+        if (Student::whereIn('current_class_arm_id', $armIds)->exists()) {
+            return back()->with('error', "\"{$class->name}\" has students currently enrolled and cannot be removed. Move or retire its students first.");
+        }
+
+        $name = $class->name;
+        $class->delete();
+
+        return back()->with('status', "\"{$name}\" removed.");
+    }
+
+    /**
+     * Full detail for one class (user request 2026-07-11): every stream,
+     * its class teacher and assistant class teacher, its students, the
+     * subjects it offers, and who teaches each one (via TeachingAssignment,
+     * scoped to this class's own streams).
+     */
+    public function showClass(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'academics.view');
+        $school = $this->school($request);
+        $class = SchoolClass::with(['section', 'arms.arm', 'arms.classTeacher', 'arms.assistantTeacher', 'subjects'])
+            ->findOrFail($request->route('classId'));
+
+        $armIds = $class->arms->pluck('id');
+        $studentsByArm = Student::whereIn('current_class_arm_id', $armIds)
+            ->orderBy('last_name')
+            ->get()
+            ->groupBy('current_class_arm_id');
+
+        $teachersBySubject = TeachingAssignment::whereIn('class_arm_id', $armIds)
+            ->with('staff', 'subject')
+            ->get()
+            ->groupBy('subject_id')
+            ->map(fn ($group) => $group->pluck('staff')->filter()->unique('id')->map->fullName()->implode(', '));
+
+        return view('school.academics.class-show', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'class' => $class,
+            'studentsByArm' => $studentsByArm,
+            'teachersBySubject' => $teachersBySubject,
+            'staffOptions' => Staff::active()->orderBy('first_name')->get(),
+            'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'academics.update'),
+        ]);
+    }
+
+    /** Assign or clear a stream's class teacher or assistant class teacher. */
+    public function assignArmTeacher(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.update');
+        $arm = ClassArm::findOrFail($request->route('armId'));
+
+        $data = $request->validate([
+            'role' => ['required', 'in:class_teacher,assistant_teacher'],
+            'staff_id' => ['nullable', 'exists:tenant.staff,id'],
+        ]);
+
+        $column = $data['role'] === 'class_teacher' ? 'class_teacher_staff_id' : 'assistant_teacher_staff_id';
+        $arm->update([$column => $data['staff_id'] ?: null]);
+
+        return back()->with('status', 'Updated.');
     }
 
     /**
