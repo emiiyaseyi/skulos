@@ -312,6 +312,108 @@ class HouseScreenTest extends TestCase
             ->assertSessionHas('error');
     }
 
+    /**
+     * Bulk reactivate/retire/delete with a checkbox (user request
+     * 2026-07-11): a mixed selection should only change rows that are
+     * not already in the target state, and report how many actually
+     * changed rather than how many were ticked.
+     */
+    public function test_bulk_retire_only_changes_active_houses_in_the_selection(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'housenineteen');
+
+        app(TenantManager::class)->use($school);
+        $red = House::create(['name' => 'Red House']);
+        $blue = House::create(['name' => 'Blue House', 'is_active' => false]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/houses/bulk-action", [
+            'house_ids' => [$red->id, $blue->id],
+            'action' => 'retire',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $red = House::find($red->id);
+        $blue = House::find($blue->id);
+        app(TenantManager::class)->forget();
+
+        $this->assertFalse($red->is_active);
+        $this->assertFalse($blue->is_active, 'already retired, should stay retired');
+    }
+
+    public function test_bulk_reactivate_brings_selected_houses_back(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'housetwenty');
+
+        app(TenantManager::class)->use($school);
+        $red = House::create(['name' => 'Red House', 'is_active' => false]);
+        $blue = House::create(['name' => 'Blue House', 'is_active' => false]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/houses/bulk-action", [
+            'house_ids' => [$red->id, $blue->id],
+            'action' => 'reactivate',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $red = House::find($red->id);
+        $blue = House::find($blue->id);
+        app(TenantManager::class)->forget();
+
+        $this->assertTrue($red->is_active);
+        $this->assertTrue($blue->is_active);
+    }
+
+    public function test_bulk_delete_unassigns_members_of_every_selected_house(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'housetwentyone');
+
+        app(TenantManager::class)->use($school);
+        $red = House::create(['name' => 'Red House']);
+        $blue = House::create(['name' => 'Blue House']);
+        $student = Student::create(['admission_number' => 'A1', 'first_name' => 'Ada', 'last_name' => 'Obi', 'house_id' => $red->id]);
+        $studentId = $student->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/houses/bulk-action", [
+            'house_ids' => [$red->id, $blue->id],
+            'action' => 'delete',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $count = House::count();
+        $studentAfter = Student::find($studentId);
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(0, $count);
+        $this->assertNotNull($studentAfter, 'the student must still exist');
+        $this->assertNull($studentAfter->house_id, 'members of a bulk deleted house must be unassigned, not deleted');
+    }
+
+    public function test_bulk_action_requires_at_least_one_house_selected(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'housetwentytwo');
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/houses/bulk-action", [
+            'house_ids' => [],
+            'action' => 'retire',
+        ])->assertSessionHasErrors('house_ids');
+    }
+
+    public function test_a_teacher_without_manage_settings_cannot_bulk_act_on_houses(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'housetwentythree');
+
+        app(TenantManager::class)->use($school);
+        $house = House::create(['name' => 'Red House']);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacher)->post("http://{$school->slug}.localhost/houses/bulk-action", [
+            'house_ids' => [$house->id],
+            'action' => 'retire',
+        ])->assertForbidden();
+    }
+
     public function test_a_teacher_without_manage_settings_cannot_manage_houses(): void
     {
         [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'houseeight');

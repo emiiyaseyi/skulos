@@ -151,6 +151,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/assign', [$houses, 'assignBulk'])->name('assign-bulk');
             Route::get('/bulk-template', [$houses, 'bulkTemplate'])->name('bulk-template');
             Route::post('/bulk-assign', [$houses, 'bulkAssign'])->name('bulk-assign');
+            Route::post('/bulk-action', [$houses, 'bulkAction'])->name('bulk-action');
             Route::get('/{houseId}', [$houses, 'show'])->name('show');
             Route::post('/{houseId}', [$houses, 'update'])->name('update');
             Route::post('/{houseId}/toggle-active', [$houses, 'toggleActive'])->name('toggle-active');

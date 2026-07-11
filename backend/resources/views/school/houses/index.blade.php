@@ -17,12 +17,21 @@
   @if($houses->isEmpty())
     <p class="muted">No houses yet. Load the defaults below, or add your own.</p>
   @else
+    @if($canManage)
+      <form id="bulkHousesForm" method="POST" action="{{ route('school.houses.bulk-action', ['school' => $school->slug]) }}"></form>
+    @endif
     <div style="overflow-x:auto">
     <table>
-      <thead><tr><th>Name</th><th>Members</th><th>Status</th><th></th></tr></thead>
+      <thead><tr>
+        @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="house-select-all" aria-label="Select all houses" /></th>@endif
+        <th>Name</th><th>Members</th><th>Status</th><th></th>
+      </tr></thead>
       <tbody>
         @foreach($houses as $house)
           <tr>
+            @if($canManage)
+              <td><input type="checkbox" form="bulkHousesForm" class="house-row-check" name="house_ids[]" value="{{ $house->id }}" aria-label="Select {{ $house->name }}" /></td>
+            @endif
             <td><strong>{{ $house->name }}</strong></td>
             <td class="muted">{{ $house->students_count }}</td>
             <td><span class="badge {{ $house->is_active ? 'badge-ok' : 'badge-warn' }}">{{ $house->is_active ? 'Active' : 'Retired' }}</span></td>
@@ -44,6 +53,28 @@
       </tbody>
     </table>
     </div>
+
+    @if($canManage)
+      <div class="row-between" style="margin-top:.8rem;flex-wrap:wrap;gap:.6rem">
+        <span class="muted" style="font-size:.85rem">Tick any number of houses above, then choose an action.</span>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <button form="bulkHousesForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="reactivate">Reactivate selected</button>
+          <button form="bulkHousesForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="retire">Retire selected</button>
+          <button form="bulkHousesForm" class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit" name="action" value="delete" onclick="return confirm('Remove the selected houses? Their members will be unassigned, not deleted.')">Delete selected</button>
+        </div>
+      </div>
+      <script>
+        (function(){
+          var all = document.getElementById('house-select-all');
+          var boxes = document.querySelectorAll('.house-row-check');
+          all?.addEventListener('change', function(){ boxes.forEach(function(cb){ cb.checked = all.checked; }); });
+          document.getElementById('bulkHousesForm')?.addEventListener('submit', function(e){
+            var anyChecked = Array.prototype.some.call(boxes, function(cb){ return cb.checked; });
+            if (! anyChecked) { e.preventDefault(); alert('Tick at least one house first.'); }
+          });
+        })();
+      </script>
+    @endif
   @endif
 </div>
 

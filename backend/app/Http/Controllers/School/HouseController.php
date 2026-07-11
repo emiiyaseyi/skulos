@@ -136,6 +136,48 @@ class HouseController extends Controller
         return back()->with('status', "\"{$house->name}\" updated.");
     }
 
+    /**
+     * Bulk reactivate, retire, or delete a checked set of houses at once
+     * (user request 2026-07-11, after reporting the houses reactivate bug:
+     * "add a bulk option to do the reactivate, delete, retire at once with
+     * a check box... this is the way I want every of my builds to look
+     * like"). One shared action so a mixed selection just works: retire
+     * only actually changes rows that were active, reactivate only rows
+     * that were retired, both report how many actually changed rather
+     * than how many were ticked.
+     */
+    public function bulkAction(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.manage_settings');
+        $data = $request->validate([
+            'house_ids' => ['required', 'array', 'min:1'],
+            'house_ids.*' => ['exists:tenant.houses,id'],
+            'action' => ['required', 'in:retire,reactivate,delete'],
+        ]);
+
+        $houses = House::whereIn('id', $data['house_ids'])->get();
+
+        if ($data['action'] === 'delete') {
+            $count = $houses->count();
+            House::whereIn('id', $data['house_ids'])->delete(); // Student.house_id is nullOnDelete.
+
+            return back()->with('status', "{$count} house(s) removed. Their members are now unassigned, not deleted.");
+        }
+
+        $targetState = $data['action'] === 'reactivate';
+        $changed = 0;
+        foreach ($houses as $house) {
+            if ($house->is_active !== $targetState) {
+                $house->update(['is_active' => $targetState]);
+                $changed++;
+            }
+        }
+
+        $verb = $targetState ? 'reactivated' : 'retired';
+
+        return back()->with('status', $changed > 0 ? "{$changed} house(s) {$verb}." : 'No changes to make, the selected houses were already in that state.');
+    }
+
     /** Retire (hide from assignment) or reactivate a house without deleting it. */
     public function toggleActive(Request $request): \Illuminate\Http\RedirectResponse
     {
