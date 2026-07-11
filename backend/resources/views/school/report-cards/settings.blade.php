@@ -1,5 +1,5 @@
-@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => 'Report card look'])
-@section('title', 'Report Card Look')
+@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => 'Report Settings'])
+@section('title', 'Report Settings')
 
 @push('head')
 <style>
@@ -26,17 +26,35 @@
 @section('content')
 <div class="page-head">
   <div>
-    <h1 class="title">Report card look</h1>
-    <p class="subtitle">Choose a template and which fields appear on your school's report cards.</p>
+    <h1 class="title">Report Settings</h1>
+    <p class="subtitle">Your report card look, and how report cards move through review before release.</p>
   </div>
   <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.preview', ['school' => $school->slug]) }}" target="_blank" rel="noopener">Preview current look</a>
+</div>
+
+<div class="card" style="margin-bottom:1.25rem">
+  <h3 style="margin-bottom:.4rem">Review flow</h3>
+  <p class="muted" style="margin-bottom:.8rem">Once generated, a report card moves through review before it can be released to students and parents: <strong>Pending review</strong> &rarr; a reviewer approves it, or sends it back for correction &rarr; <strong>Approved</strong> &rarr; <strong>Released</strong>. Assigning who reviews each report card, and approving or releasing it, is limited to the school owner, admin, principal, head teacher, or examination officer.</p>
+  <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem">
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.index', ['school' => $school->slug]) }}">Browse report cards</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.pending-review', ['school' => $school->slug]) }}">Pending review</a>
+  </div>
+  <form method="POST" action="{{ route('school.report-cards.review-stage', ['school' => $school->slug]) }}" style="display:flex;align-items:center;gap:.6rem;padding-top:.8rem;border-top:1px solid var(--line)">
+    @csrf
+    <input type="hidden" name="enabled" value="{{ $reviewStageEnabled ? '1' : '0' }}" />
+    <label style="display:flex;align-items:center;gap:.5rem;margin:0">
+      <input type="checkbox" @checked($reviewStageEnabled) onchange="this.form.querySelector('[name=enabled]').value=this.checked?'1':'0';this.form.submit()" />
+      <span>Require review before a report card can be released</span>
+    </label>
+    <span class="muted" style="font-size:.8rem">Turning this off releases every generated report card immediately, skipping approval.</span>
+  </form>
 </div>
 
 <form method="POST" action="{{ route('school.report-cards.update', ['school' => $school->slug]) }}">
   @csrf
 
   <div class="card" style="margin-bottom:1.25rem">
-    <h3 style="margin-bottom:1rem">Template</h3>
+    <h3 style="margin-bottom:1rem">Report card look</h3>
     <div class="rc-grid">
       @foreach(config('skulos.report_card_templates') as $key => $meta)
         <label class="rc-opt">

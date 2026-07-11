@@ -58,12 +58,25 @@
     'academic_sessions_terms' => ['school.settings.calendar.edit', 'Sessions &amp; Terms', 'calendar'],
     'continuous_assessment' => ['school.examinations.structure', 'Assessment Structure', 'results'],
     'result_management' => ['school.examinations.index', 'Results', 'results'],
-    'basic_report_cards' => ['school.report-cards.edit', 'Report Cards', 'results'],
-    'advanced_report_cards' => ['school.report-cards.edit', 'Report Cards', 'results'],
+    'basic_report_cards' => ['school.report-cards.index', 'Report Cards', 'results'],
     'unlimited_grading_systems' => ['school.examinations.grading', 'Grading', 'results'],
     'student_promotion' => ['school.settings.calendar.edit', 'Sessions &amp; Terms', 'calendar'],
     'school_profile' => ['school.campuses', 'Campuses', 'school'],
     'school_branding' => ['school.branding.edit', 'Branding', 'palette'],
+  ];
+
+  // The report card browse/review page lives under Academic in the plan
+  // feature catalog, but the user asked (2026-07-11) for it to appear
+  // under Reports & Analytics in the nav instead, so its group placement
+  // is overridden here regardless of which catalog category it was
+  // ticked under. "Report settings" (the look/template page) used to be
+  // gated on the pricier "Advanced Report Cards" catalog feature the
+  // same way, but the user decided (2026-07-11) every plan should be
+  // able to reach it, same as Backups or Mail Settings, so it is no
+  // longer read from the catalog loop at all, see the unconditional
+  // append below instead.
+  $forceGroup = [
+    'basic_report_cards' => 'Reports & Analytics',
   ];
 
   // Dashboard stays pinned in Main regardless of which catalog category
@@ -80,26 +93,43 @@
       continue;
     }
 
-    $entries = [];
     foreach ($category['features'] as $featureKey => $featureLabel) {
       if (! $school->hasFeature($featureKey)) {
         continue;
       }
+      $targetLabel = $forceGroup[$featureKey] ?? $category['label'];
       if (isset($builtRoutes[$featureKey])) {
         [$routeName, $label, $icon] = $builtRoutes[$featureKey];
         if (isset($renderedRoutes[$routeName])) {
           continue; // several feature keys can point at the same already built screen
         }
         $renderedRoutes[$routeName] = true;
-        $entries[] = $link($routeName, $label, $icon);
+        $groups[$targetLabel][] = $link($routeName, $label, $icon);
       } else {
-        $entries[] = $soonLink($featureLabel, 'settings');
+        $groups[$targetLabel][] = $soonLink($featureLabel, 'settings');
       }
     }
+  }
 
-    if (count($entries)) {
-      $groups[$category['label']] = $entries;
-    }
+  // "Report settings" (template and field choices for the report card
+  // look) is not gated by any plan feature (user decision 2026-07-11:
+  // every plan should be able to reach it), so unlike everything else in
+  // Reports & Analytics it is appended unconditionally rather than coming
+  // from the catalog loop.
+  if (! isset($renderedRoutes['school.report-cards.edit'])) {
+    $renderedRoutes['school.report-cards.edit'] = true;
+    $groups['Reports & Analytics'][] = $link('school.report-cards.edit', 'Report settings', 'results');
+  }
+
+  // "Pending review" is a sub screen of Report Cards, not its own catalog
+  // feature, so it does not come from the loop above. The user asked
+  // (2026-07-11) for it to have its own line under Reports & Analytics
+  // next to "Report Cards" and "Report settings", gated on the same
+  // feature that gates the report card workflow itself.
+  if ($school?->hasFeature('basic_report_cards')
+      && ! isset($renderedRoutes['school.report-cards.pending-review'])) {
+    $renderedRoutes['school.report-cards.pending-review'] = true;
+    $groups['Reports & Analytics'][] = $link('school.report-cards.pending-review', 'Pending review', 'results');
   }
 
   // Module granted add ons (Library, Hostel, ...) are a separate system

@@ -233,6 +233,13 @@ tr:last-child td{border-bottom:none}
     <div class="content">
       @if(session('status'))<div class="flash flash-ok">{{ session('status') }}</div>@endif
       @if(session('error'))<div class="flash flash-bad">{{ session('error') }}</div>@endif
+      @if($errors->any())
+        <div class="flash flash-bad">
+          @foreach($errors->all() as $message)
+            <div>{{ $message }}</div>
+          @endforeach
+        </div>
+      @endif
       @yield('content')
     </div>
   </div>

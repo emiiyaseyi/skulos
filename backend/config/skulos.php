@@ -720,6 +720,12 @@ return [
         'communication' => ['broadcast'],
         'school_info' => ['manage_settings'],
         'students' => ['manage_settings'],
+        // Assigning a report card for review and releasing it to students/
+        // parents is an institution wide decision (user request
+        // 2026-07-11: "the admin, head teacher, principal or school
+        // owner"), not something a plain class or subject teacher does,
+        // matching the same tier as examinations.approve_results.
+        'report_cards' => ['assign_review', 'release'],
     ],
 
     /*

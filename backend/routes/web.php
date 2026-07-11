@@ -253,12 +253,25 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::post('/campuses', [\App\Http\Controllers\School\CampusController::class, 'store'])->name('school.campuses.store');
         Route::delete('/campuses/{campusId}', [\App\Http\Controllers\School\CampusController::class, 'destroy'])->name('school.campuses.destroy');
 
-        // Report cards: settings, preview, and the real per student render.
+        // Report cards: browse by section/class, the review workflow, settings, preview, and the real per student render.
         Route::prefix('report-cards')->name('school.report-cards.')->group(function () {
             $reportCards = \App\Http\Controllers\School\ReportCardController::class;
+            Route::get('/', [$reportCards, 'index'])->name('index');
             Route::get('/settings', [$reportCards, 'edit'])->name('edit');
             Route::post('/settings', [$reportCards, 'update'])->name('update');
+            Route::post('/review-stage', [$reportCards, 'updateReviewStage'])->name('review-stage');
             Route::get('/preview/{template?}', [$reportCards, 'preview'])->name('preview');
+            Route::get('/pending-review', [$reportCards, 'pendingReview'])->name('pending-review');
+            Route::get('/classes/{classId}', [$reportCards, 'classIndex'])->name('class-index');
+            Route::post('/classes/{classId}/generate', [$reportCards, 'generateClass'])->name('class.generate');
+            Route::post('/classes/{classId}/bulk-assign', [$reportCards, 'bulkAssignReview'])->name('class.bulk-assign');
+            Route::post('/classes/{classId}/default-reviewer', [$reportCards, 'updateDefaultReviewer'])->name('class.default-reviewer');
+            Route::post('/{studentId}/generate', [$reportCards, 'generate'])->name('generate');
+            Route::post('/{studentId}/assign', [$reportCards, 'assignReview'])->name('assign');
+            Route::post('/{studentId}/send-back', [$reportCards, 'sendBack'])->name('send-back');
+            Route::post('/{studentId}/approve', [$reportCards, 'approve'])->name('approve');
+            Route::post('/{studentId}/release', [$reportCards, 'release'])->name('release');
+            Route::post('/{studentId}/nudge', [$reportCards, 'nudge'])->name('nudge');
             Route::get('/{studentId}/{termId}', [$reportCards, 'show'])->name('show');
         });
 

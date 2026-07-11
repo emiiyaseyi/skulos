@@ -20,7 +20,7 @@ class SchoolClass extends Model
 
     protected $table = 'school_classes';
 
-    protected $fillable = ['section_id', 'name', 'sequence', 'is_active'];
+    protected $fillable = ['section_id', 'name', 'sequence', 'is_active', 'default_reviewer_staff_id'];
 
     protected function casts(): array
     {
@@ -30,6 +30,11 @@ class SchoolClass extends Model
     public function section(): BelongsTo
     {
         return $this->belongsTo(Section::class);
+    }
+
+    public function defaultReviewer(): BelongsTo
+    {
+        return $this->belongsTo(Staff::class, 'default_reviewer_staff_id');
     }
 
     public function arms(): HasMany

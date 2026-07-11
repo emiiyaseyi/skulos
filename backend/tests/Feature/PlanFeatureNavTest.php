@@ -184,6 +184,21 @@ class PlanFeatureNavTest extends TestCase
         $response->assertOk()->assertDontSee('>Library<', false);
     }
 
+    /**
+     * "Report settings" (the report card look/template page) is not
+     * gated on any plan feature (user decision 2026-07-11: every plan
+     * should be able to reach it, same as Backups or Mail Settings),
+     * unlike "Report Cards" itself which still needs basic_report_cards.
+     */
+    public function test_report_settings_shows_regardless_of_plan_features(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['school_houses'], 'planseven');
+
+        $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard");
+
+        $response->assertOk()->assertSee('Report settings')->assertDontSee('Report Cards<');
+    }
+
     public function test_a_school_with_no_plan_falls_back_to_the_default_plan(): void
     {
         Plan::create([
