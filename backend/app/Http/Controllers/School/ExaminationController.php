@@ -61,21 +61,30 @@ class ExaminationController extends Controller
      * everything the school offers for a blanket role, or only what a
      * TeachingAssignment says this teacher actually teaches.
      */
+    /**
+     * Sorted by the school's real class order via ClassArm::orderKey()
+     * (section sequence, then class sequence), not the label string
+     * alphabetically (found 2026-07-11: an alphabetical sort put "JSS 3"
+     * before "Nursery 1" before "Primary 1", not the pedagogical order
+     * the school actually uses).
+     */
     protected function allowedPairs(Request $request): \Illuminate\Support\Collection
     {
         if ($this->hasBlanketAccess($request)) {
             $pairs = collect();
-            ClassArm::with(['schoolClass.subjects', 'arm'])->get()->each(function (ClassArm $classArm) use (&$pairs) {
+            ClassArm::with(['schoolClass.section', 'schoolClass.subjects', 'arm'])->get()->each(function (ClassArm $classArm) use (&$pairs) {
+                $order = $classArm->orderKey();
                 foreach ($classArm->schoolClass?->subjects ?? [] as $subject) {
                     $pairs->push([
                         'class_arm_id' => (int) $classArm->id,
                         'subject_id' => (int) $subject->id,
                         'label' => $classArm->label().': '.$subject->name,
+                        'order' => $order.'-'.$subject->name,
                     ]);
                 }
             });
 
-            return $pairs->sortBy('label')->values();
+            return $pairs->sortBy('order')->values();
         }
 
         $staff = Staff::where('user_id', Auth::id())->first();
@@ -84,15 +93,16 @@ class ExaminationController extends Controller
         }
 
         return TeachingAssignment::where('staff_id', $staff->id)
-            ->with(['subject', 'classArm.schoolClass', 'classArm.arm'])
+            ->with(['subject', 'classArm.schoolClass.section', 'classArm.arm'])
             ->get()
             ->map(fn (TeachingAssignment $a) => [
                 'class_arm_id' => (int) $a->class_arm_id,
                 'subject_id' => (int) $a->subject_id,
                 'label' => $a->classArm->label().': '.$a->subject->name,
+                'order' => $a->classArm->orderKey().'-'.$a->subject->name,
             ])
             ->unique(fn ($p) => $p['class_arm_id'].':'.$p['subject_id'])
-            ->sortBy('label')
+            ->sortBy('order')
             ->values();
     }
 

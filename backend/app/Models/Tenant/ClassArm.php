@@ -45,4 +45,20 @@ class ClassArm extends Model
 
         return $arm ? trim("{$class} {$arm}") : $class;
     }
+
+    /**
+     * The school's real class order, Nursery through Secondary in
+     * sequence, not the label's alphabetical order (found 2026-07-11:
+     * every class picker sorting by `label()` put "JSS 3" before
+     * "Nursery 1" before "Primary 1", not the pedagogical order a school
+     * actually uses). Load `schoolClass.section` before sorting a
+     * collection by this, sorting triggers a query per row otherwise.
+     */
+    public function orderKey(): string
+    {
+        $sectionSeq = $this->schoolClass?->section?->sequence ?? 0;
+        $classSeq = $this->schoolClass?->sequence ?? 0;
+
+        return sprintf('%05d-%05d-%s', $sectionSeq, $classSeq, $this->label());
+    }
 }

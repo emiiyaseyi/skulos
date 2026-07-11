@@ -158,7 +158,7 @@ class StudentController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'student' => new Student(),
-            'classArms' => ClassArm::with('schoolClass', 'arm')->get()->sortBy(fn ($ca) => $ca->label()),
+            'classArms' => ClassArm::with('schoolClass.section', 'arm')->get()->sortBy(fn ($ca) => $ca->orderKey()),
             'houses' => House::active()->orderBy('name')->get(),
             'requiredFields' => Setting::grab('student_required_fields', []),
         ]);
@@ -186,7 +186,7 @@ class StudentController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'student' => $student,
-            'classArms' => ClassArm::with('schoolClass', 'arm')->get()->sortBy(fn ($ca) => $ca->label()),
+            'classArms' => ClassArm::with('schoolClass.section', 'arm')->get()->sortBy(fn ($ca) => $ca->orderKey()),
             'houses' => House::active()->orderBy('name')->get(),
             'requiredFields' => Setting::grab('student_required_fields', []),
         ]);
