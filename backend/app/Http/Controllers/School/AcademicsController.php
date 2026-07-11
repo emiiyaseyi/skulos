@@ -9,9 +9,11 @@ use App\Models\Tenant\Arm;
 use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\Section;
 use App\Models\Tenant\SchoolClass;
+use App\Models\Tenant\Setting;
 use App\Models\Tenant\Subject;
 use App\Models\Tenant\Term;
 use App\Services\Academics\AcademicDefaults;
+use App\Services\Academics\PromotionService;
 use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -86,12 +88,35 @@ class AcademicsController extends Controller
             'start_year' => ['required', 'integer', 'min:2000', 'max:2100'],
         ]);
 
-        $startYear = (int) $data['start_year'];
+        $session = $this->createSessionWithTerms((int) $data['start_year']);
+        if (! $session) {
+            $startYear = (int) $data['start_year'];
+
+            return back()->with('error', "{$startYear}/".($startYear + 1)." Session already exists.");
+        }
+
+        if (! AcademicSession::current()->exists()) {
+            $session->makeCurrent();
+        }
+
+        return back()->with('status', "{$session->name} created with its three terms.");
+    }
+
+    /**
+     * Shared by storeSession() and the End of Term session rollover:
+     * creates "{start}/{end} Session" with its three Nigerian-named
+     * terms if it does not already exist. Returns null (does not create
+     * anything) if a session of that name already exists, since the two
+     * callers handle "already exists" differently (one is a user error,
+     * the other means "just use the one that is already there").
+     */
+    protected function createSessionWithTerms(int $startYear): ?AcademicSession
+    {
         $yearLabel = $startYear.'/'.($startYear + 1);
         $name = "{$yearLabel} Session";
 
         if (AcademicSession::where('name', $name)->exists()) {
-            return back()->with('error', "{$name} already exists.");
+            return null;
         }
 
         $session = AcademicSession::create(['name' => $name]);
@@ -103,11 +128,7 @@ class AcademicsController extends Controller
             ]);
         }
 
-        if (! AcademicSession::current()->exists()) {
-            $session->makeCurrent();
-        }
-
-        return back()->with('status', "{$name} created with its three terms.");
+        return $session;
     }
 
     public function makeSessionCurrent(Request $request): \Illuminate\Http\RedirectResponse
@@ -145,6 +166,83 @@ class AcademicsController extends Controller
         $term->makeCurrent();
 
         return back()->with('status', "{$term->name} is now the current term.");
+    }
+
+    /**
+     * End the current term (user request 2026-07-11). Moves to the next
+     * term in the same session if one exists; on the last term of a
+     * session, rolls over to the next session (creating it, and its
+     * three terms, if it does not exist yet) and runs automatic student
+     * promotion for the session that just ended, via PromotionService.
+     * Gated behind academics.update, the same permission "make current"
+     * already requires, since only owner/admin/principal/vice-principal/
+     * ict-officer hold any academics.* permission at all, no classroom
+     * teacher can trigger this.
+     */
+    public function endTerm(Request $request, PromotionService $promotions): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.update');
+
+        $currentTerm = Term::current()->with('session')->first();
+        abort_unless($currentTerm, 404, 'There is no current term to end.');
+
+        $nextTerm = Term::where('academic_session_id', $currentTerm->academic_session_id)
+            ->where('sequence', '>', $currentTerm->sequence)
+            ->orderBy('sequence')
+            ->first();
+
+        if ($nextTerm) {
+            $nextTerm->makeCurrent();
+
+            return back()->with('status', "{$currentTerm->name} has ended. {$nextTerm->name} is now current.");
+        }
+
+        // Last term of the session: roll over and promote.
+        preg_match('/(\d{4})/', $currentTerm->session->name, $matches);
+        $nextStartYear = ((int) ($matches[1] ?? now()->year)) + 1;
+
+        // createSessionWithTerms() returns null only when that session
+        // already exists (e.g. an admin created next year's session
+        // ahead of time), in which case just use it.
+        $nextSessionName = "{$nextStartYear}/".($nextStartYear + 1).' Session';
+        $nextSession = $this->createSessionWithTerms($nextStartYear)
+            ?? AcademicSession::where('name', $nextSessionName)->first();
+        abort_unless($nextSession, 500, 'Could not determine the next session.');
+
+        $nextSession->makeCurrent();
+        $nextFirstTerm = Term::where('academic_session_id', $nextSession->id)->orderBy('sequence')->first();
+        $nextFirstTerm?->makeCurrent();
+
+        $result = $promotions->promote($currentTerm);
+
+        return back()->with('status',
+            "{$currentTerm->session->name} has ended. {$nextSession->name} is now current. ".
+            "{$result['promoted']} student(s) promoted, {$result['repeated']} repeating their class, {$result['graduated']} graduated.");
+    }
+
+    public function editPromotionSettings(Request $request, PromotionService $promotions): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'academics.view');
+        $school = $this->school($request);
+
+        return view('school.academics.promotion-settings', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'threshold' => $promotions->defaultThreshold(),
+            'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'academics.update'),
+        ]);
+    }
+
+    public function updatePromotionSettings(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.update');
+        $data = $request->validate([
+            'promotion_threshold' => ['required', 'numeric', 'min:0', 'max:100'],
+        ]);
+
+        Setting::put('promotion_threshold', (float) $data['promotion_threshold']);
+
+        return back()->with('status', 'Promotion requirement updated.');
     }
 
     /**

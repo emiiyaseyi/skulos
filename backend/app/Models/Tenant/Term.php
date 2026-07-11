@@ -41,10 +41,22 @@ class Term extends Model
         return $this->belongsTo(AcademicSession::class, 'academic_session_id');
     }
 
+    /**
+     * Also makes this term's own session current (found 2026-07-11: making
+     * a term current without this could leave the "current term" belonging
+     * to a session that itself was not flagged current, an inconsistent
+     * state anything reading both scopes together could disagree on).
+     *
+     * The target row is set via a direct query update, not
+     * forceFill()->save(): see AcademicSession::makeCurrent()'s docblock
+     * for why, the same stale-in-memory-attribute bug applies here too.
+     */
     public function makeCurrent(): void
     {
         static::query()->where('is_current', true)->update(['is_current' => false]);
-        $this->forceFill(['is_current' => true])->save();
+        static::query()->whereKey($this->getKey())->update(['is_current' => true]);
+        $this->is_current = true;
+        $this->session?->makeCurrent();
     }
 
     public function scopeCurrent($query)

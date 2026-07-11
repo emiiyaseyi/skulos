@@ -33,11 +33,22 @@ class AcademicSession extends Model
 
     /**
      * Make this the only current session (a school has one active session).
+     * The target row is set via a direct query update, not
+     * forceFill()->save(): if this model instance was loaded while
+     * already is_current = true (e.g. it was already current, or was
+     * just fetched via a relation), the bulk "set all false" line above
+     * does not touch this instance's in-memory original attributes, so
+     * forceFill()->save() would see "true" being set to "true", find
+     * nothing dirty, and silently skip the write, even though the row
+     * had just been flipped false by the bulk update a line earlier
+     * (found 2026-07-11, a real bug: making an already-loaded session or
+     * term "current" again could silently fail to persist).
      */
     public function makeCurrent(): void
     {
         static::query()->where('is_current', true)->update(['is_current' => false]);
-        $this->forceFill(['is_current' => true])->save();
+        static::query()->whereKey($this->getKey())->update(['is_current' => true]);
+        $this->is_current = true;
     }
 
     public function scopeCurrent($query)

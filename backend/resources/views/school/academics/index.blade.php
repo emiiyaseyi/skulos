@@ -12,6 +12,9 @@
 <div class="card" style="margin-bottom:1.1rem">
   <div class="row-between" style="margin-bottom:.7rem">
     <h3>Academic sessions &amp; terms</h3>
+    @if($canManage)
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.academics.promotion-settings.edit', ['school' => $school->slug]) }}">Promotion requirement</a>
+    @endif
   </div>
   @if($sessions->isEmpty())
     <p class="muted">No sessions yet. Create one below, e.g. enter 2025 for the 2025/2026 session, and its three terms are added automatically.</p>
@@ -30,7 +33,15 @@
               @foreach($session->terms as $term)
                 <div style="margin-bottom:.2rem">
                   {{ $term->name }}
-                  @if($term->is_current)<span class="badge badge-ok">Current</span>@endif
+                  @if($term->is_current)
+                    <span class="badge badge-ok">Current</span>
+                    @if($canManage)
+                      <form method="POST" action="{{ route('school.academics.end-term', ['school' => $school->slug]) }}" style="display:inline" onsubmit="return confirm('End {{ $term->name }} now? This moves to the next term, and if this is the last term of the session, promotes qualifying students to their next class. This cannot be undone from here.')">
+                        @csrf
+                        <button class="btn btn-primary btn-sm" type="submit">End this term</button>
+                      </form>
+                    @endif
+                  @endif
                   @if($canManage && ! $term->is_current)
                     <form method="POST" action="{{ route('school.academics.terms.make-current', ['school' => $school->slug, 'termId' => $term->id]) }}" style="display:inline">
                       @csrf

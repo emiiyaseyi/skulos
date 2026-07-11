@@ -327,6 +327,38 @@ class AcademicsScreenTest extends TestCase
         $this->assertTrue($exists);
     }
 
+    /**
+     * Regression test for a 2026-07-11 finding: making a term current used
+     * to leave its own session's is_current flag untouched, so a term
+     * could be "current" while belonging to a session that was not, an
+     * inconsistent state anything reading both scopes could disagree on.
+     */
+    public function test_making_a_term_current_also_makes_its_session_current(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadeighteen');
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/sessions", ['start_year' => 2024]);
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/sessions", ['start_year' => 2025]);
+
+        app(TenantManager::class)->use($school);
+        $newerSession = AcademicSession::where('name', '2025/2026 Session')->first();
+        $termInNewerSession = Term::where('academic_session_id', $newerSession->id)->first();
+        app(TenantManager::class)->forget();
+
+        // 2024/2025 Session is current by default (created first); making a
+        // term that belongs to the newer session current should bring the
+        // newer session along with it, not leave the older one "current"
+        // while a term of the newer one also claims to be.
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/terms/{$termInNewerSession->id}/make-current");
+
+        app(TenantManager::class)->use($school);
+        $newerSession = $newerSession->fresh();
+        $olderSession = AcademicSession::where('name', '2024/2025 Session')->first();
+        app(TenantManager::class)->forget();
+
+        $this->assertTrue($newerSession->is_current);
+        $this->assertFalse($olderSession->is_current);
+    }
+
     public function test_a_teacher_without_academics_create_cannot_create_a_session(): void
     {
         [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'acadnine');

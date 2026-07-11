@@ -171,6 +171,9 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/sessions/{sessionId}/make-current', [$academics, 'makeSessionCurrent'])->name('sessions.make-current');
             Route::post('/terms', [$academics, 'storeTerm'])->name('terms.store');
             Route::post('/terms/{termId}/make-current', [$academics, 'makeTermCurrent'])->name('terms.make-current');
+            Route::post('/end-term', [$academics, 'endTerm'])->name('end-term');
+            Route::get('/promotion-settings', [$academics, 'editPromotionSettings'])->name('promotion-settings.edit');
+            Route::post('/promotion-settings', [$academics, 'updatePromotionSettings'])->name('promotion-settings.update');
             Route::post('/class-structure', [$academics, 'applyClassStructure'])->name('class-structure.apply');
             Route::post('/sections', [$academics, 'storeSection'])->name('sections.store');
             Route::post('/classes', [$academics, 'storeClass'])->name('classes.store');
