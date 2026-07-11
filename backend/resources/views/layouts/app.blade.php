@@ -42,6 +42,12 @@ a{color:inherit;text-decoration:none}
 .side-school span{font-size:.72rem;color:var(--side-mut)}
 .side-nav{flex:1;padding:.4rem .7rem 1rem}
 .side-group{font-size:.66rem;text-transform:uppercase;letter-spacing:.09em;color:var(--side-mut);font-weight:800;padding:.9rem .6rem .35rem}
+.side-group-btn{width:100%;background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:.66rem;text-transform:uppercase;letter-spacing:.09em;color:var(--side-mut);font-weight:800;padding:.9rem .6rem .35rem}
+.side-group-btn .chev{width:13px;height:13px;flex-shrink:0;transition:transform .15s ease}
+.side-group-btn[aria-expanded="true"] .chev{transform:rotate(90deg)}
+.side-submenu{display:grid;grid-template-rows:0fr;transition:grid-template-rows .18s ease}
+.side-submenu.open{grid-template-rows:1fr}
+.side-submenu>div{overflow:hidden}
 .side-link{display:flex;align-items:center;gap:.7rem;padding:.6rem .65rem;border-radius:10px;color:var(--side-mut);font-weight:600;font-size:.9rem;transition:background .15s ease,color .15s ease}
 .side-link:hover{background:var(--side-active);color:var(--side-ink)}
 .side-link.active{background:var(--side-active);color:#fff}
@@ -61,7 +67,8 @@ a{color:inherit;text-decoration:none}
 .shell.collapsed .side-brand{justify-content:center;font-size:1.1rem;padding-inline:0}
 .shell.collapsed .side-brand .brandfull{display:none}
 .shell.collapsed .side-school{justify-content:center;padding-inline:0}
-.shell.collapsed .side-school div,.shell.collapsed .side-group,.shell.collapsed .side-link span:not(.ic),.shell.collapsed .side-link .soon,.shell.collapsed .side-foot .who{display:none}
+.shell.collapsed .side-school div,.shell.collapsed .side-group,.shell.collapsed .side-group-btn,.shell.collapsed .side-link span:not(.ic),.shell.collapsed .side-link .soon,.shell.collapsed .side-foot .who{display:none}
+.shell.collapsed .side-submenu{grid-template-rows:1fr}
 .shell.collapsed .side-nav{padding-inline:.55rem}
 .shell.collapsed .side-link{justify-content:center;padding-inline:0}
 .shell.collapsed .side-foot{justify-content:center}

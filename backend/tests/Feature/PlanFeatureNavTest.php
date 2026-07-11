@@ -88,6 +88,24 @@ class PlanFeatureNavTest extends TestCase
         $this->assertFalse($school->hasFeature('academic_sessions_terms'));
     }
 
+    /**
+     * The nav is grouped into collapsible submenus (user request
+     * 2026-07-11: "we should use the grouping features where a menu is
+     * under a sub menu instead of listing all as one under the menu"),
+     * not a flat list under a plain section label.
+     */
+    public function test_the_nav_renders_grouped_collapsible_submenus(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['school_houses', 'result_management'], 'planthree');
+
+        $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard");
+
+        $response->assertOk()
+            ->assertSee('side-group-btn', false)
+            ->assertSee('side-submenu', false)
+            ->assertSee('People'); // a group label still renders
+    }
+
     public function test_a_school_with_no_plan_falls_back_to_the_default_plan(): void
     {
         Plan::create([
