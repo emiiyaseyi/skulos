@@ -1,0 +1,622 @@
+For SKULOS, every user should log in and immediately feel that the system was designed specifically for them. The dashboard should answer:
+
+“What do I need to know and do today?”
+
+Every dashboard should therefore have:
+
+* Summary Cards
+* Action Buttons
+* Notifications
+* Pending Tasks
+* Charts
+* Recent Activities
+* Quick Links
+* Calendar
+* Announcements
+* AI Insights (where applicable)
+
+Below is what I recommend.
+
+⸻
+
+1. Platform Super Admin Dashboard
+
+The “CEO Dashboard” for the entire SKULOS ecosystem.
+
+Summary Cards
+
+* Total Schools
+* Active Schools
+* Trial Schools
+* Expired Schools
+* Total Students
+* Total Staff
+* Total Parents
+* Total Users
+* Total Revenue
+* Outstanding Invoices
+* Monthly Revenue
+* Annual Revenue
+* Active Subscriptions
+* Free Trial Conversions
+* Support Tickets
+* API Usage
+* SMS Usage
+* WhatsApp Usage
+* Storage Usage
+* Server Health
+
+⸻
+
+Charts
+
+* School Growth
+* Revenue Trend
+* Subscription Trend
+* Student Growth
+* Storage Growth
+* Active Users
+* Login Statistics
+* Support Requests
+
+⸻
+
+Widgets
+
+* Schools Nearing Expiry
+* Recent Registrations
+* Latest Payments
+* Recent Support Tickets
+* Failed Payments
+* System Alerts
+* Backup Status
+* Database Health
+* AI Insights
+
+⸻
+
+Quick Actions
+
+* Add School
+* Clone School
+* Suspend School
+* Create Plan
+* Send Broadcast
+* View Audit Logs
+* Manage Modules
+
+⸻
+
+2. School Owner Dashboard
+
+The “Business Dashboard.”
+
+Summary Cards
+
+* Students
+* Staff
+* Parents
+* Classes
+* Subjects
+* Revenue
+* Expenses
+* Outstanding Fees
+* Admissions
+* Attendance Rate
+* Staff Attendance
+* School Health Score
+
+⸻
+
+Charts
+
+* Fee Collection
+* Student Enrollment
+* Attendance Trend
+* Revenue Trend
+* Result Performance
+* Gender Distribution
+* Student Growth
+
+⸻
+
+Widgets
+
+* Today’s Birthdays
+* Today’s Events
+* Upcoming Exams
+* New Admissions
+* Pending Approvals
+* Outstanding Payments
+* Recent Messages
+* AI Recommendations
+
+⸻
+
+Quick Actions
+
+* Admit Student
+* Add Staff
+* Record Payment
+* Publish Results
+* Send Announcement
+* Create Event
+
+⸻
+
+3. School Administrator
+
+Cards
+
+* Students
+* Teachers
+* Admissions
+* Attendance
+* Timetable
+* Fees
+* Notifications
+* Tasks
+
+⸻
+
+Widgets
+
+* Pending Admissions
+* New Registrations
+* Missing Attendance
+* Today’s Events
+* School Calendar
+* Staff on Leave
+
+⸻
+
+Quick Actions
+
+* Register Student
+* Assign Class
+* Generate ID Card
+* Print Reports
+
+⸻
+
+4. Principal Dashboard
+
+Cards
+
+* Student Population
+* Teacher Count
+* Attendance
+* Academic Performance
+* Pending Reports
+* Discipline Cases
+
+⸻
+
+Charts
+
+* Subject Performance
+* Teacher Performance
+* Attendance
+* Behaviour Reports
+
+⸻
+
+Widgets
+
+* Students At Risk
+* Upcoming Exams
+* Staff Attendance
+* AI School Summary
+
+⸻
+
+5. Vice Principal (Academic)
+
+Cards
+
+* Timetable Status
+* Lesson Notes
+* Attendance
+* Result Compilation
+* Pending Approvals
+
+⸻
+
+Widgets
+
+* Teachers Yet To Submit Scores
+* Missing Lesson Notes
+* Pending Exams
+* Academic Calendar
+
+⸻
+
+6. Vice Principal (Administration)
+
+Cards
+
+* Staff Attendance
+* Visitor Log
+* Discipline Cases
+* Inventory Requests
+
+⸻
+
+Widgets
+
+* Leave Requests
+* Maintenance Requests
+* Staff Notices
+
+⸻
+
+7. Registrar / Admissions Officer
+
+Cards
+
+* New Applications
+* Pending Admissions
+* Accepted
+* Rejected
+
+⸻
+
+Widgets
+
+* Document Verification
+* Admission Queue
+* Interview Schedule
+
+⸻
+
+8. Examination Officer
+
+Cards
+
+* Exams Scheduled
+* Results Pending
+* CA Pending
+* Published Results
+
+⸻
+
+Widgets
+
+* Missing Scores
+* Result Approval
+* CBT Sessions
+
+⸻
+
+9. Class Teacher
+
+Cards
+
+* Students
+* Attendance Today
+* Assignments
+* Behaviour Cases
+
+⸻
+
+Widgets
+
+* Birthdays
+* Parent Messages
+* Upcoming Exams
+* Students Needing Attention
+
+⸻
+
+Quick Actions
+
+* Take Attendance
+* Enter CA
+* Send Parent Message
+* Record Behaviour
+
+⸻
+
+10. Subject Teacher
+
+Cards
+
+* Classes Assigned
+* Subjects
+* Assignments
+* Pending Grading
+
+⸻
+
+Widgets
+
+* Today’s Lessons
+* Lesson Notes
+* Exam Schedule
+* AI Lesson Suggestions
+
+⸻
+
+11. Accountant / Bursar
+
+Cards
+
+* Today’s Revenue
+* Outstanding Fees
+* Expenses
+* Pending Verification
+
+⸻
+
+Charts
+
+* Revenue Trend
+* Payment Methods
+* Collection Rate
+
+⸻
+
+Widgets
+
+* Pending Transfers
+* Failed Payments
+* Due Invoices
+
+⸻
+
+12. HR Officer
+
+Cards
+
+* Staff
+* Leave
+* Recruitment
+* Attendance
+
+⸻
+
+Widgets
+
+* Contracts Expiring
+* Birthdays
+* Performance Reviews
+
+⸻
+
+13. Librarian
+
+Cards
+
+* Books
+* Borrowed
+* Overdue
+* Fines
+
+⸻
+
+Widgets
+
+* New Books
+* Due Returns
+
+⸻
+
+14. Nurse / Clinic
+
+Cards
+
+* Visits Today
+* Medication
+* Emergencies
+
+⸻
+
+Widgets
+
+* Students With Allergies
+* Follow-ups
+
+⸻
+
+15. Hostel Master
+
+Cards
+
+* Occupancy
+* Rooms
+* Visitors
+* Incidents
+
+⸻
+
+16. Transport Manager
+
+Cards
+
+* Routes
+* Buses
+* Drivers
+* Students Assigned
+
+⸻
+
+17. Parent Dashboard
+
+This should be one of the best dashboards.
+
+Cards
+
+* Number of Children
+* Attendance
+* Fee Balance
+* Assignments
+* Upcoming Exams
+* Notifications
+
+⸻
+
+Child Selector
+
+If parent has multiple children.
+
+Example
+
+👧 Mary
+
+👦 David
+
+👧 Esther
+
+Switch instantly.
+
+⸻
+
+Widgets
+
+* Report Card
+* Timetable
+* Homework
+* Behaviour
+* School Calendar
+* Birthdays
+* Messages
+* School Bus Tracking (future)
+
+⸻
+
+Quick Actions
+
+* Pay Fees
+* Message Teacher
+* Download Result
+* Submit Leave Request
+
+⸻
+
+18. Student Dashboard
+
+Cards
+
+* Attendance
+* Subjects
+* Assignments
+* Average Score
+* Position
+* Upcoming Exams
+
+⸻
+
+Widgets
+
+* Today’s Timetable
+* Homework
+* Announcements
+* AI Study Tips
+* Calendar
+* Leaderboard
+* Certificates
+
+⸻
+
+Quick Actions
+
+* Submit Assignment
+* Join Class
+* View Results
+
+⸻
+
+19. ICT Administrator
+
+Cards
+
+* Active Users
+* Failed Logins
+* Storage
+* Backups
+
+⸻
+
+Widgets
+
+* System Health
+* Database Status
+* Queue Status
+* Security Alerts
+
+⸻
+
+20. Support Dashboard (Platform)
+
+* Open Tickets
+* SLA Performance
+* Customer Satisfaction
+* Live Chats
+* Knowledge Base Usage
+
+⸻
+
+Universal Widgets (Available Across Dashboards)
+
+To ensure no dashboard ever feels empty, every role can display a tailored combination of these reusable widgets:
+
+Personal
+
+* Welcome Message
+* Profile Completion
+* Today’s Schedule
+* Pending Tasks
+* Recent Activity
+
+School
+
+* School Calendar
+* Announcements
+* Birthdays
+* Public Holidays
+* Upcoming Events
+
+Communication
+
+* Notifications
+* Messages
+* Email Status
+* SMS Status
+
+Productivity
+
+* Quick Actions
+* Bookmarked Pages
+* Recently Viewed
+* Frequently Used Features
+
+Analytics
+
+* KPI Cards
+* Mini Charts
+* Trends
+* Comparisons
+
+AI Assistant
+
+* Daily Briefing
+* Suggested Actions
+* Smart Reminders
+* Recommendations
+* Insights
+* Ask SKULOS AI
+
+My strongest recommendation
+
+Don’t make the dashboards static.
+
+Create a Widget Marketplace within SKULOS where users (based on permissions) can:
+
+* Add widgets
+* Remove widgets
+* Rearrange widgets with drag-and-drop
+* Collapse or expand sections
+* Save multiple dashboard layouts
+* Reset to default
+
+For example, a Principal may want “Academic Performance” at the top, while another prefers “Revenue” and “Attendance.” By making dashboards customizable, SKULOS becomes more personal and powerful, giving each user a workspace tailored to how they manage their responsibilities. This is a feature found in premium enterprise platforms and would be a strong differentiator for SKULOS.
