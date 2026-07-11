@@ -108,6 +108,25 @@ class School extends Model
         return in_array($key, $plan?->features ?? [], true);
     }
 
+    /**
+     * Whether this school's plan includes at least one feature from a
+     * `plan_feature_catalog` category (e.g. "finance", "learning").
+     * Whole functional areas that have no screen built yet (Admissions,
+     * Finance, HR, Learning/LMS, CBT Examination) still need to
+     * "automatically appear" once a plan includes them (user request
+     * 2026-07-11), even before there is a real page behind them, so the
+     * nav can show them as a category level "Soon" entry rather than
+     * gating on one specific feature key that does not exist as a
+     * screen yet either way.
+     */
+    public function hasAnyFeatureInCategory(string $categoryKey): bool
+    {
+        $plan = $this->plan ?? Plan::where('is_default', true)->first();
+        $categoryFeatures = array_keys(config("skulos.plan_feature_catalog.{$categoryKey}.features", []));
+
+        return (bool) array_intersect($categoryFeatures, $plan?->features ?? []);
+    }
+
     public function isProvisioned(): bool
     {
         return $this->database !== null && $this->provisioned_at !== null;

@@ -24,6 +24,16 @@
         '<span>'.$label.'</span><span class="soon">Soon</span></a>',
     ];
   };
+  // A whole functional area with no screen built yet (Admissions, Finance,
+  // HR, Learning/LMS, CBT Examination) still needs to "automatically
+  // appear" once a school's plan includes it (user request 2026-07-11:
+  // "it should show for any plan or feature given to the school from the
+  // billing page"), even before there is a real page behind it, shown as
+  // a category level Soon entry rather than hidden entirely like the
+  // still-unbuilt items above that are not gated by any plan at all.
+  $soonIfCategory = function($label, $icon, $categoryKey) use ($school, $soon) {
+    return $school?->hasAnyFeatureInCategory($categoryKey) ? $soon($label, $icon) : null;
+  };
 
   // Grouped into submenus (user request 2026-07-11), rather than every
   // item listed flat under a plain section label. Each group auto-opens
@@ -42,15 +52,28 @@
       $soon('Parents', 'students'),
       $item('school.houses.index', 'Houses', 'school', 'school_houses'),
     ],
+    'Admissions' => [
+      $soonIfCategory('Admissions', 'school', 'admissions'),
+    ],
     'Academics' => [
       $item('school.academics.index', 'Classes &amp; Subjects', 'academics', 'classes_arms'),
       $soon('Attendance', 'attendance'),
       $item('school.examinations.index', 'Results', 'results', 'result_management'),
       $item('school.report-cards.edit', 'Report Cards', 'results', 'basic_report_cards'),
+      $soonIfCategory('CBT Examinations', 'results', 'examination'),
       $soon('Calendar', 'calendar'),
+    ],
+    'Learning' => [
+      $soonIfCategory('Learning Management', 'library', 'learning'),
     ],
     'Communication' => [
       $soon('Announcements', 'comms'),
+    ],
+    'Finance' => [
+      $soonIfCategory('Fees & Payments', 'results', 'finance'),
+    ],
+    'Human Resources' => [
+      $soonIfCategory('HR Management', 'staff', 'human_resources'),
     ],
     'School' => [
       $item('school.campuses', 'Campuses', 'school'),

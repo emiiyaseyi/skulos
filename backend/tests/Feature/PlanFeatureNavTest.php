@@ -106,6 +106,50 @@ class PlanFeatureNavTest extends TestCase
             ->assertSee('People'); // a group label still renders
     }
 
+    /**
+     * Whole functional areas with no screen built yet (Admissions,
+     * Finance, HR, Learning) still need to appear once a plan includes
+     * any of their features (user request 2026-07-11, after reporting
+     * that moving a school to Enterprise showed no change: "it should
+     * show for any plan or feature given to the school from the billing
+     * page"), shown as a category level Soon entry.
+     */
+    public function test_a_category_with_no_built_screen_still_appears_as_soon_once_the_plan_includes_it(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['online_admissions', 'hr_management', 'lms'], 'planfour');
+
+        $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard");
+
+        $response->assertOk()
+            ->assertSee('Admissions')
+            ->assertSee('Human Resources')
+            ->assertSee('Learning');
+    }
+
+    public function test_a_category_with_none_of_its_features_in_the_plan_does_not_appear(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['school_houses'], 'planfive');
+
+        $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard");
+
+        $response->assertOk()
+            ->assertDontSee('Admissions')
+            ->assertDontSee('Human Resources')
+            ->assertDontSee('Learning Management');
+    }
+
+    public function test_school_model_has_any_feature_in_category_helper(): void
+    {
+        $plan = Plan::create([
+            'name' => 'Category Test Plan', 'slug' => 'category-test-plan',
+            'price_per_student_per_term' => 500, 'modules' => [], 'features' => ['payroll'],
+        ]);
+        $school = School::factory()->create(['plan_id' => $plan->id]);
+
+        $this->assertTrue($school->hasAnyFeatureInCategory('finance'));
+        $this->assertFalse($school->hasAnyFeatureInCategory('learning'));
+    }
+
     public function test_a_school_with_no_plan_falls_back_to_the_default_plan(): void
     {
         Plan::create([
