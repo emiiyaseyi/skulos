@@ -91,13 +91,102 @@ class HouseController extends Controller
         return back()->with('status', "\"{$name}\" removed. Its members are now unassigned, not deleted.");
     }
 
-    /** A plain list of every active student with a house picker per row, auto saved on change. */
+    /**
+     * One house's detail page (user request 2026-07-10): rename, retire
+     * or reactivate, and see/download its members. Staff membership was
+     * asked for too, but the Staff module itself has no admin screens or
+     * even a house_id column yet (nav still marks it "Soon"), so there is
+     * no real list to assign from or show here, staff are deliberately
+     * left out of both the page and the download until that module
+     * exists, rather than building a picker with nothing behind it.
+     */
+    public function show(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'students.view');
+        $school = $this->school($request);
+        $house = House::withCount('students')->findOrFail($request->route('houseId'));
+
+        $students = Student::where('house_id', $house->id)
+            ->with('currentClassArm.schoolClass', 'currentClassArm.arm')
+            ->orderBy('last_name')
+            ->get();
+
+        return view('school.houses.show', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'house' => $house,
+            'students' => $students,
+            'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'students.manage_settings'),
+        ]);
+    }
+
+    /** Rename a house or change its colour. */
+    public function update(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.manage_settings');
+        $house = House::findOrFail($request->route('houseId'));
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:80', Rule::unique('tenant.houses', 'name')->ignore($house->id)],
+            'color' => ['nullable', 'string', 'max:20'],
+        ]);
+
+        $house->update($data);
+
+        return back()->with('status', "\"{$house->name}\" updated.");
+    }
+
+    /** Retire (hide from assignment) or reactivate a house without deleting it. */
+    public function toggleActive(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.manage_settings');
+        $house = House::findOrFail($request->route('houseId'));
+        $house->update(['is_active' => ! $house->is_active]);
+
+        return back()->with('status', $house->is_active
+            ? "\"{$house->name}\" is active again and can be assigned."
+            : "\"{$house->name}\" is retired. Its members keep their assignment, but it can no longer be assigned to anyone new.");
+    }
+
+    /** CSV of every student currently in this house. */
+    public function downloadMembers(Request $request): \Symfony\Component\HttpFoundation\Response
+    {
+        $this->authorizeAction($request, 'students.view');
+        $house = House::findOrFail($request->route('houseId'));
+
+        $out = fopen('php://temp', 'r+');
+        fputcsv($out, ['admission_number', 'first_name', 'last_name', 'class']);
+
+        Student::where('house_id', $house->id)->with('currentClassArm.schoolClass', 'currentClassArm.arm')
+            ->orderBy('last_name')->each(function (Student $student) use ($out) {
+                fputcsv($out, [
+                    $student->admission_number, $student->first_name, $student->last_name,
+                    $student->currentClassArm?->label() ?? '',
+                ]);
+            });
+
+        rewind($out);
+        $csv = (string) stream_get_contents($out);
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="'.\Illuminate\Support\Str::slug($house->name).'-members.csv"',
+        ]);
+    }
+
+    /**
+     * A "show only unassigned" filter (user request 2026-07-10) so an
+     * admin can page through exactly the students who still need a
+     * house, without wading through everyone who is already sorted.
+     */
     public function assignForm(Request $request): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'students.manage_settings');
         $school = $this->school($request);
 
         $search = trim((string) $request->query('q'));
+        $unassignedOnly = $request->boolean('unassigned');
+
         $students = Student::active()
             ->with('house', 'currentClassArm.schoolClass', 'currentClassArm.arm')
             ->when($search, fn ($q) => $q->where(function ($w) use ($search) {
@@ -105,6 +194,7 @@ class HouseController extends Controller
                     ->orWhere('first_name', 'like', "%{$search}%")
                     ->orWhere('last_name', 'like', "%{$search}%");
             }))
+            ->when($unassignedOnly, fn ($q) => $q->whereNull('house_id'))
             ->orderBy('last_name')
             ->paginate(30)
             ->withQueryString();
@@ -113,23 +203,56 @@ class HouseController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'students' => $students,
-            'houses' => House::orderBy('name')->get(),
+            'houses' => House::active()->orderBy('name')->get(),
             'search' => $search,
+            'unassignedOnly' => $unassignedOnly,
         ]);
     }
 
-    public function assign(Request $request): \Illuminate\Http\RedirectResponse
+    /**
+     * One save for every student on the current page (user request
+     * 2026-07-10: "not reload to save after every student", pick many,
+     * save once), matching the same array-of-inputs-plus-one-submit
+     * pattern already used by the Results entry screen. Only students
+     * whose house actually changed are written, to keep the audit trail
+     * meaningful rather than logging a "change" for every unchanged row.
+     */
+    public function assignBulk(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'students.manage_settings');
-        $student = Student::findOrFail($request->route('studentId'));
+        $school = $this->school($request);
 
         $data = $request->validate([
-            'house_id' => ['nullable', 'exists:tenant.houses,id'],
+            'assignments' => ['array'],
+            'assignments.*' => ['nullable', 'exists:tenant.houses,id'],
         ]);
 
-        $student->update(['house_id' => $data['house_id'] ?? null]);
+        $studentIds = array_keys($data['assignments'] ?? []);
+        $students = Student::whereIn('id', $studentIds)->get()->keyBy('id');
 
-        return back()->with('status', "{$student->fullName()}'s house updated.");
+        $updated = 0;
+        foreach ($data['assignments'] ?? [] as $studentId => $houseId) {
+            $student = $students->get((int) $studentId);
+            if (! $student) {
+                continue;
+            }
+            // Laravel's ConvertEmptyStringsToNull middleware turns "" into
+            // null before this ever runs, so both must be checked, not
+            // just ''. (int) null casts to 0, not null, which used to
+            // trip the house_id foreign key (0 matches no house row).
+            $houseId = ($houseId === '' || $houseId === null) ? null : (int) $houseId;
+            if ($student->house_id !== $houseId) {
+                $student->update(['house_id' => $houseId]);
+                $updated++;
+            }
+        }
+
+        return redirect()->route('school.houses.assign-form', array_filter([
+            'school' => $school->slug,
+            'page' => $request->query('page'),
+            'q' => $request->query('q'),
+            'unassigned' => $request->boolean('unassigned') ? 1 : null,
+        ]))->with('status', $updated > 0 ? "{$updated} student(s) updated." : 'No changes to save.');
     }
 
     /**

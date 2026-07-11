@@ -79,13 +79,13 @@ class HouseScreenTest extends TestCase
         $this->assertSame(4, $count);
     }
 
-    public function test_admin_can_add_a_house_and_a_student_can_be_assigned_manually(): void
+    public function test_admin_can_add_a_house_and_assign_several_students_in_one_save(): void
     {
         [$school, $admin] = $this->schoolWithMember('school-owner', 'housethree');
 
         app(TenantManager::class)->use($school);
-        $student = Student::create(['admission_number' => 'A1', 'first_name' => 'Ada', 'last_name' => 'Obi']);
-        $studentId = $student->id;
+        $ada = Student::create(['admission_number' => 'A1', 'first_name' => 'Ada', 'last_name' => 'Obi']);
+        $bode = Student::create(['admission_number' => 'A2', 'first_name' => 'Bode', 'last_name' => 'Ade']);
         app(TenantManager::class)->forget();
 
         $this->actingAs($admin)->post("http://{$school->slug}.localhost/houses", ['name' => 'Red House'])->assertRedirect();
@@ -94,14 +94,136 @@ class HouseScreenTest extends TestCase
         $house = House::where('name', 'Red House')->first();
         app(TenantManager::class)->forget();
 
-        $this->actingAs($admin)->post("http://{$school->slug}.localhost/houses/assign/{$studentId}", [
-            'house_id' => $house->id,
+        // One request assigns both students, no per-row reload.
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/houses/assign", [
+            'assignments' => [$ada->id => $house->id, $bode->id => $house->id],
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $adaAfter = Student::find($ada->id);
+        $bodeAfter = Student::find($bode->id);
+        app(TenantManager::class)->forget();
+        $this->assertSame($house->id, $adaAfter->house_id);
+        $this->assertSame($house->id, $bodeAfter->house_id);
+    }
+
+    /**
+     * Regression test for a 2026-07-10 bug caught only by a live smoke
+     * test, not the suite: Laravel's ConvertEmptyStringsToNull middleware
+     * turns an empty "No house" selection into null before it reaches the
+     * controller, not the empty string "" the code assumed. (int) null
+     * casts to 0, not null, and 0 matches no house row, so saving with
+     * any "No house" selection threw a foreign key violation (a 500),
+     * not a graceful unassignment.
+     */
+    public function test_choosing_no_house_in_the_bulk_form_unassigns_rather_than_500s(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'housesixteen');
+
+        app(TenantManager::class)->use($school);
+        $house = House::create(['name' => 'Red House']);
+        $student = Student::create(['admission_number' => 'A1', 'first_name' => 'Ada', 'last_name' => 'Obi', 'house_id' => $house->id]);
+        $studentId = $student->id;
+        app(TenantManager::class)->forget();
+
+        // Simulate the real HTTP submission: an empty option value arrives
+        // as null, not "", after ConvertEmptyStringsToNull.
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/houses/assign", [
+            'assignments' => [$studentId => null],
         ])->assertRedirect();
 
         app(TenantManager::class)->use($school);
         $updated = Student::find($studentId);
         app(TenantManager::class)->forget();
-        $this->assertSame($house->id, $updated->house_id);
+        $this->assertNull($updated->house_id);
+    }
+
+    public function test_the_unassigned_only_filter_shows_only_students_without_a_house(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'housetwelve');
+
+        app(TenantManager::class)->use($school);
+        $house = House::create(['name' => 'Red House']);
+        Student::create(['admission_number' => 'A1', 'first_name' => 'Ada', 'last_name' => 'Obi', 'house_id' => $house->id]);
+        Student::create(['admission_number' => 'A2', 'first_name' => 'Bode', 'last_name' => 'Ade']);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->get("http://{$school->slug}.localhost/houses/assign?unassigned=1")
+            ->assertOk()->assertSee('Bode Ade')->assertDontSee('Ada Obi');
+    }
+
+    public function test_admin_can_rename_a_house(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'housethirteen');
+
+        app(TenantManager::class)->use($school);
+        $house = House::create(['name' => 'Red House']);
+        $houseId = $house->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/houses/{$houseId}", [
+            'name' => 'Crimson House',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $renamed = House::find($houseId);
+        app(TenantManager::class)->forget();
+        $this->assertSame('Crimson House', $renamed->name);
+    }
+
+    public function test_retiring_a_house_hides_it_from_assignment_but_keeps_its_members(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'housefourteen');
+
+        app(TenantManager::class)->use($school);
+        $house = House::create(['name' => 'Red House']);
+        $student = Student::create(['admission_number' => 'A1', 'first_name' => 'Ada', 'last_name' => 'Obi', 'house_id' => $house->id]);
+        $houseId = $house->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/houses/{$houseId}/toggle-active")->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $retired = House::find($houseId);
+        $studentAfter = Student::find($student->id);
+        app(TenantManager::class)->forget();
+
+        $this->assertFalse($retired->is_active);
+        $this->assertSame($houseId, $studentAfter->house_id, 'retiring must not unassign existing members');
+
+        // Retired houses drop out of the assignment picker's <option> list.
+        // Checking the rendered <select> options directly via a regex, not
+        // assertSee/assertDontSee, since the retire action's own flash
+        // message legitimately names the house on this very next page load
+        // (a plain "don't see the name" would false-fail on that), and the
+        // option may or may not carry a "selected" attribute depending on
+        // the student's current assignment.
+        $pageWithoutOption = $this->actingAs($admin)->get("http://{$school->slug}.localhost/houses/assign")->getContent();
+        $this->assertDoesNotMatchRegularExpression('/<option value="'.$houseId.'"[^>]*>Red House<\/option>/', $pageWithoutOption);
+
+        // Reactivating brings it back.
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/houses/{$houseId}/toggle-active");
+        $pageWithOption = $this->actingAs($admin)->get("http://{$school->slug}.localhost/houses/assign")->getContent();
+        $this->assertMatchesRegularExpression('/<option value="'.$houseId.'"[^>]*>Red House<\/option>/', $pageWithOption);
+    }
+
+    public function test_the_house_page_shows_its_members_and_offers_a_download(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'housefifteen');
+
+        app(TenantManager::class)->use($school);
+        $house = House::create(['name' => 'Red House']);
+        Student::create(['admission_number' => 'A1', 'first_name' => 'Ada', 'last_name' => 'Obi', 'house_id' => $house->id]);
+        $houseId = $house->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->get("http://{$school->slug}.localhost/houses/{$houseId}")
+            ->assertOk()->assertSee('Ada Obi')->assertSee('1 member');
+
+        $csv = $this->actingAs($admin)->get("http://{$school->slug}.localhost/houses/{$houseId}/members.csv");
+        $csv->assertOk();
+        $this->assertStringContainsString('A1', $csv->getContent());
+        $this->assertStringContainsString('Ada', $csv->getContent());
     }
 
     public function test_removing_a_house_unassigns_its_members_without_deleting_them(): void

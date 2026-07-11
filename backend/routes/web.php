@@ -141,11 +141,15 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/', [$houses, 'index'])->name('index');
             Route::post('/', [$houses, 'store'])->name('store');
             Route::post('/apply-defaults', [$houses, 'applyDefaults'])->name('apply-defaults');
-            Route::delete('/{houseId}', [$houses, 'destroy'])->name('destroy');
             Route::get('/assign', [$houses, 'assignForm'])->name('assign-form');
-            Route::post('/assign/{studentId}', [$houses, 'assign'])->name('assign');
+            Route::post('/assign', [$houses, 'assignBulk'])->name('assign-bulk');
             Route::get('/bulk-template', [$houses, 'bulkTemplate'])->name('bulk-template');
             Route::post('/bulk-assign', [$houses, 'bulkAssign'])->name('bulk-assign');
+            Route::get('/{houseId}', [$houses, 'show'])->name('show');
+            Route::post('/{houseId}', [$houses, 'update'])->name('update');
+            Route::post('/{houseId}/toggle-active', [$houses, 'toggleActive'])->name('toggle-active');
+            Route::get('/{houseId}/members.csv', [$houses, 'downloadMembers'])->name('download-members');
+            Route::delete('/{houseId}', [$houses, 'destroy'])->name('destroy');
         });
         Route::post('/notifications/{id}/read', [SchoolPortalController::class, 'markNotificationRead'])->name('school.notifications.read');
         Route::get('/settings/branding', [SchoolPortalController::class, 'editBranding'])->name('school.branding.edit');

@@ -19,20 +19,26 @@
   @else
     <div style="overflow-x:auto">
     <table>
-      <thead><tr><th>Name</th><th>Members</th>@if($canManage)<th></th>@endif</tr></thead>
+      <thead><tr><th>Name</th><th>Members</th><th>Status</th><th></th></tr></thead>
       <tbody>
         @foreach($houses as $house)
           <tr>
             <td><strong>{{ $house->name }}</strong></td>
             <td class="muted">{{ $house->students_count }}</td>
-            @if($canManage)
-              <td>
-                <form method="POST" action="{{ route('school.houses.destroy', ['school' => $school->slug, 'houseId' => $house->id]) }}" onsubmit="return confirm('Remove {{ $house->name }}? Its members will be unassigned, not deleted.')">
+            <td><span class="badge {{ $house->is_active ? 'badge-ok' : 'badge-warn' }}">{{ $house->is_active ? 'Active' : 'Retired' }}</span></td>
+            <td style="white-space:nowrap">
+              <a class="btn btn-ghost btn-sm" href="{{ route('school.houses.show', ['school' => $school->slug, 'houseId' => $house->id]) }}">View</a>
+              @if($canManage)
+                <form method="POST" action="{{ route('school.houses.toggle-active', ['school' => $school->slug, 'houseId' => $house->id]) }}" style="display:inline">
+                  @csrf
+                  <button class="btn btn-ghost btn-sm" type="submit">{{ $house->is_active ? 'Retire' : 'Reactivate' }}</button>
+                </form>
+                <form method="POST" action="{{ route('school.houses.destroy', ['school' => $school->slug, 'houseId' => $house->id]) }}" style="display:inline" onsubmit="return confirm('Remove {{ $house->name }}? Its members will be unassigned, not deleted.')">
                   @csrf @method('DELETE')
                   <button class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit">Remove</button>
                 </form>
-              </td>
-            @endif
+              @endif
+            </td>
           </tr>
         @endforeach
       </tbody>
