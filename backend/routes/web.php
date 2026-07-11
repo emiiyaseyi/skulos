@@ -233,6 +233,16 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/structure', [$assessment, 'store'])->name('structure.store');
             Route::post('/structure/{componentId}', [$assessment, 'update'])->name('structure.update');
             Route::delete('/structure/{componentId}', [$assessment, 'destroy'])->name('structure.destroy');
+
+            $grading = \App\Http\Controllers\School\GradingController::class;
+            Route::get('/grading', [$grading, 'index'])->name('grading');
+            Route::post('/grading/apply-defaults', [$grading, 'applyDefaults'])->name('grading.apply-defaults');
+            Route::post('/grading', [$grading, 'store'])->name('grading.store');
+            Route::post('/grading/{scaleId}/make-default', [$grading, 'makeDefault'])->name('grading.make-default');
+            Route::delete('/grading/{scaleId}', [$grading, 'destroy'])->name('grading.destroy');
+            Route::post('/grading/{scaleId}/bands', [$grading, 'storeBand'])->name('grading.bands.store');
+            Route::post('/grading/bands/{bandId}', [$grading, 'updateBand'])->name('grading.bands.update');
+            Route::delete('/grading/bands/{bandId}', [$grading, 'destroyBand'])->name('grading.bands.destroy');
         });
 
         // Campuses.

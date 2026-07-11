@@ -16,7 +16,10 @@
     <h1 class="title">Results</h1>
     <p class="subtitle">Enter every student's score per assessment component. Report cards update as soon as you save.</p>
   </div>
-  <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.structure', ['school' => $school->slug]) }}">Assessment structure</a>
+  <div class="stack" style="flex-direction:row;gap:.6rem">
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.structure', ['school' => $school->slug]) }}">Assessment structure</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.grading', ['school' => $school->slug]) }}">Grading</a>
+  </div>
 </div>
 
 <div class="card" style="margin-bottom:1.25rem">

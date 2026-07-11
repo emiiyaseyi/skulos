@@ -150,6 +150,40 @@ class PlanFeatureNavTest extends TestCase
         $this->assertFalse($school->hasAnyFeatureInCategory('learning'));
     }
 
+    protected function superAdmin(): User
+    {
+        $u = User::factory()->create();
+        $u->forceFill(['is_super_admin' => true])->save();
+
+        return $u;
+    }
+
+    /**
+     * The whole grant/revoke loop through the real Billing screens the
+     * platform admin actually uses (user request 2026-07-11: "it must
+     * check what is under billing... I need it to speak to the billing
+     * section under Platform administration as set"), not a direct
+     * database write standing in for it.
+     */
+    public function test_granting_an_addon_from_billing_shows_it_in_the_nav_and_revoking_hides_it_again(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['school_houses'], 'plansix');
+        $admin = $this->superAdmin();
+
+        $this->actingAs($admin)->post(route('admin.billing.schools.add-ons.store', $school), [
+            'add_on_code' => 'library',
+        ])->assertRedirect();
+
+        $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard");
+        $response->assertOk()->assertSee('Library');
+
+        $addOn = \App\Models\SchoolAddOn::where('school_id', $school->id)->where('add_on_code', 'library')->firstOrFail();
+        $this->actingAs($admin)->delete(route('admin.billing.add-ons.destroy', $addOn))->assertRedirect();
+
+        $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard");
+        $response->assertOk()->assertDontSee('>Library<', false);
+    }
+
     public function test_a_school_with_no_plan_falls_back_to_the_default_plan(): void
     {
         Plan::create([

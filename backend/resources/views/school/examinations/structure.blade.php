@@ -7,7 +7,10 @@
     <h1 class="title">Assessment Structure</h1>
     <p class="subtitle">The Test / Continuous Assessment and Examination components every subject is scored against. Currently sums to {{ rtrim(rtrim(number_format($totalPossible, 2), '0'), '.') }} marks in total.</p>
   </div>
-  <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.index', ['school' => $school->slug]) }}">Back to Results</a>
+  <div class="stack" style="flex-direction:row;gap:.6rem">
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.grading', ['school' => $school->slug]) }}">Grading</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.index', ['school' => $school->slug]) }}">Back to Results</a>
+  </div>
 </div>
 
 @if($canManage && $caComponents->isEmpty() && $examComponents->isEmpty())

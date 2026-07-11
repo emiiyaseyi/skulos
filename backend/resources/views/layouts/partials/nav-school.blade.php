@@ -34,6 +34,24 @@
   $soonIfCategory = function($label, $icon, $categoryKey) use ($school, $soon) {
     return $school?->hasAnyFeatureInCategory($categoryKey) ? $soon($label, $icon) : null;
   };
+  // Optional modules granted as a Billing add-on (Library, Hostel,
+  // Transport, ...), independent of plan tier, any plan can be granted
+  // any add-on (user request 2026-07-11: "features ticked for the school
+  // or plan, is it a custom plan etc... it must check what is under
+  // billing"). Reads App\Services\Rbac\Rbac::moduleState() live, the same
+  // resolution Rbac::check() itself now gates permissions on, so a grant
+  // or revoke from Admin\BillingController::grantAddOn()/revokeAddOn()
+  // takes effect on the very next page load, nothing cached or hardcoded.
+  $soonIfModule = function($label, $icon, $moduleCode) use ($school, $soon) {
+    if (! $school) {
+      return null;
+    }
+    $state = app(\App\Services\Rbac\Rbac::class)->moduleState($school, $moduleCode);
+
+    return in_array($state, [\App\Models\Module::STATE_DISABLED, \App\Models\Module::STATE_HIDDEN], true)
+      ? null
+      : $soon($label, $icon);
+  };
 
   // Grouped into submenus (user request 2026-07-11), rather than every
   // item listed flat under a plain section label. Each group auto-opens
@@ -65,6 +83,7 @@
     ],
     'Learning' => [
       $soonIfCategory('Learning Management', 'library', 'learning'),
+      $soonIfModule('Library', 'library', 'library'),
     ],
     'Communication' => [
       $soon('Announcements', 'comms'),
@@ -78,6 +97,12 @@
     'School' => [
       $item('school.campuses', 'Campuses', 'school'),
       $item('school.backups.index', 'Backups', 'settings'),
+      $soonIfModule('Hostel', 'school', 'hostel'),
+      $soonIfModule('Transport', 'school', 'transport'),
+      $soonIfModule('Inventory', 'school', 'inventory'),
+      $soonIfModule('Medical / Clinic', 'school', 'medical'),
+      $soonIfModule('Visitor Management', 'school', 'visitors'),
+      $soonIfModule('Discipline', 'school', 'discipline'),
     ],
     'Settings' => [
       $item('school.settings.calendar.edit', 'Sessions &amp; Terms', 'calendar', 'academic_sessions_terms'),

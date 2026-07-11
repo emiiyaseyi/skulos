@@ -141,11 +141,23 @@ class BillingController extends Controller
         return back()->with('status', ($addOn->catalogEntry()['name'] ?? $data['add_on_code'])." granted to {$school->name}.");
     }
 
-    public function revokeAddOn(SchoolAddOn $addOn): \Illuminate\Http\RedirectResponse
+    /**
+     * Found 2026-07-11 (user report: "if a school is downgraded, the
+     * school menu should also change"): this deleted the SchoolAddOn row
+     * but never turned the module back off, so a revoked add-on's screen
+     * (and its nav entry) stayed enabled/visible regardless, the mirror
+     * image bug of the one grantAddOn() already handled correctly.
+     */
+    public function revokeAddOn(SchoolAddOn $addOn, Rbac $rbac): \Illuminate\Http\RedirectResponse
     {
         $school = $addOn->school;
         $name = $addOn->catalogEntry()['name'] ?? $addOn->add_on_code;
+        $moduleCode = $addOn->catalogEntry()['module'] ?? null;
         $addOn->delete();
+
+        if ($moduleCode) {
+            $rbac->setModuleState($school, $moduleCode, Module::STATE_DISABLED);
+        }
 
         return back()->with('status', "{$name} removed from {$school->name}.");
     }
