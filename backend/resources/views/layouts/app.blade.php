@@ -42,7 +42,8 @@ a{color:inherit;text-decoration:none}
 .side-school span{font-size:.72rem;color:var(--side-mut)}
 .side-nav{flex:1;padding:.4rem .7rem 1rem}
 .side-group{font-size:.66rem;text-transform:uppercase;letter-spacing:.09em;color:var(--side-mut);font-weight:800;padding:.9rem .6rem .35rem}
-.side-group-btn{width:100%;background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:.66rem;text-transform:uppercase;letter-spacing:.09em;color:var(--side-mut);font-weight:800;padding:.9rem .6rem .35rem}
+.side-group-btn{width:100%;background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;text-align:left;font-size:.66rem;text-transform:uppercase;letter-spacing:.09em;color:var(--side-mut);font-weight:800;padding:.9rem .6rem .35rem}
+.side-group-btn span{flex:1}
 .side-group-btn .chev{width:13px;height:13px;flex-shrink:0;transition:transform .15s ease}
 .side-group-btn[aria-expanded="true"] .chev{transform:rotate(90deg)}
 .side-submenu{display:grid;grid-template-rows:0fr;transition:grid-template-rows .18s ease}

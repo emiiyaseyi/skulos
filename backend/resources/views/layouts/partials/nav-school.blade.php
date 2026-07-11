@@ -2,10 +2,7 @@
   $slug = $school?->slug;
   $chev = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
 
-  $item = function($routeName, $label, $icon, $featureKey = null) use ($cur, $slug, $school) {
-    if ($featureKey && ! $school?->hasFeature($featureKey)) {
-      return null; // not in this school's plan: not shown at all, not just locked.
-    }
+  $link = function($routeName, $label, $icon) use ($cur, $slug) {
     $active = $cur === $routeName;
     $url = ($slug && \Illuminate\Support\Facades\Route::has($routeName)) ? route($routeName, ['school' => $slug]) : '#';
 
@@ -16,7 +13,7 @@
         '<span>'.$label.'</span></a>',
     ];
   };
-  $soon = function($label, $icon) {
+  $soonLink = function($label, $icon) {
     return [
       'active' => false,
       'html' => '<a class="side-link" href="#">'.
@@ -24,94 +21,119 @@
         '<span>'.$label.'</span><span class="soon">Soon</span></a>',
     ];
   };
-  // A whole functional area with no screen built yet (Admissions, Finance,
-  // HR, Learning/LMS, CBT Examination) still needs to "automatically
-  // appear" once a school's plan includes it (user request 2026-07-11:
-  // "it should show for any plan or feature given to the school from the
-  // billing page"), even before there is a real page behind it, shown as
-  // a category level Soon entry rather than hidden entirely like the
-  // still-unbuilt items above that are not gated by any plan at all.
-  $soonIfCategory = function($label, $icon, $categoryKey) use ($school, $soon) {
-    return $school?->hasAnyFeatureInCategory($categoryKey) ? $soon($label, $icon) : null;
-  };
-  // Optional modules granted as a Billing add-on (Library, Hostel,
-  // Transport, ...), independent of plan tier, any plan can be granted
-  // any add-on (user request 2026-07-11: "features ticked for the school
-  // or plan, is it a custom plan etc... it must check what is under
-  // billing"). Reads App\Services\Rbac\Rbac::moduleState() live, the same
-  // resolution Rbac::check() itself now gates permissions on, so a grant
-  // or revoke from Admin\BillingController::grantAddOn()/revokeAddOn()
-  // takes effect on the very next page load, nothing cached or hardcoded.
-  $soonIfModule = function($label, $icon, $moduleCode) use ($school, $soon) {
-    if (! $school) {
-      return null;
-    }
-    $state = app(\App\Services\Rbac\Rbac::class)->moduleState($school, $moduleCode);
 
-    return in_array($state, [\App\Models\Module::STATE_DISABLED, \App\Models\Module::STATE_HIDDEN], true)
-      ? null
-      : $soon($label, $icon);
-  };
+  /*
+   * Every menu and sub menu entry is read live from what is actually set
+   * under Billing (user request 2026-07-11, repeated and corrected
+   * several times: "it must check what is under billing, what are the
+   * features under each plan, features ticked for the school or plan...
+   * I need it to speak to the billing section under Platform
+   * administration as set"). Nothing here is a hardcoded "this school
+   * gets this menu", every group is one of the platform's own
+   * config('skulos.plan_feature_catalog') categories (the exact same
+   * categories and feature checklist the platform admin ticks on the
+   * Billing plan editor), in the same order, and every single feature
+   * the school's plan or an ad hoc grant includes is checked and shown,
+   * either as a real link if that screen is built, or an individually
+   * named "Soon" line if it is not, not a blended category level
+   * summary. A feature not included is not shown at all. Downgrading a
+   * plan or revoking an ad hoc feature takes effect on the very next
+   * page load, School::hasFeature()/hasAnyFeatureInCategory() always
+   * read the school's current Plan row and any BillingController
+   * grantFeature()/SchoolAddOn state fresh, nothing is cached here.
+   *
+   * "support" is excluded entirely: its features (Standard Support,
+   * Priority Email Support, Knowledge Base, ...) are service
+   * commitments, not screens a user navigates to, listing them as
+   * "Soon" would misleadingly imply an unbuilt page is coming.
+   */
+  $builtRoutes = [
+    // feature key => [routeName, label, icon]
+    'dashboard' => ['school.dashboard', 'Dashboard', 'dashboard'],
+    'student_records' => ['school.students', 'Students', 'students'],
+    'school_houses' => ['school.houses.index', 'Houses', 'school'],
+    'school_sections' => ['school.academics.index', 'Classes &amp; Subjects', 'academics'],
+    'classes_arms' => ['school.academics.index', 'Classes &amp; Subjects', 'academics'],
+    'subject_management' => ['school.academics.index', 'Classes &amp; Subjects', 'academics'],
+    'academic_sessions_terms' => ['school.settings.calendar.edit', 'Sessions &amp; Terms', 'calendar'],
+    'continuous_assessment' => ['school.examinations.structure', 'Assessment Structure', 'results'],
+    'result_management' => ['school.examinations.index', 'Results', 'results'],
+    'basic_report_cards' => ['school.report-cards.edit', 'Report Cards', 'results'],
+    'advanced_report_cards' => ['school.report-cards.edit', 'Report Cards', 'results'],
+    'unlimited_grading_systems' => ['school.examinations.grading', 'Grading', 'results'],
+    'student_promotion' => ['school.settings.calendar.edit', 'Sessions &amp; Terms', 'calendar'],
+    'school_profile' => ['school.campuses', 'Campuses', 'school'],
+    'school_branding' => ['school.branding.edit', 'Branding', 'palette'],
+  ];
 
-  // Grouped into submenus (user request 2026-07-11), rather than every
-  // item listed flat under a plain section label. Each group auto-opens
-  // on load if it contains the current page's link, and its open/closed
-  // state otherwise persists per group across page loads via a small
-  // script below, since this is a full server navigation app, not an
-  // SPA, every click would otherwise re-collapse everything.
+  // Dashboard stays pinned in Main regardless of which catalog category
+  // it belongs to, it is the app's home page, not really a "feature" in
+  // the marketing sense, worth keeping prominent rather than buried
+  // inside a collapsed Administration submenu.
+  $renderedRoutes = ['school.dashboard' => true];
   $groups = [
-    'Main' => [
-      $item('school.dashboard', 'Dashboard', 'dashboard', 'dashboard'),
-      $item('school.setup', 'Guided Setup', 'settings'),
-    ],
-    'People' => [
-      $item('school.students', 'Students', 'students', 'student_records'),
-      $soon('Staff', 'staff'),
-      $soon('Parents', 'students'),
-      $item('school.houses.index', 'Houses', 'school', 'school_houses'),
-    ],
-    'Admissions' => [
-      $soonIfCategory('Admissions', 'school', 'admissions'),
-    ],
-    'Academics' => [
-      $item('school.academics.index', 'Classes &amp; Subjects', 'academics', 'classes_arms'),
-      $soon('Attendance', 'attendance'),
-      $item('school.examinations.index', 'Results', 'results', 'result_management'),
-      $item('school.report-cards.edit', 'Report Cards', 'results', 'basic_report_cards'),
-      $soonIfCategory('CBT Examinations', 'results', 'examination'),
-      $soon('Calendar', 'calendar'),
-    ],
-    'Learning' => [
-      $soonIfCategory('Learning Management', 'library', 'learning'),
-      $soonIfModule('Library', 'library', 'library'),
-    ],
-    'Communication' => [
-      $soon('Announcements', 'comms'),
-    ],
-    'Finance' => [
-      $soonIfCategory('Fees & Payments', 'results', 'finance'),
-    ],
-    'Human Resources' => [
-      $soonIfCategory('HR Management', 'staff', 'human_resources'),
-    ],
-    'School' => [
-      $item('school.campuses', 'Campuses', 'school'),
-      $item('school.backups.index', 'Backups', 'settings'),
-      $soonIfModule('Hostel', 'school', 'hostel'),
-      $soonIfModule('Transport', 'school', 'transport'),
-      $soonIfModule('Inventory', 'school', 'inventory'),
-      $soonIfModule('Medical / Clinic', 'school', 'medical'),
-      $soonIfModule('Visitor Management', 'school', 'visitors'),
-      $soonIfModule('Discipline', 'school', 'discipline'),
-    ],
-    'Settings' => [
-      $item('school.settings.calendar.edit', 'Sessions &amp; Terms', 'calendar', 'academic_sessions_terms'),
-      $item('school.branding.edit', 'Branding', 'palette', 'school_branding'),
-      $item('school.dashboard.edit', 'Dashboard look', 'settings', 'dashboard'),
-      $item('school.students.settings.edit', 'Student Fields', 'students'),
-      $item('school.settings.mail.edit', 'Mail Settings', 'settings'),
-      $item('school.settings.idle-timeout.edit', 'Idle Timeout', 'settings'),
-    ],
+    'Main' => [$link('school.dashboard', 'Dashboard', 'dashboard'), $link('school.setup', 'Guided Setup', 'settings')],
+  ];
+
+  foreach (config('skulos.plan_feature_catalog') as $categoryKey => $category) {
+    if ($categoryKey === 'support' || ! $school?->hasAnyFeatureInCategory($categoryKey)) {
+      continue;
+    }
+
+    $entries = [];
+    foreach ($category['features'] as $featureKey => $featureLabel) {
+      if (! $school->hasFeature($featureKey)) {
+        continue;
+      }
+      if (isset($builtRoutes[$featureKey])) {
+        [$routeName, $label, $icon] = $builtRoutes[$featureKey];
+        if (isset($renderedRoutes[$routeName])) {
+          continue; // several feature keys can point at the same already built screen
+        }
+        $renderedRoutes[$routeName] = true;
+        $entries[] = $link($routeName, $label, $icon);
+      } else {
+        $entries[] = $soonLink($featureLabel, 'settings');
+      }
+    }
+
+    if (count($entries)) {
+      $groups[$category['label']] = $entries;
+    }
+  }
+
+  // Module granted add ons (Library, Hostel, ...) are a separate system
+  // from plan features (any plan can be granted any add on), so they are
+  // appended to their most natural existing category group rather than
+  // getting their own, reusing App\Services\Rbac\Rbac::moduleState() the
+  // same way App\Http\Controllers\Admin\BillingController::grantAddOn()/
+  // revokeAddOn() already read and write it.
+  $addOnModules = [
+    'School Operations' => ['library' => 'Library', 'hostel' => 'Hostel', 'transport' => 'Transport', 'inventory' => 'Inventory', 'medical' => 'Medical / Clinic', 'visitors' => 'Visitor Management', 'discipline' => 'Discipline'],
+  ];
+  foreach ($addOnModules as $groupLabel => $modules) {
+    foreach ($modules as $moduleCode => $label) {
+      if (! $school) {
+        continue;
+      }
+      $state = app(\App\Services\Rbac\Rbac::class)->moduleState($school, $moduleCode);
+      if (in_array($state, [\App\Models\Module::STATE_DISABLED, \App\Models\Module::STATE_HIDDEN], true)) {
+        continue;
+      }
+      $groups[$groupLabel] = array_merge($groups[$groupLabel] ?? [], [$soonLink($label, 'school')]);
+    }
+  }
+
+  // Guided Setup and the school's own operational settings (Backups,
+  // Mail Settings, Idle Timeout, Student Field settings, Dashboard look)
+  // are not customer facing plan features at all, so they are not part
+  // of the catalog loop above, they always show.
+  $groups['Settings'] = [
+    $link('school.backups.index', 'Backups', 'settings'),
+    $link('school.dashboard.edit', 'Dashboard look', 'settings'),
+    $link('school.students.settings.edit', 'Student Fields', 'students'),
+    $link('school.settings.mail.edit', 'Mail Settings', 'settings'),
+    $link('school.settings.idle-timeout.edit', 'Idle Timeout', 'settings'),
   ];
 @endphp
 

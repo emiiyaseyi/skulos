@@ -103,7 +103,7 @@ class PlanFeatureNavTest extends TestCase
         $response->assertOk()
             ->assertSee('side-group-btn', false)
             ->assertSee('side-submenu', false)
-            ->assertSee('People'); // a group label still renders
+            ->assertSee('Academic'); // the catalog's own category label, groups now mirror Billing exactly
     }
 
     /**
