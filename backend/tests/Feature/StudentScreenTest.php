@@ -169,8 +169,10 @@ class StudentScreenTest extends TestCase
         $studentId = $student->id;
         app(TenantManager::class)->forget();
 
+        // Email is this school's default parent identifier and is
+        // therefore required, alongside the optional phone number.
         $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/{$studentId}/guardians", [
-            'name' => 'Mrs Obi', 'relationship' => 'Mother', 'phone' => '08000000000', 'is_primary' => '1',
+            'name' => 'Mrs Obi', 'relationship' => 'Mother', 'phone' => '08000000000', 'email' => 'mrsobi@example.com', 'is_primary' => '1',
         ])->assertRedirect();
 
         app(TenantManager::class)->use($school);
@@ -178,6 +180,54 @@ class StudentScreenTest extends TestCase
         app(TenantManager::class)->forget();
         $this->assertSame('Mrs Obi', $guardian->name);
         $this->assertTrue($guardian->is_primary);
+    }
+
+    /**
+     * A school can choose phone as its parent identifier instead of email
+     * (user request 2026-07-11: "the admin can determine what the unique
+     * ID is, either email address or phone number... the school must
+     * stick to one only"). Once set to phone, email becomes optional and
+     * phone becomes the required field for a new guardian.
+     */
+    public function test_a_school_can_switch_its_parent_identifier_to_phone(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'identifierone');
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/settings", [
+            'parent_identifier' => 'phone',
+            'staff_identifier' => 'email',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $student = Student::create(['admission_number' => 'ADM/950', 'first_name' => 'Ada', 'last_name' => 'Obi']);
+        $studentId = $student->id;
+        app(TenantManager::class)->forget();
+
+        // Phone only, no email, must now succeed.
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/{$studentId}/guardians", [
+            'name' => 'Mr Obi', 'relationship' => 'Father', 'phone' => '08011112222',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        app(TenantManager::class)->use($school);
+        $guardian = Student::find($studentId)->guardians()->first();
+        app(TenantManager::class)->forget();
+        $this->assertSame('08011112222', $guardian->phone);
+        $this->assertNull($guardian->email);
+    }
+
+    public function test_the_default_parent_identifier_is_email_and_is_enforced(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'identifiertwo');
+
+        app(TenantManager::class)->use($school);
+        $student = Student::create(['admission_number' => 'ADM/951', 'first_name' => 'Bode', 'last_name' => 'Ade']);
+        $studentId = $student->id;
+        app(TenantManager::class)->forget();
+
+        // No email, no explicit identifier setting change: must be rejected.
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/{$studentId}/guardians", [
+            'name' => 'Mrs Ade', 'relationship' => 'Mother', 'phone' => '08033334444',
+        ])->assertSessionHasErrors('email');
     }
 
     public function test_a_teacher_without_students_create_cannot_add_a_student(): void
@@ -200,6 +250,8 @@ class StudentScreenTest extends TestCase
 
         $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/settings", [
             'required_fields' => ['class', 'lga'],
+            'parent_identifier' => 'email',
+            'staff_identifier' => 'email',
         ])->assertRedirect();
 
         app(TenantManager::class)->use($school);

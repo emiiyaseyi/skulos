@@ -145,6 +145,7 @@ class StudentController extends Controller
             'term' => $term,
             'report' => $report,
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'students.update'),
+            'parentIdentifier' => Setting::grab('parent_identifier', 'email'),
         ]);
     }
 
@@ -205,16 +206,23 @@ class StudentController extends Controller
     }
 
     /** A quick add for one guardian from the student profile page. */
+    /**
+     * Which of email/phone is required depends on the school's own choice
+     * (tenant Setting "parent_identifier", user request 2026-07-11: "the
+     * admin can determine what the unique ID is... the school must stick
+     * to one only"), the other stays optional contact info.
+     */
     public function storeGuardian(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'students.update');
         $student = Student::findOrFail($request->route('studentId'));
 
+        $identifier = Setting::grab('parent_identifier', 'email');
         $data = $request->validate([
             'name' => ['required', 'string', 'max:150'],
             'relationship' => ['nullable', 'string', 'max:60'],
-            'email' => ['nullable', 'email', 'max:150'],
-            'phone' => ['nullable', 'string', 'max:40'],
+            'email' => [$identifier === 'email' ? 'required' : 'nullable', 'email', 'max:150'],
+            'phone' => [$identifier === 'phone' ? 'required' : 'nullable', 'string', 'max:40'],
             'is_primary' => ['sometimes', 'boolean'],
         ]);
 
@@ -250,6 +258,7 @@ class StudentController extends Controller
             'parent_mobile' => [$req('parent_mobile'), 'nullable', 'string', 'max:40'],
             'current_class_arm_id' => [$req('class'), 'nullable', 'exists:tenant.class_arms,id'],
             'house_id' => [$req('house'), 'nullable', 'exists:tenant.houses,id'],
+            'country' => [$req('country'), 'nullable', 'string', 'max:100'],
             'state_of_origin' => [$req('state_of_origin'), 'nullable', 'string', 'max:100'],
             'lga' => [$req('lga'), 'nullable', 'string', 'max:100'],
             'address' => [$req('address'), 'nullable', 'string', 'max:500'],
@@ -273,18 +282,26 @@ class StudentController extends Controller
             'accent' => $school->branding()['color'],
             'fields' => config('skulos.student_optional_fields'),
             'required' => Setting::grab('student_required_fields', []),
+            'identifierOptions' => config('skulos.identifier_options'),
+            'parentIdentifier' => Setting::grab('parent_identifier', 'email'),
+            'staffIdentifier' => Setting::grab('staff_identifier', 'email'),
         ]);
     }
 
     public function updateSettings(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'students.manage_settings');
+        $identifierKeys = implode(',', array_keys(config('skulos.identifier_options')));
         $data = $request->validate([
             'required_fields' => ['array'],
             'required_fields.*' => ['string', 'in:'.implode(',', array_keys(config('skulos.student_optional_fields')))],
+            'parent_identifier' => ['required', 'string', 'in:'.$identifierKeys],
+            'staff_identifier' => ['required', 'string', 'in:'.$identifierKeys],
         ]);
 
         Setting::put('student_required_fields', $data['required_fields'] ?? []);
+        Setting::put('parent_identifier', $data['parent_identifier']);
+        Setting::put('staff_identifier', $data['staff_identifier']);
 
         return back()->with('status', 'Student field settings updated.');
     }

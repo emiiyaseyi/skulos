@@ -363,9 +363,24 @@ return [
         'date_of_birth' => 'Date of Birth',
         'other_names' => 'Other Names',
         'parent_mobile' => 'Parent Mobile',
+        'country' => 'Country',
         'state_of_origin' => 'State of Origin',
         'lga' => 'LGA',
         'address' => 'Address',
+    ],
+
+    /*
+    | Which contact field a school treats as the unique identifier for
+    | linking children to parents and to staff/teachers (user request
+    | 2026-07-11: "the admin can determine what the unique ID is, either
+    | email address or phone number, and the school must stick to one
+    | only"). Stored per school as tenant Setting "parent_identifier" /
+    | "staff_identifier", each one of these two keys, default "email" to
+    | match the platform's existing email-based parent recognition.
+    */
+    'identifier_options' => [
+        'email' => 'Email address',
+        'phone' => 'Phone number',
     ],
 
     /*

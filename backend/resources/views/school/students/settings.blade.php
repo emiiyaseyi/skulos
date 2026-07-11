@@ -19,9 +19,9 @@
   <a class="btn btn-ghost btn-sm" href="{{ route('school.students', ['school' => $school->slug]) }}">Back to Students</a>
 </div>
 
-<div class="card">
-  <form method="POST" action="{{ route('school.students.settings.update', ['school' => $school->slug]) }}">
-    @csrf
+<form method="POST" action="{{ route('school.students.settings.update', ['school' => $school->slug]) }}">
+  @csrf
+  <div class="card">
     <div class="field-grid" style="margin-bottom:1.2rem">
       @foreach($fields as $key => $label)
         <label class="field-check">
@@ -30,7 +30,31 @@
         </label>
       @endforeach
     </div>
-    <button class="btn btn-primary btn-sm" type="submit">Save</button>
-  </form>
-</div>
+  </div>
+
+  <div class="card" style="margin-top:1.25rem">
+    <h3 style="margin-bottom:.4rem">Parent and staff identifier</h3>
+    <p class="muted" style="margin-bottom:.8rem">Choose which contact field uniquely identifies a parent, and which one identifies a staff member. Pick one per person type and stick with it, this is what links the same person across their children or across schools.</p>
+    <div class="grid cols-2">
+      <div class="field">
+        <label for="parent_identifier">Parent identifier</label>
+        <select id="parent_identifier" name="parent_identifier">
+          @foreach($identifierOptions as $key => $label)
+            <option value="{{ $key }}" @selected($parentIdentifier === $key)>{{ $label }}</option>
+          @endforeach
+        </select>
+      </div>
+      <div class="field">
+        <label for="staff_identifier">Staff identifier</label>
+        <select id="staff_identifier" name="staff_identifier">
+          @foreach($identifierOptions as $key => $label)
+            <option value="{{ $key }}" @selected($staffIdentifier === $key)>{{ $label }}</option>
+          @endforeach
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn btn-primary btn-sm" type="submit" style="margin-top:1rem">Save</button>
+</form>
 @endsection

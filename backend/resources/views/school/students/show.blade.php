@@ -69,12 +69,12 @@
             <input id="g_relationship" name="relationship" placeholder="e.g. Father" />
           </div>
           <div class="field">
-            <label for="g_phone">Phone</label>
-            <input id="g_phone" name="phone" />
+            <label for="g_phone">Phone{{ $parentIdentifier === 'phone' ? ' (required, this school\'s parent identifier)' : '' }}</label>
+            <input id="g_phone" name="phone" @required($parentIdentifier === 'phone') />
           </div>
           <div class="field">
-            <label for="g_email">Email</label>
-            <input id="g_email" name="email" type="email" />
+            <label for="g_email">Email{{ $parentIdentifier === 'email' ? ' (required, this school\'s parent identifier)' : '' }}</label>
+            <input id="g_email" name="email" type="email" @required($parentIdentifier === 'email') />
           </div>
         </div>
         <label style="font-weight:500;display:flex;gap:.4rem;align-items:center;margin-bottom:.8rem">
