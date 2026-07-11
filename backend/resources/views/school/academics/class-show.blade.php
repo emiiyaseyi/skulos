@@ -38,14 +38,66 @@
 </div>
 @endif
 
+@php($allStudents = collect($studentsByArm)->flatten(1)->sortBy('last_name'))
+@php($multiStream = $class->arms->count() > 1)
+<div class="card" style="margin-bottom:1.1rem">
+  <div class="row-between" style="margin-bottom:.7rem;flex-wrap:wrap;gap:.5rem">
+    <h3>Students</h3>
+    <span class="muted">{{ $allStudents->count() }} student(s)</span>
+  </div>
+  @if($allStudents->isNotEmpty())
+    <input type="search" id="classStudentSearch" placeholder="Search by name or admission number" style="margin-bottom:.8rem" />
+  @endif
+
+  @if($allStudents->isEmpty())
+    <p class="muted">No students in this class yet.</p>
+  @else
+    <div style="overflow-x:auto">
+    <table id="classStudentTable">
+      <thead><tr><th>Admission No.</th><th>Name</th>@if($multiStream)<th>Stream</th>@endif<th>Gender</th><th></th></tr></thead>
+      <tbody>
+        @foreach($allStudents as $student)
+          <tr data-search="{{ mb_strtolower($student->admission_number.' '.$student->fullName()) }}">
+            <td class="muted">{{ $student->admission_number }}</td>
+            <td>{{ $student->fullName() }}</td>
+            @if($multiStream)<td class="muted">{{ $student->currentClassArm?->label() }}</td>@endif
+            <td class="muted">{{ $student->gender ?: 'Not set' }}</td>
+            <td style="white-space:nowrap">
+              <a class="btn btn-ghost btn-sm" href="{{ route('school.students.show', ['school' => $school->slug, 'studentId' => $student->id]) }}">View</a>
+              @if($canManage)
+                <a class="btn btn-ghost btn-sm" href="{{ route('school.students.edit', ['school' => $school->slug, 'studentId' => $student->id]) }}">Edit</a>
+              @endif
+            </td>
+          </tr>
+        @endforeach
+      </tbody>
+    </table>
+    </div>
+    <p class="muted" id="classStudentEmpty" style="display:none;margin-top:.6rem">No students match your search.</p>
+    <script>
+      (function(){
+        var input = document.getElementById('classStudentSearch');
+        var rows = document.querySelectorAll('#classStudentTable tbody tr');
+        var empty = document.getElementById('classStudentEmpty');
+        input?.addEventListener('input', function(){
+          var q = this.value.trim().toLowerCase();
+          var visible = 0;
+          rows.forEach(function(row){
+            var match = !q || row.getAttribute('data-search').indexOf(q) !== -1;
+            row.style.display = match ? '' : 'none';
+            if (match) visible++;
+          });
+          empty.style.display = visible === 0 ? '' : 'none';
+        });
+      })();
+    </script>
+  @endif
+</div>
+
 @foreach($class->arms as $arm)
   <div class="card" style="margin-bottom:1.1rem">
-    <div class="row-between" style="margin-bottom:.7rem;flex-wrap:wrap;gap:.5rem">
-      <h3>{{ $arm->label() }}</h3>
-      <span class="muted">{{ ($studentsByArm[$arm->id] ?? collect())->count() }} student(s)</span>
-    </div>
-
-    <div class="grid cols-2" style="margin-bottom:1rem">
+    <h3 style="margin-bottom:.7rem">{{ $arm->label() }}{{ $multiStream ? '' : ' teachers' }}</h3>
+    <div class="grid cols-2">
       <div>
         <div class="muted" style="font-size:.8rem;margin-bottom:.3rem">Class teacher</div>
         @if($canManage)
@@ -81,42 +133,51 @@
         @endif
       </div>
     </div>
-
-    @php($students = $studentsByArm[$arm->id] ?? collect())
-    @if($students->isEmpty())
-      <p class="muted">No students in this stream yet.</p>
-    @else
-      <div style="overflow-x:auto">
-      <table>
-        <thead><tr><th>Admission No.</th><th>Name</th><th>Gender</th></tr></thead>
-        <tbody>
-          @foreach($students as $student)
-            <tr>
-              <td class="muted">{{ $student->admission_number }}</td>
-              <td><a href="{{ route('school.students.show', ['school' => $school->slug, 'studentId' => $student->id]) }}">{{ $student->fullName() }}</a></td>
-              <td class="muted">{{ $student->gender ?: 'Not set' }}</td>
-            </tr>
-          @endforeach
-        </tbody>
-      </table>
-      </div>
-    @endif
   </div>
 @endforeach
 
 <div class="card">
-  <h3 style="margin-bottom:.7rem">Subjects offered</h3>
+  <div class="row-between" style="margin-bottom:.7rem;flex-wrap:wrap;gap:.6rem">
+    <h3>Subjects offered</h3>
+    @if($canManage)
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.academics.subject-teachers.template', ['school' => $school->slug]) }}">Download teacher assignments (CSV)</a>
+        <form method="POST" action="{{ route('school.academics.subject-teachers.bulk-assign', ['school' => $school->slug]) }}" enctype="multipart/form-data" style="display:flex;gap:.4rem;align-items:center">
+          @csrf
+          <input type="file" name="file" accept=".csv,text/csv" required style="max-width:12rem" />
+          <button class="btn btn-ghost btn-sm" type="submit">Upload</button>
+        </form>
+      </div>
+    @endif
+  </div>
   @if($class->subjects->isEmpty())
     <p class="muted">No subjects offered yet. <a href="{{ route('school.academics.subjects', ['school' => $school->slug, 'classId' => $class->id]) }}">Manage subjects</a> to add some.</p>
   @else
     <div style="overflow-x:auto">
     <table>
-      <thead><tr><th>Subject</th><th>Teacher(s)</th></tr></thead>
+      <thead><tr><th>Subject</th><th>Teacher</th></tr></thead>
       <tbody>
         @foreach($class->subjects as $subject)
           <tr>
             <td><strong>{{ $subject->name }}</strong></td>
-            <td class="muted">{{ $teachersBySubject[$subject->id] ?? 'Not assigned' }}</td>
+            <td class="muted">
+              @if($canManage)
+                <form method="POST" action="{{ route('school.academics.subjects.assign-teacher', ['school' => $school->slug, 'classId' => $class->id, 'subjectId' => $subject->id]) }}" style="display:inline-flex;gap:.4rem">
+                  @csrf
+                  <select name="staff_id" onchange="this.form.submit()">
+                    <option value="">Not assigned</option>
+                    @foreach($staffOptions as $staff)
+                      <option value="{{ $staff->id }}" @selected(($staffIdBySubject[$subject->id] ?? null) === $staff->id)>{{ $staff->fullName() }}</option>
+                    @endforeach
+                  </select>
+                </form>
+                @if(($teachersBySubject[$subject->id] ?? '') && str_contains($teachersBySubject[$subject->id], ','))
+                  <div style="font-size:.75rem;margin-top:.2rem">All: {{ $teachersBySubject[$subject->id] }}</div>
+                @endif
+              @else
+                {{ $teachersBySubject[$subject->id] ?? 'Not assigned' }}
+              @endif
+            </td>
           </tr>
         @endforeach
       </tbody>

@@ -438,11 +438,15 @@ class AcademicsController extends Controller
             ->get()
             ->groupBy('current_class_arm_id');
 
-        $teachersBySubject = TeachingAssignment::whereIn('class_arm_id', $armIds)
+        $assignmentsBySubject = TeachingAssignment::whereIn('class_arm_id', $armIds)
             ->with('staff', 'subject')
             ->get()
-            ->groupBy('subject_id')
-            ->map(fn ($group) => $group->pluck('staff')->filter()->unique('id')->map->fullName()->implode(', '));
+            ->groupBy('subject_id');
+        $teachersBySubject = $assignmentsBySubject->map(fn ($group) => $group->pluck('staff')->filter()->unique('id')->map->fullName()->implode(', '));
+        // First assigned staff id per subject, used to pre-select the
+        // single "assign teacher" dropdown (the same teacher is applied
+        // across every stream of the class, see assignSubjectTeacher()).
+        $staffIdBySubject = $assignmentsBySubject->map(fn ($group) => $group->first()?->staff_id);
 
         return view('school.academics.class-show', [
             'school' => $school,
@@ -450,6 +454,7 @@ class AcademicsController extends Controller
             'class' => $class,
             'studentsByArm' => $studentsByArm,
             'teachersBySubject' => $teachersBySubject,
+            'staffIdBySubject' => $staffIdBySubject,
             'staffOptions' => Staff::active()->orderBy('first_name')->get(),
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'academics.update'),
         ]);
@@ -470,6 +475,142 @@ class AcademicsController extends Controller
         $arm->update([$column => $data['staff_id'] ?: null]);
 
         return back()->with('status', 'Updated.');
+    }
+
+    /**
+     * Assign or clear who teaches one subject across every stream of a
+     * class in one action (user request 2026-07-11: "one should be able
+     * to click on the subject and select the subject teacher"). Applies
+     * the same teacher to every arm of the class rather than one teacher
+     * per arm per subject, matching how the request describes it, a
+     * class with several streams most commonly shares one subject
+     * teacher across them.
+     */
+    public function assignSubjectTeacher(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.update');
+        $class = SchoolClass::with('arms')->findOrFail($request->route('classId'));
+        $subject = Subject::findOrFail($request->route('subjectId'));
+
+        $data = $request->validate(['staff_id' => ['nullable', 'exists:tenant.staff,id']]);
+        $armIds = $class->arms->pluck('id');
+
+        TeachingAssignment::where('subject_id', $subject->id)->whereIn('class_arm_id', $armIds)->delete();
+
+        if (! empty($data['staff_id'])) {
+            foreach ($armIds as $armId) {
+                TeachingAssignment::create([
+                    'staff_id' => $data['staff_id'],
+                    'subject_id' => $subject->id,
+                    'class_arm_id' => $armId,
+                ]);
+            }
+        }
+
+        return back()->with('status', "{$subject->name} updated.");
+    }
+
+    /** Pre-filled CSV: class, subject, and the currently assigned teacher (blank if none). */
+    public function subjectTeachersTemplate(Request $request): \Symfony\Component\HttpFoundation\Response
+    {
+        $this->authorizeAction($request, 'academics.view');
+
+        $out = fopen('php://temp', 'r+');
+        fputcsv($out, ['class', 'subject', 'teacher_staff_id']);
+
+        foreach (SchoolClass::with(['arms', 'subjects'])->orderBy('sequence')->get() as $class) {
+            $armIds = $class->arms->pluck('id');
+            foreach ($class->subjects as $subject) {
+                $staffId = TeachingAssignment::where('subject_id', $subject->id)
+                    ->whereIn('class_arm_id', $armIds)
+                    ->value('staff_id');
+                fputcsv($out, [$class->name, $subject->name, $staffId ?? '']);
+            }
+        }
+
+        rewind($out);
+        $csv = (string) stream_get_contents($out);
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="subject-teachers.csv"',
+        ]);
+    }
+
+    /**
+     * Re-upload of the template above (user request 2026-07-11: "there
+     * should be a bulk csv file to do this too"). Matches class and
+     * subject by exact name (case insensitive) within this school's own
+     * records, teacher by staff_id (the template's own column, round
+     * trip friendly, not a name match prone to duplicates). A blank
+     * teacher cell clears that assignment rather than being skipped,
+     * this is a full "set it to this" round trip, not a partial fill in
+     * like the Houses bulk assign (there is no ambiguous "leave
+     * untouched" case here since every row is always exactly one class
+     * plus one subject).
+     */
+    public function bulkAssignSubjectTeachers(Request $request, \App\Services\Bulk\CsvReader $reader): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.update');
+        $request->validate(['file' => ['required', 'file', 'mimes:csv,txt', 'max:5120']]);
+
+        $csv = file_get_contents($request->file('file')->getRealPath());
+        try {
+            $rows = $reader->rows($csv);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        $classesByName = SchoolClass::pluck('id', 'name')->mapWithKeys(fn ($id, $name) => [mb_strtolower(trim($name)) => $id])->all();
+
+        $updated = 0;
+        $errors = [];
+
+        foreach ($rows as $index => $row) {
+            $rowNumber = $index + 2;
+            $className = trim((string) ($row['class'] ?? ''));
+            $subjectName = trim((string) ($row['subject'] ?? ''));
+            $staffId = trim((string) ($row['teacher_staff_id'] ?? ''));
+
+            $classId = $classesByName[mb_strtolower($className)] ?? null;
+            if (! $classId) {
+                $errors[] = "Row {$rowNumber}: class \"{$className}\" was not found.";
+
+                continue;
+            }
+
+            $class = SchoolClass::with('arms')->find($classId);
+            $subject = Subject::whereRaw('lower(name) = ?', [mb_strtolower($subjectName)])->first();
+            if (! $subject || ! $class->subjects()->where('subjects.id', $subject->id)->exists()) {
+                $errors[] = "Row {$rowNumber}: subject \"{$subjectName}\" is not offered by \"{$className}\".";
+
+                continue;
+            }
+
+            if ($staffId !== '' && ! Staff::whereKey($staffId)->exists()) {
+                $errors[] = "Row {$rowNumber}: no staff with id \"{$staffId}\".";
+
+                continue;
+            }
+
+            $armIds = $class->arms->pluck('id');
+            TeachingAssignment::where('subject_id', $subject->id)->whereIn('class_arm_id', $armIds)->delete();
+            if ($staffId !== '') {
+                foreach ($armIds as $armId) {
+                    TeachingAssignment::create(['staff_id' => (int) $staffId, 'subject_id' => $subject->id, 'class_arm_id' => $armId]);
+                }
+            }
+            $updated++;
+        }
+
+        $status = "{$updated} row(s) updated.";
+        if ($errors) {
+            $status .= ' '.count($errors).' row(s) had problems: '.implode(' ', array_slice($errors, 0, 5)).(count($errors) > 5 ? ' ...' : '');
+
+            return back()->with('error', $status);
+        }
+
+        return back()->with('status', $status);
     }
 
     /**

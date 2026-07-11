@@ -219,6 +219,9 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/classes/{classId}/subjects/new', [$academics, 'newSubject'])->name('subjects.new');
             Route::post('/classes/{classId}/subjects/{subjectId}', [$academics, 'updateSubject'])->name('subjects.update');
             Route::delete('/classes/{classId}/subjects/{subjectId}', [$academics, 'detachSubject'])->name('subjects.detach');
+            Route::post('/classes/{classId}/subjects/{subjectId}/assign-teacher', [$academics, 'assignSubjectTeacher'])->name('subjects.assign-teacher');
+            Route::get('/subject-teachers/template', [$academics, 'subjectTeachersTemplate'])->name('subject-teachers.template');
+            Route::post('/subject-teachers/bulk-assign', [$academics, 'bulkAssignSubjectTeachers'])->name('subject-teachers.bulk-assign');
         });
 
         // Results entry: a teacher enters scores per component for a class + subject + term.

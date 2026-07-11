@@ -558,6 +558,85 @@ class AcademicsScreenTest extends TestCase
         $this->assertSame($staffId, $updated->assistant_teacher_staff_id);
     }
 
+    /**
+     * Clicking a subject and picking a teacher (user request 2026-07-11:
+     * "one should be able to click on the subject and select the subject
+     * teacher") applies that teacher across every stream of the class in
+     * one action.
+     */
+    public function test_assigning_a_subject_teacher_applies_to_every_stream(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadtwentyfive');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Secondary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS 1', 'sequence' => 1]);
+        // Adding the first named stream converts the default single
+        // stream rather than creating a second row (see the class arm
+        // conversion test elsewhere in this file), so a second, genuinely
+        // new arm needs a second named stream added on top of that one.
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/arms", ['school_class_id' => $class->id, 'name' => 'A']);
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/arms", ['school_class_id' => $class->id, 'name' => 'B']);
+        $subject = Subject::create(['name' => 'Mathematics']);
+        $class->subjects()->attach($subject->id, ['is_mandatory' => true, 'is_examinable' => true]);
+        $staff = \App\Models\Tenant\Staff::create(['staff_id' => 'STF/0010', 'first_name' => 'Kunle', 'last_name' => 'Ade', 'position' => 'Teacher', 'status' => 'active']);
+        $classId = $class->id;
+        $subjectId = $subject->id;
+        $staffId = $staff->id;
+        $armIds = ClassArm::where('school_class_id', $classId)->pluck('id');
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/classes/{$classId}/subjects/{$subjectId}/assign-teacher", [
+            'staff_id' => $staffId,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $count = \App\Models\Tenant\TeachingAssignment::where('subject_id', $subjectId)->where('staff_id', $staffId)->whereIn('class_arm_id', $armIds)->count();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(2, $count, 'both streams (default + B) must get the assignment');
+    }
+
+    public function test_bulk_assigning_subject_teachers_via_csv(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadtwentysix');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Secondary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS 2', 'sequence' => 2]);
+        $arm = ClassArm::where('school_class_id', $class->id)->first() ?? ClassArm::create(['school_class_id' => $class->id, 'arm_id' => null]);
+        $subject = Subject::create(['name' => 'English Language']);
+        $class->subjects()->attach($subject->id, ['is_mandatory' => true, 'is_examinable' => true]);
+        $staff = \App\Models\Tenant\Staff::create(['staff_id' => 'STF/0011', 'first_name' => 'Ngozi', 'last_name' => 'Eze', 'position' => 'Teacher', 'status' => 'active']);
+        $staffId = $staff->id;
+        $armId = $arm->id;
+        $subjectId = $subject->id;
+        app(TenantManager::class)->forget();
+
+        $csv = "class,subject,teacher_staff_id\nJSS 2,English Language,{$staffId}\n";
+        $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('assignments.csv', $csv);
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/subject-teachers/bulk-assign", ['file' => $file])
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $exists = \App\Models\Tenant\TeachingAssignment::where('subject_id', $subjectId)->where('class_arm_id', $armId)->where('staff_id', $staffId)->exists();
+        app(TenantManager::class)->forget();
+
+        $this->assertTrue($exists);
+    }
+
+    public function test_bulk_assign_reports_an_unknown_class_or_subject(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadtwentyseven');
+
+        $csv = "class,subject,teacher_staff_id\nNonexistent Class,Mathematics,1\n";
+        $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('assignments.csv', $csv);
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/subject-teachers/bulk-assign", ['file' => $file])
+            ->assertRedirect()->assertSessionHas('error');
+    }
+
     public function test_a_teacher_without_academics_update_cannot_rename_or_delete_a_class(): void
     {
         [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'acadtwentyfour');
