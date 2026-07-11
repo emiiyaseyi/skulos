@@ -96,6 +96,101 @@ class StudentScreenTest extends TestCase
         );
     }
 
+    public function test_admin_can_create_a_student_via_the_single_form(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'createone');
+
+        $this->actingAs($admin)->get("http://{$school->slug}.localhost/students/create")->assertOk();
+
+        $response = $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/create", [
+            'admission_number' => 'ADM/900',
+            'first_name' => 'Ada',
+            'last_name' => 'Obi',
+        ]);
+        $response->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $student = Student::where('admission_number', 'ADM/900')->first();
+        app(TenantManager::class)->forget();
+        $this->assertNotNull($student);
+    }
+
+    public function test_the_single_form_enforces_admin_configured_required_fields(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'createtwo');
+
+        app(TenantManager::class)->use($school);
+        \App\Models\Tenant\Setting::put('student_required_fields', ['gender']);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/create", [
+            'admission_number' => 'ADM/901',
+            'first_name' => 'Ada',
+            'last_name' => 'Obi',
+            // gender deliberately omitted
+        ])->assertSessionHasErrors('gender');
+
+        app(TenantManager::class)->use($school);
+        $exists = Student::where('admission_number', 'ADM/901')->exists();
+        app(TenantManager::class)->forget();
+        $this->assertFalse($exists);
+    }
+
+    public function test_admin_can_view_and_edit_a_students_profile(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'profileone');
+
+        app(TenantManager::class)->use($school);
+        $student = Student::create(['admission_number' => 'ADM/902', 'first_name' => 'Ada', 'last_name' => 'Obi']);
+        $studentId = $student->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->get("http://{$school->slug}.localhost/students/{$studentId}")
+            ->assertOk()->assertSee('Ada Obi')->assertSee('ADM/902');
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/{$studentId}/edit", [
+            'admission_number' => 'ADM/902',
+            'first_name' => 'Ada',
+            'last_name' => 'Obinna',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $updated = Student::find($studentId);
+        app(TenantManager::class)->forget();
+        $this->assertSame('Obinna', $updated->last_name);
+    }
+
+    public function test_a_guardian_can_be_added_from_the_profile_page(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'profiletwo');
+
+        app(TenantManager::class)->use($school);
+        $student = Student::create(['admission_number' => 'ADM/903', 'first_name' => 'Ada', 'last_name' => 'Obi']);
+        $studentId = $student->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/{$studentId}/guardians", [
+            'name' => 'Mrs Obi', 'relationship' => 'Mother', 'phone' => '08000000000', 'is_primary' => '1',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $guardian = $student->fresh()->guardians()->first();
+        app(TenantManager::class)->forget();
+        $this->assertSame('Mrs Obi', $guardian->name);
+        $this->assertTrue($guardian->is_primary);
+    }
+
+    public function test_a_teacher_without_students_create_cannot_add_a_student(): void
+    {
+        // subject-teacher's grants include students.view but not students.create.
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'createthree');
+
+        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/students/create")->assertForbidden();
+        $this->actingAs($teacher)->post("http://{$school->slug}.localhost/students/create", [
+            'admission_number' => 'ADM/904', 'first_name' => 'X', 'last_name' => 'Y',
+        ])->assertForbidden();
+    }
+
     public function test_admin_can_view_and_update_which_student_fields_are_required(): void
     {
         [$school, $admin] = $this->schoolWithMember('school-owner', 'fieldsettings');

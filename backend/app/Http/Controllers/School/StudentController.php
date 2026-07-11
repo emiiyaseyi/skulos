@@ -4,19 +4,25 @@ namespace App\Http\Controllers\School;
 
 use App\Http\Controllers\Controller;
 use App\Models\School;
+use App\Models\Tenant\ClassArm;
+use App\Models\Tenant\GradingScale;
+use App\Models\Tenant\House;
 use App\Models\Tenant\Setting;
 use App\Models\Tenant\Student;
+use App\Models\Tenant\Term;
 use App\Services\Bulk\CsvReader;
 use App\Services\Bulk\Importer;
 use App\Services\Bulk\Importers\StudentImporter;
 use App\Services\Rbac\Rbac;
+use App\Services\Results\ResultService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 /**
- * Students list + bulk CSV import for a school. Tenant-scoped (the tenant
- * middleware points the connection at the active school). Every action is
- * permission checked via RBAC.
+ * Students list, profile, single create/edit, and bulk CSV import for a
+ * school. Tenant-scoped (the tenant middleware points the connection at
+ * the active school). Every action is permission checked via RBAC.
  */
 class StudentController extends Controller
 {
@@ -59,6 +65,7 @@ class StudentController extends Controller
             'search' => $search,
             'total' => Student::count(),
             'canImport' => app(Rbac::class)->check(Auth::user(), $school, 'students.bulk'),
+            'canCreate' => app(Rbac::class)->check(Auth::user(), $school, 'students.create'),
         ]);
     }
 
@@ -112,6 +119,141 @@ class StudentController extends Controller
             'requiredFields' => Setting::grab('student_required_fields', []),
             'result' => $result,
         ]);
+    }
+
+    /**
+     * A student's full profile (user request 2026-07-10: "view the
+     * student details, report and every information"): every stored
+     * field, their guardians, and their academic report for the current
+     * term via the already-built ResultService::studentReport(), which
+     * had no screen using it until now.
+     */
+    public function show(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'students.view');
+        $school = $this->school($request);
+        $student = Student::with('guardians', 'house', 'currentClassArm.schoolClass', 'currentClassArm.arm')
+            ->findOrFail($request->route('studentId'));
+
+        $term = Term::current()->first();
+        $report = $term ? app(ResultService::class)->studentReport($student->id, $term->id, GradingScale::default()) : [];
+
+        return view('school.students.show', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'student' => $student,
+            'term' => $term,
+            'report' => $report,
+            'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'students.update'),
+        ]);
+    }
+
+    public function create(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'students.create');
+        $school = $this->school($request);
+
+        return view('school.students.form', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'student' => new Student(),
+            'classArms' => ClassArm::with('schoolClass', 'arm')->get()->sortBy(fn ($ca) => $ca->label()),
+            'houses' => House::active()->orderBy('name')->get(),
+            'requiredFields' => Setting::grab('student_required_fields', []),
+        ]);
+    }
+
+    public function store(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.create');
+        $school = $this->school($request);
+        $data = $request->validate($this->studentValidationRules());
+
+        $student = Student::create($data);
+
+        return redirect()->route('school.students.show', ['school' => $school->slug, 'studentId' => $student->id])
+            ->with('status', "{$student->fullName()} added.");
+    }
+
+    public function edit(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'students.update');
+        $school = $this->school($request);
+        $student = Student::findOrFail($request->route('studentId'));
+
+        return view('school.students.form', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'student' => $student,
+            'classArms' => ClassArm::with('schoolClass', 'arm')->get()->sortBy(fn ($ca) => $ca->label()),
+            'houses' => House::active()->orderBy('name')->get(),
+            'requiredFields' => Setting::grab('student_required_fields', []),
+        ]);
+    }
+
+    public function update(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.update');
+        $school = $this->school($request);
+        $student = Student::findOrFail($request->route('studentId'));
+        $data = $request->validate($this->studentValidationRules($student));
+
+        $student->update($data);
+
+        return redirect()->route('school.students.show', ['school' => $school->slug, 'studentId' => $student->id])
+            ->with('status', "{$student->fullName()} updated.");
+    }
+
+    /** A quick add for one guardian from the student profile page. */
+    public function storeGuardian(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.update');
+        $student = Student::findOrFail($request->route('studentId'));
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'relationship' => ['nullable', 'string', 'max:60'],
+            'email' => ['nullable', 'email', 'max:150'],
+            'phone' => ['nullable', 'string', 'max:40'],
+            'is_primary' => ['sometimes', 'boolean'],
+        ]);
+
+        $student->guardians()->create($data + ['is_primary' => $request->boolean('is_primary')]);
+
+        return back()->with('status', 'Guardian added.');
+    }
+
+    /**
+     * Same required-field rules the CSV importer enforces
+     * (config('skulos.student_optional_fields') / tenant Setting
+     * "student_required_fields"), so the single form and bulk import
+     * never disagree about what a school requires. Class/house are real
+     * foreign keys here (a <select>), not name matched text like the CSV
+     * column, since a form naturally submits an id.
+     */
+    protected function studentValidationRules(?Student $student = null): array
+    {
+        $required = Setting::grab('student_required_fields', []);
+        $req = fn (string $field) => in_array($field, $required, true) ? 'required' : 'nullable';
+
+        return [
+            'admission_number' => [
+                'required', 'string', 'max:100',
+                Rule::unique('tenant.students', 'admission_number')->ignore($student?->id),
+            ],
+            'first_name' => ['required', 'string', 'max:100'],
+            'last_name' => ['required', 'string', 'max:100'],
+            'other_names' => [$req('other_names'), 'nullable', 'string', 'max:100'],
+            'gender' => [$req('gender'), 'nullable', 'string', 'max:20'],
+            'date_of_birth' => [$req('date_of_birth'), 'nullable', 'date'],
+            'email' => ['nullable', 'email', 'max:150'], // optional, never required
+            'parent_mobile' => [$req('parent_mobile'), 'nullable', 'string', 'max:40'],
+            'current_class_arm_id' => [$req('class'), 'nullable', 'exists:tenant.class_arms,id'],
+            'house_id' => [$req('house'), 'nullable', 'exists:tenant.houses,id'],
+            'state_of_origin' => [$req('state_of_origin'), 'nullable', 'string', 'max:100'],
+            'lga' => [$req('lga'), 'nullable', 'string', 'max:100'],
+            'address' => [$req('address'), 'nullable', 'string', 'max:500'],
+        ];
     }
 
     /**
