@@ -363,4 +363,22 @@ class PlatformFlowTest extends TestCase
         $this->assertSame('#12A97B', $school->brand_color);
         $this->assertSame('Welcome to Colorful School', $school->welcome_headline);
     }
+
+    /**
+     * The brand colour field is a swatch grid plus a native colour picker
+     * fallback, not just a bare text box (user request 2026-07-11: "swatch
+     * grid of basic colours plus a native hex/drag colour picker
+     * fallback"). Both controls sync into the same submitted hex field.
+     */
+    public function test_branding_page_renders_the_colour_swatch_grid(): void
+    {
+        $admin = $this->superAdmin();
+        $school = $this->provisionSchool('swatchy', 'Swatchy');
+        $school->users()->syncWithoutDetaching([$admin->id => ['status' => 'active']]);
+
+        $this->actingAs($admin)->get('http://swatchy.localhost/settings/branding')
+            ->assertOk()
+            ->assertSee('color-swatch', false)
+            ->assertSee('type="color"', false);
+    }
 }

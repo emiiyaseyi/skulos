@@ -17,6 +17,13 @@
   .lpm-split .lpm-panel{width:45%}
   .lpm-cover{background:color-mix(in srgb,var(--accent) 20%,var(--bg))}.lpm-cover .lpm-panel{display:none}.lpm-cover .lpm-form{align-items:center}.lpm-cover .lpm-form i,.lpm-cover .lpm-form b{width:70%}
   .lpm-showcase .lpm-panel{width:48%;background:var(--soft)}
+  .color-swatches{display:grid;grid-template-columns:repeat(6,1fr);gap:.5rem;margin-bottom:.6rem}
+  .color-swatch{width:100%;aspect-ratio:1;border-radius:8px;border:2px solid var(--line);cursor:pointer;padding:0}
+  .color-swatch:hover{border-color:var(--accent)}
+  .color-input-row{display:flex;gap:.5rem;align-items:center}
+  .color-input-row input[type="color"]{width:2.6rem;height:2.6rem;padding:2px;border:1px solid var(--line);border-radius:8px;cursor:pointer;flex-shrink:0}
+  .color-input-row input[type="text"]{flex:1}
+  @media(max-width:480px){.color-swatches{grid-template-columns:repeat(4,1fr)}}
 </style>
 @endpush
 
@@ -46,10 +53,34 @@
       </div>
       <div class="field">
         <label for="brand_color">Brand colour</label>
-        <input id="brand_color" name="brand_color" type="text" value="{{ old('brand_color', $b['color']) }}" placeholder="#E8A33D" />
-        <div class="hint">A hex colour like #1B87D6. Used for buttons and accents on your pages.</div>
+        <div class="color-swatches">
+          @foreach(config('skulos.brand_color_presets') as $preset)
+            <button type="button" class="color-swatch" data-color="{{ $preset }}" style="background:{{ $preset }}" aria-label="Use {{ $preset }}"></button>
+          @endforeach
+        </div>
+        <div class="color-input-row">
+          <input id="brand_color_native" type="color" value="{{ old('brand_color', $b['color']) }}" aria-label="Pick any colour" />
+          <input id="brand_color" name="brand_color" type="text" value="{{ old('brand_color', $b['color']) }}" placeholder="#E8A33D" />
+        </div>
+        <div class="hint">Pick a swatch, drag the colour wheel, or type a hex code like #1B87D6. Used for buttons and accents on your pages.</div>
         @error('brand_color')<div class="err">{{ $message }}</div>@enderror
       </div>
+      <script>
+        (function(){
+          var text = document.getElementById('brand_color');
+          var native = document.getElementById('brand_color_native');
+          var hexPattern = /^#[0-9a-fA-F]{6}$/;
+          native?.addEventListener('input', function(){ text.value = this.value; });
+          text?.addEventListener('input', function(){ if (hexPattern.test(this.value)) { native.value = this.value; } });
+          document.querySelectorAll('.color-swatch').forEach(function(btn){
+            btn.addEventListener('click', function(){
+              var color = this.getAttribute('data-color');
+              text.value = color;
+              native.value = color;
+            });
+          });
+        })();
+      </script>
       <div class="field">
         <label for="logo">Logo</label>
         <input id="logo" name="logo" type="file" accept="image/*" />

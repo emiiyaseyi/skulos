@@ -474,6 +474,20 @@ return [
     'default_login_layout' => 'split',
 
     /*
+    | Quick pick swatches for the brand colour picker (user request
+    | 2026-07-11: "swatch grid of basic colours plus a native hex/drag
+    | colour picker fallback"). A school can still type or drag pick any
+    | hex value; these are just fast, common starting points. 12 colours
+    | so the grid divides evenly at every breakpoint (6x2, 4x3, 3x4, 2x6),
+    | per the standing "no dangling grid row" design rule.
+    */
+    'brand_color_presets' => [
+        '#E8A33D', '#D64545', '#E5901C', '#2FA84F',
+        '#12A97B', '#1B87D6', '#2E5FDB', '#6C4FE0',
+        '#B24FD6', '#D6488F', '#5B4636', '#41505E',
+    ],
+
+    /*
     | Default class structure a school can load, one tier at a time (user
     | request 2026-07-10). Ticking a tier creates its Section (found or
     | created by name) and each listed class (found or created, each with
