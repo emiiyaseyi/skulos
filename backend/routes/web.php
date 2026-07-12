@@ -185,6 +185,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/{staffId}/login', [$staff, 'createLogin'])->name('login.create');
             Route::post('/{staffId}/login/reset-password', [$staff, 'resetLoginPassword'])->name('login.reset-password');
             Route::post('/{staffId}/login/toggle-access', [$staff, 'toggleLoginAccess'])->name('login.toggle-access');
+            Route::post('/{staffId}/extra-access', [$staff, 'updateExtraAccess'])->name('extra-access.update');
         });
 
         Route::prefix('houses')->name('school.houses.')->group(function () {

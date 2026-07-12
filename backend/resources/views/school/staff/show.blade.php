@@ -1,6 +1,14 @@
 @extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => $staffMember->fullName()])
 @section('title', $staffMember->fullName())
 
+@push('head')
+<style>
+  .module-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.4rem .8rem}
+  .module-check{display:flex;align-items:center;gap:.4rem;font-size:.82rem;font-weight:500}
+  .module-check input{width:auto}
+</style>
+@endpush
+
 @section('content')
 <div class="page-head">
   <div>
@@ -75,6 +83,32 @@
     @endif
   </div>
 </div>
+
+@if($login)
+<div class="card" style="margin-bottom:1.1rem">
+  <h3 style="margin-bottom:.4rem">Extra access</h3>
+  <p class="muted" style="margin-bottom:.8rem">Beyond their base role, grant this staff member full access to any of these.</p>
+  @if($canManage)
+    <form method="POST" action="{{ route('school.staff.extra-access.update', ['school' => $school->slug, 'staffId' => $staffMember->id]) }}">
+      @csrf
+      <div class="module-grid" style="margin-bottom:.8rem">
+        @foreach($extraAccessModules as $code => $module)
+          <label class="module-check"><input type="checkbox" name="modules[]" value="{{ $code }}" @checked($module['granted']) /> {{ $module['name'] }}</label>
+        @endforeach
+      </div>
+      <button class="btn btn-ghost btn-sm" type="submit">Save extra access</button>
+    </form>
+  @else
+    <ul class="rp-list" style="list-style:none;display:flex;flex-direction:column;gap:.4rem;padding:0">
+      @foreach($extraAccessModules as $code => $module)
+        @if($module['granted'])
+          <li>{{ $module['name'] }}</li>
+        @endif
+      @endforeach
+    </ul>
+  @endif
+</div>
+@endif
 
 <div class="grid cols-2" style="align-items:start;margin-bottom:1.1rem">
   <div class="card">

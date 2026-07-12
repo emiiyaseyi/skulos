@@ -19,6 +19,24 @@
 
 return [
 
+    /*
+    | Which modules a staff member can be granted extra, per-person access
+    | to beyond their base role (user request 2026-07-12: "a staff can be
+    | given more roles/features to handle from the list of features... the
+    | school has under their plans from billing"), via
+    | Rbac::grantModuleOverride(). Deliberately a curated subset of
+    | config('skulos.modules'), not every module: granting "full access"
+    | to a module with no real screen behind it (Finance, Library, HR,
+    | Timetable, Attendance marking — none built yet) would be a toggle
+    | that does nothing, so only modules with an actual screen are listed
+    | here. Extend this list as more modules get built, not by widening it
+    | to the full module catalog.
+    */
+    'staff_extra_access_modules' => [
+        'students', 'staff', 'parents', 'academics', 'examinations',
+        'report_cards', 'calendar', 'communication', 'school_info',
+    ],
+
     'modules' => [
         // code => [name, core?]
         'students' => ['name' => 'Student Records', 'core' => true],

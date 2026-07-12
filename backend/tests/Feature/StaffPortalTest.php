@@ -233,4 +233,80 @@ class StaffPortalTest extends TestCase
             'email' => 'x@example.com', 'role' => 'bursar',
         ])->assertForbidden();
     }
+
+    /**
+     * A staff member's one base role should not be their ceiling (user
+     * request 2026-07-12: "a staff can be given more roles/features to
+     * handle from the list of features... the school has under their
+     * plans from billing"). A Bursar has no report_cards access by
+     * default; granting it as extra access must actually work.
+     */
+    public function test_owner_can_grant_extra_module_access_beyond_the_staffs_base_role(): void
+    {
+        Mail::fake();
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'stfnine');
+
+        app(TenantManager::class)->use($school);
+        $staff = Staff::create(['staff_id' => 'STF/0001', 'first_name' => 'Ada', 'last_name' => 'Obi', 'position' => 'Bursar', 'status' => 'active']);
+        $staffId = $staff->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/staff/{$staffId}/login", [
+            'email' => 'ada.obi@example.com', 'role' => 'bursar',
+        ]);
+
+        app(TenantManager::class)->use($school);
+        $refreshed = Staff::find($staffId);
+        $bursarUser = User::find($refreshed->user_id);
+        app(TenantManager::class)->forget();
+
+        $this->assertFalse($this->rbac->check($bursarUser, $school, 'report_cards.view'), 'a plain Bursar has no report card access by default');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/staff/{$staffId}/extra-access", [
+            'modules' => ['report_cards'],
+        ])->assertRedirect();
+
+        $this->assertTrue($this->rbac->check($bursarUser, $school, 'report_cards.view'), 'the extra access grant must actually unlock the module');
+        $this->assertTrue($this->rbac->check($bursarUser, $school, 'report_cards.update'), 'grant is full module access, matching what a role\'s "module.*" grant would give');
+
+        // Unchecking it again must revoke, not just leave stale allows behind.
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/staff/{$staffId}/extra-access", [
+            'modules' => [],
+        ])->assertRedirect();
+
+        $this->assertFalse($this->rbac->check($bursarUser, $school, 'report_cards.view'), 'unticking the box must revoke the extra access');
+    }
+
+    public function test_a_module_not_on_the_curated_list_cannot_be_granted(): void
+    {
+        Mail::fake();
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'stften');
+
+        app(TenantManager::class)->use($school);
+        $staff = Staff::create(['staff_id' => 'STF/0001', 'first_name' => 'Ada', 'last_name' => 'Obi', 'position' => 'Bursar', 'status' => 'active']);
+        $staffId = $staff->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/staff/{$staffId}/login", [
+            'email' => 'ada.obi@example.com', 'role' => 'bursar',
+        ]);
+
+        // "finance" has no real screen behind it yet, so it is not on the curated list.
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/staff/{$staffId}/extra-access", [
+            'modules' => ['finance'],
+        ])->assertSessionHasErrors('modules.0');
+    }
+
+    public function test_the_extra_access_section_only_appears_once_the_staff_member_has_a_login(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'stfeleven');
+
+        app(TenantManager::class)->use($school);
+        $staff = Staff::create(['staff_id' => 'STF/0001', 'first_name' => 'Ada', 'last_name' => 'Obi', 'position' => 'Bursar', 'status' => 'active']);
+        $staffId = $staff->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/staff/{$staffId}")
+            ->assertOk()->assertDontSee('Extra access');
+    }
 }

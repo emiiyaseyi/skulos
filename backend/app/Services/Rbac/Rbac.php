@@ -175,6 +175,44 @@ class Rbac
     }
 
     /**
+     * A staff member's one base role should not be their ceiling (user
+     * request 2026-07-12: "a staff can be given more roles/features to
+     * handle from the list of features... the school has under their
+     * plans from billing"). Grants every permission code under one module
+     * as a per-user override, the same set a role's "module.*" grant
+     * would give, so "full access to Report Cards" here means exactly
+     * what it would mean on a role.
+     */
+    public function grantModuleOverride(School $school, User $user, string $moduleCode): void
+    {
+        $codes = Permission::where('module', $moduleCode)->pluck('code');
+        foreach ($codes as $code) {
+            $this->overridePermission($school, $user, $code, 'allow');
+        }
+    }
+
+    /** Removes every override (allow or deny) this user has for one module in this school, reverting to their role's default. */
+    public function revokeModuleOverride(School $school, User $user, string $moduleCode): void
+    {
+        DB::table('user_permissions')
+            ->where('school_id', $school->id)
+            ->where('user_id', $user->id)
+            ->whereIn('permission_id', Permission::where('module', $moduleCode)->pluck('id'))
+            ->delete();
+    }
+
+    /** Whether this user has an extra, per-user "allow" override for any permission under this module (the module override toggle's current state). */
+    public function hasModuleOverride(School $school, User $user, string $moduleCode): bool
+    {
+        return DB::table('user_permissions')
+            ->where('school_id', $school->id)
+            ->where('user_id', $user->id)
+            ->where('mode', 'allow')
+            ->whereIn('permission_id', Permission::where('module', $moduleCode)->pluck('id'))
+            ->exists();
+    }
+
+    /**
      * Copy a built-in template role (school_id null) into a school so the
      * school can customize it without touching the shared template.
      */
