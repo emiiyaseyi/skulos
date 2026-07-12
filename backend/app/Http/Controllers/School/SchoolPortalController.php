@@ -4,6 +4,7 @@ namespace App\Http\Controllers\School;
 
 use App\Http\Controllers\Controller;
 use App\Models\School;
+use App\Models\Tenant\Announcement;
 use App\Models\Tenant\Notification;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\Staff;
@@ -62,6 +63,7 @@ class SchoolPortalController extends Controller
             'feed' => $feed,
             'role' => $roleDashboard->build(Auth::user(), $school, $feed['unread']),
             'upcoming' => CalendarEvent::upcoming()->limit(5)->get(),
+            'announcements' => Announcement::where('status', Announcement::STATUS_PUBLISHED)->orderByDesc('published_at')->limit(3)->get(),
             'layout' => $prefs->layout(),
             'widgets' => $prefs->widgets(),
             'setupComplete' => $setupComplete,

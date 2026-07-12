@@ -98,4 +98,115 @@
   @case('no_record')
     <div class="card rp-card"><p class="muted">Your student record has not been linked to this account yet. Contact the school office.</p></div>
     @break
+
+  @case('pending_reviews')
+    <div class="card rp-card">
+      <h3 style="margin-bottom:.3rem">Report cards awaiting a decision</h3>
+      @if(empty($panel['items']))
+        <p class="muted">Nothing is waiting on review right now{{ $panel['term'] ? " for {$panel['term']}" : '' }}.</p>
+      @else
+        <ul class="rp-list">
+          @foreach($panel['items'] as $item)
+            <li><span><strong>{{ $item['student'] }}</strong> <span class="muted">{{ $item['class'] }}</span></span><span class="muted">{{ $item['status'] }}</span></li>
+          @endforeach
+        </ul>
+        @if($panel['more'] > 0)
+          <p class="muted" style="margin-top:.6rem">and {{ $panel['more'] }} more.</p>
+        @endif
+        <a class="btn btn-ghost btn-sm" style="margin-top:.8rem" href="{{ route('school.report-cards.pending-review', ['school' => $school->slug]) }}">Open pending review</a>
+      @endif
+    </div>
+    @break
+
+  @case('registrar_overview')
+    <div class="card rp-card">
+      @if($panel['unassigned'] > 0)
+        <p class="muted">{{ $panel['unassigned'] }} student(s) still need a class assigned.</p>
+        <a class="btn btn-ghost btn-sm" style="margin-top:.6rem" href="{{ route('school.students', ['school' => $school->slug]) }}">Review students</a>
+      @else
+        <p class="muted">Every active student has a class assigned.</p>
+      @endif
+    </div>
+    @break
+
+  @case('ict_overview')
+    <div class="card rp-card">
+      @if(! $panel['has_backup'])
+        <p class="muted">No backup has been taken yet.</p>
+      @else
+        <p class="muted">Most recent backup shown above.</p>
+      @endif
+      <a class="btn btn-ghost btn-sm" style="margin-top:.6rem" href="{{ route('school.backups.index', ['school' => $school->slug]) }}">Manage backups</a>
+    </div>
+    @break
+
+  @case('coming_soon')
+    <div class="card rp-card">
+      <h3 style="margin-bottom:.4rem">Your {{ $panel['role'] }} dashboard is coming soon</h3>
+      <p class="muted">{{ $panel['module'] }} is not built into SKULOS yet, so there is nothing real to show here. Once it is, this dashboard will show your own figures, not placeholder numbers.</p>
+    </div>
+    @break
+
+  @case('people_only')
+    <div class="card rp-card">
+      <p class="muted">{{ $panel['module'] }} is not built into SKULOS yet, so this dashboard shows what is already real: the people you will eventually manage through it. More figures will appear here as {{ $panel['module'] }} is built.</p>
+    </div>
+    @break
+
+  @case('admin_overview')
+    <div class="card rp-card">
+      <h3 style="margin-bottom:.6rem">Quick actions</h3>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+        <a class="btn btn-primary btn-sm" href="{{ route('school.students.create', ['school' => $school->slug]) }}">Add student</a>
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.students.import', ['school' => $school->slug]) }}">Bulk import students</a>
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.index', ['school' => $school->slug]) }}">Report cards</a>
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.index', ['school' => $school->slug]) }}">Results</a>
+      </div>
+    </div>
+
+    <div class="grid cols-2" style="align-items:start;margin-bottom:1.1rem">
+      <div class="card rp-card" style="margin-bottom:0">
+        <h3 style="margin-bottom:.6rem">Today's birthdays</h3>
+        @if(empty($panel['birthdaysToday']))
+          <p class="muted">No student birthdays today.</p>
+        @else
+          <ul class="rp-list">
+            @foreach($panel['birthdaysToday'] as $b)
+              <li><span><strong>{{ $b['name'] }}</strong> <span class="muted">{{ $b['age'] !== null ? $b['age'].' yrs' : '' }} {{ $b['class'] }}</span></span><span>&#127881;</span></li>
+            @endforeach
+          </ul>
+        @endif
+      </div>
+
+      <div class="card rp-card" style="margin-bottom:0">
+        <h3 style="margin-bottom:.6rem">Upcoming birthdays</h3>
+        @if(empty($panel['birthdaysUpcoming']))
+          <p class="muted">No birthdays in the next 30 days.</p>
+        @else
+          <ul class="rp-list">
+            @foreach($panel['birthdaysUpcoming'] as $b)
+              <li><span><strong>{{ $b['name'] }}</strong> <span class="muted">{{ $b['age'] !== null ? $b['age'].' yrs' : '' }} {{ $b['class'] }}</span></span><span class="muted">{{ $b['date'] }}</span></li>
+            @endforeach
+          </ul>
+        @endif
+      </div>
+    </div>
+
+    <div class="card rp-card">
+      <h3 style="margin-bottom:.3rem">Report cards awaiting a decision</h3>
+      @if(empty($panel['pendingReviews']))
+        <p class="muted">Nothing is waiting on review right now{{ $panel['term'] ? " for {$panel['term']}" : '' }}.</p>
+      @else
+        <ul class="rp-list">
+          @foreach($panel['pendingReviews'] as $item)
+            <li><span><strong>{{ $item['student'] }}</strong> <span class="muted">{{ $item['class'] }}</span></span><span class="muted">{{ $item['status'] }}</span></li>
+          @endforeach
+        </ul>
+        @if($panel['pendingReviewsMore'] > 0)
+          <p class="muted" style="margin-top:.6rem">and {{ $panel['pendingReviewsMore'] }} more.</p>
+        @endif
+        <a class="btn btn-ghost btn-sm" style="margin-top:.8rem" href="{{ route('school.report-cards.pending-review', ['school' => $school->slug]) }}">Open pending review</a>
+      @endif
+    </div>
+    @break
 @endswitch

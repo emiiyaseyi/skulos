@@ -76,6 +76,37 @@ class RoleDashboardTest extends TestCase
         $labels = array_column($data['figs'], 'l');
         $this->assertContains('Campuses', $labels);
         $this->assertContains('Classes', $labels);
+        $this->assertContains('Houses', $labels, 'admin dashboard must have grown beyond the original 4 figures');
+        $this->assertContains('Reports Pending Review', $labels);
+        $this->assertContains('Last Backup', $labels);
+        $this->assertSame('admin_overview', $data['panel']['type']);
+        $this->assertArrayHasKey('birthdaysToday', $data['panel']);
+        $this->assertArrayHasKey('birthdaysUpcoming', $data['panel']);
+        $this->assertContains('Boys', $labels, 'gender must appear in the top figures, not only as a standalone panel');
+        $this->assertContains('Girls', $labels);
+    }
+
+    public function test_admin_sees_todays_and_upcoming_birthdays_with_age_and_class(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'rdfifteen');
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id]);
+        Student::create(['admission_number' => 'B1', 'first_name' => 'Birthday', 'last_name' => 'Kid', 'current_class_arm_id' => $arm->id, 'date_of_birth' => now()->subYears(10)->format('Y-m-d')]);
+        Student::create(['admission_number' => 'B2', 'first_name' => 'Soon', 'last_name' => 'Kid', 'current_class_arm_id' => $arm->id, 'date_of_birth' => now()->addDays(5)->subYears(9)->format('Y-m-d')]);
+        Student::create(['admission_number' => 'B3', 'first_name' => 'Far', 'last_name' => 'Away', 'date_of_birth' => now()->addDays(90)->subYears(8)->format('Y-m-d')]);
+
+        $data = app(RoleDashboard::class)->build($admin, $school);
+        app(TenantManager::class)->forget();
+
+        $this->assertCount(1, $data['panel']['birthdaysToday']);
+        $this->assertSame('Birthday Kid', $data['panel']['birthdaysToday'][0]['name']);
+        $this->assertSame(10, $data['panel']['birthdaysToday'][0]['age']);
+        $this->assertSame('Primary 1', $data['panel']['birthdaysToday'][0]['class']);
+
+        $this->assertCount(1, $data['panel']['birthdaysUpcoming'], 'the 90 day away birthday must not appear within the 30 day window');
+        $this->assertSame('Soon Kid', $data['panel']['birthdaysUpcoming'][0]['name']);
     }
 
     public function test_class_teacher_sees_only_their_own_class(): void
@@ -157,6 +188,157 @@ class RoleDashboardTest extends TestCase
 
         $this->assertSame('class_teacher', $data['kind']);
         $this->assertSame('no_class', $data['panel']['type']);
+    }
+
+    public function test_examination_officer_sees_pending_report_card_reviews(): void
+    {
+        [$school, $officer] = $this->schoolWithMember('examination-officer', 'rdseven');
+        app(TenantManager::class)->use($school);
+
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Basic 3', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id]);
+        $student = Student::create(['admission_number' => 'S1', 'first_name' => 'Ada', 'last_name' => 'Obi', 'current_class_arm_id' => $arm->id]);
+        $session = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026 Session']);
+        $term = \App\Models\Tenant\Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1, 'is_current' => true]);
+        \App\Models\Tenant\ReportCardReview::create(['student_id' => $student->id, 'term_id' => $term->id, 'status' => \App\Models\Tenant\ReportCardReview::STATUS_PENDING_REVIEW]);
+
+        $data = app(RoleDashboard::class)->build($officer, $school);
+        app(TenantManager::class)->forget();
+
+        $this->assertSame('examination_officer', $data['kind']);
+        $pendingFig = collect($data['figs'])->firstWhere('l', 'Pending Review');
+        $this->assertSame('1', $pendingFig['n']);
+        $this->assertSame('pending_reviews', $data['panel']['type']);
+        $this->assertSame('Ada Obi', $data['panel']['items'][0]['student']);
+    }
+
+    public function test_registrar_sees_student_and_guardian_counts(): void
+    {
+        [$school, $registrar] = $this->schoolWithMember('registrar', 'rdeight');
+        app(TenantManager::class)->use($school);
+
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Basic 1', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id]);
+        $placed = Student::create(['admission_number' => 'S1', 'first_name' => 'Placed', 'last_name' => 'Kid', 'current_class_arm_id' => $arm->id]);
+        $unplaced = Student::create(['admission_number' => 'S2', 'first_name' => 'Unplaced', 'last_name' => 'Kid']);
+        StudentGuardian::create(['student_id' => $placed->id, 'name' => 'Shared Parent', 'email' => 'shared@example.com', 'relationship' => 'Father']);
+        StudentGuardian::create(['student_id' => $unplaced->id, 'name' => 'Shared Parent', 'email' => 'shared@example.com', 'relationship' => 'Father']);
+
+        $data = app(RoleDashboard::class)->build($registrar, $school);
+        app(TenantManager::class)->forget();
+
+        $this->assertSame('registrar', $data['kind']);
+        $studentsFig = collect($data['figs'])->firstWhere('l', 'Students');
+        $this->assertSame('2', $studentsFig['n']);
+        $guardiansFig = collect($data['figs'])->firstWhere('l', 'Parents/Guardians');
+        $this->assertSame('1', $guardiansFig['n'], 'a guardian shared across two children counts once');
+        $awaitingFig = collect($data['figs'])->firstWhere('l', 'Awaiting Class');
+        $this->assertSame('1', $awaitingFig['n']);
+    }
+
+    public function test_ict_officer_sees_active_users_and_backup_history(): void
+    {
+        [$school, $ictOfficer] = $this->schoolWithMember('ict-officer', 'rdnine');
+
+        \App\Models\Backup::create([
+            'school_id' => $school->id, 'disk' => 'local', 'file_path' => 'backups/x/y.sqlite',
+            'size_bytes' => 2048, 'type' => \App\Models\Backup::TYPE_MANUAL, 'initiated_by' => $ictOfficer->id,
+        ]);
+
+        $data = app(RoleDashboard::class)->build($ictOfficer, $school);
+
+        $this->assertSame('ict_officer', $data['kind']);
+        $usersFig = collect($data['figs'])->firstWhere('l', 'Active Users');
+        $this->assertSame('1', $usersFig['n']);
+        $backupsFig = collect($data['figs'])->firstWhere('l', 'Backups');
+        $this->assertSame('1', $backupsFig['n']);
+        $this->assertTrue($data['panel']['has_backup']);
+    }
+
+    /**
+     * School Owner and School Administrator are two different roles (user
+     * correction 2026-07-12) and must not share one identical dashboard.
+     */
+    public function test_school_admin_gets_a_distinct_operational_dashboard_from_school_owner(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rdeleven');
+
+        app(TenantManager::class)->use($school);
+        Student::create(['admission_number' => 'A1', 'first_name' => 'A', 'last_name' => 'B']);
+        app(TenantManager::class)->forget();
+
+        $ownerData = app(RoleDashboard::class)->build($owner, $school);
+        $this->assertSame('admin', $ownerData['kind']);
+        $this->assertContains('Houses', array_column($ownerData['figs'], 'l'));
+
+        [$adminSchool, $adminUser] = $this->schoolWithMember('school-admin', 'rdtwelve');
+        app(TenantManager::class)->use($adminSchool);
+        Student::create(['admission_number' => 'B1', 'first_name' => 'C', 'last_name' => 'D']);
+        app(TenantManager::class)->forget();
+
+        $adminData = app(RoleDashboard::class)->build($adminUser, $adminSchool);
+        $this->assertSame('school_admin', $adminData['kind']);
+        $labels = array_column($adminData['figs'], 'l');
+        $this->assertContains('New Registrations', $labels);
+        $this->assertContains('Awaiting Class', $labels);
+        $this->assertNotContains('Houses', $labels, 'school-admin should not get the owner leadership figures');
+    }
+
+    public function test_head_teacher_sees_school_wide_admin_figures(): void
+    {
+        [$school, $headTeacher] = $this->schoolWithMember('head-teacher', 'rdten');
+        app(TenantManager::class)->use($school);
+        Student::create(['admission_number' => 'A1', 'first_name' => 'A', 'last_name' => 'B']);
+        $data = app(RoleDashboard::class)->build($headTeacher, $school);
+        app(TenantManager::class)->forget();
+
+        $this->assertSame('admin', $data['kind']);
+    }
+
+    /**
+     * Store Keeper (inventory.* only) and Security (no grants at all) have
+     * zero real school data overlapping their role, so they see an honest
+     * "coming soon" (user request 2026-07-11) instead of unrelated
+     * school-wide figures.
+     */
+    public function test_roles_with_no_overlapping_data_see_an_honest_coming_soon_state(): void
+    {
+        foreach (['store-keeper', 'security'] as $i => $slug) {
+            [$school, $user] = $this->schoolWithMember($slug, 'rdcs'.$i);
+
+            $data = app(RoleDashboard::class)->build($user, $school);
+
+            $this->assertSame('coming_soon', $data['kind'], "role {$slug} should show coming soon");
+            $this->assertSame([], $data['figs']);
+            $this->assertSame('coming_soon', $data['panel']['type']);
+        }
+    }
+
+    /**
+     * Bursar/Accountant, Librarian, Nurse, Hostel Master, and Transport
+     * Officer all have some real overlapping data (students, and for
+     * Bursar/Accountant, guardians too) even though their own module is
+     * not built yet (user direction 2026-07-12: "update for all roles in
+     * the DASHBOARD DESIGN doc... as we build more data, the ones left
+     * will show on the necessary user dashboards").
+     */
+    public function test_roles_with_partial_real_data_see_student_counts_not_a_blank_state(): void
+    {
+        foreach (['bursar' => true, 'accountant' => true, 'librarian' => false, 'nurse' => false, 'hostel-master' => false, 'transport-officer' => false] as $slug => $expectGuardians) {
+            [$school, $user] = $this->schoolWithMember($slug, 'rdpo'.crc32($slug));
+            app(TenantManager::class)->use($school);
+            Student::create(['admission_number' => 'S-'.$slug, 'first_name' => 'A', 'last_name' => 'B']);
+            app(TenantManager::class)->forget();
+
+            $data = app(RoleDashboard::class)->build($user, $school);
+
+            $this->assertSame('people_only', $data['kind'], "role {$slug} should show real people figures");
+            $studentsFig = collect($data['figs'])->firstWhere('l', 'Students');
+            $this->assertSame('1', $studentsFig['n'], "role {$slug} should see the real student count");
+            $this->assertSame($expectGuardians, (bool) collect($data['figs'])->firstWhere('l', 'Parents/Guardians'), "role {$slug} guardian figure mismatch");
+        }
     }
 
     public function test_dashboard_route_renders_role_specific_figures(): void

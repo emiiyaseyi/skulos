@@ -4,13 +4,13 @@
 @push('head')
 <style>
   /* figure cards, 4 across */
-  .figs{display:grid;grid-template-columns:repeat(4,1fr);gap:1.1rem;margin-bottom:1.5rem}
+  .figs{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;margin-bottom:1.1rem}
   .fig b{font-size:1.7rem;font-weight:800;font-variant-numeric:tabular-nums;display:block;line-height:1.1}
   .fig span{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim)}
   .fig .fic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;flex-shrink:0}
   .fig .fic svg{width:22px;height:22px}
   /* classic: left accent bar */
-  .fig-classic{display:flex;align-items:center;gap:1rem;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:1.2rem 1.3rem;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+  .fig-classic{display:flex;align-items:center;gap:.8rem;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:.9rem 1.1rem;position:relative;overflow:hidden;box-shadow:var(--shadow)}
   .fig-classic::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--fc)}
   .fig-classic .fic{background:color-mix(in srgb,var(--fc) 16%,transparent);color:var(--fc)}
   /* erp: solid colour tile */
@@ -18,7 +18,7 @@
   .fig-erp span{color:rgba(255,255,255,.85)}
   .fig-erp .fic{background:rgba(255,255,255,.2);color:#fff}
   /* modern: ringed pill */
-  .fig-modern{display:flex;align-items:center;gap:1rem;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:.9rem 1.3rem;box-shadow:var(--shadow)}
+  .fig-modern{display:flex;align-items:center;gap:.7rem;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:.7rem 1.1rem;box-shadow:var(--shadow)}
   .fig-modern .ring{width:48px;height:48px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;
     background:conic-gradient(var(--fc) var(--pct,70%), color-mix(in srgb,var(--fc) 15%,transparent) 0)}
   .fig-modern .ring i{width:36px;height:36px;border-radius:50%;background:var(--panel);display:grid;place-items:center;color:var(--fc)}
@@ -28,12 +28,19 @@
   .fig-vibrant .fic{background:var(--fc);color:#fff;margin-bottom:.7rem}
   .fig-vibrant b{color:var(--ink)}
 
-  .banner{border-radius:18px;padding:1.8rem 2rem;color:#fff;position:relative;overflow:hidden;margin-bottom:1.5rem;
+  .banner-row{display:flex;gap:1rem;margin-bottom:1.1rem;flex-wrap:wrap}
+  .banner{flex:1 1 60%;min-width:260px;border-radius:16px;padding:1.2rem 1.4rem;color:#fff;position:relative;overflow:hidden;
     background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#10121a))}
-  .banner h2{font-size:1.5rem;font-weight:800;margin-bottom:.3rem}
-  .banner p{opacity:.9;max-width:46ch}
+  .banner h2{font-size:1.25rem;font-weight:800;margin-bottom:.2rem}
+  .banner p{opacity:.9;max-width:46ch;font-size:.9rem}
   .banner .bl{position:absolute;border-radius:50%;background:rgba(255,255,255,.12)}
-  .banner .bl1{width:200px;height:200px;right:-40px;top:-60px}.banner .bl2{width:120px;height:120px;right:120px;bottom:-60px;background:rgba(255,255,255,.08)}
+  .banner .bl1{width:160px;height:160px;right:-40px;top:-60px}.banner .bl2{width:100px;height:100px;right:100px;bottom:-50px;background:rgba(255,255,255,.08)}
+  .ann-card{flex:1 1 32%;min-width:220px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:1rem 1.2rem;box-shadow:var(--shadow)}
+  .ann-card h3{font-size:.85rem;margin-bottom:.5rem}
+  .ann-list{list-style:none;display:flex;flex-direction:column;gap:.5rem;max-height:120px;overflow-y:auto}
+  .ann-list li{font-size:.82rem;padding-bottom:.5rem;border-bottom:1px solid var(--line)}
+  .ann-list li:last-child{border-bottom:none;padding-bottom:0}
+  .ann-list .when{color:var(--mut-dim);font-size:.72rem}
 
   @media(max-width:1000px){.figs{grid-template-columns:repeat(2,1fr)}}
   @media(max-width:560px){.figs{grid-template-columns:1fr}}
@@ -59,14 +66,21 @@
   </div>
 @endunless
 
+@php
+  $announcementsCard = view('school.widgets.announcements', ['announcements' => $announcements])->render();
+@endphp
+
 @if($layout === 'vibrant' || $layout === 'modern')
   @if($show('greeting'))
-  <div class="banner">
-    <span class="bl bl1"></span><span class="bl bl2"></span>
-    <div style="position:relative">
-      <h2>Hello, {{ \Illuminate\Support\Str::before(auth()->user()->name,' ') ?: auth()->user()->name }}.</h2>
-      <p>Welcome to {{ $school->name }}. Here is a snapshot of your school today.</p>
+  <div class="banner-row">
+    <div class="banner">
+      <span class="bl bl1"></span><span class="bl bl2"></span>
+      <div style="position:relative">
+        <h2>Hello, {{ \Illuminate\Support\Str::before(auth()->user()->name,' ') ?: auth()->user()->name }}.</h2>
+        <p>Welcome to {{ $school->name }}. Here is a snapshot of your school today.</p>
+      </div>
     </div>
+    {!! $announcementsCard !!}
   </div>
   @endif
 @else
@@ -79,9 +93,10 @@
     </div>
   </div>
   @endif
+  {!! $announcementsCard !!}
 @endif
 
-@if($show('stats'))
+@if($show('stats') && count($figs))
 <div class="figs">
   @foreach($figs as $f)
     @switch($layout)

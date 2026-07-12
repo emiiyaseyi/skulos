@@ -117,6 +117,7 @@ class SeedDemoSchoolData extends Command
                 $identifier = Setting::grab('parent_identifier', 'email');
 
                 $this->ensureLeadership($school, $rbac);
+                $this->ensureSupportStaff($school, $rbac);
 
                 $armsSeeded = 0;
                 $studentsCreated = 0;
@@ -196,6 +197,30 @@ class SeedDemoSchoolData extends Command
         if ($hasNurseryOrPrimary && ! Staff::where('position', 'Head Teacher')->exists()) {
             $staff = $this->makeStaffWithLogin($school, $rbac, 'Head Teacher', 'head-teacher');
             $this->line("  head teacher (Creche/Reception/Nursery/Primary): {$staff->fullName()}");
+        }
+    }
+
+    /**
+     * One person per support/admin role, never more (user request
+     * 2026-07-12: "1 school owner per school, same for all unique
+     * roles"), the same one-per-role guard pattern as the Principal/Head
+     * Teacher above.
+     */
+    protected function ensureSupportStaff(School $school, Rbac $rbac): void
+    {
+        $roles = [
+            'Registrar' => 'registrar',
+            'Examination Officer' => 'examination-officer',
+            'ICT Officer' => 'ict-officer',
+            'Bursar' => 'bursar',
+        ];
+
+        foreach ($roles as $position => $roleSlug) {
+            if (Staff::where('position', $position)->exists()) {
+                continue;
+            }
+            $staff = $this->makeStaffWithLogin($school, $rbac, $position, $roleSlug);
+            $this->line("  {$position}: {$staff->fullName()}");
         }
     }
 
@@ -295,53 +320,75 @@ class SeedDemoSchoolData extends Command
         ];
     }
 
+    /**
+     * One class teacher and one class assistant per class (user request
+     * 2026-07-12: "1 class teacher per class and one class assistant
+     * teacher"), never more, matching the position-exists guard every
+     * other one-per-role seed in this command uses.
+     */
     protected function ensureClassTeacher(ClassArm $arm, School $school, Rbac $rbac): void
     {
-        if ($arm->class_teacher_staff_id) {
-            return;
+        if (! $arm->class_teacher_staff_id) {
+            $staff = $this->makeStaffWithLogin($school, $rbac, 'Class Teacher', 'class-teacher');
+            $arm->update(['class_teacher_staff_id' => $staff->id]);
         }
 
-        $staff = $this->makeStaffWithLogin($school, $rbac, 'Class Teacher', 'class-teacher');
-        $arm->update(['class_teacher_staff_id' => $staff->id]);
+        if (! $arm->assistant_teacher_staff_id) {
+            $staff = $this->makeStaffWithLogin($school, $rbac, 'Class Assistant', 'class-assistant');
+            $arm->update(['assistant_teacher_staff_id' => $staff->id]);
+        }
     }
 
     /**
-     * One subject teacher per unique subject per section (not one per
-     * class), matching how a real school actually staffs subjects, e.g.
-     * one Mathematics teacher covering every JSS arm rather than one per
-     * arm. Skips a subject that already has a teacher assigned anywhere
-     * in that section.
+     * Exactly one subject teacher per level band, teaching every subject
+     * across every class in that band (user request 2026-07-12, spelled
+     * out precisely: "1 in nursery level, 1 for pry 1-3, 1 for pry4-6, 1
+     * for jss 1-3, 1 for sss 1-3"), not the previous one-teacher-per-
+     * subject-per-section model. Primary and Secondary each split into
+     * two bands here even though they share one Section record apiece
+     * (Primary 1-6 is a single Section; JSS+SSS share the "Secondary"
+     * Section by design, see ensureLeadership()), so the split is done by
+     * class name/sequence, not by Section.
      */
+    protected function subjectTeacherBands(): array
+    {
+        return [
+            'Nursery' => fn ($c) => $c->section?->name === 'Nursery',
+            'Primary 1 to 3' => fn ($c) => in_array($c->name, ['Primary 1', 'Primary 2', 'Primary 3'], true),
+            'Primary 4 to 6' => fn ($c) => in_array($c->name, ['Primary 4', 'Primary 5', 'Primary 6'], true),
+            'JSS 1 to 3' => fn ($c) => str_starts_with($c->name, 'JSS'),
+            'SSS 1 to 3' => fn ($c) => str_starts_with($c->name, 'SSS'),
+        ];
+    }
+
     protected function ensureSubjectTeachers(School $school, Rbac $rbac): int
     {
         $created = 0;
+        $classes = \App\Models\Tenant\SchoolClass::with(['section', 'arms', 'subjects'])->active()->get();
 
-        foreach (\App\Models\Tenant\Section::with('classes.arms')->get() as $section) {
-            $armIds = $section->classes->flatMap(fn ($c) => $c->arms->pluck('id'));
-            if ($armIds->isEmpty()) {
+        foreach ($this->subjectTeacherBands() as $bandLabel => $matcher) {
+            $bandClasses = $classes->filter($matcher);
+            $armIds = $bandClasses->flatMap(fn ($c) => $c->arms->pluck('id'));
+            $subjectIds = $bandClasses->flatMap(fn ($c) => $c->subjects->pluck('id'))->unique();
+            if ($armIds->isEmpty() || $subjectIds->isEmpty()) {
                 continue;
             }
 
-            $subjectIds = Subject::whereHas('classes', fn ($q) => $q->whereIn('school_classes.id', $section->classes->pluck('id')))
-                ->pluck('id');
+            $position = "Subject Teacher ({$bandLabel})";
+            $staff = Staff::where('position', $position)->first();
+            if (! $staff) {
+                $staff = $this->makeStaffWithLogin($school, $rbac, $position, 'subject-teacher');
+                $created++;
+            }
 
-            foreach ($subjectIds as $subjectId) {
-                $alreadyAssigned = TeachingAssignment::where('subject_id', $subjectId)
-                    ->whereIn('class_arm_id', $armIds)
-                    ->exists();
-                if ($alreadyAssigned) {
-                    continue;
-                }
-
-                $staff = $this->makeStaffWithLogin($school, $rbac, 'Subject Teacher', 'subject-teacher');
-                foreach ($armIds as $armId) {
+            foreach ($armIds as $armId) {
+                foreach ($subjectIds as $subjectId) {
                     TeachingAssignment::firstOrCreate([
                         'staff_id' => $staff->id,
                         'subject_id' => $subjectId,
                         'class_arm_id' => $armId,
                     ]);
                 }
-                $created++;
             }
         }
 

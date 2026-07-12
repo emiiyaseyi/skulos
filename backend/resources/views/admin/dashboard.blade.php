@@ -26,6 +26,10 @@
   .pd-alert{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;
     background:color-mix(in srgb,var(--warn) 14%,var(--panel));border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);
     border-radius:var(--radius);padding:1rem 1.3rem;margin-bottom:1.25rem}
+  .pd-bars{display:flex;align-items:flex-end;gap:.8rem;height:140px;margin-bottom:.5rem}
+  .pd-bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:.4rem}
+  .pd-bar .col{width:100%;background:color-mix(in srgb,var(--accent) 70%,transparent);border-radius:6px 6px 0 0;min-height:3px}
+  .pd-bar span{font-size:.72rem;color:var(--mut-dim)}
 </style>
 @endpush
 
@@ -37,11 +41,25 @@
   </div>
 @endif
 
+<div class="card" style="margin-bottom:1.25rem">
+  <h3 style="margin-bottom:.8rem">Quick actions</h3>
+  <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+    <a class="btn btn-primary btn-sm" href="{{ route('admin.schools.index') }}">Add school</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('admin.schools.index') }}">Clone a school</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('admin.billing.index') }}">Create plan</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('admin.trial-requests.index') }}">Review trial requests</a>
+  </div>
+</div>
+
 <div class="pd-figs">
   <div class="pd-fig"><b>{{ $totalSchools }}</b><span>Total Schools</span></div>
-  <div class="pd-fig"><b>{{ $byStatus['active'] }}</b><span>Active</span></div>
+  <div class="pd-fig"><b>{{ $byStatus['active'] }}</b><span>Active Schools</span></div>
+  <div class="pd-fig"><b>{{ $pendingTrials }}</b><span>Trial Schools</span></div>
+  <div class="pd-fig"><b>{{ $totalUsers }}</b><span>Total Users</span></div>
   <div class="pd-fig"><b>{{ $totalAdministrators }}</b><span>Administrators</span></div>
   <div class="pd-fig"><b>{{ $trashedCount }}</b><span>In Archive</span></div>
+  <div class="pd-fig"><b>{{ $conversionRate !== null ? $conversionRate.'%' : 'N/A' }}</b><span>Trial Conversion</span></div>
+  <div class="pd-fig"><b>{{ $schoolsWithoutBackup }}</b><span>Schools Without a Backup</span></div>
 </div>
 
 <div class="grid cols-2" style="align-items:start">
@@ -54,6 +72,35 @@
       <span><i style="background:#E14F63"></i> Archived ({{ $byStatus['archived'] }})</span>
       <span><i style="background:var(--soft);border:1px solid var(--line)"></i> Pending ({{ $byStatus['pending'] }})</span>
     </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:1rem">School growth</h3>
+    <div class="pd-bars">
+      @foreach($growthMonths as $m)
+        <div class="pd-bar">
+          <span>{{ $m['count'] }}</span>
+          <div class="col" style="height:{{ max(3, round($m['count'] / $growthMax * 100)) }}%"></div>
+          <span>{{ $m['label'] }}</span>
+        </div>
+      @endforeach
+    </div>
+    <p class="muted" style="font-size:.8rem">New schools provisioned per month, last 6 months.</p>
+  </div>
+</div>
+
+<div class="grid cols-2" style="align-items:start;margin-top:1.25rem">
+  <div class="card">
+    <h3 style="margin-bottom:1rem">Subscriptions by plan</h3>
+    @if($subscriptionBreakdown->isEmpty())
+      <p class="muted">No schools yet.</p>
+    @else
+      <ul class="pd-activity">
+        @foreach($subscriptionBreakdown as $row)
+          <li><span>{{ $row['plan'] }}</span><span class="when">{{ $row['count'] }}</span></li>
+        @endforeach
+      </ul>
+    @endif
   </div>
 
   <div class="card">

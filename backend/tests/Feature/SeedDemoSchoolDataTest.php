@@ -61,10 +61,18 @@ class SeedDemoSchoolDataTest extends TestCase
             $count = Student::where('current_class_arm_id', $arm->id)->count();
             $this->assertGreaterThanOrEqual(5, $count, "{$arm->label()} must have at least the requested minimum");
             $this->assertNotNull($arm->class_teacher_staff_id, "{$arm->label()} must have a class teacher");
+            $this->assertNotNull($arm->assistant_teacher_staff_id, "{$arm->label()} must have a class assistant");
         }
 
-        $this->assertTrue(Staff::where('position', 'Principal')->exists());
-        $this->assertGreaterThan(0, Staff::where('position', 'Subject Teacher')->count());
+        // Exactly one of each unique role, and exactly 5 subject teachers,
+        // one per level band (user request 2026-07-12: "1 school owner per
+        // school, same for all unique roles... for subject teachers: 1 in
+        // nursery level, 1 for pry 1-3, 1 for pry4-6, 1 for jss 1-3, 1 for
+        // sss 1-3"), not the old one-teacher-per-subject-per-section model.
+        foreach (['Principal', 'Head Teacher', 'Registrar', 'Examination Officer', 'ICT Officer', 'Bursar'] as $position) {
+            $this->assertSame(1, Staff::where('position', $position)->count(), "there must be exactly one {$position}");
+        }
+        $this->assertSame(5, Staff::where('position', 'like', 'Subject Teacher (%')->count(), 'exactly one subject teacher per level band');
         $this->assertSame(Student::count(), StudentGuardian::count(), 'every student gets exactly one guardian');
         app(TenantManager::class)->forget();
     }
