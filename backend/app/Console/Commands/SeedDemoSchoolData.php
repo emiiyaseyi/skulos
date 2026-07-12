@@ -32,12 +32,14 @@ use Illuminate\Support\Facades\DB;
  * just fills the remaining gap up to the target.
  *
  * Scope deliberately stops at what the product can already do something
- * with: students get a house and one guardian (contact info only, no
- * platform login, since no parent portal screens exist yet); staff
- * (Principal, one class teacher per class, one subject teacher per
- * subject per section) get real platform User accounts and RBAC roles,
- * since staff login already works end to end through the existing
- * school-portal sign in, unlike parents.
+ * with: students get a house and one guardian; staff (Principal, one
+ * class teacher per class, one subject teacher per subject per section)
+ * and guardians both get real platform User accounts and RBAC roles
+ * (password DEMO_PASSWORD for every seeded login, guardians added
+ * 2026-07-12 once the Parent Portal existed to sign in to), siblings
+ * sharing one guardian share that guardian's single login too, matching
+ * the real product's "one parent profile sees all their children"
+ * design.
  */
 class SeedDemoSchoolData extends Command
 {
@@ -45,7 +47,7 @@ class SeedDemoSchoolData extends Command
 
     protected $description = 'Seed realistic demo admin/staff/students/parents data into schools, for stress and data testing';
 
-    protected const DEMO_PASSWORD = 'DemoPass123!';
+    protected const DEMO_PASSWORD = 'password123';
 
     /** Every email/phone already in use platform wide, loaded once so generated ones are checked in memory, not one DB round trip each (user request 2026-07-11: seeded contact info must read as real, not obviously synthetic). */
     protected array $usedEmails = [];
@@ -122,7 +124,7 @@ class SeedDemoSchoolData extends Command
                 $armsSeeded = 0;
                 $studentsCreated = 0;
                 foreach (ClassArm::with('schoolClass.section')->get() as $arm) {
-                    $studentsCreated += $this->topUpStudents($arm, $perClass, $houses, $identifier);
+                    $studentsCreated += $this->topUpStudents($arm, $perClass, $houses, $identifier, $school, $rbac);
                     $this->ensureClassTeacher($arm, $school, $rbac);
                     $armsSeeded++;
                 }
@@ -228,7 +230,7 @@ class SeedDemoSchoolData extends Command
      * Tops this class arm up to $target students, never removing or
      * touching students who already exist on it.
      */
-    protected function topUpStudents(ClassArm $arm, int $target, \Illuminate\Support\Collection $houses, string $identifier): int
+    protected function topUpStudents(ClassArm $arm, int $target, \Illuminate\Support\Collection $houses, string $identifier, School $school, Rbac $rbac): int
     {
         $existing = Student::where('current_class_arm_id', $arm->id)->count();
         $needed = max(0, $target - $existing);
@@ -264,7 +266,7 @@ class SeedDemoSchoolData extends Command
                 'address' => sprintf('%d %s Street, %s', random_int(1, 200), $this->surnames[array_rand($this->surnames)], $state),
             ]);
 
-            $this->addGuardianFor($student, $identifier);
+            $this->addGuardianFor($student, $identifier, $school, $rbac);
         }
 
         return $needed;
@@ -281,7 +283,7 @@ class SeedDemoSchoolData extends Command
      * platform's own "same parent" recognition works. The student's own
      * surname is updated to match, siblings normally share one.
      */
-    protected function addGuardianFor(Student $student, string $identifier): void
+    protected function addGuardianFor(Student $student, string $identifier, School $school, Rbac $rbac): void
     {
         if (count($this->guardianPool) >= 3 && random_int(1, 4) === 1) {
             $sibling = $this->guardianPool[array_rand($this->guardianPool)];
@@ -294,6 +296,7 @@ class SeedDemoSchoolData extends Command
                 'email' => $sibling['email'],
                 'phone' => $sibling['phone'],
                 'is_primary' => true,
+                'guardian_user_id' => $sibling['guardian_user_id'],
             ]);
 
             return;
@@ -305,6 +308,22 @@ class SeedDemoSchoolData extends Command
         $email = $identifier === 'email' || random_int(0, 1) === 0 ? $this->realisticEmail($first, $last) : null;
         $phone = $identifier === 'phone' || random_int(0, 1) === 0 ? $this->realisticPhone() : null;
 
+        // Sign in is always by email platform wide (StudentController::
+        // createGuardianLogin has the same requirement for a real school),
+        // so a login-only email is generated here when this guardian's own
+        // contact info happens to be phone-only, it is never written back
+        // into the guardian's displayed contact email if that was
+        // deliberately absent.
+        $loginEmail = $email ?: $this->realisticEmail($first, $last);
+        $user = User::create([
+            'name' => "{$first} {$last}",
+            'email' => $loginEmail,
+            'phone' => $phone,
+            'password' => self::DEMO_PASSWORD,
+        ]);
+        $role = $rbac->cloneTemplateRole($school, 'parent');
+        $school->users()->syncWithoutDetaching([$user->id => ['role_id' => $role->id, 'status' => 'active']]);
+
         StudentGuardian::create([
             'student_id' => $student->id,
             'name' => "{$first} {$last}",
@@ -312,11 +331,12 @@ class SeedDemoSchoolData extends Command
             'email' => $email,
             'phone' => $phone,
             'is_primary' => true,
+            'guardian_user_id' => $user->id,
         ]);
 
         $this->guardianPool[] = [
             'name' => "{$first} {$last}", 'surname' => $last, 'relationship' => $relationship,
-            'email' => $email, 'phone' => $phone,
+            'email' => $email, 'phone' => $phone, 'guardian_user_id' => $user->id,
         ];
     }
 

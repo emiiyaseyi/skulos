@@ -167,4 +167,39 @@ class SeedDemoSchoolDataTest extends TestCase
         $this->assertSame($emails->count(), $emails->unique()->count());
         $this->assertSame($phones->count(), $phones->unique()->count());
     }
+
+    /**
+     * User request 2026-07-12: every seeded staff AND parent login must
+     * use "password123", and every guardian must actually get a real
+     * Parent Portal login now that one exists, not just contact info.
+     * Siblings sharing one guardian (the >= 3 pool, 1 in 4 chance branch
+     * in addGuardianFor()) must share that one login, not get a second
+     * duplicate account, matching the real product's "one parent profile
+     * sees all their children" design.
+     */
+    public function test_every_seeded_staff_and_guardian_login_uses_password123(): void
+    {
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'seedseven']));
+
+        $this->artisan('schools:seed-demo-data', ['school' => 'seedseven', '--per-class' => 20])->assertSuccessful();
+
+        app(TenantManager::class)->use($school);
+        $principal = Staff::where('position', 'Principal')->first();
+        $guardians = StudentGuardian::whereNotNull('guardian_user_id')->get();
+        $this->assertGreaterThan(0, $guardians->count());
+        $guardianUserIds = $guardians->pluck('guardian_user_id')->unique();
+        app(TenantManager::class)->forget();
+
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('password123', User::find($principal->user_id)->password));
+
+        foreach ($guardianUserIds as $userId) {
+            $this->assertTrue(\Illuminate\Support\Facades\Hash::check('password123', User::find($userId)->password));
+        }
+
+        // Fewer distinct logins than guardian rows proves at least one
+        // sibling pair shares a login rather than each getting their own,
+        // this school seeds enough students (20 per class x 15 arms) that
+        // the >= 3 pool / 1-in-4 sibling branch is certain to trigger.
+        $this->assertLessThan($guardians->count(), $guardianUserIds->count());
+    }
 }
