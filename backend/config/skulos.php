@@ -67,7 +67,6 @@ return [
     'plan_feature_catalog' => [
         'academic' => ['label' => 'Academic', 'features' => [
             'student_records' => 'Student Records',
-            'staff_records' => 'Staff Records',
             'school_sections' => 'School Sections',
             'classes_arms' => 'Classes & Arms',
             'subject_management' => 'Subject Management',
@@ -95,6 +94,7 @@ return [
         ]],
         'administration' => ['label' => 'Administration', 'features' => [
             'user_role_management' => 'User & Role Management',
+            'staff_records' => 'Staff Records',
             'parent_portal' => 'Parent Portal',
             'student_portal' => 'Student Portal',
             'teacher_portal' => 'Teacher Portal',
