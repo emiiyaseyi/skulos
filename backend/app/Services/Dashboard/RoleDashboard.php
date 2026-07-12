@@ -293,7 +293,7 @@ class RoleDashboard
     protected function subjectTeacher(User $user): array
     {
         $staff = Staff::where('user_id', $user->id)->first();
-        $assignments = $staff ? TeachingAssignment::where('staff_id', $staff->id)->with(['subject', 'classArm.schoolClass'])->get() : collect();
+        $assignments = $staff ? TeachingAssignment::where('staff_id', $staff->id)->with(['subject', 'classArm.schoolClass.section'])->get() : collect();
 
         if ($assignments->isEmpty()) {
             return ['kind' => 'subject_teacher', 'figs' => $this->emptyFigs(), 'panel' => ['type' => 'no_assignments']];
@@ -326,10 +326,17 @@ class RoleDashboard
             ],
             'panel' => [
                 'type' => 'subject_overview',
-                'assignments' => $assignments->map(fn ($a) => [
-                    'subject' => $a->subject?->name,
-                    'class' => $a->classArm?->label(),
-                ])->all(),
+                // Grouped Section > Subject > class labels (user directive
+                // 2026-07-12, "it should be effected on the dashboard
+                // too": the same grouping built for the Students page
+                // applies here as well, not just a flat assignment list.
+                'groups' => $assignments
+                    ->groupBy(fn ($a) => $a->classArm?->schoolClass?->section?->name ?? 'Other')
+                    ->map(fn ($bySection) => $bySection
+                        ->groupBy(fn ($a) => $a->subject?->name ?? 'Unknown')
+                        ->map(fn ($bySubject) => $bySubject->map(fn ($a) => $a->classArm?->label())->filter()->values()->all())
+                        ->all())
+                    ->all(),
                 'term' => $term?->name,
             ],
         ];

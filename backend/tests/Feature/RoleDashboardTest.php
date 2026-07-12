@@ -154,7 +154,9 @@ class RoleDashboardTest extends TestCase
         app(TenantManager::class)->forget();
 
         $this->assertSame('subject_teacher', $data['kind']);
-        $this->assertSame('Chemistry', $data['panel']['assignments'][0]['subject']);
+        $this->assertArrayHasKey('Secondary', $data['panel']['groups']);
+        $this->assertArrayHasKey('Chemistry', $data['panel']['groups']['Secondary']);
+        $this->assertSame(['SS 1 A'], $data['panel']['groups']['Secondary']['Chemistry']);
         $subjectsFig = collect($data['figs'])->firstWhere('l', 'My Subjects');
         $this->assertSame('1', $subjectsFig['n']);
     }

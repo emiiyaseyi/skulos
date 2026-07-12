@@ -187,6 +187,53 @@ class SeedDemoSchoolDataTest extends TestCase
     }
 
     /**
+     * User report 2026-07-12, found live on a real account ("Chidinma
+     * Akintola" on greenfield): a subject teacher seeded before the
+     * MAX_SUBJECTS_PER_SUBJECT_TEACHER cap existed still had 24 subjects
+     * after the cap shipped, the cap only ever stopped a brand new
+     * teacher being over provisioned, it never repaired one already
+     * seeded that way. Re-running the seeder must also repair this.
+     */
+    public function test_rerunning_the_seeder_repairs_a_pre_cap_over_subjected_teacher(): void
+    {
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'seedeight']));
+
+        // Seed a small school, then simulate a pre-cap teacher by piling
+        // every subject in a band onto the one teacher directly, the way
+        // the old (pre 2026-07-12) model used to.
+        $this->artisan('schools:seed-demo-data', ['school' => 'seedeight', '--per-class' => 3])->assertSuccessful();
+
+        app(TenantManager::class)->use($school);
+        $teacher = Staff::where('position', 'like', 'Subject Teacher (SSS 1 to 3)%')->first();
+        $armIds = \App\Models\Tenant\ClassArm::whereHas('schoolClass', fn ($q) => $q->where('name', 'like', 'SSS%'))->pluck('id');
+        $allSubjectIds = \App\Models\Tenant\TeachingAssignment::whereIn('class_arm_id', $armIds)->distinct('subject_id')->pluck('subject_id');
+        \App\Models\Tenant\TeachingAssignment::whereIn('class_arm_id', $armIds)->delete();
+        foreach ($armIds as $armId) {
+            foreach ($allSubjectIds as $subjectId) {
+                \App\Models\Tenant\TeachingAssignment::create(['staff_id' => $teacher->id, 'subject_id' => $subjectId, 'class_arm_id' => $armId]);
+            }
+        }
+        $teacher->update(['position' => 'Subject Teacher (SSS 1 to 3)']); // no "#N" suffix, matching real pre-cap data
+        $overCappedCount = \App\Models\Tenant\TeachingAssignment::where('staff_id', $teacher->id)->distinct('subject_id')->count('subject_id');
+        $this->assertGreaterThan(2, $overCappedCount, 'the simulated pre-cap teacher must start over the cap');
+        app(TenantManager::class)->forget();
+
+        // Re-running the seeder (the natural "fix it" action) must repair this.
+        $this->artisan('schools:seed-demo-data', ['school' => 'seedeight', '--per-class' => 3])->assertSuccessful();
+
+        app(TenantManager::class)->use($school);
+        $sssTeachers = Staff::where('position', 'like', 'Subject Teacher (SSS 1 to 3)%')->get();
+        foreach ($sssTeachers as $t) {
+            $distinct = \App\Models\Tenant\TeachingAssignment::where('staff_id', $t->id)->distinct('subject_id')->count('subject_id');
+            $this->assertLessThanOrEqual(2, $distinct, "{$t->position} must be capped after repair");
+        }
+        // Every subject that was on the over capped teacher must still be covered by someone.
+        $stillCovered = \App\Models\Tenant\TeachingAssignment::whereIn('staff_id', $sssTeachers->pluck('id'))->distinct('subject_id')->pluck('subject_id');
+        $this->assertSame($allSubjectIds->sort()->values()->all(), $stillCovered->sort()->values()->all());
+        app(TenantManager::class)->forget();
+    }
+
+    /**
      * User request 2026-07-12: every seeded staff AND parent login must
      * use "password123", and every guardian must actually get a real
      * Parent Portal login now that one exists, not just contact info.

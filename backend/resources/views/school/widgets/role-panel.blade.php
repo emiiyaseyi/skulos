@@ -65,11 +65,16 @@
   @case('subject_overview')
     <div class="card rp-card">
       <h3 style="margin-bottom:.7rem">My subjects and classes</h3>
-      <ul class="rp-list">
-        @foreach($panel['assignments'] as $a)
-          <li><span><strong>{{ $a['subject'] }}</strong></span><span class="muted">{{ $a['class'] }}</span></li>
-        @endforeach
-      </ul>
+      @foreach($panel['groups'] as $sectionName => $subjects)
+        <div style="margin-bottom:.9rem">
+          <div class="muted" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.35rem">{{ $sectionName }}</div>
+          <ul class="rp-list">
+            @foreach($subjects as $subjectName => $classLabels)
+              <li><span><strong>{{ $subjectName }}</strong></span><span class="muted">{{ implode(', ', $classLabels) }}</span></li>
+            @endforeach
+          </ul>
+        </div>
+      @endforeach
       <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem">
         <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.index', ['school' => $school->slug]) }}">Enter CA &amp; exam scores</a>
         <a class="btn btn-ghost btn-sm" href="{{ route('school.students', ['school' => $school->slug]) }}">My students</a>

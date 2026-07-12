@@ -357,10 +357,20 @@ class SeedDemoSchoolData extends Command
         if (! $arm->class_teacher_staff_id) {
             $staff = $this->makeStaffWithLogin($school, $rbac, 'Class Teacher', 'class-teacher');
             $arm->update(['class_teacher_staff_id' => $staff->id]);
+        }
 
+        // Backfill subjects for the class teacher if they have none yet,
+        // covers both the brand new one just created above AND one
+        // seeded before this capability existed (found live 2026-07-12:
+        // a real already-seeded school's class teachers all still had
+        // zero subjects even after this feature shipped, since the
+        // original code only ever assigned subjects at the moment a
+        // class teacher was first created).
+        $classTeacherId = $arm->class_teacher_staff_id ?? $arm->fresh()->class_teacher_staff_id;
+        if ($classTeacherId && ! TeachingAssignment::where('staff_id', $classTeacherId)->where('class_arm_id', $arm->id)->exists()) {
             foreach ($arm->schoolClass?->subjects->take(self::MAX_SUBJECTS_PER_CLASS_TEACHER) ?? [] as $subject) {
                 TeachingAssignment::firstOrCreate([
-                    'staff_id' => $staff->id,
+                    'staff_id' => $classTeacherId,
                     'subject_id' => $subject->id,
                     'class_arm_id' => $arm->id,
                 ]);
@@ -422,6 +432,14 @@ class SeedDemoSchoolData extends Command
                 continue;
             }
 
+            // Repair a teacher seeded before the cap existed (found live
+            // 2026-07-12: a real account, "Chidinma Akintola" on
+            // greenfield, still had 24 subjects after the cap was added,
+            // the cap only ever stopped a NEW teacher being over
+            // provisioned, it never trimmed one already seeded that way).
+            // Re-running the seeder now also repairs this.
+            $created += $this->rebalanceBandIfOverCapped($school, $rbac, $bandLabel, $armIds);
+
             $existingTeachers = Staff::where('position', 'like', "Subject Teacher ({$bandLabel})%")->get();
             $coveredSubjectIds = TeachingAssignment::whereIn('staff_id', $existingTeachers->pluck('id'))
                 ->whereIn('class_arm_id', $armIds)
@@ -439,6 +457,55 @@ class SeedDemoSchoolData extends Command
                     foreach ($chunk as $subjectId) {
                         TeachingAssignment::firstOrCreate([
                             'staff_id' => $staff->id,
+                            'subject_id' => $subjectId,
+                            'class_arm_id' => $armId,
+                        ]);
+                    }
+                }
+            }
+        }
+
+        return $created;
+    }
+
+    /**
+     * Trims any teacher in this band already over
+     * MAX_SUBJECTS_PER_SUBJECT_TEACHER (from before the cap existed) down
+     * to the cap, spinning up new numbered teachers for the subjects
+     * removed, the exact same split new demand gets in the main loop
+     * above. A pre-cap teacher's position had no "#N" suffix at all, the
+     * one kept subjects are renamed to "#1" once repaired so future runs
+     * of this same method treat it identically to a normally created one.
+     */
+    protected function rebalanceBandIfOverCapped(School $school, Rbac $rbac, string $bandLabel, \Illuminate\Support\Collection $armIds): int
+    {
+        $created = 0;
+        $teachers = Staff::where('position', 'like', "Subject Teacher ({$bandLabel})%")->get();
+        $nextIndex = $teachers->count() + 1;
+
+        foreach ($teachers as $teacher) {
+            $subjectIds = TeachingAssignment::where('staff_id', $teacher->id)->distinct('subject_id')->pluck('subject_id');
+            if ($subjectIds->count() <= self::MAX_SUBJECTS_PER_SUBJECT_TEACHER) {
+                continue;
+            }
+
+            $excess = $subjectIds->slice(self::MAX_SUBJECTS_PER_SUBJECT_TEACHER)->values();
+            TeachingAssignment::where('staff_id', $teacher->id)->whereIn('subject_id', $excess)->delete();
+
+            if (! str_contains($teacher->position, '#')) {
+                $teacher->update(['position' => "Subject Teacher ({$bandLabel}) #1"]);
+            }
+
+            foreach ($excess->chunk(self::MAX_SUBJECTS_PER_SUBJECT_TEACHER) as $chunk) {
+                $position = "Subject Teacher ({$bandLabel}) #{$nextIndex}";
+                $newTeacher = $this->makeStaffWithLogin($school, $rbac, $position, 'subject-teacher');
+                $created++;
+                $nextIndex++;
+
+                foreach ($armIds as $armId) {
+                    foreach ($chunk as $subjectId) {
+                        TeachingAssignment::firstOrCreate([
+                            'staff_id' => $newTeacher->id,
                             'subject_id' => $subjectId,
                             'class_arm_id' => $armId,
                         ]);
