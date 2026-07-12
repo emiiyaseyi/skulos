@@ -11,6 +11,7 @@ use App\Models\Tenant\Staff;
 use App\Models\Tenant\CalendarEvent;
 use App\Services\Dashboard\DashboardPreferences;
 use App\Services\Dashboard\RoleDashboard;
+use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -26,6 +27,15 @@ class SchoolPortalController extends Controller
     protected function school(Request $request): School
     {
         return $request->attributes->get('school');
+    }
+
+    protected function authorizeAction(Request $request, string $permission): void
+    {
+        abort_unless(
+            app(Rbac::class)->check(Auth::user(), $this->school($request), $permission),
+            403,
+            'You do not have permission for this.'
+        );
     }
 
     /**
@@ -104,9 +114,18 @@ class SchoolPortalController extends Controller
         return back();
     }
 
-    /** School branding settings form. */
+    /**
+     * School branding settings form. Gated on school_info.update (found
+     * while building the Setup Wizard 2026-07-12: this screen had no RBAC
+     * check at all beyond plain school membership, so any parent or
+     * student login could repaint the school's brand color and login
+     * page). Not previously enforced anywhere, fixed here rather than
+     * left as a known gap since the wizard step now depends on this exact
+     * permission to decide whether to show the form.
+     */
     public function editBranding(Request $request): \Illuminate\View\View
     {
+        $this->authorizeAction($request, 'school_info.update');
         $school = $this->school($request);
 
         return view('school.settings-branding', [
@@ -117,6 +136,7 @@ class SchoolPortalController extends Controller
 
     public function updateBranding(Request $request): \Illuminate\Http\RedirectResponse
     {
+        $this->authorizeAction($request, 'school_info.update');
         $school = $this->school($request);
 
         $data = $request->validate([
