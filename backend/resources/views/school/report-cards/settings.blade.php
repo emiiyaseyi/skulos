@@ -50,6 +50,35 @@
   </form>
 </div>
 
+<div class="card" style="margin-bottom:1.25rem">
+  <h3 style="margin-bottom:.4rem">Review chain</h3>
+  <p class="muted" style="margin-bottom:.8rem">Who a report card must pass through, in order, before it can be approved. Each stage's Approve action moves it to the next stage; the last stage's Approve makes it Approved and ready to release.</p>
+  <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-bottom:1rem">
+    @foreach($reviewChain as $i => $roleSlug)
+      <span class="badge" style="background:var(--soft);border:1px solid var(--line);border-radius:20px;padding:.3rem .8rem;font-size:.8rem">{{ $i + 1 }}. {{ $reviewChainRoles[$roleSlug] ?? $roleSlug }}</span>
+      @if(! $loop->last)<span class="muted">&rarr;</span>@endif
+    @endforeach
+  </div>
+  <form method="POST" action="{{ route('school.report-cards.review-chain', ['school' => $school->slug]) }}">
+    @csrf
+    <div class="rc-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
+      @for($stage = 0; $stage < 5; $stage++)
+        <label style="display:block">
+          <span class="muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em">Stage {{ $stage + 1 }}{{ $stage === 0 ? ' (required)' : ' (optional)' }}</span>
+          <select name="chain[]" class="input" @if($stage === 0) required @endif>
+            @if($stage > 0)<option value="">Not used</option>@endif
+            @foreach($reviewChainRoles as $slug => $label)
+              <option value="{{ $slug }}" @selected(($reviewChain[$stage] ?? null) === $slug)>{{ $label }}</option>
+            @endforeach
+          </select>
+        </label>
+      @endfor
+    </div>
+    <p class="muted" style="font-size:.78rem;margin:.6rem 0">Leave a stage as "Not used" to stop the chain there, later stages are then ignored.</p>
+    <button class="btn btn-primary btn-sm" type="submit">Save review chain</button>
+  </form>
+</div>
+
 <form method="POST" action="{{ route('school.report-cards.update', ['school' => $school->slug]) }}">
   @csrf
 

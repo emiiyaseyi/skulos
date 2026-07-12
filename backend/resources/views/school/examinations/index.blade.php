@@ -7,6 +7,8 @@
   .scores-table th, .scores-table td{ text-align:center; }
   .scores-table td:first-child, .scores-table th:first-child{ text-align:left; }
   .scores-total{ font-weight:800; }
+  .scores-table textarea{ width:14rem; min-height:3.4rem; font-size:.82rem; text-align:left; }
+  .remark-suggested{ color:var(--mut); }
 </style>
 @endpush
 
@@ -65,6 +67,29 @@
     <p class="muted">There are no active students in this class yet.</p>
   </div>
 @else
+  @if($canSave)
+    <div class="card" style="margin-bottom:1.25rem">
+      <h3 style="margin-bottom:.4rem">Bulk score entry</h3>
+      <p class="muted" style="margin-bottom:.8rem">Download a CSV pre-filled with every student's name and any scores already entered, fill it in, then upload it back. Blank cells are left untouched, and every value is checked against the component's real maximum before saving.</p>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem">
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.scores.bulk-template', ['school' => $school->slug, 'term_id' => $termId, 'class_arm_id' => $classArmId, 'subject_id' => $subjectId]) }}">Download template for this subject</a>
+        @if($subjectsInThisClass > 1)
+          <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.scores.bulk-template', ['school' => $school->slug, 'term_id' => $termId, 'class_arm_id' => $classArmId]) }}">Download template for all my subjects in this class</a>
+        @endif
+      </div>
+      <form method="POST" action="{{ route('school.examinations.scores.bulk-upload', ['school' => $school->slug]) }}" enctype="multipart/form-data" style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap">
+        @csrf
+        <input type="hidden" name="term_id" value="{{ $termId }}" />
+        <input type="hidden" name="class_arm_id" value="{{ $classArmId }}" />
+        <div class="field" style="margin-bottom:0;flex:1;min-width:14rem">
+          <label for="bulk_file">Filled in CSV</label>
+          <input id="bulk_file" name="file" type="file" accept=".csv,text/csv" required />
+        </div>
+        <button class="btn btn-primary btn-sm" type="submit">Upload</button>
+      </form>
+    </div>
+  @endif
+
   <div class="card">
     <form method="POST" action="{{ route('school.examinations.scores.save', ['school' => $school->slug]) }}">
       @csrf
@@ -81,11 +106,15 @@
             @endforeach
             <th>Total</th>
             <th>Grade</th>
+            <th>Remark</th>
           </tr>
         </thead>
         <tbody>
           @foreach($students as $student)
-            @php $existing = $existingScores->get($student->id, collect())->keyBy('assessment_component_id'); @endphp
+            @php
+              $existing = $existingScores->get($student->id, collect())->keyBy('assessment_component_id');
+              $savedRemark = $remarks->get($student->id)?->remark;
+            @endphp
             <tr>
               <td><strong>{{ $student->fullName() }}</strong><div class="muted" style="font-size:.78rem">{{ $student->admission_number }}</div></td>
               @foreach($components as $component)
@@ -101,11 +130,19 @@
               @endforeach
               <td class="scores-total">{{ $summaries[$student->id]['total'] ?? 0 }}</td>
               <td>{{ $summaries[$student->id]['grade'] ?? 'Not graded' }}</td>
+              <td>
+                @if($canSave)
+                  <textarea name="remarks[{{ $student->id }}]" placeholder="No suggestion yet" class="{{ $savedRemark ? '' : 'remark-suggested' }}">{{ old('remarks.'.$student->id, $savedRemark ?? ($suggestions[$student->id] ?? '')) }}</textarea>
+                @else
+                  {{ $savedRemark ?: 'Not entered' }}
+                @endif
+              </td>
             </tr>
           @endforeach
         </tbody>
       </table>
       </div>
+      <p class="muted" style="margin-top:.6rem;font-size:.82rem">Remarks are suggested from your school's comment bank based on each student's score, in grey until you save. Edit, replace, or clear any of them before saving.</p>
       @if($canSave)
         <button class="btn btn-primary" type="submit" style="margin-top:1.2rem">Save scores</button>
       @endif

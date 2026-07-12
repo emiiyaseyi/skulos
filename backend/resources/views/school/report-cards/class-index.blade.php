@@ -27,7 +27,7 @@
     <table>
       <thead><tr>
         @if($canAssign)<th style="width:2.2rem"><input type="checkbox" id="rc-select-all" aria-label="Select all students" /></th>@endif
-        <th>Admission No.</th><th>Name</th><th>Status</th><th>Assigned to</th><th></th>
+        <th>Admission No.</th><th>Name</th><th>Status</th><th>Promotion</th><th>Assigned to</th><th></th>
       </tr></thead>
       <tbody>
         @foreach($students as $student)
@@ -42,12 +42,32 @@
             <td>
               @if(! $review)
                 <span class="badge badge-warn">Not generated</span>
-              @elseif($status === \App\Models\Tenant\ReportCardReview::STATUS_RELEASED)
+              @elseif(in_array($status, [\App\Models\Tenant\ReportCardReview::STATUS_RELEASED, \App\Models\Tenant\ReportCardReview::STATUS_LOCKED], true))
                 <span class="badge badge-ok">{{ \App\Models\Tenant\ReportCardReview::statusLabel($status) }}</span>
               @elseif($status === \App\Models\Tenant\ReportCardReview::STATUS_NEEDS_CORRECTION)
                 <span class="badge badge-warn">{{ \App\Models\Tenant\ReportCardReview::statusLabel($status) }}</span>
+              @elseif($status === \App\Models\Tenant\ReportCardReview::STATUS_ARCHIVED)
+                <span class="badge">{{ \App\Models\Tenant\ReportCardReview::statusLabel($status) }}</span>
               @else
                 <span class="badge">{{ \App\Models\Tenant\ReportCardReview::statusLabel($status) }}</span>
+                @if($status === \App\Models\Tenant\ReportCardReview::STATUS_PENDING_REVIEW && $review->currentStageRole())
+                  <div class="muted" style="font-size:.72rem">{{ $reviewChainRoles[$review->currentStageRole()] ?? $review->currentStageRole() }}</div>
+                @endif
+              @endif
+            </td>
+            <td class="muted" style="font-size:.85rem">
+              @if($review && $canAssign)
+                <form method="POST" action="{{ route('school.report-cards.promotion', ['school' => $school->slug, 'studentId' => $student->id]) }}">
+                  @csrf
+                  <select name="promotion_recommendation" onchange="this.form.submit()">
+                    <option value="">Not set</option>
+                    <option value="{{ \App\Models\Tenant\ReportCardReview::PROMOTION_PROMOTE }}" @selected($review->promotion_recommendation === \App\Models\Tenant\ReportCardReview::PROMOTION_PROMOTE)>Promote</option>
+                    <option value="{{ \App\Models\Tenant\ReportCardReview::PROMOTION_CONDITIONAL }}" @selected($review->promotion_recommendation === \App\Models\Tenant\ReportCardReview::PROMOTION_CONDITIONAL)>Conditional</option>
+                    <option value="{{ \App\Models\Tenant\ReportCardReview::PROMOTION_REPEAT }}" @selected($review->promotion_recommendation === \App\Models\Tenant\ReportCardReview::PROMOTION_REPEAT)>Repeat</option>
+                  </select>
+                </form>
+              @else
+                {{ \App\Models\Tenant\ReportCardReview::promotionLabel($review?->promotion_recommendation) ?? 'Not set' }}
               @endif
             </td>
             <td class="muted">
@@ -89,6 +109,18 @@
                   <form method="POST" action="{{ route('school.report-cards.release', ['school' => $school->slug, 'studentId' => $student->id]) }}" style="display:inline">
                     @csrf
                     <button class="btn btn-primary btn-sm" type="submit">Release</button>
+                  </form>
+                @endif
+                @if($canRelease && $status === \App\Models\Tenant\ReportCardReview::STATUS_RELEASED)
+                  <form method="POST" action="{{ route('school.report-cards.lock', ['school' => $school->slug, 'studentId' => $student->id]) }}" style="display:inline">
+                    @csrf
+                    <button class="btn btn-ghost btn-sm" type="submit">Lock</button>
+                  </form>
+                @endif
+                @if($canRelease && in_array($status, [\App\Models\Tenant\ReportCardReview::STATUS_RELEASED, \App\Models\Tenant\ReportCardReview::STATUS_LOCKED], true))
+                  <form method="POST" action="{{ route('school.report-cards.archive', ['school' => $school->slug, 'studentId' => $student->id]) }}" style="display:inline">
+                    @csrf
+                    <button class="btn btn-ghost btn-sm" type="submit">Archive</button>
                   </form>
                 @endif
               @endif

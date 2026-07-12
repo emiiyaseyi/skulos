@@ -402,6 +402,29 @@ return [
     ],
 
     /*
+    | Report card review chain (user directive 2026-07-12, "Intelligent
+    | Assessment & Report Card Workflow.docx": "Admin configures
+    | Workflow... Entirely configurable", worked examples given: Teacher
+    | -> Class Teacher -> VP Academic -> Principal at one school, Teacher
+    | -> Principal at another, Teacher -> Academic Coordinator ->
+    | Principal at a third). "report_card_review_roles" is the picklist
+    | an admin builds a chain from on the Report settings page;
+    | "default_report_card_review_chain" is what a school starts with
+    | (single stage, reproducing the original 2026-07-11 behaviour before
+    | this became configurable, so an existing school is unaffected until
+    | it deliberately adds a stage).
+    */
+    'report_card_review_roles' => [
+        'class-teacher' => 'Class Teacher',
+        'vice-principal' => 'Vice Principal',
+        'head-teacher' => 'Head Teacher',
+        'examination-officer' => 'Examination Officer',
+        'principal' => 'Principal',
+        'school-owner' => 'School Owner',
+    ],
+    'default_report_card_review_chain' => ['class-teacher'],
+
+    /*
     | Who can see a student's guardian/parent details (name, relationship,
     | contact, parent portal login) on their profile (user directive
     | 2026-07-12: "the admin should be able to set if class teacher only
@@ -746,6 +769,132 @@ return [
                 ['min' => 0, 'max' => 39, 'grade' => 'F9', 'remark' => 'Fail'],
             ],
         ],
+    ],
+
+    /*
+    | Score-range comment bank (user directive 2026-07-12, sourced verbatim
+    | from "Intelligent Assessment & Report Card Workflow.docx": "this is
+    | not really an AI engine, just use the bank against the score range
+    | and the flow in the document"). App\Services\Results\CommentBank
+    | picks a random comment from whichever band a subject's calculated
+    | total (already a 0-100 percentage, the same assumption
+    | GradingScale::bandFor() already makes) falls into, so a teacher gets
+    | a full suggested remark pre-filled rather than a blank box, and
+    | students stop getting identical report cards for the same score.
+    | Every comment here is copied verbatim from the docx, not
+    | regenerated, do the same if this bank is ever extended.
+    */
+    'default_comment_bank' => [
+        ['min' => 90, 'max' => 100, 'comments' => [
+            'Your performance this term has been exceptional and reflects remarkable dedication to your studies. Keep raising the standard.',
+            'You have demonstrated excellent mastery of the subject with consistent outstanding performance throughout the term.',
+            'Your commitment to learning is evident in your excellent results. Continue to aim for even greater accomplishments.',
+            'An outstanding performance that deserves recognition. Your consistency and determination are highly commendable.',
+            'You continue to set an excellent example through your academic discipline and commitment to excellence.',
+            'Your enthusiasm for learning has translated into remarkable academic success. Keep it up.',
+            'You have displayed excellent analytical and problem solving abilities throughout this term.',
+            'Your exceptional performance is the result of hard work and perseverance. Continue striving for greatness.',
+            'You have shown impressive confidence and accuracy in your academic work. Well done.',
+            'Outstanding achievement. Maintain your focus and continue inspiring those around you.',
+            'Your academic performance reflects maturity, discipline, and a genuine desire to succeed.',
+            'You consistently demonstrate a high level of understanding in every assessment.',
+            'Your dedication has produced excellent results. Continue challenging yourself academically.',
+            'You have maintained an exceptional standard throughout the term. Congratulations.',
+            'Your ability to grasp complex concepts quickly is highly commendable.',
+            'Excellent work. Continue nurturing your talents and exploring new learning opportunities.',
+            'Your commitment to excellence has been evident in every task completed this term.',
+            'You have proven yourself to be an exceptional learner. Keep aiming even higher.',
+            'Congratulations on an excellent performance. Continue maintaining this admirable standard.',
+            'Your outstanding achievement is a reflection of your discipline and determination. Well done.',
+        ]],
+        ['min' => 80, 'max' => 89, 'comments' => [
+            'You have performed very well this term. Continue working towards even greater success.',
+            'Your performance has been consistently impressive. Maintain your determination and focus.',
+            'You have demonstrated very good understanding of the subject. Keep aiming for excellence.',
+            'A commendable effort throughout the term. Continue improving your study habits.',
+            'Your performance shows strong potential for even greater achievement.',
+            'You are making steady academic progress. Continue giving your best.',
+            'Very good work. Increased confidence will help you perform even better.',
+            'Your dedication is yielding positive results. Continue striving for excellence.',
+            'A very encouraging performance that reflects commitment and discipline.',
+            'You have shown good understanding of the learning objectives. Keep improving.',
+            'Continue maintaining your positive attitude towards learning.',
+            'You have demonstrated strong academic ability throughout the term.',
+            'Keep building on your strengths to reach the highest level of achievement.',
+            'Your performance continues to improve steadily. Well done.',
+            'A very pleasing result. Continue to remain focused and determined.',
+            'Your consistent effort has produced commendable results.',
+            'Keep challenging yourself to reach the next level of academic excellence.',
+            'You have demonstrated impressive learning ability. Continue reading beyond the classroom.',
+            'A strong performance that can become outstanding with a little extra effort.',
+            'Well done. Continue maintaining your positive learning attitude.',
+        ]],
+        ['min' => 70, 'max' => 79, 'comments' => [
+            'You have achieved a good result this term. Continue working towards greater excellence.',
+            'Your effort has been commendable. Greater consistency will improve your performance further.',
+            'You have shown good understanding of the subject matter. Keep practicing.',
+            'A good performance. Continue asking questions whenever necessary.',
+            'Your academic progress is encouraging. Stay committed to your studies.',
+            'You are developing well academically. Continue putting in consistent effort.',
+            'Continue to participate actively during lessons to strengthen your understanding.',
+            'Your performance reflects good potential. Keep working hard.',
+            'A positive result. Continue developing your confidence and study habits.',
+            'You are progressing steadily. More revision will improve your performance.',
+            'Continue to complete assignments promptly to maximize your potential.',
+            'Your understanding continues to improve. Keep up the good work.',
+            'More independent study will help you achieve higher results.',
+            'You have shown determination throughout the term. Continue improving.',
+            'Good performance. Aim to become more consistent across all assessments.',
+            'Continue developing your problem solving skills through regular practice.',
+            'Keep believing in yourself and remain committed to academic success.',
+            'Your hard work is producing encouraging results. Continue striving higher.',
+            'A good foundation has been established. Continue building upon it.',
+            'You have the ability to perform even better with greater concentration.',
+        ]],
+        ['min' => 60, 'max' => 69, 'comments' => [
+            'Your performance is satisfactory but there is considerable room for improvement.',
+            'Continue working harder and your performance will improve significantly.',
+            'Greater commitment to your studies will produce better results.',
+            'You have demonstrated potential but need to be more consistent.',
+            'More classroom participation will strengthen your understanding.',
+            'You need to revise more regularly outside the classroom.',
+            'Continue making steady effort and your performance will improve.',
+            'You are capable of much better results with increased determination.',
+            'Your progress is encouraging. Continue working harder.',
+            'More attention during lessons will improve your academic performance.',
+            'Continue seeking help whenever concepts are not fully understood.',
+            'Better time management will contribute positively to your studies.',
+            'You should devote more attention to completing assignments thoroughly.',
+            'Continue developing better reading habits.',
+            'Stay focused and avoid unnecessary distractions during lessons.',
+            'Improvement is possible if you remain committed and disciplined.',
+            'Your ability is evident. More effort is required to maximize it.',
+            'Continue practicing regularly to improve your confidence.',
+            'Make better use of classroom activities to improve understanding.',
+            'Remain determined and your academic performance will improve steadily.',
+        ]],
+        ['min' => 0, 'max' => 59, 'comments' => [
+            'Greater dedication to your studies is required to improve your academic performance.',
+            'Your current performance does not reflect your true potential.',
+            'More serious attention should be given to your studies next term.',
+            'You need to participate more actively during lessons.',
+            'Greater commitment to homework and revision is necessary.',
+            'You are encouraged to seek academic support whenever necessary.',
+            'Improvement is possible if you develop more consistent study habits.',
+            'Regular practice and determination will help improve your results.',
+            'More concentration during lessons is strongly recommended.',
+            'You should take greater responsibility for your academic progress.',
+            'Additional effort is required to meet expected learning standards.',
+            'Develop a personal study timetable and follow it consistently.',
+            'Avoid distractions and focus more on your academic responsibilities.',
+            'Improvement begins with consistent effort and positive attitude.',
+            'More classroom participation will help strengthen your understanding.',
+            'You have the ability to improve significantly if you remain focused.',
+            'Continue working closely with your teachers for additional guidance.',
+            'Academic improvement requires commitment, perseverance, and discipline.',
+            'Make better use of available learning resources and support.',
+            'I encourage you to approach next term with renewed determination and confidence.',
+        ]],
     ],
 
     /*

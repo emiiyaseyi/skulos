@@ -7,6 +7,7 @@ use App\Models\Tenant\AcademicSession;
 use App\Models\Tenant\Arm;
 use App\Models\Tenant\AssessmentComponent;
 use App\Models\Tenant\ClassArm;
+use App\Models\Tenant\ReportCardReview;
 use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Score;
 use App\Models\Tenant\Section;
@@ -260,5 +261,156 @@ class ExaminationScreenTest extends TestCase
         $this->actingAs($teacher)->get("http://{$school->slug}.localhost/examinations")
             ->assertOk()
             ->assertSee('not assigned to teach');
+    }
+
+    /**
+     * Bulk score entry (user request 2026-07-12: "the teacher should be
+     * able to download the template that has the names, subjects... fill
+     * it and upload it back and it saves automatically"). Template is
+     * pre-filled with any existing scores, columns are "Subject: Component".
+     */
+    public function test_the_bulk_template_download_is_prefilled_with_existing_scores(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'exambulkone');
+        $f = $this->seedAcademics($school);
+        $this->attachTeacher($school, $teacher, $f['classArm']->id, $f['subject']->id);
+        [$first, $second, $exam] = $f['components'];
+
+        $this->actingAs($teacher)->post("http://{$school->slug}.localhost/examinations/scores", [
+            'term_id' => $f['term']->id,
+            'class_arm_id' => $f['classArm']->id,
+            'subject_id' => $f['subject']->id,
+            'scores' => [$f['ada']->id => [$first->id => 18, $second->id => 16, $exam->id => 52]],
+        ]);
+
+        $response = $this->actingAs($teacher)->get("http://{$school->slug}.localhost/examinations/scores/bulk-template?term_id={$f['term']->id}&class_arm_id={$f['classArm']->id}&subject_id={$f['subject']->id}");
+
+        $response->assertOk();
+        $csv = $response->getContent();
+        $this->assertStringContainsString('admission_number,name,"Mathematics: First CA","Mathematics: Second CA","Mathematics: Exam"', $csv);
+        $this->assertStringContainsString('A1,"Ada Obi",18,16,52', $csv);
+        $this->assertStringContainsString('A2,"Bode Ade",,,', $csv);
+    }
+
+    public function test_uploading_a_filled_bulk_template_saves_scores_and_skips_blank_cells(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'exambulktwo');
+        $f = $this->seedAcademics($school);
+        $this->attachTeacher($school, $teacher, $f['classArm']->id, $f['subject']->id);
+
+        $csv = "admission_number,name,\"Mathematics: First CA\",\"Mathematics: Second CA\",\"Mathematics: Exam\"\n"
+            ."A1,Ada Obi,18,16,52\n"
+            .'A2,Bode Ade,,,'; // Bode's row is left entirely blank, must not be touched.
+        $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('scores.csv', $csv);
+
+        $this->actingAs($teacher)->post("http://{$school->slug}.localhost/examinations/scores/bulk-upload", [
+            'term_id' => $f['term']->id,
+            'class_arm_id' => $f['classArm']->id,
+            'file' => $file,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame(3, Score::count());
+        $this->assertSame(0, Score::where('student_id', $f['bode']->id)->count());
+        $adaTotal = Score::where('student_id', $f['ada']->id)->sum('score');
+        app(TenantManager::class)->forget();
+        $this->assertEquals(86, $adaTotal);
+    }
+
+    public function test_bulk_upload_rejects_an_out_of_range_score_but_still_saves_the_valid_ones(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'exambulkthree');
+        $f = $this->seedAcademics($school);
+        $this->attachTeacher($school, $teacher, $f['classArm']->id, $f['subject']->id);
+
+        $csv = "admission_number,name,\"Mathematics: First CA\",\"Mathematics: Second CA\",\"Mathematics: Exam\"\n"
+            ."A1,Ada Obi,999,16,52\n"; // First CA is out of range (max 20), the other two are valid.
+        $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('scores.csv', $csv);
+
+        $this->actingAs($teacher)->post("http://{$school->slug}.localhost/examinations/scores/bulk-upload", [
+            'term_id' => $f['term']->id,
+            'class_arm_id' => $f['classArm']->id,
+            'file' => $file,
+        ])->assertRedirect()->assertSessionHas('error');
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame(2, Score::count());
+        $this->assertSame(0, Score::where('assessment_component_id', $f['components'][0]->id)->count());
+        app(TenantManager::class)->forget();
+    }
+
+    /** A multi-subject teacher's "all my subjects" template covers every subject in one file, and a teacher may still bulk upload just one subject. */
+    public function test_a_multi_subject_teachers_bulk_template_covers_every_subject_when_none_is_specified(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'exambulkfour');
+        $f = $this->seedAcademics($school);
+        $this->attachTeacher($school, $teacher, $f['classArm']->id, $f['subject']->id);
+
+        app(TenantManager::class)->use($school);
+        $english = Subject::create(['name' => 'English']);
+        $f['classArm']->schoolClass->subjects()->attach($english->id, ['is_mandatory' => true, 'is_examinable' => true]);
+        $staff = Staff::where('user_id', $teacher->id)->first();
+        TeachingAssignment::create(['staff_id' => $staff->id, 'subject_id' => $english->id, 'class_arm_id' => $f['classArm']->id]);
+        app(TenantManager::class)->forget();
+
+        $allSubjects = $this->actingAs($teacher)->get("http://{$school->slug}.localhost/examinations/scores/bulk-template?term_id={$f['term']->id}&class_arm_id={$f['classArm']->id}");
+        $allSubjects->assertOk();
+        $csv = $allSubjects->getContent();
+        $this->assertStringContainsString('Mathematics: First CA', $csv);
+        $this->assertStringContainsString('English: First CA', $csv);
+
+        $oneSubject = $this->actingAs($teacher)->get("http://{$school->slug}.localhost/examinations/scores/bulk-template?term_id={$f['term']->id}&class_arm_id={$f['classArm']->id}&subject_id={$f['subject']->id}");
+        $oneCsv = $oneSubject->getContent();
+        $this->assertStringContainsString('Mathematics: First CA', $oneCsv);
+        $this->assertStringNotContainsString('English', $oneCsv);
+    }
+
+    public function test_bulk_template_is_forbidden_for_a_class_the_teacher_does_not_teach(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'exambulkfive');
+        $f = $this->seedAcademics($school);
+        // Deliberately no attachTeacher() call.
+
+        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/examinations/scores/bulk-template?term_id={$f['term']->id}&class_arm_id={$f['classArm']->id}")
+            ->assertForbidden();
+    }
+
+    /**
+     * A report card past approved (approved/locked/released/archived,
+     * ReportCardReview::LOCKED_FOR_EDITING) blocks further score edits for
+     * that student's term, a reviewer must send it back to needs_correction
+     * first (user directive 2026-07-12, "Intelligent Assessment & Report
+     * Card Workflow.docx"). Bode has no review at all, so his score still
+     * saves in the same request, only Ada's is skipped.
+     */
+    public function test_saving_scores_for_a_locked_report_card_is_skipped(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'examlockone');
+        $f = $this->seedAcademics($school);
+        [$first, $second, $exam] = $f['components'];
+
+        app(TenantManager::class)->use($school);
+        ReportCardReview::create([
+            'student_id' => $f['ada']->id,
+            'term_id' => $f['term']->id,
+            'status' => ReportCardReview::STATUS_LOCKED,
+            'locked_at' => now(),
+        ]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/examinations/scores", [
+            'term_id' => $f['term']->id,
+            'class_arm_id' => $f['classArm']->id,
+            'subject_id' => $f['subject']->id,
+            'scores' => [
+                $f['ada']->id => [$first->id => 18, $second->id => 16, $exam->id => 52],
+                $f['bode']->id => [$first->id => 10, $second->id => 10, $exam->id => 30],
+            ],
+        ])->assertRedirect()->assertSessionHas('status', fn ($message) => str_contains($message, 'skipped because their report card is locked'));
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame(0, Score::where('student_id', $f['ada']->id)->count());
+        $this->assertSame(3, Score::where('student_id', $f['bode']->id)->count());
+        app(TenantManager::class)->forget();
     }
 }

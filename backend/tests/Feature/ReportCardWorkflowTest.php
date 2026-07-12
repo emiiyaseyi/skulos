@@ -389,4 +389,158 @@ class ReportCardWorkflowTest extends TestCase
         $this->actingAs($teacher)->post("http://{$school->slug}.localhost/report-cards/review-stage", ['enabled' => '0'])
             ->assertForbidden();
     }
+
+    /**
+     * Configurable multi-stage review chain (user directive 2026-07-12:
+     * "Admin configures Workflow... Entirely configurable"). A two-stage
+     * chain must require two Approve actions, staying pending_review with
+     * an advanced review_stage after the first, before it reaches Approved.
+     */
+    public function test_a_two_stage_review_chain_requires_two_approvals(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rctwenty');
+        [$classId, $studentId] = $this->seedClassWithStudent($school);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/review-chain", [
+            'chain' => ['class-teacher', 'school-owner'],
+        ])->assertRedirect();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/approve")->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $afterFirst = ReportCardReview::where('student_id', $studentId)->first();
+        app(TenantManager::class)->forget();
+        $this->assertSame(ReportCardReview::STATUS_PENDING_REVIEW, $afterFirst->status);
+        $this->assertSame(1, $afterFirst->review_stage);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/approve")->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $afterSecond = ReportCardReview::where('student_id', $studentId)->first();
+        app(TenantManager::class)->forget();
+        $this->assertSame(ReportCardReview::STATUS_APPROVED, $afterSecond->status);
+    }
+
+    /** A chain can only be built from the known role picklist, not an arbitrary string. */
+    public function test_updating_the_review_chain_rejects_an_unknown_role(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rctwentyone');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/review-chain", [
+            'chain' => ['not-a-real-role'],
+        ])->assertSessionHasErrors('chain.0');
+    }
+
+    /** Sending a report card back for correction restarts the chain from the first stage. */
+    public function test_sending_back_resets_the_review_stage(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rctwentytwo');
+        [$classId, $studentId] = $this->seedClassWithStudent($school);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/review-chain", [
+            'chain' => ['class-teacher', 'school-owner'],
+        ]);
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/approve");
+
+        app(TenantManager::class)->use($school);
+        $staff = Staff::create(['staff_id' => 'STF/0001', 'first_name' => 'Tolu', 'last_name' => 'Bello', 'status' => 'active']);
+        $staffId = $staff->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/send-back", [
+            'assigned_to_staff_id' => $staffId,
+            'notes' => 'Redo it.',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $review = ReportCardReview::where('student_id', $studentId)->first();
+        app(TenantManager::class)->forget();
+        $this->assertSame(0, $review->review_stage);
+    }
+
+    /** Promotion recommendation (user directive 2026-07-12: "Promote / Repeat / Conditional Promotion, Reason"). */
+    public function test_promotion_recommendation_can_be_saved(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rctwentythree');
+        [$classId, $studentId] = $this->seedClassWithStudent($school);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/promotion", [
+            'promotion_recommendation' => ReportCardReview::PROMOTION_CONDITIONAL,
+            'promotion_reason' => 'Needs to improve in Mathematics.',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $review = ReportCardReview::where('student_id', $studentId)->first();
+        app(TenantManager::class)->forget();
+        $this->assertSame(ReportCardReview::PROMOTION_CONDITIONAL, $review->promotion_recommendation);
+        $this->assertSame('Needs to improve in Mathematics.', $review->promotion_reason);
+    }
+
+    /** Lock only applies to an already released report card, and blocks a second lock attempt cleanly. */
+    public function test_a_report_card_must_be_released_before_it_can_be_locked(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rctwentyfour');
+        [$classId, $studentId] = $this->seedClassWithStudent($school);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/generate");
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/lock")
+            ->assertStatus(422);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/approve");
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/release");
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/lock")
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $review = ReportCardReview::where('student_id', $studentId)->first();
+        app(TenantManager::class)->forget();
+        $this->assertSame(ReportCardReview::STATUS_LOCKED, $review->status);
+        $this->assertNotNull($review->locked_at);
+    }
+
+    /** Archive accepts either a released or a locked report card, taking it out of active lists. */
+    public function test_a_released_or_locked_report_card_can_be_archived(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rctwentyfive');
+        [$classId, $studentId] = $this->seedClassWithStudent($school);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/generate");
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/approve");
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/release");
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/archive")
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $review = ReportCardReview::where('student_id', $studentId)->first();
+        app(TenantManager::class)->forget();
+        $this->assertSame(ReportCardReview::STATUS_ARCHIVED, $review->status);
+        $this->assertNotNull($review->archived_at);
+    }
+
+    /** The settings page itself must render the chain builder cleanly, not just accept the POST. */
+    public function test_settings_page_renders_the_review_chain_builder(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rctwentyseven');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/review-chain", [
+            'chain' => ['class-teacher', 'vice-principal'],
+        ]);
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/settings")
+            ->assertOk()
+            ->assertSee('Review chain')
+            ->assertSee('Class Teacher')
+            ->assertSee('Vice Principal');
+    }
+
+    /** A brand new draft report card cannot be archived, only released/locked ones. */
+    public function test_a_draft_report_card_cannot_be_archived(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rctwentysix');
+        [$classId, $studentId] = $this->seedClassWithStudent($school);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/generate");
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/archive")
+            ->assertStatus(422);
+    }
 }

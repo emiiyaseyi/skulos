@@ -70,6 +70,8 @@ class ReportCardController extends Controller
             'currentTemplate' => $prefs->template(),
             'fields' => $prefs->fields(),
             'reviewStageEnabled' => $this->reviewStageEnabled(),
+            'reviewChain' => ReportCardReview::reviewChain(),
+            'reviewChainRoles' => config('skulos.report_card_review_roles'),
         ]);
     }
 
@@ -84,6 +86,39 @@ class ReportCardController extends Controller
         return back()->with('status', $data['enabled']
             ? 'The report card review stage is on. Generated report cards now need approval before release.'
             : 'The report card review stage is off. Generated report cards are released immediately.');
+    }
+
+    /**
+     * The review chain itself (user directive 2026-07-12: "Admin
+     * configures Workflow... Entirely configurable"): an ordered list of
+     * role slugs a report card must pass through, in order, before it can
+     * be released. Stored as tenant Setting "report_card_review_chain",
+     * defaulting to config('skulos.default_report_card_review_chain')
+     * (single stage, the original 2026-07-11 behaviour) until a school
+     * deliberately changes it.
+     */
+    public function updateReviewChain(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.assign_review');
+        $data = $request->validate([
+            'chain' => ['required', 'array', 'min:1'],
+            'chain.*' => ['nullable', 'string', Rule::in(array_keys(config('skulos.report_card_review_roles')))],
+        ]);
+
+        // The chain builder submits one slot per stage; a blank slot (a stage
+        // left "Not used") stops the chain there, anything after it is ignored.
+        $chain = [];
+        foreach ($data['chain'] as $roleSlug) {
+            if (! $roleSlug) {
+                break;
+            }
+            $chain[] = $roleSlug;
+        }
+        abort_if(empty($chain), 422, 'The review chain needs at least one stage.');
+
+        Setting::put('report_card_review_chain', $chain);
+
+        return back()->with('status', 'Report card review chain updated.');
     }
 
     public function update(Request $request, ReportCardPreferences $prefs): \Illuminate\Http\RedirectResponse
@@ -194,6 +229,7 @@ class ReportCardController extends Controller
             'staffOptions' => Staff::active()->orderBy('first_name')->get(),
             'canAssign' => app(Rbac::class)->check(Auth::user(), $school, 'report_cards.assign_review'),
             'canRelease' => app(Rbac::class)->check(Auth::user(), $school, 'report_cards.release'),
+            'reviewChainRoles' => config('skulos.report_card_review_roles'),
         ]);
     }
 
@@ -281,6 +317,10 @@ class ReportCardController extends Controller
         $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id]);
         $review->fill([
             'status' => ReportCardReview::STATUS_NEEDS_CORRECTION,
+            // A correction restarts the chain from the first stage, the
+            // person fixing it is not necessarily wherever review_stage
+            // last pointed to.
+            'review_stage' => 0,
             'assigned_to_staff_id' => $data['assigned_to_staff_id'],
             'notes' => $data['notes'] ?? null,
         ])->save();
@@ -338,7 +378,14 @@ class ReportCardController extends Controller
         return back()->with('status', "{$count} report card(s) assigned for review.");
     }
 
-    /** Approve: the review is satisfied, ready to release. */
+    /**
+     * Approve: satisfies the CURRENT stage of the school's review chain
+     * (user directive 2026-07-12: "Admin configures Workflow... Entirely
+     * configurable"). At any stage before the last, this advances
+     * review_stage and stays pending_review, ready for the next role in
+     * the chain. At the final stage, exactly like the original single
+     * stage behaviour, it becomes approved and ready to release.
+     */
     public function approve(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'report_cards.assign_review');
@@ -346,10 +393,47 @@ class ReportCardController extends Controller
         $term = $this->currentTermOrAbort();
 
         $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id]);
-        $review->status = ReportCardReview::STATUS_APPROVED;
+
+        if ($review->isFinalStage()) {
+            $review->status = ReportCardReview::STATUS_APPROVED;
+            $review->save();
+
+            return back()->with('status', "{$student->fullName()}'s report card approved.");
+        }
+
+        $review->review_stage++;
+        $review->status = ReportCardReview::STATUS_PENDING_REVIEW;
         $review->save();
 
-        return back()->with('status', "{$student->fullName()}'s report card approved.");
+        $nextRole = config('skulos.report_card_review_roles')[$review->currentStageRole()] ?? $review->currentStageRole();
+
+        return back()->with('status', "{$student->fullName()}'s report card moved to the next review stage ({$nextRole}).");
+    }
+
+    /**
+     * Promotion recommendation (user directive 2026-07-12: "Class Teacher
+     * completes Promotion: Promote / Repeat / Conditional Promotion,
+     * Reason"). Not stage gated, any reviewer along the chain can set or
+     * change it, matching "Approval Workflow" from the doc being about
+     * the report card as a whole, not this one field specifically.
+     */
+    public function updatePromotion(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.assign_review');
+        $student = Student::findOrFail($request->route('studentId'));
+        $term = $this->currentTermOrAbort();
+
+        $data = $request->validate([
+            'promotion_recommendation' => ['required', Rule::in([
+                ReportCardReview::PROMOTION_PROMOTE, ReportCardReview::PROMOTION_REPEAT, ReportCardReview::PROMOTION_CONDITIONAL,
+            ])],
+            'promotion_reason' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id]);
+        $review->fill($data)->save();
+
+        return back()->with('status', "{$student->fullName()}'s promotion recommendation saved.");
     }
 
     /** Release: visible to students/parents from this point (once that portal exists). */
@@ -365,6 +449,53 @@ class ReportCardController extends Controller
         $review->save();
 
         return back()->with('status', "{$student->fullName()}'s report card released.");
+    }
+
+    /**
+     * Lock: a stronger, deliberate "this is truly final" past released
+     * (user directive 2026-07-12, docx flow: "...Publish → Parents View
+     * → Archive", "Lock" sits between Approve and Publish in the source
+     * flow, implemented here as an optional step after release instead,
+     * so a school that never locks anything keeps behaving exactly as
+     * before this existed). See ExaminationController::save(), a locked
+     * review blocks further score edits for this student's term the
+     * same as approved/released already do.
+     */
+    public function lock(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.release');
+        $student = Student::findOrFail($request->route('studentId'));
+        $term = $this->currentTermOrAbort();
+
+        $review = ReportCardReview::where('student_id', $student->id)->where('term_id', $term->id)->firstOrFail();
+        abort_unless($review->status === ReportCardReview::STATUS_RELEASED, 422, 'Only a released report card can be locked.');
+
+        $review->status = ReportCardReview::STATUS_LOCKED;
+        $review->locked_at = now();
+        $review->save();
+
+        return back()->with('status', "{$student->fullName()}'s report card locked.");
+    }
+
+    /** Archive: takes a released or locked report card out of active lists once its term is over. */
+    public function archive(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.release');
+        $student = Student::findOrFail($request->route('studentId'));
+        $term = $this->currentTermOrAbort();
+
+        $review = ReportCardReview::where('student_id', $student->id)->where('term_id', $term->id)->firstOrFail();
+        abort_unless(
+            in_array($review->status, [ReportCardReview::STATUS_RELEASED, ReportCardReview::STATUS_LOCKED], true),
+            422,
+            'Only a released or locked report card can be archived.'
+        );
+
+        $review->status = ReportCardReview::STATUS_ARCHIVED;
+        $review->archived_at = now();
+        $review->save();
+
+        return back()->with('status', "{$student->fullName()}'s report card archived.");
     }
 
     /**

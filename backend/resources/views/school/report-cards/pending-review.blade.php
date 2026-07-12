@@ -63,6 +63,9 @@
               @else
                 <span class="badge">{{ \App\Models\Tenant\ReportCardReview::statusLabel($review->status) }}</span>
               @endif
+              @if($review->status === \App\Models\Tenant\ReportCardReview::STATUS_PENDING_REVIEW && $review->currentStageRole())
+                <div class="muted" style="font-size:.72rem">{{ config('skulos.report_card_review_roles')[$review->currentStageRole()] ?? $review->currentStageRole() }}</div>
+              @endif
             </td>
             <td class="muted">
               <form method="POST" action="{{ route('school.report-cards.assign', ['school' => $school->slug, 'studentId' => $review->student_id]) }}">

@@ -26,13 +26,40 @@ class ReportCardReview extends Model
 
     public const STATUS_RELEASED = 'released';
 
+    /**
+     * Two more states added 2026-07-12 to match "Intelligent Assessment &
+     * Report Card Workflow.docx"'s "...Approve → Result Locked → Publish
+     * → Parents View → Archive": once released, a reviewer can explicitly
+     * Lock a report card (a stronger, deliberate "this is truly final"
+     * beyond just "released", nobody edits scores for this student's
+     * term past this point without a reviewer sending it back first, see
+     * ExaminationController::save()) and, separately, Archive a released
+     * or locked one once its term/session is over, taking it out of
+     * active lists.
+     */
+    public const STATUS_LOCKED = 'locked';
+
+    public const STATUS_ARCHIVED = 'archived';
+
+    public const PROMOTION_PROMOTE = 'promote';
+
+    public const PROMOTION_REPEAT = 'repeat';
+
+    public const PROMOTION_CONDITIONAL = 'conditional';
+
+    /** Statuses that block further score edits for this student's term (ExaminationController::save() checks this), a reviewer must send it back to needs_correction first. */
+    public const LOCKED_FOR_EDITING = [self::STATUS_APPROVED, self::STATUS_LOCKED, self::STATUS_RELEASED, self::STATUS_ARCHIVED];
+
     protected $connection = 'tenant';
 
-    protected $fillable = ['student_id', 'term_id', 'status', 'assigned_to_staff_id', 'notes', 'released_at'];
+    protected $fillable = [
+        'student_id', 'term_id', 'status', 'review_stage', 'assigned_to_staff_id', 'notes',
+        'promotion_recommendation', 'promotion_reason', 'released_at', 'locked_at', 'archived_at',
+    ];
 
     protected function casts(): array
     {
-        return ['released_at' => 'datetime'];
+        return ['released_at' => 'datetime', 'locked_at' => 'datetime', 'archived_at' => 'datetime'];
     }
 
     public function student(): BelongsTo
@@ -58,7 +85,45 @@ class ReportCardReview extends Model
             self::STATUS_NEEDS_CORRECTION => 'Needs correction',
             self::STATUS_APPROVED => 'Approved',
             self::STATUS_RELEASED => 'Released',
+            self::STATUS_LOCKED => 'Locked',
+            self::STATUS_ARCHIVED => 'Archived',
             default => ucfirst($status),
         };
+    }
+
+    public static function promotionLabel(?string $value): ?string
+    {
+        return match ($value) {
+            self::PROMOTION_PROMOTE => 'Promote',
+            self::PROMOTION_REPEAT => 'Repeat',
+            self::PROMOTION_CONDITIONAL => 'Conditional promotion',
+            default => null,
+        };
+    }
+
+    /**
+     * The school's configured review chain, an ordered list of role
+     * slugs (user directive 2026-07-12: "Admin configures Workflow...
+     * Entirely configurable", e.g. Teacher -> Class Teacher -> VP
+     * Academic -> Principal at one school, Teacher -> Principal at
+     * another). Tenant Setting "report_card_review_chain" overrides
+     * config('skulos.default_report_card_review_chain'); the default
+     * (['class-teacher']) reproduces the original single-stage behaviour
+     * exactly, so an existing school with no chain configured is
+     * unaffected.
+     */
+    public static function reviewChain(): array
+    {
+        return Setting::grab('report_card_review_chain') ?? config('skulos.default_report_card_review_chain', ['class-teacher']);
+    }
+
+    public function currentStageRole(): ?string
+    {
+        return self::reviewChain()[$this->review_stage] ?? null;
+    }
+
+    public function isFinalStage(): bool
+    {
+        return $this->review_stage >= count(self::reviewChain()) - 1;
     }
 }
