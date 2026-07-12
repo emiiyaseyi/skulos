@@ -39,6 +39,7 @@
               <div class="grid cols-2" style="margin-bottom:.8rem">
                 <div class="field"><label>Name</label><input name="name" value="{{ $plan->name }}" required /></div>
                 <div class="field"><label>Price per student per term</label><input name="price_per_student_per_term" type="number" step="0.01" min="0" value="{{ $plan->price_per_student_per_term }}" required /></div>
+                <div class="field"><label>Storage limit (MB, optional)</label><input name="storage_limit_mb" type="number" min="1" value="{{ $plan->storage_limit_mb }}" placeholder="No limit" /></div>
               </div>
 
               <label style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim)">RBAC modules included</label>
@@ -79,6 +80,7 @@
     <div class="grid cols-2" style="margin-bottom:.8rem">
       <div class="field"><label for="np_name">Name</label><input id="np_name" name="name" required /></div>
       <div class="field"><label for="np_price">Price per student per term</label><input id="np_price" name="price_per_student_per_term" type="number" step="0.01" min="0" required /></div>
+      <div class="field"><label for="np_storage">Storage limit (MB, optional)</label><input id="np_storage" name="storage_limit_mb" type="number" min="1" placeholder="No limit" /></div>
     </div>
 
     <label style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim)">RBAC modules included</label>

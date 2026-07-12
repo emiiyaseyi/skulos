@@ -309,6 +309,13 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/{backupId}/restore', [$backups, 'restore'])->name('restore');
         });
 
+        Route::prefix('maintenance')->name('school.maintenance.')->group(function () {
+            $maintenance = \App\Http\Controllers\School\MaintenanceController::class;
+            Route::get('/', [$maintenance, 'index'])->name('index');
+            Route::post('/optimize', [$maintenance, 'optimizeNow'])->name('optimize');
+            Route::post('/retention', [$maintenance, 'runRetentionNow'])->name('retention');
+        });
+
         // Mail settings (optional per-school SMTP override).
         Route::prefix('settings/mail')->name('school.settings.mail.')->group(function () {
             $mailSettings = \App\Http\Controllers\School\MailSettingsController::class;

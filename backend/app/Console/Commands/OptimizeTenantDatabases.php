@@ -3,18 +3,16 @@
 namespace App\Console\Commands;
 
 use App\Models\School;
+use App\Services\Maintenance\MaintenanceActionsService;
 use App\Services\Tenancy\TenantManager;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Weekly scheduled MySQL maintenance per school database (Dbase
  * recommendation: "optimize/analyze/repair tables"). Registered weekly in
- * routes/console.php. On MySQL this runs a real OPTIMIZE TABLE per table;
- * on SQLite (local dev) it runs VACUUM instead, since OPTIMIZE TABLE is a
- * MySQL-only statement — this keeps local dev harmless rather than erroring
- * on every run, without pretending SQLite needed the same treatment.
+ * routes/console.php. The actual per-school work lives in
+ * MaintenanceActionsService::optimize(), shared with the Maintenance
+ * Center's "Optimize now" button.
  */
 class OptimizeTenantDatabases extends Command
 {
@@ -22,7 +20,7 @@ class OptimizeTenantDatabases extends Command
 
     protected $description = "Run weekly database maintenance (OPTIMIZE TABLE on MySQL, VACUUM on SQLite) against every school's own database";
 
-    public function handle(TenantManager $tenants): int
+    public function handle(TenantManager $tenants, MaintenanceActionsService $actions): int
     {
         $schools = School::whereNotNull('database')->whereNotNull('provisioned_at')->get();
 
@@ -35,21 +33,12 @@ class OptimizeTenantDatabases extends Command
                 continue;
             }
 
-            $driver = DB::connection('tenant')->getDriverName();
-
-            if ($driver === 'mysql') {
-                $tables = Schema::connection('tenant')->getTableListing();
-                foreach ($tables as $table) {
-                    $bareName = \Illuminate\Support\Str::afterLast($table, '.');
-                    DB::connection('tenant')->statement("OPTIMIZE TABLE `{$bareName}`");
-                }
-                $this->info("{$school->slug}: optimized ".count($tables).' table(s).');
-            } elseif ($driver === 'sqlite') {
-                DB::connection('tenant')->statement('VACUUM');
-                $this->info("{$school->slug}: vacuumed (sqlite, local dev stand in).");
-            }
-
+            $result = $actions->optimize($school);
             $tenants->forget();
+
+            $this->info($result['driver'] === 'mysql'
+                ? "{$school->slug}: optimized {$result['tables_touched']} table(s)."
+                : "{$school->slug}: vacuumed ({$result['driver']}, local dev stand in).");
         }
 
         return self::SUCCESS;

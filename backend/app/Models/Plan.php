@@ -22,7 +22,7 @@ class Plan extends Model
     use Auditable;
 
     protected $fillable = [
-        'name', 'slug', 'price_per_student_per_term', 'modules', 'features', 'is_default', 'is_active', 'is_purchasable', 'sort_order',
+        'name', 'slug', 'price_per_student_per_term', 'storage_limit_mb', 'modules', 'features', 'is_default', 'is_active', 'is_purchasable', 'sort_order',
     ];
 
     protected function casts(): array

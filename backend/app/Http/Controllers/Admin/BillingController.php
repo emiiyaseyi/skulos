@@ -205,6 +205,7 @@ class BillingController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'price_per_student_per_term' => ['required', 'numeric', 'min:0'],
+            'storage_limit_mb' => ['nullable', 'integer', 'min:1'],
         ]);
 
         $request->validate([
