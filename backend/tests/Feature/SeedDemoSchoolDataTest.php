@@ -64,15 +64,33 @@ class SeedDemoSchoolDataTest extends TestCase
             $this->assertNotNull($arm->assistant_teacher_staff_id, "{$arm->label()} must have a class assistant");
         }
 
-        // Exactly one of each unique role, and exactly 5 subject teachers,
-        // one per level band (user request 2026-07-12: "1 school owner per
-        // school, same for all unique roles... for subject teachers: 1 in
-        // nursery level, 1 for pry 1-3, 1 for pry4-6, 1 for jss 1-3, 1 for
-        // sss 1-3"), not the old one-teacher-per-subject-per-section model.
+        // Exactly one of each unique role (user request 2026-07-12: "1
+        // school owner per school, same for all unique roles").
         foreach (['Principal', 'Head Teacher', 'Registrar', 'Examination Officer', 'ICT Officer', 'Bursar'] as $position) {
             $this->assertSame(1, Staff::where('position', $position)->count(), "there must be exactly one {$position}");
         }
-        $this->assertSame(5, Staff::where('position', 'like', 'Subject Teacher (%')->count(), 'exactly one subject teacher per level band');
+
+        // Revised the same day, live QA: "why is a subject teacher
+        // teaching this many subjects, highest should be 2... same way
+        // class teacher should have a max of 3 subjects". No longer
+        // exactly one subject teacher per band, however many it takes so
+        // nobody exceeds the cap, verified directly per teacher below.
+        $subjectTeachers = Staff::where('position', 'like', 'Subject Teacher (%')->get();
+        $this->assertGreaterThan(5, $subjectTeachers->count(), 'capping subjects per teacher means more than one per band is needed');
+        foreach ($subjectTeachers as $teacher) {
+            $distinctSubjects = \App\Models\Tenant\TeachingAssignment::where('staff_id', $teacher->id)->distinct('subject_id')->count('subject_id');
+            $this->assertLessThanOrEqual(2, $distinctSubjects, "{$teacher->position} must teach at most 2 distinct subjects");
+        }
+
+        // Class teachers now personally teach up to 3 subjects to their
+        // own class (previously zero), class assistants still teach none.
+        foreach ($arms as $arm) {
+            $classTeacherSubjects = \App\Models\Tenant\TeachingAssignment::where('staff_id', $arm->class_teacher_staff_id)
+                ->where('class_arm_id', $arm->id)->distinct('subject_id')->count('subject_id');
+            $this->assertLessThanOrEqual(3, $classTeacherSubjects, "{$arm->label()}'s class teacher must teach at most 3 subjects");
+            $this->assertGreaterThan(0, $classTeacherSubjects, "{$arm->label()}'s class teacher should teach at least one subject to their own class");
+        }
+
         $this->assertSame(Student::count(), StudentGuardian::count(), 'every student gets exactly one guardian');
         app(TenantManager::class)->forget();
     }

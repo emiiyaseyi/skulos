@@ -52,6 +52,13 @@
           </p>
         </div>
       </div>
+      @unless($panel['read_only'])
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem">
+          <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.index', ['school' => $school->slug]) }}">Enter CA &amp; exam scores</a>
+          <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.index', ['school' => $school->slug]) }}">Report cards</a>
+          <a class="btn btn-ghost btn-sm" href="{{ route('school.students', ['school' => $school->slug]) }}">My students</a>
+        </div>
+      @endunless
     </div>
     @break
 
@@ -63,6 +70,10 @@
           <li><span><strong>{{ $a['subject'] }}</strong></span><span class="muted">{{ $a['class'] }}</span></li>
         @endforeach
       </ul>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem">
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.index', ['school' => $school->slug]) }}">Enter CA &amp; exam scores</a>
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.students', ['school' => $school->slug]) }}">My students</a>
+      </div>
     </div>
     @break
 

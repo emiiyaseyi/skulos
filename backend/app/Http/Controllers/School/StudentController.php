@@ -18,6 +18,7 @@ use App\Services\Bulk\CsvReader;
 use App\Services\Bulk\Importer;
 use App\Services\Bulk\Importers\StudentImporter;
 use App\Services\Rbac\Rbac;
+use App\Services\Rbac\TeacherScope;
 use App\Services\Results\ResultService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -59,16 +60,28 @@ class StudentController extends Controller
     {
         $this->authorizeAction($request, 'students.view');
         $school = $this->school($request);
+        $user = Auth::user();
 
         $search = trim((string) $request->query('q'));
 
-        if ($search) {
+        /*
+         * A class or subject teacher (user directive 2026-07-12: "should
+         * only see the class assigned to him with the students taking the
+         * subjects he takes in those class") never gets the school-wide
+         * grouped browse view, only a flat roster of their own scoped
+         * students, the same shape a search result already used. An
+         * unrestricted role searching still works exactly as before.
+         */
+        $scopedArmIds = app(TeacherScope::class)->classArmIds($user, $school);
+
+        if ($search || $scopedArmIds !== null) {
             $students = Student::query()
-                ->where(function ($w) use ($search) {
+                ->when($scopedArmIds !== null, fn ($q) => $q->whereIn('current_class_arm_id', $scopedArmIds))
+                ->when($search, fn ($q) => $q->where(function ($w) use ($search) {
                     $w->where('admission_number', 'like', "%{$search}%")
                         ->orWhere('first_name', 'like', "%{$search}%")
                         ->orWhere('last_name', 'like', "%{$search}%");
-                })
+                }))
                 ->orderBy('last_name')
                 ->paginate(20)
                 ->withQueryString();
@@ -78,11 +91,11 @@ class StudentController extends Controller
                 'accent' => $school->branding()['color'],
                 'students' => $students,
                 'search' => $search,
-                'total' => Student::count(),
+                'total' => $scopedArmIds !== null ? Student::whereIn('current_class_arm_id', $scopedArmIds)->count() : Student::count(),
                 'sections' => null,
-                'canImport' => app(Rbac::class)->check(Auth::user(), $school, 'students.bulk'),
-                'canCreate' => app(Rbac::class)->check(Auth::user(), $school, 'students.create'),
-                'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'students.update'),
+                'canImport' => app(Rbac::class)->check($user, $school, 'students.bulk'),
+                'canCreate' => app(Rbac::class)->check($user, $school, 'students.create'),
+                'canManage' => app(Rbac::class)->check($user, $school, 'students.update'),
             ]);
         }
 
@@ -105,9 +118,9 @@ class StudentController extends Controller
             'sections' => $sections,
             'classCounts' => $counts,
             'unassigned' => $unassigned,
-            'canImport' => app(Rbac::class)->check(Auth::user(), $school, 'students.bulk'),
-            'canCreate' => app(Rbac::class)->check(Auth::user(), $school, 'students.create'),
-            'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'students.update'),
+            'canImport' => app(Rbac::class)->check($user, $school, 'students.bulk'),
+            'canCreate' => app(Rbac::class)->check($user, $school, 'students.create'),
+            'canManage' => app(Rbac::class)->check($user, $school, 'students.update'),
         ]);
     }
 
@@ -115,13 +128,21 @@ class StudentController extends Controller
     public function bulkAction(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'students.update');
+        $school = $this->school($request);
         $data = $request->validate([
             'student_ids' => ['required', 'array', 'min:1'],
             'student_ids.*' => ['exists:tenant.students,id'],
             'action' => ['required', Rule::in([Student::STATUS_ACTIVE, Student::STATUS_GRADUATED, Student::STATUS_WITHDRAWN, Student::STATUS_SUSPENDED, 'delete'])],
         ]);
 
-        $query = Student::whereIn('id', $data['student_ids']);
+        // A class teacher holds students.update (for things like updating
+        // their own class's attendance-adjacent status), but that must
+        // never let them bulk act on a student outside their own scope,
+        // an id typed/crafted for another class is silently dropped
+        // rather than acted on.
+        $scopedArmIds = app(TeacherScope::class)->classArmIds(Auth::user(), $school);
+        $query = Student::whereIn('id', $data['student_ids'])
+            ->when($scopedArmIds !== null, fn ($q) => $q->whereIn('current_class_arm_id', $scopedArmIds));
 
         if ($data['action'] === 'delete') {
             $this->authorizeAction($request, 'students.delete');
@@ -248,8 +269,17 @@ class StudentController extends Controller
     {
         $this->authorizeAction($request, 'students.view');
         $school = $this->school($request);
+        $user = Auth::user();
         $student = Student::with('guardians.user', 'house', 'currentClassArm.schoolClass', 'currentClassArm.arm')
             ->findOrFail($request->route('studentId'));
+
+        // A class/subject teacher opening a student outside their own
+        // classes gets a 404, not a 403, per the standing "never leak
+        // that a resource exists" convention.
+        $scopedArmIds = app(TeacherScope::class)->classArmIds($user, $school);
+        if ($scopedArmIds !== null) {
+            abort_unless($student->current_class_arm_id && $scopedArmIds->contains($student->current_class_arm_id), 404);
+        }
 
         $term = Term::current()->first();
         $report = $term ? app(ResultService::class)->studentReport($student->id, $term->id, GradingScale::default()) : [];

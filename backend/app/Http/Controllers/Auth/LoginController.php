@@ -12,9 +12,18 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Platform sign in (session based). Throttled by email + IP to resist
- * credential stuffing. A school-scoped login page posts here too, with a
- * hidden "school" slug, so a user is verified to belong to that school.
+ * Platform sign in (session based). Throttled by identifier + IP to
+ * resist credential stuffing. A school-scoped login page posts here too,
+ * with a hidden "school" slug, so a user is verified to belong to that
+ * school. The identifier field accepts either an email address or a
+ * phone number (user directive 2026-07-12: "login details can be email
+ * or phone number with the password"), matching the fact that a school's
+ * own `staff_identifier`/`parent_identifier` setting can already be
+ * phone, previously sign in was hard coded to email regardless of that
+ * setting. The form field is still named/keyed "email" throughout (view,
+ * validation, session error bag) purely to avoid touching every existing
+ * caller and test, its accepted values are broader than the name now
+ * implies.
  */
 class LoginController extends Controller
 {
@@ -31,12 +40,12 @@ class LoginController extends Controller
     public function login(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'email' => ['required', 'email'],
+            'email' => ['required', 'string'],
             'password' => ['required', 'string'],
         ]);
 
-        $email = Str::lower($data['email']);
-        $key = $email.'|'.$request->ip();
+        $identifier = trim($data['email']);
+        $key = Str::lower($identifier).'|'.$request->ip();
         if (RateLimiter::tooManyAttempts($key, 5)) {
             throw ValidationException::withMessages([
                 'email' => 'Too many attempts. Please wait a moment and try again.',
@@ -44,7 +53,9 @@ class LoginController extends Controller
         }
 
         $school = $request->attributes->get('school');
-        $user = \App\Models\User::where('email', $email)->first();
+        $user = str_contains($identifier, '@')
+            ? \App\Models\User::where('email', Str::lower($identifier))->first()
+            : \App\Models\User::where('phone', preg_replace('/\D+/', '', $identifier))->first();
 
         // Verify credentials and, on a school portal, membership BEFORE
         // authenticating, so a non member is never signed in even briefly.

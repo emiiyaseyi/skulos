@@ -2,6 +2,31 @@
   $slug = $school?->slug;
   $chev = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
 
+  /*
+   * A class or subject teacher (user directive 2026-07-12, live QA:
+   * "should not be seeing subjects and classes, houses, session and
+   * terms, assessment structure, calendar, all admin features,
+   * communication, finance and settings... except a new feature was
+   * given to them") only ever sees the plan-feature-catalog items their
+   * own role actually holds a real permission for, everything else in
+   * the loop below is skipped for them outright. Every other role's nav
+   * is completely unaffected, this only ever narrows what was already
+   * shown, and only for the two roles the report was about.
+   */
+  $navUser = auth()->user();
+  $navRbac = app(\App\Services\Rbac\Rbac::class);
+  $scopedRoleSlug = ($school && $navUser) ? optional($navUser->roleIn($school))->slug : null;
+  $isTeacherScoped = $scopedRoleSlug && in_array($scopedRoleSlug, config('skulos.teacher_scoped_roles', []), true);
+  // These stay hidden from a scoped role even though the underlying
+  // permission code (usually students.view) happens to be shared with a
+  // screen they ARE allowed, e.g. Houses shares students.view with the
+  // Students screen itself.
+  $alwaysHiddenForScoped = [
+    'school_houses', 'school_sections', 'classes_arms', 'subject_management',
+    'academic_sessions_terms', 'student_promotion', 'unlimited_grading_systems',
+    'school_profile', 'school_branding',
+  ];
+
   $link = function($routeName, $label, $icon) use ($cur, $slug) {
     $active = $cur === $routeName;
     $url = ($slug && \Illuminate\Support\Facades\Route::has($routeName)) ? route($routeName, ['school' => $slug]) : '#';
@@ -98,6 +123,15 @@
       if (! $school->hasFeature($featureKey)) {
         continue;
       }
+      if ($isTeacherScoped) {
+        if (in_array($featureKey, $alwaysHiddenForScoped, true)) {
+          continue;
+        }
+        $requiredPerm = config("skulos.nav_permission_map.{$featureKey}");
+        if (! $requiredPerm || ! $navRbac->check($navUser, $school, $requiredPerm)) {
+          continue;
+        }
+      }
       $targetLabel = $forceGroup[$featureKey] ?? $category['label'];
       if (isset($builtRoutes[$featureKey])) {
         [$routeName, $label, $icon] = $builtRoutes[$featureKey];
@@ -116,8 +150,11 @@
   // look) is not gated by any plan feature (user decision 2026-07-11:
   // every plan should be able to reach it), so unlike everything else in
   // Reports & Analytics it is appended unconditionally rather than coming
-  // from the catalog loop.
-  if (! isset($renderedRoutes['school.report-cards.edit'])) {
+  // from the catalog loop. Configuring the report template/look is a
+  // policy decision, not something a scoped teacher role should reach
+  // (user directive 2026-07-12), hidden for them even though they hold
+  // report_cards.view for the Report Cards screen itself.
+  if (! $isTeacherScoped && ! isset($renderedRoutes['school.report-cards.edit'])) {
     $renderedRoutes['school.report-cards.edit'] = true;
     $groups['Reports & Analytics'][] = $link('school.report-cards.edit', 'Report settings', 'results');
   }
@@ -126,8 +163,10 @@
   // feature, so it does not come from the loop above. The user asked
   // (2026-07-11) for it to have its own line under Reports & Analytics
   // next to "Report Cards" and "Report settings", gated on the same
-  // feature that gates the report card workflow itself.
-  if ($school?->hasFeature('basic_report_cards')
+  // feature that gates the report card workflow itself. It is a cross
+  // school review queue for whoever is assigned reviewer duty, not
+  // something a scoped teacher role browses (2026-07-12).
+  if (! $isTeacherScoped && $school?->hasFeature('basic_report_cards')
       && ! isset($renderedRoutes['school.report-cards.pending-review'])) {
     $renderedRoutes['school.report-cards.pending-review'] = true;
     $groups['Reports & Analytics'][] = $link('school.report-cards.pending-review', 'Pending review', 'results');
@@ -138,8 +177,10 @@
   // appended to their most natural existing category group rather than
   // getting their own, reusing App\Services\Rbac\Rbac::moduleState() the
   // same way App\Http\Controllers\Admin\BillingController::grantAddOn()/
-  // revokeAddOn() already read and write it.
-  $addOnModules = [
+  // revokeAddOn() already read and write it. None of these are built
+  // screens yet (all render as "Soon"), so a scoped teacher role never
+  // sees them either (2026-07-12).
+  $addOnModules = $isTeacherScoped ? [] : [
     'School Operations' => ['library' => 'Library', 'hostel' => 'Hostel', 'transport' => 'Transport', 'inventory' => 'Inventory', 'medical' => 'Medical / Clinic', 'visitors' => 'Visitor Management', 'discipline' => 'Discipline'],
   ];
   foreach ($addOnModules as $groupLabel => $modules) {
@@ -158,16 +199,28 @@
   // Guided Setup and the school's own operational settings (Backups,
   // Mail Settings, Idle Timeout, Student Field settings, Dashboard look)
   // are not customer facing plan features at all, so they are not part
-  // of the catalog loop above, they always show.
-  $groups['Settings'] = [
-    $link('school.backups.index', 'Backups', 'settings'),
-    $link('school.maintenance.index', 'School Health &amp; Storage', 'settings'),
-    $link('school.dashboard.edit', 'Dashboard look', 'settings'),
-    $link('school.students.settings.edit', 'Student Fields', 'students'),
-    $link('school.settings.mail.edit', 'Mail Settings', 'settings'),
-    $link('school.settings.idle-timeout.edit', 'Idle Timeout', 'settings'),
-    $link('school.settings.retention.edit', 'Retention', 'settings'),
-  ];
+  // of the catalog loop above, they always show, except to a scoped
+  // teacher role (user directive 2026-07-12: "should not be seeing...
+  // settings"), none of these are things a class or subject teacher
+  // configures.
+  if (! $isTeacherScoped) {
+    $groups['Settings'] = [
+      $link('school.backups.index', 'Backups', 'settings'),
+      $link('school.maintenance.index', 'School Health &amp; Storage', 'settings'),
+      $link('school.dashboard.edit', 'Dashboard look', 'settings'),
+      $link('school.students.settings.edit', 'Student Fields', 'students'),
+      $link('school.settings.mail.edit', 'Mail Settings', 'settings'),
+      $link('school.settings.idle-timeout.edit', 'Idle Timeout', 'settings'),
+      $link('school.settings.retention.edit', 'Retention', 'settings'),
+    ];
+  }
+
+  // "Guided Setup" itself is a first-run admin task (creating sessions,
+  // class structure, houses...), not something a scoped teacher role
+  // should be steered toward either.
+  if ($isTeacherScoped) {
+    $groups['Main'] = [$link('school.dashboard', 'Dashboard', 'dashboard')];
+  }
 @endphp
 
 @foreach($groups as $label => $entries)

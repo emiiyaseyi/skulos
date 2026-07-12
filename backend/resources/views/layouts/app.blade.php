@@ -137,6 +137,8 @@ tr:last-child td{border-bottom:none}
 .idle-actions button{flex:1}
 .muted{color:var(--mut)}.stack{display:flex;flex-direction:column;gap:.4rem}
 .row-between{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.pager{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
+.pager-status{font-size:.85rem}
 .notif{display:flex;gap:.75rem;padding:.8rem 0;border-bottom:1px solid var(--line)}
 .notif:last-child{border-bottom:none}
 .notif .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:.45rem;flex-shrink:0}

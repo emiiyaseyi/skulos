@@ -155,6 +155,34 @@ class PlatformFlowTest extends TestCase
             ->assertOk()->assertSee('Unity');
     }
 
+    /**
+     * User directive 2026-07-12: "login details can be email or phone
+     * number with the password", the same field must accept either.
+     */
+    public function test_a_member_can_sign_in_with_their_phone_number_instead_of_email(): void
+    {
+        $school = $this->provisionSchool('phonelogin', 'Phone Login School');
+        $teacher = User::factory()->create(['phone' => '08031234567', 'password' => bcrypt('teachpass123')]);
+        $school->users()->attach($teacher->id, ['status' => 'active']);
+
+        $this->post('http://phonelogin.localhost/login', [
+            'email' => '08031234567',
+            'password' => 'teachpass123',
+        ])->assertRedirect(route('school.dashboard', ['school' => 'phonelogin']));
+        $this->assertAuthenticatedAs($teacher);
+    }
+
+    public function test_signing_in_with_an_unknown_phone_number_fails_like_any_other_bad_login(): void
+    {
+        $school = $this->provisionSchool('phonelogintwo', 'Phone Login School Two');
+
+        $this->post('http://phonelogintwo.localhost/login', [
+            'email' => '08099999999',
+            'password' => 'whatever123',
+        ])->assertSessionHasErrors('email');
+        $this->assertGuest();
+    }
+
     public function test_error_pages_use_the_branded_template_not_the_framework_default(): void
     {
         $school = $this->provisionSchool('errorpage', 'Error Page School');

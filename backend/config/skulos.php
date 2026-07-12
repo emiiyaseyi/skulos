@@ -774,6 +774,47 @@ return [
 
     'permission_actions' => ['view', 'create', 'update', 'delete', 'export', 'bulk'],
 
+    /*
+    | Roles restricted to only their own assigned classes/students rather
+    | than the whole school (user directive 2026-07-12, live QA on the
+    | subject-teacher role: "should only see the class assigned to him...
+    | except a new feature was given to them"). Enforced by
+    | App\Services\Rbac\TeacherScope, not Rbac::check() itself, since this
+    | is a data-level ("which rows") restriction, not an action-level
+    | ("can they at all") one. A scoped role that is explicitly granted
+    | the "students" module via Staff Extra Access is lifted back to
+    | unrestricted, that override always wins.
+    */
+    'teacher_scoped_roles' => ['class-teacher', 'subject-teacher', 'class-assistant'],
+
+    /*
+    | Which RBAC permission code gates a nav item being shown at all (user
+    | directive 2026-07-12: a class/subject teacher should not even see a
+    | link to Houses, Classes & Subjects, Sessions & Terms, Assessment
+    | Structure, Grading, Campuses, or Branding in the sidebar). Keyed by
+    | the same plan_feature_catalog feature key nav-school.blade.php
+    | already loops over. A feature key with no entry here falls back to
+    | "hidden for config('skulos.teacher_scoped_roles') roles, shown for
+    | everyone else" rather than blocking every other role too, since only
+    | those two roles were reported seeing things they should not.
+    */
+    'nav_permission_map' => [
+        'student_records' => 'students.view',
+        'staff_records' => 'staff.view',
+        'school_houses' => 'students.view',
+        'school_sections' => 'academics.view',
+        'classes_arms' => 'academics.view',
+        'subject_management' => 'academics.view',
+        'academic_sessions_terms' => 'academics.view',
+        'continuous_assessment' => 'examinations.view',
+        'result_management' => 'examinations.view',
+        'basic_report_cards' => 'report_cards.view',
+        'unlimited_grading_systems' => 'examinations.view',
+        'student_promotion' => 'academics.view',
+        'school_profile' => 'school_info.view',
+        'school_branding' => 'school_info.update',
+    ],
+
     'extra_permissions' => [
         'examinations' => ['approve_results', 'publish_results'],
         'communication' => ['broadcast'],

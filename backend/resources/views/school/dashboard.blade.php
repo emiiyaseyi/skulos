@@ -57,7 +57,7 @@
 
 @section('content')
 
-@unless($setupComplete)
+@unless($setupComplete || ! app(\App\Services\Rbac\Rbac::class)->check(auth()->user(), $school, 'academics.view'))
   <div class="card" style="margin-bottom:1.1rem;border-color:var(--accent)">
     <div class="row-between" style="flex-wrap:wrap;gap:.6rem">
       <p style="margin:0">Your school still has some one time setup left, sessions and terms, class structure, houses, or assessment structure.</p>
@@ -89,7 +89,9 @@
     <div><h1 class="title">{{ $school->name }}</h1><p class="subtitle">Welcome back, {{ auth()->user()->name }}.</p></div>
     <div class="stack" style="flex-direction:row;gap:.5rem">
       <a class="btn btn-ghost btn-sm" href="{{ route('school.dashboard.edit', ['school' => $school->slug]) }}">Dashboard look</a>
-      <a class="btn btn-ghost btn-sm" href="{{ route('school.branding.edit', ['school' => $school->slug]) }}">Branding</a>
+      @if(app(\App\Services\Rbac\Rbac::class)->check(auth()->user(), $school, 'school_info.update'))
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.branding.edit', ['school' => $school->slug]) }}">Branding</a>
+      @endif
     </div>
   </div>
   @endif

@@ -25,10 +25,10 @@
   </form>
 </div>
 
-@if($search)
+@if($students !== null)
   <div class="card">
     @if($students->isEmpty())
-      <p class="muted">No students match your search.</p>
+      <p class="muted">{{ $search ? 'No students match your search.' : 'No students assigned to you yet.' }}</p>
     @else
       @if($canManage)
         <form id="bulkStudentsForm" method="POST" action="{{ route('school.students.bulk-action', ['school' => $school->slug]) }}"></form>

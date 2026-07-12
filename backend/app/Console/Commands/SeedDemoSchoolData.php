@@ -346,11 +346,25 @@ class SeedDemoSchoolData extends Command
      * teacher"), never more, matching the position-exists guard every
      * other one-per-role seed in this command uses.
      */
+    /** A class teacher personally teaches up to this many subjects to their own class arm (user directive 2026-07-12: "class teacher should have a max of 3 subjects"), never more, matching real Nigerian primary practice where the class teacher covers the core subjects and specialists cover the rest. */
+    protected const MAX_SUBJECTS_PER_CLASS_TEACHER = 3;
+
+    /** A subject teacher covers at most this many distinct subjects, taught across every class arm in their band (user directive 2026-07-12: "highest should be 2 in your seeded data for each subject teacher"), never every subject in the band the way the previous one-teacher-per-band model did. */
+    protected const MAX_SUBJECTS_PER_SUBJECT_TEACHER = 2;
+
     protected function ensureClassTeacher(ClassArm $arm, School $school, Rbac $rbac): void
     {
         if (! $arm->class_teacher_staff_id) {
             $staff = $this->makeStaffWithLogin($school, $rbac, 'Class Teacher', 'class-teacher');
             $arm->update(['class_teacher_staff_id' => $staff->id]);
+
+            foreach ($arm->schoolClass?->subjects->take(self::MAX_SUBJECTS_PER_CLASS_TEACHER) ?? [] as $subject) {
+                TeachingAssignment::firstOrCreate([
+                    'staff_id' => $staff->id,
+                    'subject_id' => $subject->id,
+                    'class_arm_id' => $arm->id,
+                ]);
+            }
         }
 
         if (! $arm->assistant_teacher_staff_id) {
@@ -360,15 +374,19 @@ class SeedDemoSchoolData extends Command
     }
 
     /**
-     * Exactly one subject teacher per level band, teaching every subject
-     * across every class in that band (user request 2026-07-12, spelled
-     * out precisely: "1 in nursery level, 1 for pry 1-3, 1 for pry4-6, 1
-     * for jss 1-3, 1 for sss 1-3"), not the previous one-teacher-per-
-     * subject-per-section model. Primary and Secondary each split into
-     * two bands here even though they share one Section record apiece
-     * (Primary 1-6 is a single Section; JSS+SSS share the "Secondary"
-     * Section by design, see ensureLeadership()), so the split is done by
-     * class name/sequence, not by Section.
+     * Level bands a subject teacher is drawn from (user request 2026-07-12:
+     * "1 in nursery level, 1 for pry 1-3, 1 for pry4-6, 1 for jss 1-3, 1
+     * for sss 1-3"). Primary and Secondary each split into two bands here
+     * even though they share one Section record apiece (Primary 1-6 is a
+     * single Section; JSS+SSS share the "Secondary" Section by design, see
+     * ensureLeadership()), so the split is done by class name/sequence,
+     * not by Section. Originally one teacher per band covered every
+     * subject in it; revised the same day after live QA against real
+     * seeded data ("why is a subject teacher teaching this many subjects,
+     * highest should be 2") to instead create as many teachers per band
+     * as needed so nobody teaches more than
+     * MAX_SUBJECTS_PER_SUBJECT_TEACHER subjects, see
+     * ensureSubjectTeachers().
      */
     protected function subjectTeacherBands(): array
     {
@@ -381,6 +399,16 @@ class SeedDemoSchoolData extends Command
         ];
     }
 
+    /**
+     * As many subject teachers per band as needed to cover every subject
+     * in that band without any one of them exceeding
+     * MAX_SUBJECTS_PER_SUBJECT_TEACHER, each teaching their assigned
+     * subjects across every class arm in the band. Safe to re-run: a
+     * subject already covered by an existing teacher in this band is
+     * never reassigned, only genuinely uncovered subjects create new
+     * teachers, numbered "#1", "#2"... within their band's position label
+     * so re-running never collides with an existing one.
+     */
     protected function ensureSubjectTeachers(School $school, Rbac $rbac): int
     {
         $created = 0;
@@ -388,26 +416,33 @@ class SeedDemoSchoolData extends Command
 
         foreach ($this->subjectTeacherBands() as $bandLabel => $matcher) {
             $bandClasses = $classes->filter($matcher);
-            $armIds = $bandClasses->flatMap(fn ($c) => $c->arms->pluck('id'));
-            $subjectIds = $bandClasses->flatMap(fn ($c) => $c->subjects->pluck('id'))->unique();
+            $armIds = $bandClasses->flatMap(fn ($c) => $c->arms->pluck('id'))->unique()->values();
+            $subjectIds = $bandClasses->flatMap(fn ($c) => $c->subjects->pluck('id'))->unique()->values();
             if ($armIds->isEmpty() || $subjectIds->isEmpty()) {
                 continue;
             }
 
-            $position = "Subject Teacher ({$bandLabel})";
-            $staff = Staff::where('position', $position)->first();
-            if (! $staff) {
+            $existingTeachers = Staff::where('position', 'like', "Subject Teacher ({$bandLabel})%")->get();
+            $coveredSubjectIds = TeachingAssignment::whereIn('staff_id', $existingTeachers->pluck('id'))
+                ->whereIn('class_arm_id', $armIds)
+                ->pluck('subject_id')->unique();
+            $remainingSubjectIds = $subjectIds->diff($coveredSubjectIds)->values();
+            $nextIndex = $existingTeachers->count() + 1;
+
+            foreach ($remainingSubjectIds->chunk(self::MAX_SUBJECTS_PER_SUBJECT_TEACHER) as $chunk) {
+                $position = "Subject Teacher ({$bandLabel}) #{$nextIndex}";
                 $staff = $this->makeStaffWithLogin($school, $rbac, $position, 'subject-teacher');
                 $created++;
-            }
+                $nextIndex++;
 
-            foreach ($armIds as $armId) {
-                foreach ($subjectIds as $subjectId) {
-                    TeachingAssignment::firstOrCreate([
-                        'staff_id' => $staff->id,
-                        'subject_id' => $subjectId,
-                        'class_arm_id' => $armId,
-                    ]);
+                foreach ($armIds as $armId) {
+                    foreach ($chunk as $subjectId) {
+                        TeachingAssignment::firstOrCreate([
+                            'staff_id' => $staff->id,
+                            'subject_id' => $subjectId,
+                            'class_arm_id' => $armId,
+                        ]);
+                    }
                 }
             }
         }

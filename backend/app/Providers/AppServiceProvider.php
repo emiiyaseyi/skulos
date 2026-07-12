@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\TrialRequest;
 use App\Services\Mail\MailSettingsService;
 use App\Services\Tenancy\TenantManager;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -25,6 +26,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Laravel's built in pagination views assume Tailwind is loaded
+        // (SKULOS is hand rolled CSS, no Tailwind anywhere), the default
+        // "tailwind" view's SVG prev/next arrows have no width/height and
+        // no Tailwind utility classes to size them, so they render at the
+        // browser's SVG fallback size, filling most of the page (found
+        // live 2026-07-12: "check this big arrows on the page, fix").
+        // Every ->links() call in the app uses this one custom view now.
+        Paginator::defaultView('vendor.pagination.custom');
+        Paginator::defaultSimpleView('vendor.pagination.custom');
+
         // Register the Microsoft (Outlook) Socialite provider. Google is
         // supported by Socialite natively.
         Event::listen(function (SocialiteWasCalled $event) {

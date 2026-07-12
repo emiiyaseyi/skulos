@@ -6,8 +6,8 @@
 <form method="POST" action="{{ $school ? route('school.login.submit', ['school' => $school->slug]) : url('/login') }}">
   @csrf
   <div class="field">
-    <label for="email">Email</label>
-    <input id="email" name="email" type="email" value="{{ old('email') }}" autocomplete="email" required autofocus />
+    <label for="email">Email or phone number</label>
+    <input id="email" name="email" type="text" value="{{ old('email') }}" autocomplete="username" required autofocus />
   </div>
   <div class="field">
     <label for="password">Password</label>
