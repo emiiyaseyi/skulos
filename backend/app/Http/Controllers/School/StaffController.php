@@ -153,6 +153,7 @@ class StaffController extends Controller
             ClassArm::where('class_teacher_staff_id', $staffMember->id)->update(['class_teacher_staff_id' => null]);
             ClassArm::where('assistant_teacher_staff_id', $staffMember->id)->update(['assistant_teacher_staff_id' => null]);
             House::where('housemaster_staff_id', $staffMember->id)->update(['housemaster_staff_id' => null]);
+            House::where('assistant_housemaster_staff_id', $staffMember->id)->update(['assistant_housemaster_staff_id' => null]);
             SchoolClass::where('default_reviewer_staff_id', $staffMember->id)->update(['default_reviewer_staff_id' => null]);
             $staffMember->forceDelete();
         }

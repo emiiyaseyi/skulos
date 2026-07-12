@@ -20,7 +20,7 @@ class StudentGuardian extends Model
 
     protected $fillable = [
         'student_id', 'name', 'relationship', 'email', 'phone',
-        'guardian_user_id', 'is_primary',
+        'guardian_user_id', 'is_primary', 'house_id',
     ];
 
     protected function casts(): array
@@ -31,6 +31,11 @@ class StudentGuardian extends Model
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class);
+    }
+
+    public function house(): BelongsTo
+    {
+        return $this->belongsTo(House::class);
     }
 
     /**

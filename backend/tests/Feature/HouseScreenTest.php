@@ -4,7 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\School;
 use App\Models\Tenant\House;
+use App\Models\Tenant\HouseSponsor;
+use App\Models\Tenant\Staff;
 use App\Models\Tenant\Student;
+use App\Models\Tenant\StudentGuardian;
 use App\Models\User;
 use App\Services\Rbac\Rbac;
 use App\Services\Tenancy\TenantManager;
@@ -430,5 +433,294 @@ class HouseScreenTest extends TestCase
 
         $this->actingAs($teacher)->get("http://{$school->slug}.localhost/houses")->assertOk();
         $this->actingAs($teacher)->get("http://{$school->slug}.localhost/houses/bulk-template")->assertOk();
+    }
+
+    /** House Master and Assistant House Master, both chosen from the teacher list (user directive 2026-07-12). */
+    public function test_admin_can_set_house_master_and_assistant(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'housetwentyfour');
+
+        app(TenantManager::class)->use($school);
+        $house = House::create(['name' => 'Red House']);
+        $master = Staff::create(['staff_id' => 'STF/0001', 'first_name' => 'Tolu', 'last_name' => 'Bello', 'status' => 'active']);
+        $assistant = Staff::create(['staff_id' => 'STF/0002', 'first_name' => 'Ada', 'last_name' => 'Nwosu', 'status' => 'active']);
+        $houseId = $house->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/houses/{$houseId}/leadership", [
+            'housemaster_staff_id' => $master->id,
+            'assistant_housemaster_staff_id' => $assistant->id,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $updated = House::find($houseId);
+        app(TenantManager::class)->forget();
+
+        $this->assertSame($master->id, $updated->housemaster_staff_id);
+        $this->assertSame($assistant->id, $updated->assistant_housemaster_staff_id);
+    }
+
+    /** A sponsor can be an existing parent. */
+    public function test_admin_can_add_a_parent_as_a_sponsor(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'housetwentyfive');
+
+        app(TenantManager::class)->use($school);
+        $house = House::create(['name' => 'Red House']);
+        $student = Student::create(['admission_number' => 'A1', 'first_name' => 'Ada', 'last_name' => 'Obi']);
+        $guardian = StudentGuardian::create(['student_id' => $student->id, 'name' => 'Mrs. Obi']);
+        $houseId = $house->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/houses/{$houseId}/sponsors", [
+            'student_guardian_id' => $guardian->id,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $sponsor = HouseSponsor::where('house_id', $houseId)->first();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame($guardian->id, $sponsor->student_guardian_id);
+        $this->assertSame('Mrs. Obi', $sponsor->displayName());
+    }
+
+    /** A sponsor can also be typed in freehand when they are not a parent (user directive 2026-07-12). */
+    public function test_admin_can_add_a_free_typed_sponsor_who_is_not_a_parent(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'housetwentysix');
+
+        app(TenantManager::class)->use($school);
+        $house = House::create(['name' => 'Red House']);
+        $houseId = $house->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/houses/{$houseId}/sponsors", [
+            'name' => 'Chief Adewale Okon',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $sponsor = HouseSponsor::where('house_id', $houseId)->first();
+        app(TenantManager::class)->forget();
+
+        $this->assertNull($sponsor->student_guardian_id);
+        $this->assertSame('Chief Adewale Okon', $sponsor->displayName());
+    }
+
+    public function test_adding_a_sponsor_with_neither_a_parent_nor_a_name_is_rejected(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'housetwentyseven');
+
+        app(TenantManager::class)->use($school);
+        $house = House::create(['name' => 'Red House']);
+        $houseId = $house->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/houses/{$houseId}/sponsors", [])
+            ->assertStatus(422);
+    }
+
+    public function test_admin_can_remove_a_sponsor(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'housetwentyeight');
+
+        app(TenantManager::class)->use($school);
+        $house = House::create(['name' => 'Red House']);
+        $sponsor = HouseSponsor::create(['house_id' => $house->id, 'name' => 'Chief Adewale Okon']);
+        $houseId = $house->id;
+        $sponsorId = $sponsor->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->delete("http://{$school->slug}.localhost/houses/{$houseId}/sponsors/{$sponsorId}")
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $gone = HouseSponsor::find($sponsorId);
+        app(TenantManager::class)->forget();
+        $this->assertNull($gone);
+    }
+
+    /** Members are grouped into Students, Teachers, and Parents (user directive 2026-07-12). */
+    public function test_the_house_page_groups_members_into_students_teachers_and_parents(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'housetwentynine');
+
+        app(TenantManager::class)->use($school);
+        $house = House::create(['name' => 'Red House']);
+        Student::create(['admission_number' => 'A1', 'first_name' => 'Ada', 'last_name' => 'Obi', 'house_id' => $house->id]);
+        Staff::create(['staff_id' => 'STF/0001', 'first_name' => 'Tolu', 'last_name' => 'Bello', 'status' => 'active', 'house_id' => $house->id]);
+        $student2 = Student::create(['admission_number' => 'A2', 'first_name' => 'Bode', 'last_name' => 'Ade']);
+        StudentGuardian::create(['student_id' => $student2->id, 'name' => 'Mrs. Ade', 'house_id' => $house->id]);
+        $houseId = $house->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->get("http://{$school->slug}.localhost/houses/{$houseId}")
+            ->assertOk()
+            ->assertSee('Students (1)', false)
+            ->assertSee('Teachers (1)', false)
+            ->assertSee('Parents (1)', false)
+            ->assertSee('Ada Obi')
+            ->assertSee('Tolu Bello')
+            ->assertSee('Mrs. Ade');
+    }
+
+    /** A staff member's house can be changed from the house page (user directive 2026-07-12). */
+    public function test_admin_can_move_a_staff_member_into_a_house(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'housethirty');
+
+        app(TenantManager::class)->use($school);
+        $house = House::create(['name' => 'Red House']);
+        $staff = Staff::create(['staff_id' => 'STF/0001', 'first_name' => 'Tolu', 'last_name' => 'Bello', 'status' => 'active']);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/houses/members/staff/{$staff->id}", [
+            'house_id' => $house->id,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $updated = Staff::find($staff->id);
+        app(TenantManager::class)->forget();
+        $this->assertSame($house->id, $updated->house_id);
+    }
+
+    /** A parent's house can be changed from the house page (user directive 2026-07-12). */
+    public function test_admin_can_move_a_parent_into_a_house(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'housethirtyone');
+
+        app(TenantManager::class)->use($school);
+        $house = House::create(['name' => 'Red House']);
+        $student = Student::create(['admission_number' => 'A1', 'first_name' => 'Ada', 'last_name' => 'Obi']);
+        $guardian = StudentGuardian::create(['student_id' => $student->id, 'name' => 'Mrs. Obi']);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/houses/members/parents/{$guardian->id}", [
+            'house_id' => $house->id,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $updated = StudentGuardian::find($guardian->id);
+        app(TenantManager::class)->forget();
+        $this->assertSame($house->id, $updated->house_id);
+    }
+
+    /**
+     * Distribute every not-yet-in-a-house staff member and parent evenly
+     * across active houses (user directive 2026-07-12: "Share all staff
+     * and parents into the houses under each school"). Already assigned
+     * members must be left untouched, and a retired house must never
+     * receive anyone new.
+     */
+    public function test_distribute_members_spreads_unassigned_staff_and_parents_across_active_houses_only(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'housethirtytwo');
+
+        app(TenantManager::class)->use($school);
+        $red = House::create(['name' => 'Red House']);
+        $blue = House::create(['name' => 'Blue House']);
+        $retired = House::create(['name' => 'Grey House', 'is_active' => false]);
+
+        $alreadyPlaced = Staff::create(['staff_id' => 'STF/0001', 'first_name' => 'Already', 'last_name' => 'Placed', 'status' => 'active', 'house_id' => $blue->id]);
+        $staffOne = Staff::create(['staff_id' => 'STF/0002', 'first_name' => 'Tolu', 'last_name' => 'Bello', 'status' => 'active']);
+        $staffTwo = Staff::create(['staff_id' => 'STF/0003', 'first_name' => 'Ada', 'last_name' => 'Nwosu', 'status' => 'active']);
+
+        $student = Student::create(['admission_number' => 'A1', 'first_name' => 'Bode', 'last_name' => 'Ade']);
+        $guardian = StudentGuardian::create(['student_id' => $student->id, 'name' => 'Mrs. Ade']);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/houses/distribute-members")
+            ->assertRedirect()->assertSessionHas('status');
+
+        app(TenantManager::class)->use($school);
+        $alreadyPlacedAfter = Staff::find($alreadyPlaced->id);
+        $staffOneAfter = Staff::find($staffOne->id);
+        $staffTwoAfter = Staff::find($staffTwo->id);
+        $guardianAfter = StudentGuardian::find($guardian->id);
+        $studentAfter = Student::find($student->id);
+        app(TenantManager::class)->forget();
+
+        $this->assertSame($blue->id, $alreadyPlacedAfter->house_id, 'an already placed staff member must not be moved');
+        $this->assertContains($staffOneAfter->house_id, [$red->id, $blue->id]);
+        $this->assertContains($staffTwoAfter->house_id, [$red->id, $blue->id]);
+        $this->assertNotEquals($retired->id, $staffOneAfter->house_id);
+        $this->assertNotEquals($retired->id, $staffTwoAfter->house_id);
+        $this->assertContains($guardianAfter->house_id, [$red->id, $blue->id]);
+        $this->assertContains($studentAfter->house_id, [$red->id, $blue->id], 'distribute must also place students, not just staff and parents');
+    }
+
+    public function test_distribute_members_requires_at_least_one_active_house(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'housethirtythree');
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/houses/distribute-members")
+            ->assertRedirect()->assertSessionHas('error');
+    }
+
+    /** Staff CSV export/import (user directive 2026-07-12: "add the import and export feature under the house section too"). */
+    public function test_staff_bulk_template_is_prefilled_and_upload_assigns_a_house(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'housethirtyfive');
+
+        app(TenantManager::class)->use($school);
+        $red = House::create(['name' => 'Red House']);
+        $staff = Staff::create(['staff_id' => 'STF/0001', 'first_name' => 'Tolu', 'last_name' => 'Bello', 'status' => 'active']);
+        app(TenantManager::class)->forget();
+
+        $template = $this->actingAs($admin)->get("http://{$school->slug}.localhost/houses/staff-bulk-template");
+        $template->assertOk();
+        $this->assertStringContainsString('STF/0001', $template->getContent());
+        $this->assertStringContainsString('Tolu Bello', $template->getContent());
+
+        $csv = "staff_id,name,house\nSTF/0001,Tolu Bello,Red House\n";
+        $file = UploadedFile::fake()->createWithContent('staff-houses.csv', $csv);
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/houses/staff-bulk-assign", ['file' => $file])
+            ->assertRedirect()->assertSessionHas('status');
+
+        app(TenantManager::class)->use($school);
+        $updated = Staff::find($staff->id);
+        app(TenantManager::class)->forget();
+        $this->assertSame($red->id, $updated->house_id);
+    }
+
+    /** Parent CSV export/import, keyed on the child's admission number plus the parent's name (no standalone Guardian entity to key on directly). */
+    public function test_parents_bulk_template_is_prefilled_and_upload_assigns_a_house(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'housethirtysix');
+
+        app(TenantManager::class)->use($school);
+        $red = House::create(['name' => 'Red House']);
+        $student = Student::create(['admission_number' => 'A1', 'first_name' => 'Ada', 'last_name' => 'Obi']);
+        $guardian = StudentGuardian::create(['student_id' => $student->id, 'name' => 'Mrs. Obi']);
+        app(TenantManager::class)->forget();
+
+        $template = $this->actingAs($admin)->get("http://{$school->slug}.localhost/houses/parents-bulk-template");
+        $template->assertOk();
+        $this->assertStringContainsString('A1', $template->getContent());
+        $this->assertStringContainsString('Mrs. Obi', $template->getContent());
+
+        $csv = "student_admission_number,parent_name,house\nA1,Mrs. Obi,Red House\n";
+        $file = UploadedFile::fake()->createWithContent('parent-houses.csv', $csv);
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/houses/parents-bulk-assign", ['file' => $file])
+            ->assertRedirect()->assertSessionHas('status');
+
+        app(TenantManager::class)->use($school);
+        $updated = StudentGuardian::find($guardian->id);
+        app(TenantManager::class)->forget();
+        $this->assertSame($red->id, $updated->house_id);
+    }
+
+    public function test_a_teacher_without_manage_settings_cannot_set_house_leadership(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'housethirtyfour');
+
+        app(TenantManager::class)->use($school);
+        $house = House::create(['name' => 'Red House']);
+        $houseId = $house->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacher)->post("http://{$school->slug}.localhost/houses/{$houseId}/leadership", [])
+            ->assertForbidden();
     }
 }

@@ -101,22 +101,67 @@
     </form>
   </div>
 </div>
+
+<div class="card" style="margin-bottom:1.25rem">
+  <h3 style="margin-bottom:.4rem">Distribute students, staff and parents</h3>
+  <p class="muted" style="margin-bottom:.8rem">Spread every student, staff member, and parent who is not yet in a house evenly across your active houses. Anyone already assigned is left untouched.</p>
+  <form method="POST" action="{{ route('school.houses.distribute-members', ['school' => $school->slug]) }}">
+    @csrf
+    <button class="btn btn-primary btn-sm" type="submit">Distribute students, staff and parents</button>
+  </form>
+</div>
 @endif
 
-<div class="card">
-  <h3 style="margin-bottom:.4rem">Bulk assign by CSV</h3>
-  <p class="muted" style="margin-bottom:.8rem">Download every current student with their admission number, class, and current house. Fill in or change the house column, then upload it back. Blank house cells leave that student's house untouched.</p>
-  <a class="btn btn-ghost" href="{{ route('school.houses.bulk-template', ['school' => $school->slug]) }}">Download CSV</a>
+<div class="grid cols-3" style="align-items:start">
+  <div class="card">
+    <h3 style="margin-bottom:.4rem">Students, by CSV</h3>
+    <p class="muted" style="margin-bottom:.8rem">Download every current student with their admission number, class, and current house. Fill in or change the house column, then upload it back. Blank house cells leave that student's house untouched.</p>
+    <a class="btn btn-ghost" href="{{ route('school.houses.bulk-template', ['school' => $school->slug]) }}">Download CSV</a>
 
-  @if($canManage)
-    <form method="POST" action="{{ route('school.houses.bulk-assign', ['school' => $school->slug]) }}" enctype="multipart/form-data" style="margin-top:1rem;display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap">
-      @csrf
-      <div class="field" style="margin-bottom:0;flex:1;min-width:14rem">
-        <label for="file">Filled in CSV</label>
-        <input id="file" name="file" type="file" accept=".csv,text/csv" required />
-      </div>
-      <button class="btn btn-primary btn-sm" type="submit">Upload</button>
-    </form>
-  @endif
+    @if($canManage)
+      <form method="POST" action="{{ route('school.houses.bulk-assign', ['school' => $school->slug]) }}" enctype="multipart/form-data" style="margin-top:1rem;display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap">
+        @csrf
+        <div class="field" style="margin-bottom:0;flex:1;min-width:12rem">
+          <label for="file">Filled in CSV</label>
+          <input id="file" name="file" type="file" accept=".csv,text/csv" required />
+        </div>
+        <button class="btn btn-primary btn-sm" type="submit">Upload</button>
+      </form>
+    @endif
+  </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:.4rem">Staff, by CSV</h3>
+    <p class="muted" style="margin-bottom:.8rem">Same round trip, for staff: staff id, name, and current house. Blank house cells leave that staff member's house untouched.</p>
+    <a class="btn btn-ghost" href="{{ route('school.houses.staff-bulk-template', ['school' => $school->slug]) }}">Download CSV</a>
+
+    @if($canManage)
+      <form method="POST" action="{{ route('school.houses.staff-bulk-assign', ['school' => $school->slug]) }}" enctype="multipart/form-data" style="margin-top:1rem;display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap">
+        @csrf
+        <div class="field" style="margin-bottom:0;flex:1;min-width:12rem">
+          <label for="staff_file">Filled in CSV</label>
+          <input id="staff_file" name="file" type="file" accept=".csv,text/csv" required />
+        </div>
+        <button class="btn btn-primary btn-sm" type="submit">Upload</button>
+      </form>
+    @endif
+  </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:.4rem">Parents, by CSV</h3>
+    <p class="muted" style="margin-bottom:.8rem">Same round trip, for parents: the child's admission number, the parent's name, and current house. Blank house cells leave that parent's house untouched.</p>
+    <a class="btn btn-ghost" href="{{ route('school.houses.parents-bulk-template', ['school' => $school->slug]) }}">Download CSV</a>
+
+    @if($canManage)
+      <form method="POST" action="{{ route('school.houses.parents-bulk-assign', ['school' => $school->slug]) }}" enctype="multipart/form-data" style="margin-top:1rem;display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap">
+        @csrf
+        <div class="field" style="margin-bottom:0;flex:1;min-width:12rem">
+          <label for="parent_file">Filled in CSV</label>
+          <input id="parent_file" name="file" type="file" accept=".csv,text/csv" required />
+        </div>
+        <button class="btn btn-primary btn-sm" type="submit">Upload</button>
+      </form>
+    @endif
+  </div>
 </div>
 @endsection

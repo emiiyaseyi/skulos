@@ -5,7 +5,10 @@ namespace App\Http\Controllers\School;
 use App\Http\Controllers\Controller;
 use App\Models\School;
 use App\Models\Tenant\House;
+use App\Models\Tenant\HouseSponsor;
+use App\Models\Tenant\Staff;
 use App\Models\Tenant\Student;
+use App\Models\Tenant\StudentGuardian;
 use App\Services\Bulk\CsvReader;
 use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
@@ -92,23 +95,31 @@ class HouseController extends Controller
     }
 
     /**
-     * One house's detail page (user request 2026-07-10): rename, retire
-     * or reactivate, and see/download its members. Staff membership was
-     * asked for too, but the Staff module itself has no admin screens or
-     * even a house_id column yet (nav still marks it "Soon"), so there is
-     * no real list to assign from or show here, staff are deliberately
-     * left out of both the page and the download until that module
-     * exists, rather than building a picker with nothing behind it.
+     * One house's detail page (user request 2026-07-10, extended
+     * 2026-07-12 with leadership, sponsors, and staff/parent membership):
+     * rename, retire or reactivate, set the House Master and Assistant
+     * House Master (from the teacher/staff list), add one or more House
+     * Sponsors (an existing parent, or a free typed name for a sponsor
+     * who is not a parent), and see/download its members, grouped into
+     * Students, Teachers, and Parents.
      */
     public function show(Request $request): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'students.view');
         $school = $this->school($request);
-        $house = House::withCount('students')->findOrFail($request->route('houseId'));
+        $house = House::withCount('students')->with(['housemaster', 'assistantHousemaster', 'sponsors.guardian'])
+            ->findOrFail($request->route('houseId'));
 
         $students = Student::where('house_id', $house->id)
             ->with('currentClassArm.schoolClass', 'currentClassArm.arm')
             ->orderBy('last_name')
+            ->get();
+
+        $staffMembers = Staff::where('house_id', $house->id)->orderBy('first_name')->get();
+
+        $parentMembers = StudentGuardian::where('house_id', $house->id)
+            ->with('student')
+            ->orderBy('name')
             ->get();
 
         return view('school.houses.show', [
@@ -116,8 +127,147 @@ class HouseController extends Controller
             'accent' => $school->branding()['color'],
             'house' => $house,
             'students' => $students,
+            'staffMembers' => $staffMembers,
+            'parentMembers' => $parentMembers,
+            'staffOptions' => Staff::active()->orderBy('first_name')->get(),
+            'guardianOptions' => StudentGuardian::with('student')->orderBy('name')->get(),
+            'houseOptions' => House::active()->orderBy('name')->get(),
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'students.manage_settings'),
         ]);
+    }
+
+    /** House Master and Assistant House Master, both chosen from the teacher/staff list, both optional and independently changeable (user directive 2026-07-12). */
+    public function updateLeadership(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.manage_settings');
+        $house = House::findOrFail($request->route('houseId'));
+
+        $data = $request->validate([
+            'housemaster_staff_id' => ['nullable', 'exists:tenant.staff,id'],
+            'assistant_housemaster_staff_id' => ['nullable', 'exists:tenant.staff,id'],
+        ]);
+
+        $house->update([
+            'housemaster_staff_id' => $data['housemaster_staff_id'] ?? null,
+            'assistant_housemaster_staff_id' => $data['assistant_housemaster_staff_id'] ?? null,
+        ]);
+
+        return back()->with('status', "\"{$house->name}\"'s leadership updated.");
+    }
+
+    /**
+     * Add a sponsor: either an existing parent (student_guardian_id) or a
+     * free typed name for a sponsor who is not a parent (user directive
+     * 2026-07-12), never both. A house can have more than one.
+     */
+    public function addSponsor(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.manage_settings');
+        $house = House::findOrFail($request->route('houseId'));
+
+        $data = $request->validate([
+            'student_guardian_id' => ['nullable', 'exists:tenant.student_guardians,id'],
+            'name' => ['nullable', 'string', 'max:150'],
+        ]);
+        $guardianId = $data['student_guardian_id'] ?? null;
+        $name = $data['name'] ?? null;
+
+        abort_if(empty($guardianId) && empty($name), 422, 'Pick a parent or type a sponsor name.');
+
+        $sponsor = HouseSponsor::create([
+            'house_id' => $house->id,
+            'student_guardian_id' => $guardianId ?: null,
+            'name' => empty($guardianId) ? $name : null,
+        ]);
+
+        return back()->with('status', "{$sponsor->displayName()} added as a sponsor of \"{$house->name}\".");
+    }
+
+    public function removeSponsor(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.manage_settings');
+        $house = House::findOrFail($request->route('houseId'));
+        $sponsor = HouseSponsor::where('house_id', $house->id)->findOrFail($request->route('sponsorId'));
+        $name = $sponsor->displayName();
+        $sponsor->delete();
+
+        return back()->with('status', "{$name} removed as a sponsor of \"{$house->name}\".");
+    }
+
+    /**
+     * Moves a staff member into (or out of, if house_id is blank) a
+     * house. Not house scoped in the route, one endpoint handles both
+     * "add to this house" and "move to a different house" from the same
+     * inline picker (user directive 2026-07-12: "Members... grouped into
+     * ...Teachers").
+     */
+    public function assignStaff(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.manage_settings');
+        $staffMember = Staff::findOrFail($request->route('staffId'));
+        $data = $request->validate(['house_id' => ['nullable', 'exists:tenant.houses,id']]);
+
+        $staffMember->update(['house_id' => $data['house_id'] ?? null]);
+
+        return back()->with('status', "{$staffMember->fullName()}'s house updated.");
+    }
+
+    /** Same as assignStaff(), for one parent (student_guardian) record. */
+    public function assignParent(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.manage_settings');
+        $guardian = StudentGuardian::findOrFail($request->route('guardianId'));
+        $data = $request->validate(['house_id' => ['nullable', 'exists:tenant.houses,id']]);
+
+        $guardian->update(['house_id' => $data['house_id'] ?? null]);
+
+        return back()->with('status', "{$guardian->name}'s house updated.");
+    }
+
+    /**
+     * Distribute every student, staff member, and parent not currently in
+     * a house evenly across the school's active houses (user directive
+     * 2026-07-12: "Share all staff and parents into the houses under
+     * each school", then "Distribute staff and parents, add student to
+     * it too"), the same one-click spirit as applyDefaults() for houses
+     * themselves. Already-assigned members are left untouched, so this
+     * is safe to run again after new staff/students join without
+     * shuffling anyone already placed.
+     */
+    public function distributeMembers(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.manage_settings');
+
+        $houseIds = House::active()->orderBy('name')->pluck('id');
+        if ($houseIds->isEmpty()) {
+            return back()->with('error', 'Add at least one active house before distributing members into it.');
+        }
+
+        $studentCount = 0;
+        $k = 0;
+        foreach (Student::active()->whereNull('house_id')->orderBy('id')->cursor() as $student) {
+            $student->update(['house_id' => $houseIds[$k % $houseIds->count()]]);
+            $k++;
+            $studentCount++;
+        }
+
+        $staffCount = 0;
+        $i = 0;
+        foreach (Staff::whereNull('house_id')->orderBy('id')->cursor() as $staffMember) {
+            $staffMember->update(['house_id' => $houseIds[$i % $houseIds->count()]]);
+            $i++;
+            $staffCount++;
+        }
+
+        $parentCount = 0;
+        $j = 0;
+        foreach (StudentGuardian::whereNull('house_id')->orderBy('id')->cursor() as $guardian) {
+            $guardian->update(['house_id' => $houseIds[$j % $houseIds->count()]]);
+            $j++;
+            $parentCount++;
+        }
+
+        return back()->with('status', "{$studentCount} student(s), {$staffCount} staff member(s), and {$parentCount} parent(s) distributed across your houses.");
     }
 
     /** Rename a house or change its colour. */
@@ -388,6 +538,185 @@ class HouseController extends Controller
         }
 
         $status = "{$updated} student(s) updated.";
+        if ($errors) {
+            $status .= ' '.count($errors).' row(s) had problems: '.implode(' ', array_slice($errors, 0, 5)).(count($errors) > 5 ? ' ...' : '');
+
+            return back()->with('error', $status);
+        }
+
+        return back()->with('status', $status);
+    }
+
+    /**
+     * Same CSV round trip as bulkTemplate()/bulkAssign(), for staff
+     * instead of students (user directive 2026-07-12: "add the import
+     * and export feature under the house section too"). Keyed on
+     * staff_id, the same external identifier the Staff module already
+     * uses everywhere else.
+     */
+    public function staffBulkTemplate(Request $request): \Symfony\Component\HttpFoundation\Response
+    {
+        $this->authorizeAction($request, 'staff.view');
+
+        $out = fopen('php://temp', 'r+');
+        fputcsv($out, ['staff_id', 'name', 'house']);
+
+        Staff::active()->with('house')->orderBy('last_name')->each(function (Staff $staffMember) use ($out) {
+            fputcsv($out, [$staffMember->staff_id, $staffMember->fullName(), $staffMember->house?->name ?? '']);
+        });
+
+        rewind($out);
+        $csv = (string) stream_get_contents($out);
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="house-assignment-staff.csv"',
+        ]);
+    }
+
+    /** Re-upload of staffBulkTemplate()'s CSV. A blank house cell leaves that staff member's current house untouched. */
+    public function staffBulkAssign(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.manage_settings');
+
+        $request->validate(['file' => ['required', 'file', 'mimes:csv,txt', 'max:5120']]);
+        $csv = file_get_contents($request->file('file')->getRealPath());
+
+        try {
+            $rows = app(CsvReader::class)->rows($csv);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        $housesByName = House::pluck('id', 'name')->mapWithKeys(fn ($id, $name) => [mb_strtolower(trim($name)) => $id])->all();
+
+        $updated = 0;
+        $errors = [];
+
+        foreach ($rows as $index => $row) {
+            $rowNumber = $index + 2;
+            $staffId = trim((string) ($row['staff_id'] ?? ''));
+            $houseName = trim((string) ($row['house'] ?? ''));
+
+            if ($staffId === '') {
+                $errors[] = "Row {$rowNumber}: missing staff id.";
+
+                continue;
+            }
+            if ($houseName === '') {
+                continue;
+            }
+
+            $staffMember = Staff::where('staff_id', $staffId)->first();
+            if (! $staffMember) {
+                $errors[] = "Row {$rowNumber}: no staff member with id \"{$staffId}\".";
+
+                continue;
+            }
+
+            $houseId = $housesByName[mb_strtolower($houseName)] ?? null;
+            if (! $houseId) {
+                $errors[] = "Row {$rowNumber}: house \"{$houseName}\" was not found.";
+
+                continue;
+            }
+
+            $staffMember->update(['house_id' => $houseId]);
+            $updated++;
+        }
+
+        $status = "{$updated} staff member(s) updated.";
+        if ($errors) {
+            $status .= ' '.count($errors).' row(s) had problems: '.implode(' ', array_slice($errors, 0, 5)).(count($errors) > 5 ? ' ...' : '');
+
+            return back()->with('error', $status);
+        }
+
+        return back()->with('status', $status);
+    }
+
+    /**
+     * Same CSV round trip, for parents. A guardian record is per student
+     * (there is no standalone deduplicated Guardian entity), so a row is
+     * keyed on the pair of the child's admission number and the parent's
+     * name, matching one export row exactly rather than inventing a new
+     * external id.
+     */
+    public function parentsBulkTemplate(Request $request): \Symfony\Component\HttpFoundation\Response
+    {
+        $this->authorizeAction($request, 'students.view');
+
+        $out = fopen('php://temp', 'r+');
+        fputcsv($out, ['student_admission_number', 'parent_name', 'house']);
+
+        StudentGuardian::with(['student', 'house'])->orderBy('name')->each(function (StudentGuardian $guardian) use ($out) {
+            fputcsv($out, [$guardian->student?->admission_number ?? '', $guardian->name, $guardian->house?->name ?? '']);
+        });
+
+        rewind($out);
+        $csv = (string) stream_get_contents($out);
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="house-assignment-parents.csv"',
+        ]);
+    }
+
+    /** Re-upload of parentsBulkTemplate()'s CSV. A blank house cell leaves that parent's current house untouched. */
+    public function parentsBulkAssign(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.manage_settings');
+
+        $request->validate(['file' => ['required', 'file', 'mimes:csv,txt', 'max:5120']]);
+        $csv = file_get_contents($request->file('file')->getRealPath());
+
+        try {
+            $rows = app(CsvReader::class)->rows($csv);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        $housesByName = House::pluck('id', 'name')->mapWithKeys(fn ($id, $name) => [mb_strtolower(trim($name)) => $id])->all();
+
+        $updated = 0;
+        $errors = [];
+
+        foreach ($rows as $index => $row) {
+            $rowNumber = $index + 2;
+            $admissionNumber = trim((string) ($row['student_admission_number'] ?? ''));
+            $parentName = trim((string) ($row['parent_name'] ?? ''));
+            $houseName = trim((string) ($row['house'] ?? ''));
+
+            if ($admissionNumber === '' || $parentName === '') {
+                $errors[] = "Row {$rowNumber}: missing student admission number or parent name.";
+
+                continue;
+            }
+            if ($houseName === '') {
+                continue;
+            }
+
+            $guardian = StudentGuardian::whereHas('student', fn ($q) => $q->where('admission_number', $admissionNumber))
+                ->where('name', $parentName)
+                ->first();
+            if (! $guardian) {
+                $errors[] = "Row {$rowNumber}: no parent \"{$parentName}\" found for student \"{$admissionNumber}\".";
+
+                continue;
+            }
+
+            $houseId = $housesByName[mb_strtolower($houseName)] ?? null;
+            if (! $houseId) {
+                $errors[] = "Row {$rowNumber}: house \"{$houseName}\" was not found.";
+
+                continue;
+            }
+
+            $guardian->update(['house_id' => $houseId]);
+            $updated++;
+        }
+
+        $status = "{$updated} parent(s) updated.";
         if ($errors) {
             $status .= ' '.count($errors).' row(s) had problems: '.implode(' ', array_slice($errors, 0, 5)).(count($errors) > 5 ? ' ...' : '');
 
