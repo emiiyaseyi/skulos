@@ -753,6 +753,17 @@ Entries are added here as work starts on each item — see the current build pha
 - QA: no new automated test, this was a one-off data repair against real already-provisioned schools, not a change to seeder code (the seeder was already correct for new rows). Verified live: `damola.okafor@yahoo.com` could not sign in before the fix (redirected back to `/login`), signed in successfully after, and her dashboard/Students page both showed the same correct grouping already verified for Chidinma Akintola, confirming the underlying grouping/cap fixes work generally, not just for the one account first reported.
 - Not built in this pass: no code change, this entry exists purely to record that the data repair happened and why, so a future session does not waste time re-diagnosing "why can't a demo account log in with password123."
 
+### Collapsible subject tables on a subject teacher's Students page (2026-07-12)
+- Status: Done
+- Started: 2026-07-12
+- Notes: user compared the dashboard's compact "My subjects and classes" list against the Students page's full grouped tables ("see the difference") and asked, when offered the choice, to make each subject's student table collapsible so several subjects are visible at a glance without scrolling through every table first.
+  - Each subject block in `school/students/index.blade.php`'s `$subjectGroups` branch is now a native `<details>`/`<summary>` element, collapsed by default. The summary line alone (subject name, student count, class labels) is always visible without opening anything, matching the request. No JavaScript, native browser behavior, consistent with the project's standing "prefer server-rendered simplicity over client-side weight" mobile-first principle.
+  - New `.subject-disclosure` CSS in `layouts/app.blade.php`'s inline stylesheet: hides the default marker cross-browser (including the WebKit-specific `::-webkit-details-marker`) and draws a small rotating triangle instead, matching the existing nav collapse chevron's visual language.
+- Issues/Bugs found: none, a UX refinement on an already-working feature, not a defect.
+- Resolution: n/a.
+- QA: existing `TeacherScopeTest` (`test_a_subject_teacher_sees_students_grouped_by_section_then_subject`, uses `assertSeeInOrder`) still passes unchanged, confirming the collapsed content is still present in the raw HTML (a `<details>` without the `open` attribute hides content visually in the browser, not from the response body, so this assertion is a valid check either way). Full suite (`php artisan test`, no filter) run afterward: 396 passed, 1829 assertions, no regressions. Live HTTP verified against the real `greenfield` school as Chidinma Akintola: confirmed exactly 2 `<details class="subject-disclosure">` elements render for her 2 real subjects.
+- Not built in this pass: no "expand all" / "collapse all" control, each subject toggles independently, revisit if a teacher with many subjects finds that tedious.
+
 ---
 
 ---

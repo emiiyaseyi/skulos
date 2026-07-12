@@ -89,11 +89,13 @@
       <div class="card" style="margin-bottom:1.1rem">
         <h3 style="margin-bottom:.7rem">{{ $sectionName }}</h3>
         @foreach($subjects as $subjectName => $group)
-          <div style="margin-bottom:1.1rem">
-            <div class="row-between" style="margin-bottom:.5rem">
-              <strong>{{ $subjectName }}</strong>
+          {{-- Collapsed by default (user request 2026-07-12: a teacher with several subjects should see them all at a glance without scrolling through every student table first). --}}
+          <details class="subject-disclosure" style="margin-bottom:.6rem">
+            <summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;padding:.6rem .2rem;border-bottom:1px solid var(--line)">
+              <span><strong>{{ $subjectName }}</strong> <span class="muted" style="font-size:.85rem">&middot; {{ $group['students']->count() }} student(s)</span></span>
               <span class="muted" style="font-size:.85rem">{{ $group['classArms']->map->label()->implode(', ') }}</span>
-            </div>
+            </summary>
+            <div style="padding-top:.6rem">
             @if($group['students']->isEmpty())
               <p class="muted">No students in these classes yet.</p>
             @else
@@ -112,7 +114,8 @@
               </table>
               </div>
             @endif
-          </div>
+            </div>
+          </details>
         @endforeach
       </div>
     @endforeach
