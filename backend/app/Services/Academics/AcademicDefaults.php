@@ -45,6 +45,17 @@ class AcademicDefaults
      * catalog to the class, with its mandatory/examinable flags. Subjects
      * already attached to the class are left untouched. Returns how many
      * were newly attached.
+     *
+     * Each subject's sequence is set to the catalog's declared array
+     * order, offset by the catalog's "sequence_base" (found live
+     * 2026-07-12: subject lists were rendering alphabetically, not in
+     * real curriculum order). Only ever fills in a still-unset sequence
+     * (0, the column default), never overwrites one already assigned —
+     * so the retroactive repair pass (every existing real subject is
+     * still at 0, this feature is new) fixes every school once, but an
+     * admin's later manual reorder via updateSubject(), or a subject
+     * shared by two catalogs, is never silently reset by a later catalog
+     * application.
      */
     public function applySubjectCatalog(SchoolClass $class, string $catalogKey): int
     {
@@ -53,9 +64,14 @@ class AcademicDefaults
 
         $already = $class->subjects()->pluck('subjects.id')->all();
         $applied = 0;
+        $base = $catalog['sequence_base'] ?? 0;
 
-        foreach ($catalog['subjects'] as $entry) {
-            $subject = Subject::firstOrCreate(['name' => $entry['name']]);
+        foreach ($catalog['subjects'] as $index => $entry) {
+            $sequence = $base + $index + 1;
+            $subject = Subject::firstOrCreate(['name' => $entry['name']], ['sequence' => $sequence]);
+            if ($subject->sequence === 0) {
+                $subject->update(['sequence' => $sequence]);
+            }
             if (in_array($subject->id, $already, true)) {
                 continue;
             }
@@ -78,6 +94,18 @@ class AcademicDefaults
      * re-running it after the admin has renamed/removed things only
      * fills in what is still missing, by name.
      *
+     * Sequence numbers come from each tier's fixed "sequence"/"class_base"
+     * in config, not from application order (found live 2026-07-12,
+     * "Class Order & Structure.docx": a school ended up with Primary
+     * listed above Nursery in every section-ordered list because Primary
+     * happened to be ticked/loaded first — `Section::max('sequence')+1`
+     * assigned sequence purely by whichever tier ran first, not the real
+     * Nursery-then-Primary-then-Junior-then-Senior order). Both the
+     * Section's sequence and every matched class's sequence are
+     * corrected here on every call, not just on first creation, so
+     * re-running this (or the retroactive repair pass) also fixes a
+     * school whose sequence was already wrong before this fix landed.
+     *
      * @param  list<string>  $catalogKeys
      * @return array{sections: int, classes: int, subjects: int}
      */
@@ -95,20 +123,25 @@ class AcademicDefaults
 
             $section = Section::firstOrCreate(
                 ['name' => $tier['section']],
-                ['sequence' => (int) Section::max('sequence') + 1]
+                ['sequence' => $tier['sequence']]
             );
             if ($section->wasRecentlyCreated) {
                 $sectionsTouched++;
+            } elseif ($section->sequence !== $tier['sequence']) {
+                $section->update(['sequence' => $tier['sequence']]);
             }
 
             foreach ($tier['classes'] as $index => $className) {
+                $sequence = $tier['class_base'] + $index + 1;
                 $class = SchoolClass::firstOrCreate(
                     ['section_id' => $section->id, 'name' => $className],
-                    ['sequence' => $index + 1]
+                    ['sequence' => $sequence]
                 );
                 if ($class->wasRecentlyCreated) {
                     $classesCreated++;
                     ClassArm::create(['school_class_id' => $class->id, 'arm_id' => null]);
+                } elseif ($class->sequence !== $sequence) {
+                    $class->update(['sequence' => $sequence]);
                 }
 
                 $subjectsApplied += $this->applySubjectCatalog($class, $key);
@@ -116,6 +149,67 @@ class AcademicDefaults
         }
 
         return ['sections' => $sectionsTouched, 'classes' => $classesCreated, 'subjects' => $subjectsApplied];
+    }
+
+    /**
+     * Retroactive repair only, never creates anything (found live
+     * 2026-07-12 alongside the class-order bug: a real school's Section/
+     * SchoolClass/Subject rows already existed with the old, wrong
+     * sequence values from before this fix, and `applyClassStructure()`
+     * cannot safely be re-run broadly to fix them, it would firstOrCreate
+     * an entire tier a school never opted into, e.g. inventing a Senior
+     * Secondary section and SSS 1 to 3 classes for a primary only
+     * school). This instead only updates a Section/SchoolClass/Subject
+     * that already exists and whose name matches the canonical catalog
+     * exactly, by the same sequence rules `applyClassStructure()` uses,
+     * so a school's own custom sections/classes/subjects (that do not
+     * match a catalog name) are left completely untouched, same as
+     * always.
+     *
+     * @return array{sections: int, classes: int, subjects: int}
+     */
+    public function realignSequences(): array
+    {
+        $sectionsFixed = 0;
+        $classesFixed = 0;
+        $subjectsFixed = 0;
+
+        foreach (config('skulos.default_class_structure', []) as $key => $tier) {
+            $section = Section::where('name', $tier['section'])->first();
+            if (! $section) {
+                continue;
+            }
+            if ($section->sequence !== $tier['sequence']) {
+                $section->update(['sequence' => $tier['sequence']]);
+                $sectionsFixed++;
+            }
+
+            foreach ($tier['classes'] as $index => $className) {
+                $class = SchoolClass::where('section_id', $section->id)->where('name', $className)->first();
+                if (! $class) {
+                    continue;
+                }
+                $sequence = $tier['class_base'] + $index + 1;
+                if ($class->sequence !== $sequence) {
+                    $class->update(['sequence' => $sequence]);
+                    $classesFixed++;
+                }
+            }
+        }
+
+        foreach (config('skulos.default_subjects', []) as $catalog) {
+            $base = $catalog['sequence_base'] ?? 0;
+            foreach ($catalog['subjects'] as $index => $entry) {
+                $subject = Subject::where('name', $entry['name'])->first();
+                if (! $subject || $subject->sequence !== 0) {
+                    continue;
+                }
+                $subject->update(['sequence' => $base + $index + 1]);
+                $subjectsFixed++;
+            }
+        }
+
+        return ['sections' => $sectionsFixed, 'classes' => $classesFixed, 'subjects' => $subjectsFixed];
     }
 
     /**

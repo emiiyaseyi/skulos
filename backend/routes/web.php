@@ -241,6 +241,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/promotion-settings', [$academics, 'updatePromotionSettings'])->name('promotion-settings.update');
             Route::post('/class-structure', [$academics, 'applyClassStructure'])->name('class-structure.apply');
             Route::post('/sections', [$academics, 'storeSection'])->name('sections.store');
+            Route::post('/sections/{sectionId}', [$academics, 'updateSection'])->name('sections.update');
             Route::post('/classes', [$academics, 'storeClass'])->name('classes.store');
             Route::get('/classes/{classId}', [$academics, 'showClass'])->name('classes.show');
             Route::post('/classes/{classId}', [$academics, 'updateClass'])->name('classes.update');

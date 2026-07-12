@@ -31,8 +31,22 @@
 @else
   @foreach($sections as $section)
     <div class="card" style="margin-bottom:1.1rem">
-      <div class="row-between" style="margin-bottom:.7rem">
+      <div class="row-between" style="margin-bottom:.7rem;flex-wrap:wrap;gap:.6rem">
         <h3>{{ $section->name }}</h3>
+        @if($canManage)
+          <form method="POST" action="{{ route('school.academics.sections.update', ['school' => $school->slug, 'sectionId' => $section->id]) }}" style="display:flex;gap:.4rem;align-items:flex-end;flex-wrap:wrap">
+            @csrf
+            <div class="field" style="margin-bottom:0">
+              <label for="sec_name_{{ $section->id }}">Section name</label>
+              <input id="sec_name_{{ $section->id }}" name="name" value="{{ $section->name }}" required />
+            </div>
+            <div class="field" style="margin-bottom:0;width:5.5rem">
+              <label for="sec_seq_{{ $section->id }}">Position</label>
+              <input id="sec_seq_{{ $section->id }}" name="sequence" type="number" min="1" value="{{ $section->sequence }}" />
+            </div>
+            <button class="btn btn-ghost btn-sm" type="submit">Save</button>
+          </form>
+        @endif
       </div>
       @if($section->classes->isEmpty())
         <p class="muted">No classes in this section yet.</p>
@@ -79,6 +93,10 @@
       <div class="field">
         <label for="s_name">Section name</label>
         <input id="s_name" name="name" placeholder="e.g. Primary" required />
+      </div>
+      <div class="field">
+        <label for="s_sequence">Position (optional)</label>
+        <input id="s_sequence" name="sequence" type="number" min="1" placeholder="Added at the end by default" />
       </div>
       <button class="btn btn-primary btn-sm" type="submit">Add section</button>
     </form>

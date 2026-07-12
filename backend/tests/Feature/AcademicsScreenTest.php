@@ -420,6 +420,132 @@ class AcademicsScreenTest extends TestCase
         $this->assertSame(6, $classCount); // JSS 1-3 + SS 1-3
     }
 
+    /**
+     * Regression test for a live bug found 2026-07-12 ("Class Order &
+     * Structure.docx"): SS classes previously reset their sequence to
+     * 1, 2, 3 same as JSS's, colliding within the shared Secondary
+     * section. SSS 1-3 must sort strictly after JSS 1-3.
+     */
+    public function test_ss_classes_sort_strictly_after_jss_classes_in_the_shared_section(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadseventeen');
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/class-structure", [
+            'tiers' => ['jss', 'ss'],
+        ]);
+
+        app(TenantManager::class)->use($school);
+        $names = SchoolClass::whereHas('section', fn ($q) => $q->where('name', 'Secondary'))
+            ->orderBy('sequence')->pluck('name')->all();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(['JSS 1', 'JSS 2', 'JSS 3', 'SSS 1', 'SSS 2', 'SSS 3'], $names);
+    }
+
+    /**
+     * Regression test for the same live bug: a Section's sequence must
+     * follow the canonical Nursery/Primary/Junior/Senior order regardless
+     * of which tier an admin ticks first, not "whichever gets applied
+     * first wins position 1."
+     */
+    public function test_section_order_is_canonical_regardless_of_application_order(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadeighteen');
+
+        // Deliberately loaded out of pedagogical order.
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/class-structure", ['tiers' => ['primary']]);
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/class-structure", ['tiers' => ['nursery']]);
+
+        app(TenantManager::class)->use($school);
+        $names = Section::orderBy('sequence')->pluck('name')->all();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(['Nursery', 'Primary'], $names, 'Nursery must sort before Primary even though Primary was loaded first');
+    }
+
+    /** Regression test for the same live bug: subjects must follow curriculum order, not alphabetical. */
+    public function test_a_classs_subjects_follow_curriculum_order_not_alphabetical(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadnineteen');
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/class-structure", ['tiers' => ['primary']]);
+
+        app(TenantManager::class)->use($school);
+        $class = SchoolClass::where('name', 'Primary 1')->first();
+        $names = $class->subjects()->pluck('name')->all();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame('English Studies', $names[0], 'the catalog lists English Studies first, not alphabetically (Basic Digital Literacy)');
+        $this->assertSame('Mathematics', $names[1]);
+    }
+
+    /** realignSequences() must only correct rows that already exist, never invent a tier a school never loaded. */
+    public function test_realign_sequences_never_creates_a_tier_the_school_never_loaded(): void
+    {
+        [$school] = $this->schoolWithMember('school-owner', 'acadtwenty');
+
+        app(TenantManager::class)->use($school);
+        Section::create(['name' => 'Primary', 'sequence' => 99]);
+        $result = app(\App\Services\Academics\AcademicDefaults::class)->realignSequences();
+        $sectionCount = Section::count();
+        $primary = Section::where('name', 'Primary')->first();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(1, $sectionCount, 'no Nursery/Secondary section should be invented for a school that never had one');
+        $this->assertSame(2, $primary->sequence, 'the existing Primary section\'s wrong sequence should be corrected to the canonical value');
+        $this->assertSame(1, $result['sections']);
+    }
+
+    /** An admin can rename a section or move it to a different position (there was previously no way to fix a section's own order once created). */
+    public function test_admin_can_rename_and_reorder_a_section(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadtwentyone');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Early Years', 'sequence' => 5]);
+        $sectionId = $section->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/sections/{$sectionId}", [
+            'name' => 'Creche',
+            'sequence' => 1,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $updated = Section::find($sectionId);
+        app(TenantManager::class)->forget();
+
+        $this->assertSame('Creche', $updated->name);
+        $this->assertSame(1, $updated->sequence);
+    }
+
+    /** An admin can manually move a subject to a different position within a class's list. */
+    public function test_admin_can_reorder_a_subject_within_a_class(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadtwentytwo');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Secondary', 'sequence' => 3]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS 1', 'sequence' => 1]);
+        $subject = Subject::create(['name' => 'Civic Education', 'sequence' => 50]);
+        $class->subjects()->attach($subject->id, ['is_mandatory' => true, 'is_examinable' => true]);
+        $classId = $class->id;
+        $subjectId = $subject->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/classes/{$classId}/subjects/{$subjectId}", [
+            'is_mandatory' => '1',
+            'is_examinable' => '1',
+            'sequence' => 1,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $updated = Subject::find($subjectId);
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(1, $updated->sequence);
+    }
+
     public function test_a_teacher_without_academics_create_cannot_load_a_class_structure(): void
     {
         [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'acadsixteen');

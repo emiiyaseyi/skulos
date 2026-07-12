@@ -363,6 +363,32 @@ class AcademicsController extends Controller
     }
 
     /**
+     * Rename a section or move it to a different position (user request
+     * 2026-07-12, "Class Order & Structure.docx"): there was previously no
+     * way to fix a section's own order once created, only a class's — a
+     * school whose section names do not match the built in Nursery/
+     * Primary/Secondary catalog (a custom curriculum) had no way to put
+     * its own sections in the right order at all.
+     */
+    public function updateSection(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.update');
+        $section = Section::findOrFail($request->route('sectionId'));
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:80', Rule::unique('tenant.sections', 'name')->ignore($section->id)],
+            'sequence' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $section->update([
+            'name' => $data['name'],
+            'sequence' => $data['sequence'] ?? $section->sequence,
+        ]);
+
+        return back()->with('status', "\"{$section->name}\" updated.");
+    }
+
+    /**
      * A class needs at least one ClassArm to actually hold students
      * (Student.current_class_arm_id points at a ClassArm, not a
      * SchoolClass) — creating one here with arm_id null (a single,
@@ -700,8 +726,8 @@ class AcademicsController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'class' => $class,
-            'offered' => $class->subjects()->orderBy('name')->get(),
-            'available' => Subject::whereNotIn('id', $class->subjects()->pluck('subjects.id'))->orderBy('name')->get(),
+            'offered' => $class->subjects()->get(),
+            'available' => Subject::whereNotIn('id', $class->subjects()->pluck('subjects.id'))->orderBy('sequence')->orderBy('name')->get(),
             'suggestedCatalog' => $defaults->suggestCatalogFor($class->section),
             'catalogs' => config('skulos.default_subjects'),
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'academics.update'),
@@ -746,7 +772,10 @@ class AcademicsController extends Controller
         ]);
 
         $class = SchoolClass::findOrFail($request->route('classId'));
-        $subject = Subject::firstOrCreate(['name' => $data['name']], ['code' => $data['code'] ?? null]);
+        $subject = Subject::firstOrCreate(
+            ['name' => $data['name']],
+            ['code' => $data['code'] ?? null, 'sequence' => (int) Subject::max('sequence') + 1]
+        );
         $class->subjects()->syncWithoutDetaching([
             $subject->id => ['is_mandatory' => true, 'is_examinable' => true],
         ]);
@@ -754,16 +783,22 @@ class AcademicsController extends Controller
         return back()->with('status', "\"{$subject->name}\" added to this class.");
     }
 
+    /** Also lets an admin manually move a subject to a different position in its list (user request 2026-07-12, "Class Order & Structure.docx"), the same "rename or move" pattern as updateClass(). */
     public function updateSubject(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'academics.update');
         $class = SchoolClass::findOrFail($request->route('classId'));
         $subject = Subject::findOrFail($request->route('subjectId'));
 
+        $data = $request->validate(['sequence' => ['nullable', 'integer', 'min:1']]);
+
         $class->subjects()->updateExistingPivot($subject->id, [
             'is_mandatory' => $request->boolean('is_mandatory'),
             'is_examinable' => $request->boolean('is_examinable'),
         ]);
+        if (isset($data['sequence'])) {
+            $subject->update(['sequence' => $data['sequence']]);
+        }
 
         return back()->with('status', "Updated {$subject->name}.");
     }

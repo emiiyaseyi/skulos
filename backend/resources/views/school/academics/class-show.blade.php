@@ -22,7 +22,11 @@
         <label for="c_rename">Class name</label>
         <input id="c_rename" name="name" value="{{ $class->name }}" required />
       </div>
-      <button class="btn btn-ghost btn-sm" type="submit">Rename</button>
+      <div class="field" style="margin-bottom:0;width:6rem">
+        <label for="c_sequence">Position</label>
+        <input id="c_sequence" name="sequence" type="number" min="1" value="{{ $class->sequence }}" />
+      </div>
+      <button class="btn btn-ghost btn-sm" type="submit">Save</button>
     </form>
     <div style="display:flex;gap:.5rem">
       <form method="POST" action="{{ route('school.academics.classes.toggle-active', ['school' => $school->slug, 'classId' => $class->id]) }}">

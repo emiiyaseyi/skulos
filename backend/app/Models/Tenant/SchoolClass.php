@@ -42,11 +42,19 @@ class SchoolClass extends Model
         return $this->hasMany(ClassArm::class);
     }
 
+    /**
+     * Ordered by the subject's own curriculum position, not alphabetically
+     * (found live 2026-07-12, "Class Order & Structure.docx"), so every
+     * caller of $class->subjects (eager loaded or not) gets the real
+     * order for free without needing to remember to sort it themselves.
+     */
     public function subjects(): BelongsToMany
     {
         return $this->belongsToMany(Subject::class, 'class_subject')
             ->withPivot(['is_mandatory', 'is_examinable'])
-            ->withTimestamps();
+            ->withTimestamps()
+            ->orderBy('subjects.sequence')
+            ->orderBy('subjects.name');
     }
 
     public function scopeActive($query)

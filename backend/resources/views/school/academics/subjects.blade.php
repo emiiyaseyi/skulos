@@ -3,9 +3,10 @@
 
 @push('head')
 <style>
-  .flagbox{display:flex;gap:1rem}
+  .flagbox{display:flex;gap:1rem;align-items:center;flex-wrap:wrap}
   .flagbox label{display:flex;align-items:center;gap:.35rem;font-weight:500;font-size:.85rem}
   .flagbox input{width:auto}
+  .flagbox input.seq{width:3.5rem}
 </style>
 @endpush
 
@@ -67,6 +68,7 @@
                   @csrf
                   <label><input type="checkbox" name="is_mandatory" value="1" @checked($subject->pivot->is_mandatory) onchange="this.form.requestSubmit()" /> Mandatory</label>
                   <label><input type="checkbox" name="is_examinable" value="1" @checked($subject->pivot->is_examinable) onchange="this.form.requestSubmit()" /> Examinable</label>
+                  <label>Position <input class="seq" type="number" name="sequence" min="1" value="{{ $subject->sequence }}" onchange="this.form.requestSubmit()" aria-label="Position of {{ $subject->name }} in the list" /></label>
                 </form>
               </td>
               <td>

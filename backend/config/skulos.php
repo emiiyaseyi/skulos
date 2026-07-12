@@ -596,12 +596,25 @@ return [
     | schools run junior and senior secondary as one section, not two.
     | Entirely optional and idempotent, same as default_subjects below —
     | a school is never forced into these and can edit anything after.
+    |
+    | "sequence" (found 2026-07-12, "Class Order & Structure.docx": the
+    | real pedagogical order is Nursery, then Primary, then Junior
+    | Secondary, then Senior Secondary) and "class_base" are fixed,
+    | canonical positions, not creation order. Before this, a Section's
+    | sequence was assigned as "whichever tier gets applied first" (an
+    | admin ticking "Primary" before "Nursery" on the Academics page
+    | permanently put Primary above Nursery everywhere sections are
+    | listed), and a class's sequence reset to 1 for every tier sharing a
+    | section, so "ss" classes collided with "jss" classes' sequence
+    | numbers (both got 1, 2, 3) instead of continuing after them.
+    | "class_base" is spaced 10 apart per tier so a tier can grow past 10
+    | classes without colliding with the next tier's classes.
     */
     'default_class_structure' => [
-        'nursery' => ['section' => 'Nursery', 'classes' => ['Creche/Reception', 'Nursery 1', 'Nursery 2']],
-        'primary' => ['section' => 'Primary', 'classes' => ['Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6']],
-        'jss' => ['section' => 'Secondary', 'classes' => ['JSS 1', 'JSS 2', 'JSS 3']],
-        'ss' => ['section' => 'Secondary', 'classes' => ['SSS 1', 'SSS 2', 'SSS 3']],
+        'nursery' => ['section' => 'Nursery', 'sequence' => 1, 'class_base' => 0, 'classes' => ['Creche/Reception', 'Nursery 1', 'Nursery 2']],
+        'primary' => ['section' => 'Primary', 'sequence' => 2, 'class_base' => 10, 'classes' => ['Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6']],
+        'jss' => ['section' => 'Secondary', 'sequence' => 3, 'class_base' => 20, 'classes' => ['JSS 1', 'JSS 2', 'JSS 3']],
+        'ss' => ['section' => 'Secondary', 'sequence' => 3, 'class_base' => 30, 'classes' => ['SSS 1', 'SSS 2', 'SSS 3']],
     ],
 
     /*
@@ -614,10 +627,19 @@ return [
     | class with the mandatory/examinable flags below. The admin can then
     | add, remove, rename, or flip either flag on any subject at any time —
     | nothing here is hardcoded into behaviour, it is seed data only.
+    |
+    | "sequence_base" (found 2026-07-12 alongside the class-order bug: a
+    | class's subject list was rendering alphabetically, "the list of
+    | subject should follow the order and not scatter or arrange
+    | alphabetically") spaces each catalog's subjects well apart in the
+    | school wide Subject.sequence column, so this catalog's declared
+    | order (English/Mathematics first, optional electives last) survives
+    | regardless of which catalog a school applies first.
     */
     'default_subjects' => [
         'nursery' => [
             'label' => 'Nursery / Kindergarten',
+            'sequence_base' => 0,
             'match' => ['nursery', 'kindergarten', 'kg', 'pre-nursery', 'reception', 'playgroup', 'creche', 'crèche', 'toddler', 'daycare'],
             'subjects' => [
                 ['name' => 'Literacy', 'mandatory' => true, 'examinable' => true],
@@ -632,6 +654,7 @@ return [
         ],
         'primary' => [
             'label' => 'Primary',
+            'sequence_base' => 100,
             'match' => ['primary', 'basic 1', 'basic 2', 'basic 3', 'basic 4', 'basic 5', 'basic 6'],
             'subjects' => [
                 ['name' => 'English Studies', 'mandatory' => true, 'examinable' => true],
@@ -649,6 +672,7 @@ return [
         ],
         'jss' => [
             'label' => 'Junior Secondary (JSS / Basic 7-9)',
+            'sequence_base' => 200,
             'match' => ['jss', 'junior secondary', 'basic 7', 'basic 8', 'basic 9', 'grade 7', 'grade 8', 'grade 9'],
             'subjects' => [
                 ['name' => 'English Studies', 'mandatory' => true, 'examinable' => true],
@@ -674,6 +698,7 @@ return [
         ],
         'ss' => [
             'label' => 'Senior Secondary (SSS 1-3 / Grade 10-12)',
+            'sequence_base' => 300,
             'match' => ['sss1', 'sss2', 'sss3', 'sss 1', 'sss 2', 'sss 3', 'ss1', 'ss2', 'ss3', 'ss 1', 'ss 2', 'ss 3', 'senior secondary', 'grade 10', 'grade 11', 'grade 12'],
             'subjects' => [
                 ['name' => 'English Language', 'mandatory' => true, 'examinable' => true],

@@ -15,7 +15,12 @@ class Subject extends Model
 
     protected $connection = 'tenant';
 
-    protected $fillable = ['name', 'code'];
+    protected $fillable = ['name', 'code', 'sequence'];
+
+    protected function casts(): array
+    {
+        return ['sequence' => 'integer'];
+    }
 
     public function classes(): BelongsToMany
     {
