@@ -165,6 +165,9 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::post('/students/settings', [\App\Http\Controllers\School\StudentController::class, 'updateSettings'])->name('school.students.settings.update');
         Route::get('/students/create', [\App\Http\Controllers\School\StudentController::class, 'create'])->name('school.students.create');
         Route::post('/students/create', [\App\Http\Controllers\School\StudentController::class, 'store'])->name('school.students.store');
+        Route::post('/students/bulk-action', [\App\Http\Controllers\School\StudentController::class, 'bulkAction'])->name('school.students.bulk-action');
+        Route::get('/students/trashed', [\App\Http\Controllers\School\StudentController::class, 'trashed'])->name('school.students.trashed');
+        Route::post('/students/trashed/bulk-action', [\App\Http\Controllers\School\StudentController::class, 'trashedBulkAction'])->name('school.students.trashed.bulk-action');
         Route::get('/students/{studentId}', [\App\Http\Controllers\School\StudentController::class, 'show'])->name('school.students.show');
         Route::get('/students/{studentId}/edit', [\App\Http\Controllers\School\StudentController::class, 'edit'])->name('school.students.edit');
         Route::post('/students/{studentId}/edit', [\App\Http\Controllers\School\StudentController::class, 'update'])->name('school.students.update');
@@ -179,6 +182,8 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/bulk-action', [$staff, 'bulkAction'])->name('bulk-action');
             Route::get('/create', [$staff, 'create'])->name('create');
             Route::post('/create', [$staff, 'store'])->name('store');
+            Route::get('/trashed', [$staff, 'trashed'])->name('trashed');
+            Route::post('/trashed/bulk-action', [$staff, 'trashedBulkAction'])->name('trashed.bulk-action');
             Route::get('/{staffId}', [$staff, 'show'])->name('show');
             Route::get('/{staffId}/edit', [$staff, 'edit'])->name('edit');
             Route::post('/{staffId}/edit', [$staff, 'update'])->name('update');

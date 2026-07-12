@@ -6,9 +6,14 @@
     <h1 class="title">Staff</h1>
     <p class="subtitle">{{ number_format($total) }} on record.</p>
   </div>
-  @if($canCreate)
-    <a class="btn btn-primary btn-sm" href="{{ route('school.staff.create', ['school' => $school->slug]) }}">Add staff</a>
-  @endif
+  <div class="stack" style="flex-direction:row;gap:.6rem">
+    @if($canManage)
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.staff.trashed', ['school' => $school->slug]) }}">Trashed</a>
+    @endif
+    @if($canCreate)
+      <a class="btn btn-primary btn-sm" href="{{ route('school.staff.create', ['school' => $school->slug]) }}">Add staff</a>
+    @endif
+  </div>
 </div>
 
 <div class="card" style="margin-bottom:1.1rem">
@@ -59,7 +64,7 @@
           <button form="bulkStaffForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="on_leave">Mark on leave</button>
           <button form="bulkStaffForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="suspended">Suspend</button>
           <button form="bulkStaffForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="resigned">Mark resigned</button>
-          <button form="bulkStaffForm" class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit" name="action" value="delete" onclick="return confirm('Remove the selected staff? This can be undone from the database if needed, but not from this screen.')">Delete selected</button>
+          <button form="bulkStaffForm" class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit" name="action" value="delete" onclick="return confirm('Move the selected staff to Trashed? You can restore them from there afterwards.')">Delete selected</button>
         </div>
       </div>
       <script>

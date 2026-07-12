@@ -338,4 +338,94 @@ class StudentScreenTest extends TestCase
         $this->assertSame(0, Student::count());
         app(TenantManager::class)->forget();
     }
+
+    /** Bulk actions (user directive: every list gets bulk actions), the flat search-results table gets status change and soft delete. */
+    public function test_bulk_status_change_and_delete_from_search_results(): void
+    {
+        [$school, $user] = $this->schoolWithMember('registrar', 'bulkone');
+
+        app(TenantManager::class)->use($school);
+        $one = Student::create(['admission_number' => 'ADM/500', 'first_name' => 'Ada', 'last_name' => 'Obi']);
+        $two = Student::create(['admission_number' => 'ADM/501', 'first_name' => 'Ada', 'last_name' => 'Okoro']);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($user)->post("http://{$school->slug}.localhost/students/bulk-action", [
+            'student_ids' => [$one->id], 'action' => 'graduated',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame('graduated', Student::find($one->id)->status);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($user)->post("http://{$school->slug}.localhost/students/bulk-action", [
+            'student_ids' => [$two->id], 'action' => 'delete',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertNull(Student::find($two->id));
+        $this->assertNotNull(Student::onlyTrashed()->find($two->id));
+        app(TenantManager::class)->forget();
+    }
+
+    /**
+     * Undo/restore (user request 2026-07-12, "To Do List 2" doc item 3): a
+     * bulk delete must not be a one-way door.
+     */
+    public function test_a_deleted_student_can_be_restored_from_trashed(): void
+    {
+        [$school, $user] = $this->schoolWithMember('registrar', 'bulktwo');
+
+        app(TenantManager::class)->use($school);
+        $student = Student::create(['admission_number' => 'ADM/502', 'first_name' => 'Ada', 'last_name' => 'Obi']);
+        $studentId = $student->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($user)->post("http://{$school->slug}.localhost/students/bulk-action", [
+            'student_ids' => [$studentId], 'action' => 'delete',
+        ])->assertRedirect();
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/students/trashed")
+            ->assertOk()->assertSee('Ada Obi');
+
+        $this->actingAs($user)->post("http://{$school->slug}.localhost/students/trashed/bulk-action", [
+            'student_ids' => [$studentId], 'action' => 'restore',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $restored = Student::find($studentId);
+        app(TenantManager::class)->forget();
+        $this->assertNotNull($restored);
+        $this->assertSame('Ada Obi', $restored->fullName());
+    }
+
+    /** Permanently deleting a student cascades to their guardians (constrained cascadeOnDelete in the migration), never leaves an orphaned guardian row. */
+    public function test_permanently_deleting_a_student_removes_their_guardians_too(): void
+    {
+        [$school, $user] = $this->schoolWithMember('registrar', 'bulkthree');
+
+        app(TenantManager::class)->use($school);
+        $student = Student::create(['admission_number' => 'ADM/503', 'first_name' => 'Ada', 'last_name' => 'Obi']);
+        $studentId = $student->id;
+        $student->guardians()->create(['name' => 'Mrs Obi', 'email' => 'mrsobi@example.com', 'is_primary' => true]);
+        $student->delete();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($user)->post("http://{$school->slug}.localhost/students/trashed/bulk-action", [
+            'student_ids' => [$studentId], 'action' => 'force-delete',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertNull(Student::withTrashed()->find($studentId));
+        $this->assertSame(0, \App\Models\Tenant\StudentGuardian::where('student_id', $studentId)->count());
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_trashed_page_requires_the_delete_permission_not_just_view(): void
+    {
+        // bursar's grants include students.view but not students.update/delete.
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'bulkfour');
+
+        $this->actingAs($bursar)->get("http://{$school->slug}.localhost/students/trashed")
+            ->assertOk()->assertDontSee('Restore selected');
+    }
 }

@@ -82,6 +82,7 @@ class StudentController extends Controller
                 'sections' => null,
                 'canImport' => app(Rbac::class)->check(Auth::user(), $school, 'students.bulk'),
                 'canCreate' => app(Rbac::class)->check(Auth::user(), $school, 'students.create'),
+                'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'students.update'),
             ]);
         }
 
@@ -106,7 +107,82 @@ class StudentController extends Controller
             'unassigned' => $unassigned,
             'canImport' => app(Rbac::class)->check(Auth::user(), $school, 'students.bulk'),
             'canCreate' => app(Rbac::class)->check(Auth::user(), $school, 'students.create'),
+            'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'students.update'),
         ]);
+    }
+
+    /** Bulk status change or soft delete for ticked students, matching the standing bulk-actions convention every list screen follows. */
+    public function bulkAction(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.update');
+        $data = $request->validate([
+            'student_ids' => ['required', 'array', 'min:1'],
+            'student_ids.*' => ['exists:tenant.students,id'],
+            'action' => ['required', Rule::in([Student::STATUS_ACTIVE, Student::STATUS_GRADUATED, Student::STATUS_WITHDRAWN, Student::STATUS_SUSPENDED, 'delete'])],
+        ]);
+
+        $query = Student::whereIn('id', $data['student_ids']);
+
+        if ($data['action'] === 'delete') {
+            $this->authorizeAction($request, 'students.delete');
+            $count = $query->delete();
+
+            return back()->with('status', "{$count} student(s) moved to Trashed. Restore them from there if this was a mistake.");
+        }
+
+        $count = $query->update(['status' => $data['action']]);
+
+        return back()->with('status', "{$count} student(s) updated.");
+    }
+
+    /** Soft-deleted students (user request: bulk restore/undo, 2026-07-12), so a bulk delete is never a one-way door. */
+    public function trashed(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'students.view');
+        $school = $this->school($request);
+        $search = trim((string) $request->query('q'));
+
+        $students = Student::onlyTrashed()
+            ->when($search, fn ($q) => $q->where(function ($w) use ($search) {
+                $w->where('admission_number', 'like', "%{$search}%")
+                    ->orWhere('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%");
+            }))
+            ->orderBy('deleted_at', 'desc')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('school.students.trashed', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'students' => $students,
+            'search' => $search,
+            'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'students.delete'),
+        ]);
+    }
+
+    /** Restore or permanently delete ticked trashed students. */
+    public function trashedBulkAction(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.delete');
+        $data = $request->validate([
+            'student_ids' => ['required', 'array', 'min:1'],
+            'student_ids.*' => ['integer'],
+            'action' => ['required', 'in:restore,force-delete'],
+        ]);
+
+        $query = Student::onlyTrashed()->whereIn('id', $data['student_ids']);
+
+        if ($data['action'] === 'restore') {
+            $count = $query->restore();
+
+            return back()->with('status', "{$count} student(s) restored.");
+        }
+
+        $count = $query->count();
+        $query->forceDelete();
+
+        return back()->with('status', "{$count} student(s) permanently deleted. This cannot be undone.");
     }
 
     public function importForm(Request $request): \Illuminate\View\View

@@ -309,4 +309,100 @@ class StaffPortalTest extends TestCase
         $this->actingAs($owner)->get("http://{$school->slug}.localhost/staff/{$staffId}")
             ->assertOk()->assertDontSee('Extra access');
     }
+
+    /**
+     * Undo/restore (user request 2026-07-12, "To Do List 2" doc item 3): a
+     * bulk delete must not be a one-way door. Deleting via the existing
+     * bulk-action endpoint already soft deletes (test_bulk_status_change_and_delete
+     * above), this covers the other half, the Trashed screen actually
+     * bringing a staff member back.
+     */
+    public function test_a_deleted_staff_member_can_be_restored_from_trashed(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'stftwelve');
+
+        app(TenantManager::class)->use($school);
+        $staff = Staff::create(['staff_id' => 'STF/0001', 'first_name' => 'Ada', 'last_name' => 'Obi', 'position' => 'Bursar', 'status' => 'active']);
+        $staffId = $staff->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/staff/bulk-action", [
+            'staff_ids' => [$staffId], 'action' => 'delete',
+        ])->assertRedirect();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/staff/trashed")
+            ->assertOk()->assertSee('Ada Obi');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/staff/trashed/bulk-action", [
+            'staff_ids' => [$staffId], 'action' => 'restore',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $restored = Staff::find($staffId);
+        app(TenantManager::class)->forget();
+        $this->assertNotNull($restored);
+        $this->assertSame('Ada Obi', $restored->fullName());
+    }
+
+    /**
+     * Permanently deleting a staff member who is a class teacher,
+     * assistant teacher, or housemaster must not leave those
+     * assignments dangling, those columns are plain ids with no
+     * database level foreign key (found while building this feature).
+     */
+    public function test_permanently_deleting_a_staff_member_clears_dangling_teaching_assignments(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'stfthirteen');
+
+        app(TenantManager::class)->use($school);
+        $staff = Staff::create(['staff_id' => 'STF/0001', 'first_name' => 'Ada', 'last_name' => 'Obi', 'position' => 'Teacher', 'status' => 'active']);
+        $staffId = $staff->id;
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $arm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $class->id, 'arm_id' => null, 'class_teacher_staff_id' => $staffId]);
+        $armId = $arm->id;
+        $staff->delete();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/staff/trashed/bulk-action", [
+            'staff_ids' => [$staffId], 'action' => 'force-delete',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertNull(Staff::withTrashed()->find($staffId));
+        $this->assertNull(\App\Models\Tenant\ClassArm::find($armId)->class_teacher_staff_id);
+        app(TenantManager::class)->forget();
+    }
+
+    /** A staff member with an active login is not silently force deleted, the admin must revoke the login first. */
+    public function test_force_delete_skips_a_staff_member_who_still_has_a_login(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'stffourteen');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/staff/create", [
+            'first_name' => 'Ada', 'last_name' => 'Obi', 'position' => 'Bursar', 'status' => 'active', 'email' => 'ada.obi@example.com',
+        ]);
+        app(TenantManager::class)->use($school);
+        $staff = Staff::first();
+        $staffId = $staff->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/staff/{$staffId}/login", [
+            'email' => 'ada.obi@example.com', 'role' => 'bursar',
+        ]);
+
+        app(TenantManager::class)->use($school);
+        $staff->delete();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/staff/trashed/bulk-action", [
+            'staff_ids' => [$staffId], 'action' => 'force-delete',
+        ])->assertRedirect()->assertSessionHas('status', function ($status) {
+            return str_contains($status, 'skipped');
+        });
+
+        app(TenantManager::class)->use($school);
+        $this->assertNotNull(Staff::withTrashed()->find($staffId));
+        app(TenantManager::class)->forget();
+    }
 }

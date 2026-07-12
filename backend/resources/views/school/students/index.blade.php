@@ -7,6 +7,9 @@
     <p class="subtitle">{{ number_format($total) }} on record.</p>
   </div>
   <div class="stack" style="flex-direction:row;gap:.6rem">
+    @if($canManage)
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.students.trashed', ['school' => $school->slug]) }}">Trashed</a>
+    @endif
     @if($canCreate)
       <a class="btn btn-primary btn-sm" href="{{ route('school.students.create', ['school' => $school->slug]) }}">Add student</a>
     @endif
@@ -27,12 +30,21 @@
     @if($students->isEmpty())
       <p class="muted">No students match your search.</p>
     @else
+      @if($canManage)
+        <form id="bulkStudentsForm" method="POST" action="{{ route('school.students.bulk-action', ['school' => $school->slug]) }}"></form>
+      @endif
       <div style="overflow-x:auto">
       <table>
-        <thead><tr><th>Admission No.</th><th>Name</th><th>Gender</th><th>Status</th></tr></thead>
+        <thead><tr>
+          @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="student-select-all" aria-label="Select all students" /></th>@endif
+          <th>Admission No.</th><th>Name</th><th>Gender</th><th>Status</th>
+        </tr></thead>
         <tbody>
           @foreach($students as $student)
             <tr class="row-link" onclick="window.location='{{ route('school.students.show', ['school' => $school->slug, 'studentId' => $student->id]) }}'" style="cursor:pointer">
+              @if($canManage)
+                <td onclick="event.stopPropagation()"><input type="checkbox" form="bulkStudentsForm" class="student-row-check" name="student_ids[]" value="{{ $student->id }}" aria-label="Select {{ $student->fullName() }}" /></td>
+              @endif
               <td class="muted" style="font-variant-numeric:tabular-nums">{{ $student->admission_number }}</td>
               <td><strong>{{ $student->fullName() }}</strong></td>
               <td>{{ $student->gender ? ucfirst($student->gender) : 'Not set' }}</td>
@@ -43,6 +55,30 @@
       </table>
       </div>
       <div style="margin-top:1rem">{{ $students->links() }}</div>
+
+      @if($canManage)
+        <div class="row-between" style="margin-top:.8rem;flex-wrap:wrap;gap:.6rem">
+          <span class="muted" style="font-size:.85rem">Tick any number of students above, then choose an action.</span>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <button form="bulkStudentsForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="active">Mark active</button>
+            <button form="bulkStudentsForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="graduated">Mark graduated</button>
+            <button form="bulkStudentsForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="withdrawn">Mark withdrawn</button>
+            <button form="bulkStudentsForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="suspended">Suspend</button>
+            <button form="bulkStudentsForm" class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit" name="action" value="delete" onclick="return confirm('Move the selected students to Trashed? You can restore them from there afterwards.')">Delete selected</button>
+          </div>
+        </div>
+        <script>
+          (function(){
+            var all = document.getElementById('student-select-all');
+            var boxes = document.querySelectorAll('.student-row-check');
+            all?.addEventListener('change', function(){ boxes.forEach(function(cb){ cb.checked = all.checked; }); });
+            document.getElementById('bulkStudentsForm')?.addEventListener('submit', function(e){
+              var anyChecked = Array.prototype.some.call(boxes, function(cb){ return cb.checked; });
+              if (! anyChecked) { e.preventDefault(); alert('Tick at least one student first.'); }
+            });
+          })();
+        </script>
+      @endif
     @endif
   </div>
 @else
@@ -81,12 +117,21 @@
   @if($unassigned->isNotEmpty())
     <div class="card">
       <h3 style="margin-bottom:.7rem">No class assigned</h3>
+      @if($canManage)
+        <form id="bulkUnassignedForm" method="POST" action="{{ route('school.students.bulk-action', ['school' => $school->slug]) }}"></form>
+      @endif
       <div style="overflow-x:auto">
       <table>
-        <thead><tr><th>Admission No.</th><th>Name</th><th></th></tr></thead>
+        <thead><tr>
+          @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="unassigned-select-all" aria-label="Select all unassigned students" /></th>@endif
+          <th>Admission No.</th><th>Name</th><th></th>
+        </tr></thead>
         <tbody>
           @foreach($unassigned as $student)
             <tr class="row-link" onclick="window.location='{{ route('school.students.show', ['school' => $school->slug, 'studentId' => $student->id]) }}'" style="cursor:pointer">
+              @if($canManage)
+                <td onclick="event.stopPropagation()"><input type="checkbox" form="bulkUnassignedForm" class="unassigned-row-check" name="student_ids[]" value="{{ $student->id }}" aria-label="Select {{ $student->fullName() }}" /></td>
+              @endif
               <td class="muted" style="font-variant-numeric:tabular-nums">{{ $student->admission_number }}</td>
               <td><strong>{{ $student->fullName() }}</strong></td>
               <td><a class="btn btn-ghost btn-sm" href="{{ route('school.students.edit', ['school' => $school->slug, 'studentId' => $student->id]) }}">Assign class</a></td>
@@ -95,6 +140,27 @@
         </tbody>
       </table>
       </div>
+
+      @if($canManage)
+        <div class="row-between" style="margin-top:.8rem;flex-wrap:wrap;gap:.6rem">
+          <span class="muted" style="font-size:.85rem">Tick any number above, then choose an action.</span>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <button form="bulkUnassignedForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="withdrawn">Mark withdrawn</button>
+            <button form="bulkUnassignedForm" class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit" name="action" value="delete" onclick="return confirm('Move the selected students to Trashed? You can restore them from there afterwards.')">Delete selected</button>
+          </div>
+        </div>
+        <script>
+          (function(){
+            var all = document.getElementById('unassigned-select-all');
+            var boxes = document.querySelectorAll('.unassigned-row-check');
+            all?.addEventListener('change', function(){ boxes.forEach(function(cb){ cb.checked = all.checked; }); });
+            document.getElementById('bulkUnassignedForm')?.addEventListener('submit', function(e){
+              var anyChecked = Array.prototype.some.call(boxes, function(cb){ return cb.checked; });
+              if (! anyChecked) { e.preventDefault(); alert('Tick at least one student first.'); }
+            });
+          })();
+        </script>
+      @endif
     </div>
   @endif
 @endif

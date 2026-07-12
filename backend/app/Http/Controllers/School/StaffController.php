@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\School;
 use App\Models\Tenant\ClassArm;
+use App\Models\Tenant\House;
+use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Setting;
 use App\Models\Tenant\Staff;
 use App\Services\Accounts\AccountProvisioningService;
@@ -88,6 +90,79 @@ class StaffController extends Controller
         $count = $query->update(['status' => $data['action']]);
 
         return back()->with('status', "{$count} staff member(s) updated.");
+    }
+
+    /** Soft-deleted staff (user request: bulk restore/undo, 2026-07-12), so a bulk delete is never a one-way door. */
+    public function trashed(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'staff.view');
+        $school = $this->school($request);
+        $search = trim((string) $request->query('q'));
+
+        $staff = Staff::onlyTrashed()
+            ->when($search, fn ($q) => $q->where(function ($w) use ($search) {
+                $w->where('staff_id', 'like', "%{$search}%")
+                    ->orWhere('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%");
+            }))
+            ->orderBy('deleted_at', 'desc')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('school.staff.trashed', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'staff' => $staff,
+            'search' => $search,
+            'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'staff.delete'),
+        ]);
+    }
+
+    /**
+     * Restore or permanently delete ticked trashed staff. Permanently
+     * deleting clears any dangling references (class teacher, assistant
+     * teacher, housemaster, default report card reviewer) since those
+     * columns are plain ids with no foreign key, they would otherwise
+     * keep pointing at a row that no longer exists. A staff member with
+     * an active login is skipped, since force deleting them would orphan
+     * a live account with no staff profile behind it; the admin is told
+     * to revoke that login first.
+     */
+    public function trashedBulkAction(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'staff.delete');
+        $data = $request->validate([
+            'staff_ids' => ['required', 'array', 'min:1'],
+            'staff_ids.*' => ['integer'],
+            'action' => ['required', 'in:restore,force-delete'],
+        ]);
+
+        $query = Staff::onlyTrashed()->whereIn('id', $data['staff_ids']);
+
+        if ($data['action'] === 'restore') {
+            $count = $query->restore();
+
+            return back()->with('status', "{$count} staff member(s) restored.");
+        }
+
+        $staffMembers = $query->get();
+        $withLogin = $staffMembers->filter(fn ($s) => $s->user_id !== null);
+        $toDelete = $staffMembers->reject(fn ($s) => $s->user_id !== null);
+
+        foreach ($toDelete as $staffMember) {
+            ClassArm::where('class_teacher_staff_id', $staffMember->id)->update(['class_teacher_staff_id' => null]);
+            ClassArm::where('assistant_teacher_staff_id', $staffMember->id)->update(['assistant_teacher_staff_id' => null]);
+            House::where('housemaster_staff_id', $staffMember->id)->update(['housemaster_staff_id' => null]);
+            SchoolClass::where('default_reviewer_staff_id', $staffMember->id)->update(['default_reviewer_staff_id' => null]);
+            $staffMember->forceDelete();
+        }
+
+        $message = "{$toDelete->count()} staff member(s) permanently deleted. This cannot be undone.";
+        if ($withLogin->isNotEmpty()) {
+            $message .= " {$withLogin->count()} skipped because they still have an active login, revoke it first.";
+        }
+
+        return back()->with('status', $message);
     }
 
     public function show(Request $request): \Illuminate\View\View
