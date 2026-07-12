@@ -55,6 +55,19 @@
     </div>
   </div>
 
+  <div class="card" style="margin-top:1.25rem">
+    <h3 style="margin-bottom:.4rem">Guardian details visibility</h3>
+    <p class="muted" style="margin-bottom:.8rem">A class teacher can always see their own class's guardian/parent details. Choose whether a subject teacher can too.</p>
+    <div class="field" style="max-width:24rem">
+      <label for="guardian_visibility">Who can see guardian details</label>
+      <select id="guardian_visibility" name="guardian_visibility">
+        @foreach($guardianVisibilityOptions as $key => $label)
+          <option value="{{ $key }}" @selected($guardianVisibility === $key)>{{ $label }}</option>
+        @endforeach
+      </select>
+    </div>
+  </div>
+
   <button class="btn btn-primary btn-sm" type="submit" style="margin-top:1rem">Save</button>
 </form>
 @endsection

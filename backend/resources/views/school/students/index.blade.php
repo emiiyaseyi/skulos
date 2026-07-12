@@ -81,6 +81,42 @@
       @endif
     @endif
   </div>
+@elseif($subjectGroups !== null)
+  @if($subjectGroups->isEmpty())
+    <div class="card"><p class="muted">No subjects assigned to you yet.</p></div>
+  @else
+    @foreach($subjectGroups as $sectionName => $subjects)
+      <div class="card" style="margin-bottom:1.1rem">
+        <h3 style="margin-bottom:.7rem">{{ $sectionName }}</h3>
+        @foreach($subjects as $subjectName => $group)
+          <div style="margin-bottom:1.1rem">
+            <div class="row-between" style="margin-bottom:.5rem">
+              <strong>{{ $subjectName }}</strong>
+              <span class="muted" style="font-size:.85rem">{{ $group['classArms']->map->label()->implode(', ') }}</span>
+            </div>
+            @if($group['students']->isEmpty())
+              <p class="muted">No students in these classes yet.</p>
+            @else
+              <div style="overflow-x:auto">
+              <table>
+                <thead><tr><th>Admission No.</th><th>Name</th><th>Class</th></tr></thead>
+                <tbody>
+                  @foreach($group['students'] as $student)
+                    <tr class="row-link" onclick="window.location='{{ route('school.students.show', ['school' => $school->slug, 'studentId' => $student->id]) }}'" style="cursor:pointer">
+                      <td class="muted" style="font-variant-numeric:tabular-nums">{{ $student->admission_number }}</td>
+                      <td><strong>{{ $student->fullName() }}</strong></td>
+                      <td class="muted">{{ $student->currentClassArm?->label() }}</td>
+                    </tr>
+                  @endforeach
+                </tbody>
+              </table>
+              </div>
+            @endif
+          </div>
+        @endforeach
+      </div>
+    @endforeach
+  @endif
 @else
   @if($sections->isEmpty())
     <div class="card"><p class="muted">No classes yet. Set up your class structure under Classes &amp; Subjects, then students grouped by class will show here.</p></div>

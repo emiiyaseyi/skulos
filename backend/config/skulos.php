@@ -402,6 +402,22 @@ return [
     ],
 
     /*
+    | Who can see a student's guardian/parent details (name, relationship,
+    | contact, parent portal login) on their profile (user directive
+    | 2026-07-12: "the admin should be able to set if class teacher only
+    | or both subject teachers can also see each child parent details").
+    | Only ever narrows visibility for the two teacher_scoped_roles, a
+    | class teacher and every unrestricted role can always see it
+    | regardless of this setting, it only decides whether a subject
+    | teacher additionally can. Tenant Setting "guardian_visibility",
+    | default the more restrictive option.
+    */
+    'guardian_visibility_options' => [
+        'class_teacher_only' => 'Class teacher only',
+        'both' => 'Class teacher and subject teachers',
+    ],
+
+    /*
     | Idle session security timeout (user request 2026-07-09). After no
     | activity on an authenticated page for "idle_seconds", a warning
     | modal counts down "warning_seconds" with a Resume or Log out

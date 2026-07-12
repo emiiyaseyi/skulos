@@ -140,6 +140,89 @@ class TeacherScopeTest extends TestCase
         $response->assertOk()->assertSee('Bode Ade');
     }
 
+    /**
+     * User directive 2026-07-12: "for subject teachers, the student page
+     * should be grouped by section first, then subject before the
+     * student can be seen there." A class teacher only ever has one
+     * class, so this grouping is subject-teacher specific.
+     */
+    public function test_a_subject_teacher_sees_students_grouped_by_section_then_subject(): void
+    {
+        [$school, $teacherUser] = $this->schoolWithMember('subject-teacher', 'scopesix');
+
+        app(TenantManager::class)->use($school);
+        $primarySection = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $primaryClass = SchoolClass::create(['section_id' => $primarySection->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $primaryArm = ClassArm::create(['school_class_id' => $primaryClass->id, 'arm_id' => null]);
+        $primaryStudent = Student::create(['admission_number' => 'P/001', 'first_name' => 'Primary', 'last_name' => 'Kid', 'current_class_arm_id' => $primaryArm->id]);
+
+        $secondarySection = Section::create(['name' => 'Secondary', 'sequence' => 2]);
+        $secondaryClass = SchoolClass::create(['section_id' => $secondarySection->id, 'name' => 'JSS 1', 'sequence' => 1]);
+        $secondaryArm = ClassArm::create(['school_class_id' => $secondaryClass->id, 'arm_id' => null]);
+        $secondaryStudent = Student::create(['admission_number' => 'S/001', 'first_name' => 'Secondary', 'last_name' => 'Kid', 'current_class_arm_id' => $secondaryArm->id]);
+
+        $math = Subject::create(['name' => 'Mathematics']);
+        $english = Subject::create(['name' => 'English']);
+        $staff = Staff::create(['staff_id' => 'STF/0005', 'first_name' => 'Sub', 'last_name' => 'Jek', 'position' => 'Subject Teacher', 'status' => 'active', 'user_id' => $teacherUser->id]);
+        TeachingAssignment::create(['staff_id' => $staff->id, 'subject_id' => $math->id, 'class_arm_id' => $primaryArm->id]);
+        TeachingAssignment::create(['staff_id' => $staff->id, 'subject_id' => $english->id, 'class_arm_id' => $secondaryArm->id]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/students");
+
+        $response->assertOk()
+            ->assertSeeInOrder(['Primary', 'Mathematics', 'Primary Kid'])
+            ->assertSeeInOrder(['Secondary', 'English', 'Secondary Kid']);
+    }
+
+    /**
+     * User directive 2026-07-12: "the admin should be able to set if
+     * class teacher only or both subject teachers can also see each
+     * child parent details." Class teacher always sees it, this setting
+     * only decides whether subject-teacher additionally can.
+     */
+    public function test_guardian_visibility_setting_controls_whether_a_subject_teacher_sees_guardian_details(): void
+    {
+        [$school, $teacherUser] = $this->schoolWithMember('subject-teacher', 'scopeseven');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $armA, 'studentA' => $studentA] = $this->twoClassesWithStudents();
+        $subject = Subject::create(['name' => 'Mathematics']);
+        $staff = Staff::create(['staff_id' => 'STF/0006', 'first_name' => 'Sub', 'last_name' => 'Jek', 'position' => 'Subject Teacher', 'status' => 'active', 'user_id' => $teacherUser->id]);
+        TeachingAssignment::create(['staff_id' => $staff->id, 'subject_id' => $subject->id, 'class_arm_id' => $armA->id]);
+        $studentA->guardians()->create(['name' => 'Mrs Obi', 'relationship' => 'Mother', 'email' => 'mrsobi@example.com', 'is_primary' => true]);
+        app(TenantManager::class)->forget();
+
+        // Default (class_teacher_only): a subject teacher does not see it.
+        $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/students/{$studentA->id}")
+            ->assertOk()->assertDontSee('Mrs Obi')->assertSee('restricted for your role');
+
+        app(TenantManager::class)->use($school);
+        \App\Models\Tenant\Setting::put('guardian_visibility', 'both');
+        app(TenantManager::class)->forget();
+
+        // Once the admin opts in to "both", the subject teacher sees it.
+        $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/students/{$studentA->id}")
+            ->assertOk()->assertSee('Mrs Obi');
+    }
+
+    /** A class teacher always sees guardian details regardless of the setting, it only ever narrows a subject teacher's visibility. */
+    public function test_a_class_teacher_always_sees_guardian_details_regardless_of_the_setting(): void
+    {
+        [$school, $teacherUser] = $this->schoolWithMember('class-teacher', 'scopeeight');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $armA, 'studentA' => $studentA] = $this->twoClassesWithStudents();
+        $staff = Staff::create(['staff_id' => 'STF/0007', 'first_name' => 'Tee', 'last_name' => 'Cher', 'position' => 'Class Teacher', 'status' => 'active', 'user_id' => $teacherUser->id]);
+        $armA->update(['class_teacher_staff_id' => $staff->id]);
+        $studentA->guardians()->create(['name' => 'Mr Obi', 'relationship' => 'Father', 'email' => 'mrobi@example.com', 'is_primary' => true]);
+        \App\Models\Tenant\Setting::put('guardian_visibility', 'class_teacher_only');
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/students/{$studentA->id}")
+            ->assertOk()->assertSee('Mr Obi');
+    }
+
     /** A class teacher holds students.update, but a bulk action must still be silently limited to their own scoped students, an id for another class is never acted on. */
     public function test_a_class_teachers_bulk_action_never_touches_a_student_outside_their_scope(): void
     {

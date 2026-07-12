@@ -74,6 +74,52 @@ class StudentController extends Controller
          */
         $scopedArmIds = app(TeacherScope::class)->classArmIds($user, $school);
 
+        /*
+         * A subject teacher specifically (user directive 2026-07-12: "the
+         * student page should be grouped by section first, then subject
+         * before the student can be seen there") gets a drill down
+         * instead of one flat roster, since they may teach several
+         * subjects across several sections at once (a class teacher only
+         * ever has one class, so the flat roster below already is the
+         * simplest useful view for them).
+         */
+        if ($scopedArmIds !== null && ! $search && optional($user->roleIn($school))->slug === 'subject-teacher') {
+            $staff = \App\Models\Tenant\Staff::where('user_id', $user->id)->first();
+            $assignments = $staff
+                ? \App\Models\Tenant\TeachingAssignment::where('staff_id', $staff->id)
+                    ->with(['subject', 'classArm.schoolClass.section'])
+                    ->get()
+                    ->filter(fn ($a) => $a->classArm && $a->subject)
+                : collect();
+
+            $subjectGroups = $assignments
+                ->groupBy(fn ($a) => $a->classArm->schoolClass?->section?->name ?? 'Other')
+                ->map(fn ($bySection) => $bySection->groupBy(fn ($a) => $a->subject->name)
+                    ->map(function ($bySubject) {
+                        $armIds = $bySubject->pluck('class_arm_id')->unique();
+
+                        return [
+                            'classArms' => $bySubject->pluck('classArm')->unique('id')->values(),
+                            'students' => Student::whereIn('current_class_arm_id', $armIds)
+                                ->with('currentClassArm.schoolClass', 'currentClassArm.arm')
+                                ->active()->orderBy('last_name')->get(),
+                        ];
+                    }));
+
+            return view('school.students.index', [
+                'school' => $school,
+                'accent' => $school->branding()['color'],
+                'students' => null,
+                'search' => $search,
+                'total' => Student::whereIn('current_class_arm_id', $scopedArmIds)->count(),
+                'sections' => null,
+                'subjectGroups' => $subjectGroups,
+                'canImport' => app(Rbac::class)->check($user, $school, 'students.bulk'),
+                'canCreate' => app(Rbac::class)->check($user, $school, 'students.create'),
+                'canManage' => app(Rbac::class)->check($user, $school, 'students.update'),
+            ]);
+        }
+
         if ($search || $scopedArmIds !== null) {
             $students = Student::query()
                 ->when($scopedArmIds !== null, fn ($q) => $q->whereIn('current_class_arm_id', $scopedArmIds))
@@ -93,6 +139,7 @@ class StudentController extends Controller
                 'search' => $search,
                 'total' => $scopedArmIds !== null ? Student::whereIn('current_class_arm_id', $scopedArmIds)->count() : Student::count(),
                 'sections' => null,
+                'subjectGroups' => null,
                 'canImport' => app(Rbac::class)->check($user, $school, 'students.bulk'),
                 'canCreate' => app(Rbac::class)->check($user, $school, 'students.create'),
                 'canManage' => app(Rbac::class)->check($user, $school, 'students.update'),
@@ -116,6 +163,7 @@ class StudentController extends Controller
             'search' => $search,
             'total' => Student::count(),
             'sections' => $sections,
+            'subjectGroups' => null,
             'classCounts' => $counts,
             'unassigned' => $unassigned,
             'canImport' => app(Rbac::class)->check($user, $school, 'students.bulk'),
@@ -284,6 +332,16 @@ class StudentController extends Controller
         $term = Term::current()->first();
         $report = $term ? app(ResultService::class)->studentReport($student->id, $term->id, GradingScale::default()) : [];
 
+        // A class teacher (and their assistant) can always see guardian
+        // details, a subject teacher only if the school has opted in
+        // (user directive 2026-07-12), every unrestricted role always
+        // could and still can, this setting only ever narrows the two
+        // scoped teacher roles, never widens beyond what already applied.
+        $roleSlug = optional($user->roleIn($school))->slug;
+        $canSeeGuardianDetails = ! in_array($roleSlug, config('skulos.teacher_scoped_roles', []), true)
+            || in_array($roleSlug, ['class-teacher', 'class-assistant'], true)
+            || (Setting::grab('guardian_visibility', 'class_teacher_only') === 'both');
+
         return view('school.students.show', [
             'school' => $school,
             'accent' => $school->branding()['color'],
@@ -291,6 +349,7 @@ class StudentController extends Controller
             'term' => $term,
             'report' => $report,
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'students.update'),
+            'canSeeGuardianDetails' => $canSeeGuardianDetails,
             'parentIdentifier' => Setting::grab('parent_identifier', 'email'),
         ]);
     }
@@ -486,6 +545,8 @@ class StudentController extends Controller
             'identifierOptions' => config('skulos.identifier_options'),
             'parentIdentifier' => Setting::grab('parent_identifier', 'email'),
             'staffIdentifier' => Setting::grab('staff_identifier', 'email'),
+            'guardianVisibilityOptions' => config('skulos.guardian_visibility_options'),
+            'guardianVisibility' => Setting::grab('guardian_visibility', 'class_teacher_only'),
         ]);
     }
 
@@ -498,11 +559,13 @@ class StudentController extends Controller
             'required_fields.*' => ['string', 'in:'.implode(',', array_keys(config('skulos.student_optional_fields')))],
             'parent_identifier' => ['required', 'string', 'in:'.$identifierKeys],
             'staff_identifier' => ['required', 'string', 'in:'.$identifierKeys],
+            'guardian_visibility' => ['required', 'string', 'in:'.implode(',', array_keys(config('skulos.guardian_visibility_options')))],
         ]);
 
         Setting::put('student_required_fields', $data['required_fields'] ?? []);
         Setting::put('parent_identifier', $data['parent_identifier']);
         Setting::put('staff_identifier', $data['staff_identifier']);
+        Setting::put('guardian_visibility', $data['guardian_visibility']);
 
         return back()->with('status', 'Student field settings updated.');
     }

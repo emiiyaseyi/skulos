@@ -25,7 +25,7 @@
         <tr><th>Gender</th><td>{{ $student->gender ? ucfirst($student->gender) : 'Not set' }}</td></tr>
         <tr><th>Date of Birth</th><td>{{ optional($student->date_of_birth)->toFormattedDateString() ?? 'Not set' }}</td></tr>
         <tr><th>Email</th><td>{{ $student->email ?: 'Not set' }}</td></tr>
-        <tr><th>Parent Mobile</th><td>{{ $student->parent_mobile ?: 'Not set' }}</td></tr>
+        <tr><th>Parent Mobile</th><td>{{ $canSeeGuardianDetails ? ($student->parent_mobile ?: 'Not set') : 'Restricted' }}</td></tr>
         <tr><th>Class</th><td>{{ $student->currentClassArm?->label() ?? 'Not set' }}</td></tr>
         <tr><th>House</th><td>{{ $student->house?->name ?? 'Not set' }}</td></tr>
         <tr><th>State of Origin</th><td>{{ $student->state_of_origin ?: 'Not set' }}</td></tr>
@@ -37,7 +37,9 @@
 
   <div class="card">
     <h3 style="margin-bottom:.8rem">Guardians</h3>
-    @if($student->guardians->isEmpty())
+    @if(! $canSeeGuardianDetails)
+      <p class="muted" style="margin-bottom:0">Guardian details are restricted for your role. Ask the school admin if you need access.</p>
+    @elseif($student->guardians->isEmpty())
       <p class="muted" style="margin-bottom:.8rem">No guardian on record yet.</p>
     @else
       <div style="overflow-x:auto;margin-bottom:.8rem">

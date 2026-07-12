@@ -228,6 +228,7 @@ class StudentScreenTest extends TestCase
         $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/settings", [
             'parent_identifier' => 'phone',
             'staff_identifier' => 'email',
+            'guardian_visibility' => 'class_teacher_only',
         ])->assertRedirect();
 
         app(TenantManager::class)->use($school);
@@ -284,6 +285,7 @@ class StudentScreenTest extends TestCase
             'required_fields' => ['class', 'lga'],
             'parent_identifier' => 'email',
             'staff_identifier' => 'email',
+            'guardian_visibility' => 'class_teacher_only',
         ])->assertRedirect();
 
         app(TenantManager::class)->use($school);
