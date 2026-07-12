@@ -15,7 +15,7 @@ class AcademicSession extends Model
 
     protected $connection = 'tenant';
 
-    protected $fillable = ['name', 'starts_on', 'ends_on', 'is_current'];
+    protected $fillable = ['name', 'starts_on', 'ends_on', 'is_current', 'is_archived'];
 
     protected function casts(): array
     {
@@ -23,6 +23,7 @@ class AcademicSession extends Model
             'starts_on' => 'date',
             'ends_on' => 'date',
             'is_current' => 'boolean',
+            'is_archived' => 'boolean',
         ];
     }
 
@@ -54,5 +55,25 @@ class AcademicSession extends Model
     public function scopeCurrent($query)
     {
         return $query->where('is_current', true);
+    }
+
+    /** Excludes archived sessions, the default view (Dbase recommendation: keep old sessions out of default/daily queries). */
+    public function scopeActive($query)
+    {
+        return $query->where('is_archived', false);
+    }
+
+    public function archive(): void
+    {
+        if ($this->is_current) {
+            throw new \RuntimeException('The current session cannot be archived.');
+        }
+
+        $this->update(['is_archived' => true]);
+    }
+
+    public function unarchive(): void
+    {
+        $this->update(['is_archived' => false]);
     }
 }

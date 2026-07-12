@@ -164,6 +164,7 @@
     $link('school.students.settings.edit', 'Student Fields', 'students'),
     $link('school.settings.mail.edit', 'Mail Settings', 'settings'),
     $link('school.settings.idle-timeout.edit', 'Idle Timeout', 'settings'),
+    $link('school.settings.retention.edit', 'Retention', 'settings'),
   ];
 @endphp
 

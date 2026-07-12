@@ -17,3 +17,12 @@ Artisan::command('inspire', function () {
 // hour, so any schedule not set to a "HH:00" time could never actually
 // match and silently never ran.
 Schedule::command('backups:run-scheduled')->everyMinute()->withoutOverlapping();
+
+// Dbase recommendation (standing rule): "anything that grows unbounded"
+// needs a retention/cleanup policy. Weekly, off peak hours, so it never
+// competes with the every minute backup check above.
+Schedule::command('skulos:retention-cleanup')->weeklyOn(1, '02:00')->withoutOverlapping();
+
+// Dbase recommendation: "weekly scheduled MySQL maintenance (optimize/
+// analyze/repair tables) per school database."
+Schedule::command('skulos:optimize-tables')->weeklyOn(1, '03:00')->withoutOverlapping();

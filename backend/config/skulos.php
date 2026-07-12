@@ -397,6 +397,23 @@ return [
     ],
 
     /*
+    | Default retention windows in days for things that otherwise grow
+    | unbounded (Dbase recommendation, standing rule): in app notifications,
+    | communication (SMS/email/WhatsApp) logs, and platform login sessions.
+    | Admin editable via App\Services\Maintenance\RetentionService, same
+    | platform-then-school precedence as idle timeout/mail settings.
+    | Audit logs are deliberately NOT in this list: App\Models\AuditLog is
+    | immutable by design ("nothing deleted without a trace"), so audit log
+    | retention needs an archive-not-delete strategy, not a purge job, and
+    | is intentionally left out of this pass rather than guessed at.
+    */
+    'retention' => [
+        'notifications_days' => env('RETENTION_NOTIFICATIONS_DAYS', 90),
+        'communication_logs_days' => env('RETENTION_COMMUNICATION_LOGS_DAYS', 180),
+        'sessions_days' => env('RETENTION_SESSIONS_DAYS', 30),
+    ],
+
+    /*
     | Communication channels. Only enabled channels are attempted. Email is
     | wired now; SMS, WhatsApp and push are placeholders for later providers.
     | A school will toggle these in the admin CMS; not hardcoded in code.

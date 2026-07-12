@@ -79,6 +79,11 @@ Route::domain($appDomain)->group(function () {
             Route::get('/', [$idleTimeout, 'edit'])->name('edit');
             Route::post('/', [$idleTimeout, 'update'])->name('update');
         });
+        Route::prefix('settings/retention')->name('settings.retention.')->group(function () {
+            $retention = \App\Http\Controllers\Admin\RetentionController::class;
+            Route::get('/', [$retention, 'edit'])->name('edit');
+            Route::post('/', [$retention, 'update'])->name('update');
+        });
 
         Route::prefix('billing')->name('billing.')->group(function () {
             $billing = \App\Http\Controllers\Admin\BillingController::class;
@@ -199,6 +204,8 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/', [$academics, 'index'])->name('index');
             Route::post('/sessions', [$academics, 'storeSession'])->name('sessions.store');
             Route::post('/sessions/{sessionId}/make-current', [$academics, 'makeSessionCurrent'])->name('sessions.make-current');
+            Route::post('/sessions/{sessionId}/archive', [$academics, 'archiveSession'])->name('sessions.archive');
+            Route::post('/sessions/{sessionId}/unarchive', [$academics, 'unarchiveSession'])->name('sessions.unarchive');
             Route::post('/terms', [$academics, 'storeTerm'])->name('terms.store');
             Route::post('/terms/{termId}/make-current', [$academics, 'makeTermCurrent'])->name('terms.make-current');
             Route::post('/end-term', [$academics, 'endTerm'])->name('end-term');
@@ -298,6 +305,13 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             $idleTimeout = \App\Http\Controllers\School\IdleTimeoutController::class;
             Route::get('/', [$idleTimeout, 'edit'])->name('edit');
             Route::post('/', [$idleTimeout, 'update'])->name('update');
+        });
+
+        // Retention windows (optional per-school override of the platform default).
+        Route::prefix('settings/retention')->name('school.settings.retention.')->group(function () {
+            $retention = \App\Http\Controllers\School\RetentionController::class;
+            Route::get('/', [$retention, 'edit'])->name('edit');
+            Route::post('/', [$retention, 'update'])->name('update');
         });
     });
 });

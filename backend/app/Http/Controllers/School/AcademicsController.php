@@ -234,7 +234,13 @@ class AcademicsController extends Controller
         $this->authorizeAction($request, 'academics.view');
         $school = $this->school($request);
 
-        $sessions = AcademicSession::with(['terms' => fn ($q) => $q->orderBy('sequence')])
+        $sessions = AcademicSession::active()
+            ->with(['terms' => fn ($q) => $q->orderBy('sequence')])
+            ->orderByDesc('name')
+            ->get();
+
+        $archivedSessions = AcademicSession::where('is_archived', true)
+            ->with(['terms' => fn ($q) => $q->orderBy('sequence')])
             ->orderByDesc('name')
             ->get();
 
@@ -251,9 +257,34 @@ class AcademicsController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'sessions' => $sessions,
+            'archivedSessions' => $archivedSessions,
             'suggestedTerm' => $suggestedTerm,
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'academics.update'),
         ]);
+    }
+
+    /** Hides a done session from the default list (Dbase recommendation: archive old sessions, exclude from default queries). */
+    public function archiveSession(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.update');
+        $session = AcademicSession::findOrFail($request->route('sessionId'));
+
+        try {
+            $session->archive();
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('status', "{$session->name} archived.");
+    }
+
+    public function unarchiveSession(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.update');
+        $session = AcademicSession::findOrFail($request->route('sessionId'));
+        $session->unarchive();
+
+        return back()->with('status', "{$session->name} restored.");
     }
 
     /** Optional start/end dates for a term, used to auto-suggest the current term by today's date. */

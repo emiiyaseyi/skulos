@@ -79,11 +79,15 @@
                 @endif
               @endforeach
             </td>
-            <td>
+            <td style="white-space:nowrap">
               @if($canManage && ! $session->is_current)
-                <form method="POST" action="{{ route('school.academics.sessions.make-current', ['school' => $school->slug, 'sessionId' => $session->id]) }}">
+                <form method="POST" action="{{ route('school.academics.sessions.make-current', ['school' => $school->slug, 'sessionId' => $session->id]) }}" style="display:inline">
                   @csrf
                   <button class="btn btn-ghost btn-sm" type="submit">Make current</button>
+                </form>
+                <form method="POST" action="{{ route('school.academics.sessions.archive', ['school' => $school->slug, 'sessionId' => $session->id]) }}" style="display:inline" onsubmit="return confirm('Archive {{ $session->name }}? It stays in your records but is hidden from this list until restored.')">
+                  @csrf
+                  <button class="btn btn-ghost btn-sm" type="submit">Archive</button>
                 </form>
               @endif
             </td>
@@ -125,4 +129,32 @@
     </div>
   @endif
 </div>
+
+@if($archivedSessions->isNotEmpty())
+<div class="card">
+  <h3 style="margin-bottom:.7rem">Archived sessions</h3>
+  <p class="muted" style="margin-bottom:.7rem">Kept in your records, hidden from the list above. Restore one to bring it back.</p>
+  <div style="overflow-x:auto">
+  <table>
+    <thead><tr><th>Session</th><th>Terms</th><th></th></tr></thead>
+    <tbody>
+      @foreach($archivedSessions as $session)
+        <tr>
+          <td><strong>{{ $session->name }}</strong></td>
+          <td class="muted">{{ $session->terms->pluck('name')->implode(', ') }}</td>
+          <td>
+            @if($canManage)
+              <form method="POST" action="{{ route('school.academics.sessions.unarchive', ['school' => $school->slug, 'sessionId' => $session->id]) }}">
+                @csrf
+                <button class="btn btn-ghost btn-sm" type="submit">Restore</button>
+              </form>
+            @endif
+          </td>
+        </tr>
+      @endforeach
+    </tbody>
+  </table>
+  </div>
+</div>
+@endif
 @endsection
