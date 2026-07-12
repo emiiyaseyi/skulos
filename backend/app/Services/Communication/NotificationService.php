@@ -76,6 +76,7 @@ class NotificationService
                 'title' => $announcement->title,
                 'body' => $announcement->body,
                 'category' => 'announcement',
+                'type' => Notification::typeFor('announcement'),
                 'announcement_id' => $announcement->id,
             ]);
             $inApp++;

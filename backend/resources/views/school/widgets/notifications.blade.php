@@ -1,7 +1,10 @@
 <div class="card">
   <div class="row-between" style="margin-bottom:.6rem">
     <h3>Notifications</h3>
-    @if($feed['unread'] > 0)<span class="badge badge-warn">{{ $feed['unread'] }} new</span>@endif
+    <div style="display:flex;align-items:center;gap:.5rem">
+      @if($feed['unread'] > 0)<span class="badge badge-warn">{{ $feed['unread'] }} new</span>@endif
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.notifications.index', ['school' => $school->slug]) }}">View all</a>
+    </div>
   </div>
   @forelse($feed['items'] as $n)
     <div class="notif">

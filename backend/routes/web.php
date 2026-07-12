@@ -211,6 +211,11 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         });
         Route::get('/setup', [\App\Http\Controllers\School\SetupController::class, 'index'])->name('school.setup');
         Route::post('/notifications/{id}/read', [SchoolPortalController::class, 'markNotificationRead'])->name('school.notifications.read');
+        Route::prefix('notifications')->name('school.notifications.')->group(function () {
+            $notifications = \App\Http\Controllers\School\NotificationController::class;
+            Route::get('/', [$notifications, 'index'])->name('index');
+            Route::post('/bulk-action', [$notifications, 'bulkAction'])->name('bulk-action');
+        });
         Route::get('/settings/branding', [SchoolPortalController::class, 'editBranding'])->name('school.branding.edit');
         Route::post('/settings/branding', [SchoolPortalController::class, 'updateBranding'])->name('school.branding.update');
         Route::get('/settings/dashboard', [SchoolPortalController::class, 'editDashboard'])->name('school.dashboard.edit');

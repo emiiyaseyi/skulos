@@ -421,6 +421,7 @@ class ReportCardController extends Controller
             'title' => 'Report card awaiting your review',
             'body' => "{$student->fullName()}'s report card is waiting on you to review, approve, or send back.",
             'category' => 'report_card_review',
+            'type' => \App\Models\Tenant\Notification::typeFor('report_card_review'),
         ]);
 
         return back()->with('status', "{$staff->fullName()} has been nudged.");

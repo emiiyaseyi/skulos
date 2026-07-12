@@ -457,6 +457,30 @@ return [
     ],
 
     /*
+    | Notification Center taxonomy (user directed backlog item, 2026-07-12,
+    | "To Do List 2" doc item 8: categorize into Academic/Finance/Urgent/
+    | System, not one flat feed). "notification_types" is the broad bucket
+    | shown as filter tabs; "notification_categories" maps each specific
+    | free-text category a notification is created with (Notification::
+    | create()'s "category" column, e.g. "announcement", "report_card_
+    | review") to one of those types plus a display label. A category
+    | created without an entry here safely falls back to the "system"
+    | type via Notification::typeFor(), it is never a hard error, but
+    | every real producer should still get an explicit entry so it lands
+    | in the type that actually makes sense for it, not the fallback.
+    */
+    'notification_types' => [
+        'academic' => 'Academic',
+        'finance' => 'Finance',
+        'urgent' => 'Urgent',
+        'system' => 'System',
+    ],
+    'notification_categories' => [
+        'announcement' => ['label' => 'Announcement', 'type' => 'system'],
+        'report_card_review' => ['label' => 'Report card review', 'type' => 'academic'],
+    ],
+
+    /*
     | Default notable days seeded into a new school's calendar (user request
     | 2026-07-09). These are starting defaults only: the school admin can
     | edit, remove, or add more, and set the actual dates. Category drives
