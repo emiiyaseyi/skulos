@@ -101,7 +101,18 @@ class SchoolAdminController extends Controller
             'admin_password' => ['required', 'string', 'min:8', 'max:100'],
         ]);
 
-        $slug = $data['slug'] ?? Str::slug($data['name']);
+        // Always normalized through Str::slug(), even when the admin typed
+        // their own value: a raw typed slug only passed alpha_dash
+        // validation (which allows uppercase), so "Training" would have
+        // been stored verbatim, mismatching the always-lowercase subdomain
+        // a browser sends and 404ing (found live 2026-07-12, school
+        // "Training" was unreachable at training.<domain> because its
+        // stored slug was "Training"). This also stops the tenant database
+        // name (TenantManager::databaseNameFor(), which strips anything
+        // outside [a-z0-9_] without lowercasing first) from silently
+        // eating an uppercase letter, which is how that school's database
+        // ended up literally named "raining" instead of "training".
+        $slug = Str::slug($data['slug'] ?? $data['name']);
         if (School::where('slug', $slug)->exists()) {
             return back()->with('error', "A school with the address '{$slug}' already exists.")->withInput();
         }
@@ -155,7 +166,18 @@ class SchoolAdminController extends Controller
             'admin_password' => ['required', 'string', 'min:8', 'max:100'],
         ]);
 
-        $slug = $data['slug'] ?? Str::slug($data['name']);
+        // Always normalized through Str::slug(), even when the admin typed
+        // their own value: a raw typed slug only passed alpha_dash
+        // validation (which allows uppercase), so "Training" would have
+        // been stored verbatim, mismatching the always-lowercase subdomain
+        // a browser sends and 404ing (found live 2026-07-12, school
+        // "Training" was unreachable at training.<domain> because its
+        // stored slug was "Training"). This also stops the tenant database
+        // name (TenantManager::databaseNameFor(), which strips anything
+        // outside [a-z0-9_] without lowercasing first) from silently
+        // eating an uppercase letter, which is how that school's database
+        // ended up literally named "raining" instead of "training".
+        $slug = Str::slug($data['slug'] ?? $data['name']);
         if (School::where('slug', $slug)->exists()) {
             return back()->with('error', "A school with the address '{$slug}' already exists.")->withInput();
         }

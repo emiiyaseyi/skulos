@@ -61,6 +61,51 @@ class SchoolAdminManagementTest extends TestCase
         return [$school, $owner];
     }
 
+    /**
+     * Regression test for a live bug found 2026-07-12: creating a school
+     * with a manually typed, mixed-case slug ("Training") stored it
+     * verbatim, which 404'd on its own subdomain (ResolveTenant's lookup
+     * found nothing, since a browser always sends a lowercase host) and
+     * corrupted its tenant database name (TenantManager::databaseNameFor()
+     * strips anything outside [a-z0-9_] without lowercasing first, so the
+     * "T" was silently deleted, producing a database named "raining"
+     * instead of "training"). The slug must always come out lowercased,
+     * whether typed by the admin or auto derived from the school name.
+     */
+    public function test_creating_a_school_with_a_mixed_case_slug_stores_it_lowercased(): void
+    {
+        $platformAdmin = $this->superAdmin();
+
+        $this->actingAs($platformAdmin)->post(route('admin.schools.store'), [
+            'name' => 'Training',
+            'slug' => 'Training',
+            'admin_name' => 'School Admin',
+            'admin_email' => 'admin@training.test',
+            'admin_password' => 'password123',
+        ])->assertRedirect(route('admin.schools.index'));
+
+        $school = School::where('name', 'Training')->firstOrFail();
+        $this->assertSame('training', $school->slug);
+        $this->assertSame('training', $school->database);
+        $this->assertTrue($school->isProvisioned());
+    }
+
+    /** Same normalization must apply when no slug is typed at all, deriving one from the name. */
+    public function test_creating_a_school_without_a_slug_derives_a_lowercase_one(): void
+    {
+        $platformAdmin = $this->superAdmin();
+
+        $this->actingAs($platformAdmin)->post(route('admin.schools.store'), [
+            'name' => 'Bright Future Academy',
+            'admin_name' => 'School Admin',
+            'admin_email' => 'admin@bfa.test',
+            'admin_password' => 'password123',
+        ])->assertRedirect(route('admin.schools.index'));
+
+        $school = School::where('name', 'Bright Future Academy')->firstOrFail();
+        $this->assertSame('bright-future-academy', $school->slug);
+    }
+
     public function test_platform_admin_can_reset_a_school_admins_password(): void
     {
         \Illuminate\Support\Facades\Mail::fake();

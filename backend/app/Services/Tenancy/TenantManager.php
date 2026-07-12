@@ -151,7 +151,15 @@ class TenantManager
 
     protected function databaseNameFor(School $school): string
     {
-        $slug = Str::of($school->slug)->replace('-', '_')->replaceMatches('/[^a-z0-9_]/', '');
+        // Lowercase before stripping, not just stripping (found live
+        // 2026-07-12: a slug that reached here with an uppercase letter,
+        // e.g. "Training", had that letter silently deleted rather than
+        // lowercased, producing a database named "raining"). The slug
+        // itself should already be lowercased at creation (see
+        // SchoolAdminController::store()), this is a second layer so a
+        // stray mixed-case slug from any other path never corrupts the
+        // database name the same way again.
+        $slug = Str::of($school->slug)->lower()->replace('-', '_')->replaceMatches('/[^a-z0-9_]/', '');
 
         return $this->driver() === 'sqlite'
             ? (string) $slug

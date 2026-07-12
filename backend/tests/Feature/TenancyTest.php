@@ -103,6 +103,23 @@ class TenancyTest extends TestCase
             ->assertJson(['school' => 'resolved']);
     }
 
+    /** A stray mixed-case slug must still resolve, not 404 (see SchoolAdminManagementTest's matching creation-side regression test). */
+    public function test_middleware_resolves_school_case_insensitively(): void
+    {
+        $school = app(TenantManager::class)->provision(
+            School::factory()->create(['slug' => 'training'])
+        );
+
+        Route::middleware(['web', 'tenant'])->get('/_test/whoami', function () {
+            return response()->json(['school' => request()->attributes->get('school')->slug]);
+        });
+
+        $this->withHeader('X-School', 'Training')
+            ->getJson('/_test/whoami')
+            ->assertOk()
+            ->assertJson(['school' => 'training']);
+    }
+
     public function test_middleware_rejects_unknown_and_unprovisioned_schools(): void
     {
         Route::middleware(['web', 'tenant'])->get('/_test/whoami', fn () => 'ok');

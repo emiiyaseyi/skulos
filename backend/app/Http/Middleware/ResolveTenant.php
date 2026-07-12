@@ -36,7 +36,13 @@ class ResolveTenant
             abort(404, 'No school specified.');
         }
 
-        $school = School::where('slug', $slug)->first();
+        // Case-insensitive on purpose: a slug is meant to always be stored
+        // lowercase (see SchoolAdminController::store()), but a browser's
+        // Host header case is outside our control, and a stray mixed-case
+        // slug from any future admin path should still resolve rather than
+        // 404 (found live 2026-07-12, see TenantManager::databaseNameFor()
+        // for the matching fix on the database-name side of this bug).
+        $school = School::whereRaw('LOWER(slug) = ?', [mb_strtolower($slug)])->first();
 
         if (! $school || ! $school->isProvisioned()) {
             abort(404, 'School not found.');
