@@ -3,7 +3,9 @@
 namespace App\Models\Tenant;
 
 use App\Models\Concerns\Auditable;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -44,6 +46,25 @@ class Staff extends Model
     public function teachingAssignments(): HasMany
     {
         return $this->hasMany(TeachingAssignment::class);
+    }
+
+    /**
+     * The platform login this staff member signs in with, if one has been
+     * created for them. Built manually rather than a plain belongsTo():
+     * Eloquent's Model::newRelatedInstance() silently inherits the PARENT
+     * model's connection ("tenant") onto the related model whenever the
+     * related model (User) has no $connection of its own, so a bare
+     * belongsTo(User::class) tries to select from "users" on the tenant
+     * SQLite file and throws "no such table: users" (found live 2026-07-12
+     * while smoke testing the new Staff Portal screen). Explicitly pinning
+     * the related instance to the platform's own default connection before
+     * handing it to newBelongsTo() sidesteps that inheritance entirely.
+     */
+    public function user(): BelongsTo
+    {
+        $related = (new User())->setConnection(config('database.default'));
+
+        return $this->newBelongsTo($related->newQuery(), $this, 'user_id', 'id', 'user');
     }
 
     public function fullName(): string

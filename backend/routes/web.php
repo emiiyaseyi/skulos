@@ -169,6 +169,23 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::get('/students/{studentId}/edit', [\App\Http\Controllers\School\StudentController::class, 'edit'])->name('school.students.edit');
         Route::post('/students/{studentId}/edit', [\App\Http\Controllers\School\StudentController::class, 'update'])->name('school.students.update');
         Route::post('/students/{studentId}/guardians', [\App\Http\Controllers\School\StudentController::class, 'storeGuardian'])->name('school.students.guardians.store');
+        Route::post('/students/guardians/{guardianId}/login', [\App\Http\Controllers\School\StudentController::class, 'createGuardianLogin'])->name('school.students.guardians.login.create');
+        Route::post('/students/guardians/{guardianId}/login/reset-password', [\App\Http\Controllers\School\StudentController::class, 'resetGuardianLoginPassword'])->name('school.students.guardians.login.reset-password');
+        Route::post('/students/guardians/{guardianId}/login/toggle-access', [\App\Http\Controllers\School\StudentController::class, 'toggleGuardianLoginAccess'])->name('school.students.guardians.login.toggle-access');
+
+        Route::prefix('staff')->name('school.staff.')->group(function () {
+            $staff = \App\Http\Controllers\School\StaffController::class;
+            Route::get('/', [$staff, 'index'])->name('index');
+            Route::post('/bulk-action', [$staff, 'bulkAction'])->name('bulk-action');
+            Route::get('/create', [$staff, 'create'])->name('create');
+            Route::post('/create', [$staff, 'store'])->name('store');
+            Route::get('/{staffId}', [$staff, 'show'])->name('show');
+            Route::get('/{staffId}/edit', [$staff, 'edit'])->name('edit');
+            Route::post('/{staffId}/edit', [$staff, 'update'])->name('update');
+            Route::post('/{staffId}/login', [$staff, 'createLogin'])->name('login.create');
+            Route::post('/{staffId}/login/reset-password', [$staff, 'resetLoginPassword'])->name('login.reset-password');
+            Route::post('/{staffId}/login/toggle-access', [$staff, 'toggleLoginAccess'])->name('login.toggle-access');
+        });
 
         Route::prefix('houses')->name('school.houses.')->group(function () {
             $houses = \App\Http\Controllers\School\HouseController::class;

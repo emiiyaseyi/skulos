@@ -10,7 +10,10 @@ use App\Models\Tenant\House;
 use App\Models\Tenant\Section;
 use App\Models\Tenant\Setting;
 use App\Models\Tenant\Student;
+use App\Models\Tenant\StudentGuardian;
 use App\Models\Tenant\Term;
+use App\Models\User;
+use App\Services\Accounts\AccountProvisioningService;
 use App\Services\Bulk\CsvReader;
 use App\Services\Bulk\Importer;
 use App\Services\Bulk\Importers\StudentImporter;
@@ -169,7 +172,7 @@ class StudentController extends Controller
     {
         $this->authorizeAction($request, 'students.view');
         $school = $this->school($request);
-        $student = Student::with('guardians', 'house', 'currentClassArm.schoolClass', 'currentClassArm.arm')
+        $student = Student::with('guardians.user', 'house', 'currentClassArm.schoolClass', 'currentClassArm.arm')
             ->findOrFail($request->route('studentId'));
 
         $term = Term::current()->first();
@@ -266,6 +269,61 @@ class StudentController extends Controller
         $student->guardians()->create($data + ['is_primary' => $request->boolean('is_primary')]);
 
         return back()->with('status', 'Guardian added.');
+    }
+
+    /**
+     * Creates a parent/guardian's login (Parent Portal, user request
+     * 2026-07-12: the parent dashboard already existed once an account
+     * was linked, but there was no screen to actually create one). Sign
+     * in is always by email, even if this school's parent identifier is
+     * set to phone, so the guardian's own email (if captured) pre-fills
+     * the form but is not assumed to be present.
+     */
+    public function createGuardianLogin(Request $request, AccountProvisioningService $accounts): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.update');
+        $school = $this->school($request);
+        $guardian = StudentGuardian::findOrFail($request->route('guardianId'));
+
+        $data = $request->validate(['email' => ['required', 'email', 'max:150']]);
+
+        $result = $accounts->provision($school, $guardian->name, $data['email'], 'parent');
+        $guardian->update(['guardian_user_id' => $result['user']->id, 'email' => $guardian->email ?: $data['email']]);
+
+        return back()->with('status', "{$guardian->name}'s login has been created and emailed to them.");
+    }
+
+    public function resetGuardianLoginPassword(Request $request, AccountProvisioningService $accounts): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.update');
+        $school = $this->school($request);
+        $guardian = StudentGuardian::findOrFail($request->route('guardianId'));
+        abort_unless($guardian->guardian_user_id, 404);
+
+        $accounts->resetPassword($school, User::findOrFail($guardian->guardian_user_id));
+
+        return back()->with('status', "{$guardian->name}'s password has been reset and emailed to them.");
+    }
+
+    public function toggleGuardianLoginAccess(Request $request, AccountProvisioningService $accounts): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.update');
+        $school = $this->school($request);
+        $guardian = StudentGuardian::findOrFail($request->route('guardianId'));
+        abort_unless($guardian->guardian_user_id, 404);
+
+        $user = User::findOrFail($guardian->guardian_user_id);
+        $current = $school->users()->whereKey($user->id)->first()->pivot->status;
+
+        if ($current === 'active') {
+            $accounts->revokeAccess($school, $user);
+            $statusLabel = 'revoked';
+        } else {
+            $accounts->restoreAccess($school, $user);
+            $statusLabel = 'restored';
+        }
+
+        return back()->with('status', "{$guardian->name}'s login access has been {$statusLabel}.");
     }
 
     /**

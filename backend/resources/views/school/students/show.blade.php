@@ -42,13 +42,41 @@
     @else
       <div style="overflow-x:auto;margin-bottom:.8rem">
       <table>
-        <thead><tr><th>Name</th><th>Relationship</th><th>Contact</th></tr></thead>
+        <thead><tr><th>Name</th><th>Relationship</th><th>Contact</th><th>Login (Parent Portal)</th></tr></thead>
         <tbody>
           @foreach($student->guardians as $guardian)
             <tr>
               <td><strong>{{ $guardian->name }}</strong>@if($guardian->is_primary)<span class="badge badge-ok" style="margin-left:.4rem">Primary</span>@endif</td>
               <td class="muted">{{ $guardian->relationship ?: 'Not set' }}</td>
               <td class="muted">{{ $guardian->phone ?: $guardian->email ?: 'Not set' }}</td>
+              <td>
+                @if(! $guardian->user)
+                  @if($canManage)
+                    <form method="POST" action="{{ route('school.students.guardians.login.create', ['school' => $school->slug, 'guardianId' => $guardian->id]) }}" style="display:flex;gap:.3rem;align-items:center">
+                      @csrf
+                      <input type="email" name="email" value="{{ $guardian->email }}" placeholder="Email for login" required style="max-width:11rem" />
+                      <button class="btn btn-ghost btn-sm" type="submit">Create login</button>
+                    </form>
+                  @else
+                    <span class="muted">No login</span>
+                  @endif
+                @else
+                  @php($gPivotStatus = $school->users()->whereKey($guardian->user->id)->first()?->pivot->status)
+                  <span class="badge {{ $gPivotStatus === 'active' ? 'badge-ok' : 'badge-warn' }}" style="margin-bottom:.3rem;display:inline-block">{{ ucfirst($gPivotStatus) }}</span>
+                  @if($canManage)
+                    <div style="display:flex;gap:.4rem;margin-top:.3rem">
+                      <form method="POST" action="{{ route('school.students.guardians.login.reset-password', ['school' => $school->slug, 'guardianId' => $guardian->id]) }}">
+                        @csrf
+                        <button class="btn btn-ghost btn-sm" type="submit">Reset password</button>
+                      </form>
+                      <form method="POST" action="{{ route('school.students.guardians.login.toggle-access', ['school' => $school->slug, 'guardianId' => $guardian->id]) }}">
+                        @csrf
+                        <button class="btn btn-ghost btn-sm" type="submit">{{ $gPivotStatus === 'active' ? 'Revoke' : 'Restore' }}</button>
+                      </form>
+                    </div>
+                  @endif
+                @endif
+              </td>
             </tr>
           @endforeach
         </tbody>
