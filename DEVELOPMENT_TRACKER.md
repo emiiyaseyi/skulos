@@ -967,6 +967,18 @@ Entries are added here as work starts on each item — see the current build pha
 - QA: 4 new tests in `RoleDashboardTest` (admin dashboard shows real Attendance Rate/Parents/Subjects; a class teacher's dashboard shows their own class's today figures; a student sees their own today/term attendance; a parent sees their children's aggregate attendance today). Full suite: 496 passed, 0 failed (up from 492).
 - Not built in this pass: `ictOfficer()`/bursar-accountant (`peopleOnly()`) dashboards were left as is, neither was named for an attendance figure in the cross-check; Principal-specific figures (cross-check items "Student Population, Teacher Count" / "Attendance, Academic Performance") reuse the same `admin()` figures today since there is no Principal-specific dashboard branch yet, that remains its own separate backlog item.
 
+#### Sub-item: platform dashboard, Total Students/Staff/Parents and Active Subscriptions summary (2026-07-13)
+- Status: Done
+- Started: 2026-07-13
+- Notes: cross-check items 1 and 2. "Total Students/Staff/Parents" was marked Blocked ("would need summing across every school's own database live; not built") and "Active Subscriptions" Partial (shown only as a per-plan breakdown, never one number).
+  1. New `App\Services\Platform\CrossSchoolAggregates::totals()`, the same loop-every-provisioned-school pattern `MigrateTenants`/`OptimizeTenantDatabases` already use (`School::whereNotNull('database')->whereNotNull('provisioned_at')`, `TenantManager::use()` per school). Each school is wrapped in its own try/catch so one school whose tenant database cannot be reached right now (mid restore, corrupt file) is silently skipped, not fatal to the whole platform dashboard, and a small note appears on the dashboard itself if any were skipped ("totals reflect X of Y schools"). At today's real scale (7 provisioned schools) this runs live on every page load with no caching; revisit if school count grows enough to matter, per the standing "cache once volume makes it worth it" database efficiency rule.
+  2. `PlatformDashboardController::index()` now also computes `activeSubscriptions` as `$schools->whereNotNull('plan_id')->count()`, using data that was already loaded, no new query.
+  3. `admin/dashboard.blade.php`'s figures grid grew from 8 to 12 (Active Subscriptions, Students, Staff, Parents added), still a clean multiple of 4 for the fixed 4 column desktop grid.
+- Issues/Bugs found: none.
+- Resolution: n/a.
+- QA: 2 new tests in `PlatformDashboardTest` (a real provisioned school's students/staff/guardians are summed and shown on the platform dashboard; Active Subscriptions shows one number, not a breakdown). Full suite: 498 passed, 0 failed.
+- Not built in this pass: nothing further requested for these two items.
+
 ---
 
 ---

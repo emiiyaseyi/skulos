@@ -10,6 +10,8 @@ use App\Models\Role;
 use App\Models\School;
 use App\Models\TrialRequest;
 use App\Models\User;
+use App\Services\Platform\CrossSchoolAggregates;
+use App\Services\Tenancy\TenantManager;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -21,7 +23,7 @@ use Illuminate\Support\Facades\DB;
  */
 class PlatformDashboardController extends Controller
 {
-    public function index(): \Illuminate\View\View
+    public function index(CrossSchoolAggregates $aggregates, TenantManager $tenants): \Illuminate\View\View
     {
         $schools = School::all();
 
@@ -48,6 +50,13 @@ class PlatformDashboardController extends Controller
             'plan' => $planId ? ($plansById[$planId]->name ?? 'Unknown plan') : 'No plan assigned',
             'count' => $count,
         ])->sortByDesc('count')->values();
+        // The breakdown above already has every number needed for one
+        // summary total (Dashboard Design Cross-Check, 2026-07-13:
+        // "shown as a breakdown, not one summary number"), schools with no
+        // plan assigned yet are not an active subscription.
+        $activeSubscriptions = $schools->whereNotNull('plan_id')->count();
+
+        $crossSchoolTotals = $aggregates->totals($tenants);
 
         $schoolsWithoutBackup = $schools->count() - Backup::whereIn('school_id', $schools->pluck('id'))->distinct('school_id')->count('school_id');
 
@@ -88,6 +97,8 @@ class PlatformDashboardController extends Controller
             'schoolsWithoutBackup' => max(0, $schoolsWithoutBackup),
             'growthMonths' => $growthMonths,
             'growthMax' => $growthMax,
+            'activeSubscriptions' => $activeSubscriptions,
+            'crossSchoolTotals' => $crossSchoolTotals,
         ]);
     }
 }

@@ -55,12 +55,19 @@
   <div class="pd-fig"><b>{{ $totalSchools }}</b><span>Total Schools</span></div>
   <div class="pd-fig"><b>{{ $byStatus['active'] }}</b><span>Active Schools</span></div>
   <div class="pd-fig"><b>{{ $pendingTrials }}</b><span>Trial Schools</span></div>
+  <div class="pd-fig"><b>{{ $activeSubscriptions }}</b><span>Active Subscriptions</span></div>
   <div class="pd-fig"><b>{{ $totalUsers }}</b><span>Total Users</span></div>
   <div class="pd-fig"><b>{{ $totalAdministrators }}</b><span>Administrators</span></div>
+  <div class="pd-fig"><b>{{ number_format($crossSchoolTotals['students']) }}</b><span>Students</span></div>
+  <div class="pd-fig"><b>{{ number_format($crossSchoolTotals['staff']) }}</b><span>Staff</span></div>
+  <div class="pd-fig"><b>{{ number_format($crossSchoolTotals['parents']) }}</b><span>Parents</span></div>
   <div class="pd-fig"><b>{{ $trashedCount }}</b><span>In Archive</span></div>
   <div class="pd-fig"><b>{{ $conversionRate !== null ? $conversionRate.'%' : 'N/A' }}</b><span>Trial Conversion</span></div>
   <div class="pd-fig"><b>{{ $schoolsWithoutBackup }}</b><span>Schools Without a Backup</span></div>
 </div>
+@if($crossSchoolTotals['schools_counted'] < $totalSchools)
+  <p class="muted" style="font-size:.78rem;margin:-1rem 0 1.5rem">Students/Staff/Parents totals reflect {{ $crossSchoolTotals['schools_counted'] }} of {{ $totalSchools }} schools, the rest could not be reached just now.</p>
+@endif
 
 <div class="grid cols-2" style="align-items:start">
   <div class="card">
