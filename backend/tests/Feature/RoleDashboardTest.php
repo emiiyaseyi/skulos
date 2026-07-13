@@ -78,7 +78,7 @@ class RoleDashboardTest extends TestCase
         $this->assertContains('Classes', $labels);
         $this->assertContains('Houses', $labels, 'admin dashboard must have grown beyond the original 4 figures');
         $this->assertContains('Reports Pending Review', $labels);
-        $this->assertContains('Last Backup', $labels);
+        $this->assertContains('Health Score', $labels);
         $this->assertSame('admin_overview', $data['panel']['type']);
         $this->assertArrayHasKey('birthdaysToday', $data['panel']);
         $this->assertArrayHasKey('birthdaysUpcoming', $data['panel']);
@@ -443,5 +443,29 @@ class RoleDashboardTest extends TestCase
         $labels = collect($data['figs'])->pluck('n', 'l');
 
         $this->assertSame('100%', $labels['Attendance Today']);
+    }
+
+    /**
+     * Dashboard Design Cross-Check (2026-07-13): "School Health Score,
+     * Blocked, would need most of the above to compute honestly." Now
+     * that Parents/Subjects/Attendance are real, this reuses the exact
+     * score HealthService already computes for the Maintenance Center
+     * rather than a second scoring formula, and this proves it is real:
+     * a school with no backup and no current term scores lower than a
+     * healthier one.
+     */
+    public function test_admin_dashboard_shows_a_real_health_score_that_reflects_real_findings(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'rdhealth');
+
+        app(TenantManager::class)->use($school);
+        $expected = app(\App\Services\Maintenance\HealthService::class)->check($school)['score'];
+        $data = app(RoleDashboard::class)->build($admin, $school);
+        app(TenantManager::class)->forget();
+
+        $score = collect($data['figs'])->firstWhere('l', 'Health Score')['n'];
+
+        $this->assertSame($expected, $score);
+        $this->assertLessThan(100, $score, 'a brand new school with no term and no backup should not score a perfect 100');
     }
 }

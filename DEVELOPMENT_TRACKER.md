@@ -1040,6 +1040,15 @@ Entries are added here as work starts on each item — see the current build pha
 - QA: `AuditLogBrowserTest` (4 tests: real entries render, action filter narrows results, date range filter narrows results using a raw-insert backdated row since `AuditLog` is immutable and cannot be updated after creation, a non super admin gets 404) and `ManageModulesTest` (3 tests: the matrix shows a real school and real module names, toggling from the matrix through the real Billing route actually persists the state change, a non super admin gets 404). Full suite: 517 passed, 0 failed.
 - Not built in this pass: the modules matrix is a desktop-oriented wide table (`overflow-x:auto` on mobile, not a redesigned card layout), matching how every other wide admin table in the app already handles this, a cross-school-by-module grid inherently cannot become a one-handed mobile layout the way a single-school list can.
 
+### School Health Score card (2026-07-13)
+- Status: Done
+- Started: 2026-07-13
+- Notes: cross-check item 17, originally "Blocked, would need most of the above to compute honestly." Its own inputs (Parents, Subjects, real Attendance) landed earlier the same day, making this the first cross-check item unblocked by earlier work in the same batch. `RoleDashboard` now takes `HealthService` as a constructor dependency and `admin()` (School Owner/Principal/Head Teacher/Vice Principal dashboard) computes the exact same `score` `HealthService::check($school)` already produces for the Maintenance Center, not a second parallel scoring formula, colour banded (green 80+, amber 50 to 79, red below 50). The figure replaces "Last Backup" rather than adding a 17th figure (which would have broken the clean 4 column grid); backup health is not lost, it is one of the real findings the health score itself already weighs, and the full detail still lives on the Maintenance Center page this reuses.
+- Issues/Bugs found: none; one existing test (`RoleDashboardTest::test_admin_sees_school_wide_figures`) asserted the old "Last Backup" label, updated to assert "Health Score" instead, an expected consequence of the intentional replacement, not a regression.
+- Resolution: see above.
+- QA: 1 new test in `RoleDashboardTest` proving the score is not a hardcoded number, it is asserted to exactly equal what `HealthService::check()` independently computes for the same school, and that a brand new school (no term, no backup) scores below 100. Full suite: 518 passed, 0 failed.
+- Not built in this pass: nothing further requested.
+
 ---
 
 ---

@@ -17,6 +17,7 @@ use App\Models\Tenant\StudentGuardian;
 use App\Models\Tenant\Subject;
 use App\Models\Tenant\TeachingAssignment;
 use App\Models\Tenant\Term;
+use App\Services\Maintenance\HealthService;
 use App\Services\Results\ResultService;
 
 /**
@@ -31,7 +32,7 @@ use App\Services\Results\ResultService;
  */
 class RoleDashboard
 {
-    public function __construct(protected ResultService $results)
+    public function __construct(protected ResultService $results, protected HealthService $health)
     {
     }
 
@@ -107,7 +108,6 @@ class RoleDashboard
                 ->with('student.currentClassArm.schoolClass')
                 ->get()
             : collect();
-        $lastBackup = $school ? \App\Models\Backup::where('school_id', $school->id)->orderByDesc('created_at')->first() : null;
         $students = Student::active()->with('currentClassArm.schoolClass')->get();
         [$boys, $girls] = $this->genderCounts($students);
         $newThisTerm = $term ? Student::active()->where('created_at', '>=', $term->created_at)->count() : 0;
@@ -118,6 +118,11 @@ class RoleDashboard
             ->count();
         $studentRate = $this->attendanceRate(Attendance::PERSON_STUDENT);
         $staffRate = $this->attendanceRate(Attendance::PERSON_STAFF);
+        // School Health Score (Dashboard Design Cross-Check, 2026-07-13:
+        // "Would need most of the above to compute honestly") reuses the
+        // exact same score HealthService already computes for the
+        // Maintenance Center, not a second parallel scoring formula.
+        $healthScore = $school ? $this->health->check($school)['score'] : null;
 
         return [
             'kind' => 'admin',
@@ -137,7 +142,7 @@ class RoleDashboard
                 ['n' => number_format($unassigned), 'l' => 'Awaiting Class', 'ic' => 'students', 'c' => '#E14F63', 'pct' => '40%'],
                 ['n' => number_format($pendingReviews->count()), 'l' => 'Reports Pending Review', 'ic' => 'results', 'c' => '#E5901C', 'pct' => '50%'],
                 ['n' => $avg !== null ? "{$avg}%" : 'N/A', 'l' => 'Term Average', 'ic' => 'results', 'c' => '#6D4FE0', 'pct' => '65%'],
-                ['n' => $lastBackup ? $lastBackup->created_at->diffForHumans() : 'Never', 'l' => 'Last Backup', 'ic' => 'settings', 'c' => '#E14F63', 'pct' => '45%'],
+                ['n' => $healthScore !== null ? $healthScore : 'N/A', 'l' => 'Health Score', 'ic' => 'settings', 'c' => $healthScore === null ? '#E14F63' : ($healthScore >= 80 ? '#12A97B' : ($healthScore >= 50 ? '#E5901C' : '#E14F63')), 'pct' => $healthScore !== null ? "{$healthScore}%" : '0%'],
             ],
             'panel' => [
                 'type' => 'admin_overview',
