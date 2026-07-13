@@ -507,18 +507,25 @@ class RoleDashboard
     protected function parent(User $user): array
     {
         $children = StudentGuardian::where('guardian_user_id', $user->id)->with('student.currentClassArm')->get();
+        $upcomingEvents = \App\Models\Tenant\CalendarEvent::upcoming()->count();
 
         return [
             'kind' => 'parent',
             'figs' => [
                 ['n' => number_format($children->count()), 'l' => 'My Children', 'ic' => 'students', 'c' => '#0EA5A0', 'pct' => '60%'],
-                ['n' => 0, 'l' => 'Fees Due', 'ic' => 'comms', 'c' => '#6D4FE0', 'pct' => '0%'],
-                ['n' => 0, 'l' => 'Messages', 'ic' => 'comms', 'c' => '#E5901C', 'pct' => '0%'],
-                ['n' => 0, 'l' => 'Events', 'ic' => 'calendar', 'c' => '#E14F63', 'pct' => '0%'],
+                // Fees and Messages are real figures once the Finance and
+                // Messaging modules exist (deferred, see the tracker), a
+                // literal 0 here would misleadingly read as "nothing due" /
+                // "no messages" rather than "not available yet" (standing
+                // "no dummy data" rule), so these two tiles are left out
+                // entirely for now rather than shown with a fabricated
+                // value.
+                ['n' => number_format($upcomingEvents), 'l' => 'Upcoming Events', 'ic' => 'calendar', 'c' => '#E14F63', 'pct' => $upcomingEvents > 0 ? '70%' : '10%'],
             ],
             'panel' => [
                 'type' => 'children',
                 'children' => $children->map(fn ($g) => [
+                    'id' => $g->student?->id,
                     'name' => $g->student?->fullName(),
                     'class' => $g->student?->currentClassArm?->label(),
                 ])->all(),
@@ -559,7 +566,7 @@ class RoleDashboard
                 ['n' => $average !== null ? "{$average}%" : 'N/A', 'l' => 'My Average', 'ic' => 'results', 'c' => '#E5901C', 'pct' => '70%'],
                 ['n' => $position ?? 'N/A', 'l' => 'Position', 'ic' => 'results', 'c' => '#E14F63', 'pct' => '65%'],
             ],
-            'panel' => ['type' => 'own_result', 'term' => $term?->name],
+            'panel' => ['type' => 'own_result', 'term' => $term?->name, 'student_id' => $student->id],
         ];
     }
 

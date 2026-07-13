@@ -98,9 +98,17 @@ class StudentScreenTest extends TestCase
             ->assertSee('Chika Uzo'); // unassigned students are still individually listed
     }
 
+    /**
+     * "security" holds no grants at all (config('skulos.roles')), a
+     * genuinely permission-less role — "parent" used to fill this role
+     * in the test but now legitimately holds students.view of its own
+     * (scoped to their own children only, user request 2026-07-13,
+     * "BUILD THE FULL STUDENT AND PARENT PORTAL"), so it no longer
+     * exercises "no permission at all".
+     */
     public function test_students_index_requires_permission(): void
     {
-        [$school, $user] = $this->schoolWithMember('parent', 'noaccess');
+        [$school, $user] = $this->schoolWithMember('security', 'noaccess');
 
         $this->actingAs($user)->get("http://{$school->slug}.localhost/students")->assertForbidden();
     }

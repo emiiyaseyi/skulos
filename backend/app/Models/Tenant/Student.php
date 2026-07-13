@@ -47,6 +47,20 @@ class Student extends Model
         return $this->hasMany(StudentGuardian::class);
     }
 
+    /**
+     * The platform login this student signs in with, if one has been
+     * created for them. Built manually, not a plain belongsTo() — see
+     * the matching comment on Staff::user()/StudentGuardian::user(), a
+     * bare belongsTo() would inherit this model's tenant connection onto
+     * User (a platform model), throwing "no such table: users".
+     */
+    public function user(): BelongsTo
+    {
+        $related = (new \App\Models\User())->setConnection(config('database.default'));
+
+        return $this->newBelongsTo($related->newQuery(), $this, 'user_id', 'id', 'user');
+    }
+
     public function enrollments(): HasMany
     {
         return $this->hasMany(Enrollment::class);

@@ -17,6 +17,7 @@ use App\Services\Accounts\AccountProvisioningService;
 use App\Services\Bulk\CsvReader;
 use App\Services\Bulk\Importer;
 use App\Services\Bulk\Importers\StudentImporter;
+use App\Services\Rbac\FamilyScope;
 use App\Services\Rbac\Rbac;
 use App\Services\Rbac\TeacherScope;
 use App\Services\Results\ResultService;
@@ -56,13 +57,40 @@ class StudentController extends Controller
      * (`school.academics.classes.show`) rather than duplicating a full
      * student table here, each class just shows its headcount and a link.
      */
-    public function index(Request $request): \Illuminate\View\View
+    public function index(Request $request): \Illuminate\View\View|\Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'students.view');
         $school = $this->school($request);
         $user = Auth::user();
 
         $search = trim((string) $request->query('q'));
+
+        /*
+         * A parent or student (user request 2026-07-13: "BUILD THE FULL
+         * STUDENT AND PARENT PORTAL") never gets the school-wide browse
+         * view either, only their own family's record(s). A student with
+         * exactly one record of their own goes straight to it, a parent
+         * (who may have more than one child) sees a small card per
+         * child. Checked before the teacher-scoping branch below, since
+         * neither role has a Staff record for TeacherScope to key off.
+         */
+        $familyStudentIds = app(FamilyScope::class)->studentIds($user, $school);
+        if ($familyStudentIds !== null) {
+            $roleSlug = optional($user->roleIn($school))->slug;
+            if ($roleSlug === 'student' && $familyStudentIds->count() === 1) {
+                return redirect()->route('school.students.show', ['school' => $school->slug, 'studentId' => $familyStudentIds->first()]);
+            }
+
+            return view('school.students.family', [
+                'school' => $school,
+                'accent' => $school->branding()['color'],
+                'roleSlug' => $roleSlug,
+                'familyStudents' => Student::whereIn('id', $familyStudentIds)
+                    ->with('currentClassArm.schoolClass', 'currentClassArm.arm')
+                    ->orderBy('first_name')
+                    ->get(),
+            ]);
+        }
 
         /*
          * A class or subject teacher (user directive 2026-07-12: "should
@@ -318,7 +346,7 @@ class StudentController extends Controller
         $this->authorizeAction($request, 'students.view');
         $school = $this->school($request);
         $user = Auth::user();
-        $student = Student::with('guardians.user', 'house', 'currentClassArm.schoolClass', 'currentClassArm.arm')
+        $student = Student::with('guardians.user', 'user', 'house', 'currentClassArm.schoolClass', 'currentClassArm.arm')
             ->findOrFail($request->route('studentId'));
 
         // A class/subject teacher opening a student outside their own
@@ -327,6 +355,13 @@ class StudentController extends Controller
         $scopedArmIds = app(TeacherScope::class)->classArmIds($user, $school);
         if ($scopedArmIds !== null) {
             abort_unless($student->current_class_arm_id && $scopedArmIds->contains($student->current_class_arm_id), 404);
+        }
+
+        // Same 404 (not 403) treatment for a parent/student opening a
+        // record outside their own family (user request 2026-07-13).
+        $familyStudentIds = app(FamilyScope::class)->studentIds($user, $school);
+        if ($familyStudentIds !== null) {
+            abort_unless($familyStudentIds->contains($student->id), 404);
         }
 
         $term = Term::current()->first();
@@ -489,6 +524,63 @@ class StudentController extends Controller
         }
 
         return back()->with('status', "{$guardian->name}'s login access has been {$statusLabel}.");
+    }
+
+    /**
+     * Creates a student's own login (Student Portal, user request
+     * 2026-07-13: "BUILD THE FULL STUDENT AND PARENT PORTAL"). Mirrors
+     * createGuardianLogin() exactly, on Student.user_id instead of
+     * StudentGuardian.guardian_user_id — student email is optional
+     * (standing rule), so an email is always collected here regardless
+     * of whether the student record already has one, same as the
+     * guardian flow, and backfills the student's own email if it was
+     * blank.
+     */
+    public function createStudentLogin(Request $request, AccountProvisioningService $accounts): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.update');
+        $school = $this->school($request);
+        $student = Student::findOrFail($request->route('studentId'));
+
+        $data = $request->validate(['email' => ['required', 'email', 'max:150']]);
+
+        $result = $accounts->provision($school, $student->fullName(), $data['email'], 'student');
+        $student->update(['user_id' => $result['user']->id, 'email' => $student->email ?: $data['email']]);
+
+        return back()->with('status', "{$student->fullName()}'s login has been created and emailed to them.");
+    }
+
+    public function resetStudentLoginPassword(Request $request, AccountProvisioningService $accounts): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.update');
+        $school = $this->school($request);
+        $student = Student::findOrFail($request->route('studentId'));
+        abort_unless($student->user_id, 404);
+
+        $accounts->resetPassword($school, User::findOrFail($student->user_id));
+
+        return back()->with('status', "{$student->fullName()}'s password has been reset and emailed to them.");
+    }
+
+    public function toggleStudentLoginAccess(Request $request, AccountProvisioningService $accounts): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.update');
+        $school = $this->school($request);
+        $student = Student::findOrFail($request->route('studentId'));
+        abort_unless($student->user_id, 404);
+
+        $user = User::findOrFail($student->user_id);
+        $current = $school->users()->whereKey($user->id)->first()->pivot->status;
+
+        if ($current === 'active') {
+            $accounts->revokeAccess($school, $user);
+            $statusLabel = 'revoked';
+        } else {
+            $accounts->restoreAccess($school, $user);
+            $statusLabel = 'restored';
+        }
+
+        return back()->with('status', "{$student->fullName()}'s login access has been {$statusLabel}.");
     }
 
     /**

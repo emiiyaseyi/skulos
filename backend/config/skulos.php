@@ -1005,6 +1005,20 @@ return [
     'teacher_scoped_roles' => ['class-teacher', 'subject-teacher', 'class-assistant'],
 
     /*
+    | Parent and student are restricted to their own family's data only
+    | (user request 2026-07-13: "BUILD THE FULL STUDENT AND PARENT
+    | PORTAL"). Enforced by App\Services\Rbac\FamilyScope, the same
+    | data-level ("which rows") vs action-level split TeacherScope
+    | already established: `students.view` in their role grants above
+    | is real, but every student it actually resolves to is either the
+    | student's own record or a parent's own linked children, never the
+    | whole school. Kept as its own list, not folded into
+    | "teacher_scoped_roles" above, since neither role has a Staff
+    | record for TeacherScope's class-arm based logic to key off.
+    */
+    'family_scoped_roles' => ['parent', 'student'],
+
+    /*
     | Which RBAC permission code gates a nav item being shown at all (user
     | directive 2026-07-12: a class/subject teacher should not even see a
     | link to Houses, Classes & Subjects, Sessions & Terms, Assessment
@@ -1102,10 +1116,10 @@ return [
             'timetable.view', 'calendar.view', 'communication.view',
         ]],
         'parent' => ['name' => 'Parent', 'grants' => [
-            'calendar.view', 'communication.view', 'timetable.view',
+            'calendar.view', 'communication.view', 'timetable.view', 'students.view',
         ]],
         'student' => ['name' => 'Student', 'grants' => [
-            'calendar.view', 'communication.view', 'timetable.view',
+            'calendar.view', 'communication.view', 'timetable.view', 'students.view',
         ]],
         'security' => ['name' => 'Security', 'grants' => []],
         'hostel-master' => ['name' => 'Hostel Master', 'grants' => ['hostel.*', 'students.view']],

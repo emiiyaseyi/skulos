@@ -116,6 +116,33 @@
   </div>
 </div>
 
+@if($canManage)
+<div class="card" style="margin-bottom:1.25rem;max-width:32rem">
+  <h3 style="margin-bottom:.4rem">Student Portal login</h3>
+  <p class="muted" style="margin-bottom:.8rem">Lets {{ $student->first_name }} sign in directly to view their own report card.</p>
+  @if(! $student->user)
+    <form method="POST" action="{{ route('school.students.login.create', ['school' => $school->slug, 'studentId' => $student->id]) }}" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+      @csrf
+      <input type="email" name="email" value="{{ $student->email }}" placeholder="Email for login" required style="max-width:14rem" />
+      <button class="btn btn-ghost btn-sm" type="submit">Create login</button>
+    </form>
+  @else
+    @php($sPivotStatus = $school->users()->whereKey($student->user->id)->first()?->pivot->status)
+    <span class="badge {{ $sPivotStatus === 'active' ? 'badge-ok' : 'badge-warn' }}" style="margin-bottom:.5rem;display:inline-block">{{ ucfirst($sPivotStatus) }}</span>
+    <div style="display:flex;gap:.4rem">
+      <form method="POST" action="{{ route('school.students.login.reset-password', ['school' => $school->slug, 'studentId' => $student->id]) }}">
+        @csrf
+        <button class="btn btn-ghost btn-sm" type="submit">Reset password</button>
+      </form>
+      <form method="POST" action="{{ route('school.students.login.toggle-access', ['school' => $school->slug, 'studentId' => $student->id]) }}">
+        @csrf
+        <button class="btn btn-ghost btn-sm" type="submit">{{ $sPivotStatus === 'active' ? 'Revoke' : 'Restore' }}</button>
+      </form>
+    </div>
+  @endif
+</div>
+@endif
+
 <div class="card">
   <h3 style="margin-bottom:.4rem">Academic report</h3>
   @if(! $term)

@@ -13,7 +13,8 @@
   .rp-legend i{width:10px;height:10px;border-radius:50%;display:inline-block}
   .rp-row{display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap}
   .rp-list{list-style:none;display:flex;flex-direction:column;gap:.5rem}
-  .rp-list li{display:flex;justify-content:space-between;padding:.5rem .7rem;background:var(--bg);border-radius:8px;font-size:.88rem}
+  .rp-list li{display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.5rem .7rem;background:var(--bg);border-radius:8px;font-size:.88rem}
+  .rp-list li .rp-text{display:flex;flex-direction:column;gap:.1rem}
 </style>
 
 @switch($panel['type'])
@@ -90,7 +91,12 @@
       @else
         <ul class="rp-list">
           @foreach($panel['children'] as $child)
-            <li><span><strong>{{ $child['name'] }}</strong></span><span class="muted">{{ $child['class'] ?? 'Not yet placed in a class' }}</span></li>
+            <li>
+              <span class="rp-text"><strong>{{ $child['name'] }}</strong><span class="muted">{{ $child['class'] ?? 'Not yet placed in a class' }}</span></span>
+              @if($child['id'])
+                <a class="btn btn-ghost btn-sm" href="{{ route('school.students.show', ['school' => $school->slug, 'studentId' => $child['id']]) }}">View report</a>
+              @endif
+            </li>
           @endforeach
         </ul>
       @endif
@@ -99,7 +105,11 @@
 
   @case('own_result')
     <div class="card rp-card">
-      <p class="muted">Your class figures are shown above. Full report cards will appear here once scores are published{{ $panel['term'] ? " for {$panel['term']}" : '' }}.</p>
+      @if(! empty($panel['student_id']))
+        <a class="btn btn-primary btn-sm" href="{{ route('school.students.show', ['school' => $school->slug, 'studentId' => $panel['student_id']]) }}">View my report{{ $panel['term'] ? " ({$panel['term']})" : '' }}</a>
+      @else
+        <p class="muted">Your student record has not been linked to this login yet. Contact the school office if this seems wrong.</p>
+      @endif
     </div>
     @break
 

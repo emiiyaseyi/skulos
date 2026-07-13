@@ -180,6 +180,9 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::post('/students/guardians/{guardianId}/login', [\App\Http\Controllers\School\StudentController::class, 'createGuardianLogin'])->name('school.students.guardians.login.create');
         Route::post('/students/guardians/{guardianId}/login/reset-password', [\App\Http\Controllers\School\StudentController::class, 'resetGuardianLoginPassword'])->name('school.students.guardians.login.reset-password');
         Route::post('/students/guardians/{guardianId}/login/toggle-access', [\App\Http\Controllers\School\StudentController::class, 'toggleGuardianLoginAccess'])->name('school.students.guardians.login.toggle-access');
+        Route::post('/students/{studentId}/login', [\App\Http\Controllers\School\StudentController::class, 'createStudentLogin'])->name('school.students.login.create');
+        Route::post('/students/{studentId}/login/reset-password', [\App\Http\Controllers\School\StudentController::class, 'resetStudentLoginPassword'])->name('school.students.login.reset-password');
+        Route::post('/students/{studentId}/login/toggle-access', [\App\Http\Controllers\School\StudentController::class, 'toggleStudentLoginAccess'])->name('school.students.login.toggle-access');
 
         Route::prefix('profile')->name('school.profile.')->group(function () {
             $profile = \App\Http\Controllers\School\ProfileController::class;

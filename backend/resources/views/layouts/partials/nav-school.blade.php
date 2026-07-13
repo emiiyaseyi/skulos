@@ -17,6 +17,17 @@
   $navRbac = app(\App\Services\Rbac\Rbac::class);
   $scopedRoleSlug = ($school && $navUser) ? optional($navUser->roleIn($school))->slug : null;
   $isTeacherScoped = $scopedRoleSlug && in_array($scopedRoleSlug, config('skulos.teacher_scoped_roles', []), true);
+  /*
+   * A parent or student (user request 2026-07-13: "BUILD THE FULL
+   * STUDENT AND PARENT PORTAL") gets the exact same restricted-nav
+   * treatment as a scoped teacher, everything below reuses
+   * $isRestrictedNav rather than $isTeacherScoped directly, they hold
+   * students.view too (for their own family only, see FamilyScope) but
+   * should never see Houses, Classes & Subjects, Settings, or any other
+   * admin-only item any more than a scoped teacher does.
+   */
+  $isFamilyScoped = $scopedRoleSlug && in_array($scopedRoleSlug, config('skulos.family_scoped_roles', []), true);
+  $isRestrictedNav = $isTeacherScoped || $isFamilyScoped;
   // These stay hidden from a scoped role even though the underlying
   // permission code (usually students.view) happens to be shared with a
   // screen they ARE allowed, e.g. Houses shares students.view with the
@@ -123,7 +134,7 @@
       if (! $school->hasFeature($featureKey)) {
         continue;
       }
-      if ($isTeacherScoped) {
+      if ($isRestrictedNav) {
         if (in_array($featureKey, $alwaysHiddenForScoped, true)) {
           continue;
         }
@@ -154,7 +165,7 @@
   // policy decision, not something a scoped teacher role should reach
   // (user directive 2026-07-12), hidden for them even though they hold
   // report_cards.view for the Report Cards screen itself.
-  if (! $isTeacherScoped && ! isset($renderedRoutes['school.report-cards.edit'])) {
+  if (! $isRestrictedNav && ! isset($renderedRoutes['school.report-cards.edit'])) {
     $renderedRoutes['school.report-cards.edit'] = true;
     $groups['Reports & Analytics'][] = $link('school.report-cards.edit', 'Report settings', 'results');
   }
@@ -166,7 +177,7 @@
   // feature that gates the report card workflow itself. It is a cross
   // school review queue for whoever is assigned reviewer duty, not
   // something a scoped teacher role browses (2026-07-12).
-  if (! $isTeacherScoped && $school?->hasFeature('basic_report_cards')
+  if (! $isRestrictedNav && $school?->hasFeature('basic_report_cards')
       && ! isset($renderedRoutes['school.report-cards.pending-review'])) {
     $renderedRoutes['school.report-cards.pending-review'] = true;
     $groups['Reports & Analytics'][] = $link('school.report-cards.pending-review', 'Pending review', 'results');
@@ -180,7 +191,7 @@
   // revokeAddOn() already read and write it. None of these are built
   // screens yet (all render as "Soon"), so a scoped teacher role never
   // sees them either (2026-07-12).
-  $addOnModules = $isTeacherScoped ? [] : [
+  $addOnModules = $isRestrictedNav ? [] : [
     'School Operations' => ['library' => 'Library', 'hostel' => 'Hostel', 'transport' => 'Transport', 'inventory' => 'Inventory', 'medical' => 'Medical / Clinic', 'visitors' => 'Visitor Management', 'discipline' => 'Discipline'],
   ];
   foreach ($addOnModules as $groupLabel => $modules) {
@@ -203,7 +214,7 @@
   // teacher role (user directive 2026-07-12: "should not be seeing...
   // settings"), none of these are things a class or subject teacher
   // configures.
-  if (! $isTeacherScoped) {
+  if (! $isRestrictedNav) {
     $groups['Settings'] = [
       $link('school.backups.index', 'Backups', 'settings'),
       $link('school.maintenance.index', 'School Health &amp; Storage', 'settings'),
@@ -219,8 +230,17 @@
   // "Guided Setup" itself is a first-run admin task (creating sessions,
   // class structure, houses...), not something a scoped teacher role
   // should be steered toward either.
-  if ($isTeacherScoped) {
+  if ($isRestrictedNav) {
     $groups['Main'] = [$link('school.dashboard', 'Dashboard', 'dashboard')];
+  }
+
+  // A family-scoped role additionally gets a "My Children"/"My Report"
+  // link (user request 2026-07-13), reusing the Students route, which
+  // FamilyScope narrows down to just their own family for them, not the
+  // school-wide Students screen a scoped teacher (who this Main-group
+  // override is otherwise shared with) sees.
+  if ($isFamilyScoped) {
+    $groups['Main'][] = $link('school.students', $scopedRoleSlug === 'parent' ? 'My Children' : 'My Report', 'students');
   }
 @endphp
 
