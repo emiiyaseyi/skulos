@@ -95,7 +95,7 @@
   </form>
 </div>
 
-<div class="card" style="max-width:32rem;margin-top:1.25rem">
+<div class="card" style="max-width:32rem;margin-top:1.25rem" id="clone">
   <h3 style="margin-bottom:.4rem">Clone this school</h3>
   <p class="muted" style="margin-bottom:.8rem">Creates a brand new school with the same classes, subjects, grading scales, houses, and look and feel. Student, staff, and parent records are never copied.</p>
   <form method="POST" action="{{ route('admin.schools.clone', ['school' => $school->id]) }}">

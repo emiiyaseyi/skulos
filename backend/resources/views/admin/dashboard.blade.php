@@ -63,10 +63,45 @@
   <h3 style="margin-bottom:.8rem">Quick actions</h3>
   <div style="display:flex;gap:.6rem;flex-wrap:wrap">
     <a class="btn btn-primary btn-sm" href="{{ route('admin.schools.index') }}">Add school</a>
-    <a class="btn btn-ghost btn-sm" href="{{ route('admin.schools.index') }}">Clone a school</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('admin.billing.index') }}">Create plan</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('admin.trial-requests.index') }}">Review trial requests</a>
   </div>
+
+  {{-- Dashboard Design Cross-Check, 2026-07-13: "Clone School / Suspend
+       School, Partial, needs a specific school picked first, not a
+       dashboard-level button." Cloning genuinely needs a new name and
+       admin details typed in, that cannot become one click, but picking
+       the SOURCE school no longer requires a detour through the full
+       Schools list first, it happens right here. Suspending only ever
+       needs the school id, so that one really is one click once picked. --}}
+  <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--line)">
+    <label for="quickSchoolPicker" style="font-weight:700;font-size:.85rem">School actions</label>
+    <select id="quickSchoolPicker" style="max-width:16rem">
+      <option value="">Choose a school&hellip;</option>
+      @foreach($allSchools as $s)
+        <option value="{{ $s->id }}">{{ $s->name }}</option>
+      @endforeach
+    </select>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="skulosCloneSelectedSchool()">Clone</button>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="skulosSuspendSelectedSchool()">Suspend</button>
+  </div>
+  <form id="quickSuspendForm" method="POST" style="display:none">@csrf</form>
+  <script>
+    function skulosCloneSelectedSchool() {
+      var sel = document.getElementById('quickSchoolPicker');
+      if (!sel.value) { alert('Choose a school first.'); return; }
+      window.location.href = '{{ url('/admin/schools') }}/' + sel.value + '#clone';
+    }
+    function skulosSuspendSelectedSchool() {
+      var sel = document.getElementById('quickSchoolPicker');
+      if (!sel.value) { alert('Choose a school first.'); return; }
+      var name = sel.options[sel.selectedIndex].text;
+      if (!confirm('Suspend ' + name + '? Its users will not be able to sign in until you resume it.')) return;
+      var form = document.getElementById('quickSuspendForm');
+      form.action = '{{ url('/admin/schools') }}/' + sel.value + '/suspend';
+      form.submit();
+    }
+  </script>
 </div>
 
 <div class="pd-figs">

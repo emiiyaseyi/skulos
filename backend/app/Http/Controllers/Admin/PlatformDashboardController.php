@@ -101,6 +101,7 @@ class PlatformDashboardController extends Controller
             'activeSubscriptions' => $activeSubscriptions,
             'crossSchoolTotals' => $crossSchoolTotals,
             'serverHealth' => $serverHealth->check(),
+            'allSchools' => $schools->sortBy('name')->values(),
         ]);
     }
 }

@@ -1008,6 +1008,17 @@ Entries are added here as work starts on each item — see the current build pha
 - QA: new `GlobalSearchTest` (4 tests): an owner finds a matching student, staff member, and guardian in one search; a query under 2 characters asks for more input rather than erroring; a registrar (no `staff.view`) never sees a staff result even on an exact name match; the search input actually renders in the app bar on a school portal page. Full suite: 504 passed, 0 failed.
 - Not built in this pass: search results are capped at 8 per category with no pagination (a "load more"/full results page was not requested); no keyboard shortcut or live-as-you-type results, it is a plain GET form.
 
+### Clone School and Suspend School as dashboard quick actions (2026-07-13)
+- Status: Done
+- Started: 2026-07-13
+- Notes: cross-check items 11 and 12. Investigated the real forms first: `SchoolAdminController::cloneSchool()` genuinely needs a new school name, address, and admin name/email/password typed in, that cannot become a real one click action no matter what the dashboard does. `suspend()` needs only the school id. So the honest fix for Clone is removing the "find it in the full Schools list first" detour, not inventing a one click clone that does not exist; Suspend really can become one click once a school is picked.
+  1. Platform dashboard's Quick Actions card gained a "School actions" row: one `<select>` of every real school (`$allSchools`, reused from the already loaded `$schools` collection, no new query) plus two buttons. "Clone" jumps straight to that school's own admin detail page at a new `#clone` anchor (added to `admin/school.blade.php`'s existing clone form), landing pre-scrolled at the real form instead of requiring a click through the Schools list first. "Suspend" is real one click: a confirm dialog naming the school, then a hidden form's action is set to that school's real `POST .../suspend` route and submitted.
+  2. The old "Clone a school" quick action link, which was quietly just a mislabeled link to the Schools list (not a clone action at all), was removed rather than kept alongside the new real one.
+- Issues/Bugs found: none.
+- Resolution: n/a.
+- QA: 1 new test in `PlatformDashboardTest` (a real school appears in the picker by name, the real `/admin/schools` base URL the JS builds on top of is present, and the `#clone` anchor genuinely exists on the school detail page). The underlying suspend endpoint itself was already covered by `PlatformFlowTest::test_super_admin_can_suspend_resume_archive_and_delete_a_school`. Full suite: 505 passed, 0 failed.
+- Not built in this pass: the JS-driven click behavior itself (building the URL, submitting the hidden form) is outside what an HTTP feature test can exercise; verified by reading the rendered markup/JS instead.
+
 ---
 
 ---

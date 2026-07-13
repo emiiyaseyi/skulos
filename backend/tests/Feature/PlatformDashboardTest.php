@@ -194,4 +194,29 @@ class PlatformDashboardTest extends TestCase
             ->assertSee('never been backed up')
             ->assertSee('currently suspended');
     }
+
+    /**
+     * Dashboard Design Cross-Check (2026-07-13): "Clone School / Suspend
+     * School, Partial, needs a specific school picked first." The school
+     * picker on the dashboard itself is what removes that detour; this
+     * proves a real school actually appears in it and that both actions'
+     * real endpoints are reachable from here (JS-driven click behavior
+     * itself is outside what an HTTP feature test can exercise).
+     */
+    public function test_quick_school_actions_list_real_schools_and_wire_real_endpoints(): void
+    {
+        $admin = $this->superAdmin();
+        $school = School::factory()->create(['name' => 'Quickactionville']);
+
+        $response = $this->actingAs($admin)->get(route('admin.dashboard'));
+        $response->assertOk()
+            ->assertSee('Quickactionville')
+            ->assertSee('School actions')
+            ->assertSee(url('/admin/schools'), false);
+
+        // The clone form's real target the picker jumps to must exist and
+        // carry the #clone anchor the JS builds the URL toward.
+        $this->actingAs($admin)->get(route('admin.schools.show', $school))
+            ->assertOk()->assertSee('id="clone"', false);
+    }
 }
