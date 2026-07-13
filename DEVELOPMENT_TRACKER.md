@@ -988,6 +988,17 @@ Entries are added here as work starts on each item — see the current build pha
 - QA: 1 new test in `PlatformDashboardTest` (the card renders with real "Responding"/timing and a real queue driver name, not a hardcoded label). Full suite: 499 passed, 0 failed.
 - Not built in this pass: real infrastructure monitoring (uptime tracking, queue worker liveness, external health pings) if that is ever wanted, this service is the one to extend rather than replace, per its own doc comment.
 
+#### Sub-item: System Alerts widget expanded; Schools Nearing Expiry flagged, not built (2026-07-13)
+- Status: Done (System Alerts) / Correctly deferred (Schools Nearing Expiry)
+- Started: 2026-07-13
+- Notes: cross-check items 9 and 10 together, since both live in the same alert banner area.
+  1. **System Alerts (item 10, was Partial)**: the pending trial requests banner was the only real alert. Two more real signals, both already computed for this same page, now render as their own banner when non-zero: schools that have never been backed up (`$schoolsWithoutBackup`, previously only a stat card, not an actionable alert), and schools currently suspended (`$byStatus['suspended']`). Both link to the Schools list to act on.
+  2. **Schools Nearing Expiry (item 9, still Blocked, correctly not built)**: investigated before writing any code. There is no trial/subscription expiry date tracked anywhere in the product. `School` has no `trial_ends_at`/`subscription_renews_at` column, and `TrialRequest` has no expiry field either, an approved trial provisions a real school with a plan and nothing time-boxes it further. Building "nearing expiry" would mean inventing that whole concept from scratch (a real subscription lifecycle: trial start/end, renewal date, grace period), which is squarely the queued "Billing gaps: promo codes + renewal reminders" backlog item, not a small dashboard tweak. Rather than bolt on a half concept just to fill this one card, it stays correctly flagged as blocked until that billing work happens, then both should land together.
+- Issues/Bugs found: none.
+- Resolution: n/a.
+- QA: 1 new test in `PlatformDashboardTest` (a school with no backup and a suspended school both produce their own real alert banner). Full suite: 500 passed, 0 failed.
+- Not built in this pass: Schools Nearing Expiry, deliberately, see above.
+
 ---
 
 ---

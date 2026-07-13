@@ -182,4 +182,16 @@ class PlatformDashboardTest extends TestCase
             ->assertSee('Responding')
             ->assertSee('Queue Driver');
     }
+
+    public function test_system_alerts_shows_schools_without_backup_and_suspended_schools(): void
+    {
+        $admin = $this->superAdmin();
+        School::factory()->create(); // never backed up
+        School::factory()->create(['status' => School::STATUS_SUSPENDED]);
+
+        $this->actingAs($admin)->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertSee('never been backed up')
+            ->assertSee('currently suspended');
+    }
 }

@@ -34,10 +34,28 @@
 @endpush
 
 @section('content')
+{{-- Dashboard Design Cross-Check, 2026-07-13: "System Alerts, Partial, the
+     pending trial requests banner is the one real alert today." Every alert
+     here reads from a number already computed for this same page, nothing
+     invented (no expiry/renewal alert exists yet, there is no trial/
+     subscription expiry date tracked anywhere in the product to alert on,
+     that is its own backlog item under Billing). --}}
 @if($pendingTrials > 0)
   <div class="pd-alert">
     <span><strong>{{ $pendingTrials }}</strong> new trial {{ \Illuminate\Support\Str::plural('request', $pendingTrials) }} waiting for your review.</span>
     <a class="btn btn-primary btn-sm" href="{{ route('admin.trial-requests.index') }}">Review now</a>
+  </div>
+@endif
+@if($schoolsWithoutBackup > 0)
+  <div class="pd-alert">
+    <span><strong>{{ $schoolsWithoutBackup }}</strong> {{ \Illuminate\Support\Str::plural('school', $schoolsWithoutBackup) }} {{ $schoolsWithoutBackup === 1 ? 'has' : 'have' }} never been backed up.</span>
+    <a class="btn btn-primary btn-sm" href="{{ route('admin.schools.index') }}">Review schools</a>
+  </div>
+@endif
+@if($byStatus['suspended'] > 0)
+  <div class="pd-alert">
+    <span><strong>{{ $byStatus['suspended'] }}</strong> {{ \Illuminate\Support\Str::plural('school', $byStatus['suspended']) }} currently suspended.</span>
+    <a class="btn btn-primary btn-sm" href="{{ route('admin.schools.index') }}">Review schools</a>
   </div>
 @endif
 
