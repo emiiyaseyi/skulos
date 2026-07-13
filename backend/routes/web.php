@@ -46,6 +46,8 @@ Route::domain($appDomain)->group(function () {
         Route::get('/trial-requests', [\App\Http\Controllers\Admin\TrialRequestAdminController::class, 'index'])->name('trial-requests.index');
         Route::post('/trial-requests/{trialRequest}/approve', [\App\Http\Controllers\Admin\TrialRequestAdminController::class, 'approve'])->name('trial-requests.approve');
         Route::post('/trial-requests/{trialRequest}/reject', [\App\Http\Controllers\Admin\TrialRequestAdminController::class, 'reject'])->name('trial-requests.reject');
+        Route::get('/broadcast', [\App\Http\Controllers\Admin\BroadcastController::class, 'create'])->name('broadcast.create');
+        Route::post('/broadcast', [\App\Http\Controllers\Admin\BroadcastController::class, 'send'])->name('broadcast.send');
         Route::get('/schools', [SchoolAdminController::class, 'schools'])->name('schools.index');
         Route::post('/schools', [SchoolAdminController::class, 'store'])->name('schools.store');
         Route::get('/schools/archive', [SchoolAdminController::class, 'trashed'])->name('schools.archive-list');

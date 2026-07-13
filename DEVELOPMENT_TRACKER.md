@@ -1019,6 +1019,15 @@ Entries are added here as work starts on each item — see the current build pha
 - QA: 1 new test in `PlatformDashboardTest` (a real school appears in the picker by name, the real `/admin/schools` base URL the JS builds on top of is present, and the `#clone` anchor genuinely exists on the school detail page). The underlying suspend endpoint itself was already covered by `PlatformFlowTest::test_super_admin_can_suspend_resume_archive_and_delete_a_school`. Full suite: 505 passed, 0 failed.
 - Not built in this pass: the JS-driven click behavior itself (building the URL, submitting the hidden form) is outside what an HTTP feature test can exercise; verified by reading the rendered markup/JS instead.
 
+### Send Broadcast tool (2026-07-13)
+- Status: Done
+- Started: 2026-07-13
+- Notes: cross-check item 13, "Blocked, no platform-wide broadcast tool exists." New `App\Http\Controllers\Admin\BroadcastController` (`admin.broadcast.create`/`.send`): a compose screen (subject, message, audience picker of every provisioned school, schools on one plan, or individually selected schools) that emails the owner/admin/leadership tier of each matched school through a new `PlatformBroadcastMail`, reusing the same shared branded `emails.layout`/`emails.plain` shell every other transactional email already uses. Deliberately reaches only leadership (`config('skulos.leadership_role_slugs')` plus `school-admin`, the same set `PlatformDashboardController`'s "Administrators" figure and `RoleDashboard::admin()` already use), never every user at the school, matching what a "broadcast to the people responsible for a school" tool should actually mean. Sends synchronously (no queue), same as trial request emails already do, appropriate at today's real school count; revisit with a queued job if that ever becomes slow. Records a real `platform.broadcast_sent` audit log entry (subject, audience, schools reached, emails sent), which also means a sent broadcast now surfaces in "Recent platform activity" on the dashboard for free. New "Send broadcast" link in Quick Actions.
+- Issues/Bugs found: none.
+- Resolution: n/a.
+- QA: new `PlatformBroadcastTest` (5 tests, `Mail::fake()`): broadcasting to all schools reaches a school owner but never a teacher at the same school; broadcasting to one plan only reaches schools on that plan; broadcasting to selected schools only reaches those; a real audit log row is written; a non super admin gets a 404 on the compose screen. Full suite: 510 passed, 0 failed.
+- Not built in this pass: an in-app notification/inbox version of the same message (email only for now, matching the request's own wording "broadcast tool" against what SMTP already supports); delivery/open tracking.
+
 ---
 
 ---
