@@ -1049,6 +1049,17 @@ Entries are added here as work starts on each item — see the current build pha
 - QA: 1 new test in `RoleDashboardTest` proving the score is not a hardcoded number, it is asserted to exactly equal what `HealthService::check()` independently computes for the same school, and that a brand new school (no term, no backup) scores below 100. Full suite: 518 passed, 0 failed.
 - Not built in this pass: nothing further requested.
 
+### School dashboard Quick Actions row: Add Staff, Register Student, Assign Class, Publish Results (2026-07-13)
+- Status: Done
+- Started: 2026-07-13
+- Notes: cross-check items 19, 20, 23, 24. Verified first, per the explicit instruction to double check anything claimed missing before building: "No staff-creation screen exists anywhere in the product" (item 19's own note) was stale, `StaffController::create()`/`store()` and the `school.staff.create`/`.store` routes already exist and work, built 2026-07-12 per this project's own history. All four rows shared the same real gap: real screens, just never linked as a one-click action from the school dashboard itself, which (unlike the platform dashboard) had no Quick Actions row at all until now.
+  1. New Quick Actions card on `school.dashboard`, shown only for the `admin`/`school_admin`/`registrar` dashboard kinds these cross-check rows named (school owner/administrator/principal/head teacher/vice principal and registrar), never for a teacher, parent, or student.
+  2. Each button only renders if the viewer actually holds the permission it needs: "Add staff" (`staff.create`), "Register student" (`students.create`), "Assign class" (`students.update`, links to Students, the real entry point for changing a student's class since there is no standalone "assign class" screen, editing is done from a student's own page), "Publish results" (`report_cards.assign_review` or `report_cards.release`, links to the pending review queue where the release workflow already lives).
+- Issues/Bugs found: none.
+- Resolution: n/a.
+- QA: 4 new tests in `SchoolDashboardQuickActionsTest` (an owner sees all four actions; a class teacher never sees the row at all; a registrar sees the student actions but not staff creation, proving per-button permission gating, not just role-kind gating; the linked routes are genuinely reachable, not just rendered text). Full suite: 522 passed, 0 failed.
+- Not built in this pass: "Send Announcement" and "Create Event" quick actions, both queued as their own cross-check items (21, 22) since those compose screens do not exist yet, to be added to this same row once built.
+
 ---
 
 ---

@@ -98,6 +98,41 @@
   {!! $announcementsCard !!}
 @endif
 
+{{--
+  Quick actions (Dashboard Design Cross-Check, 2026-07-13: "Add Staff /
+  Register Student / Publish Results / Assign Class, Partial or Blocked,
+  real screens, just not linked as a one-click action from this
+  dashboard"). Shown only for the admin-tier and registrar roles those
+  cross-check rows named, each button only if the viewer actually holds
+  the permission it needs, same as every other permission gated link in
+  the product. "Assign Class" has no standalone screen (done from a
+  student's own edit page today), so it links to Students, the real entry
+  point, rather than inventing a screen that does not exist.
+--}}
+@php
+  $qaRbac = app(\App\Services\Rbac\Rbac::class);
+  $showQuickActions = in_array($role['kind'] ?? '', ['admin', 'school_admin', 'registrar'], true);
+@endphp
+@if($showQuickActions)
+  <div class="card" style="margin-bottom:1.1rem">
+    <h3 style="margin-bottom:.6rem">Quick actions</h3>
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+      @if($qaRbac->check(auth()->user(), $school, 'staff.create'))
+        <a class="btn btn-primary btn-sm" href="{{ route('school.staff.create', ['school' => $school->slug]) }}">Add staff</a>
+      @endif
+      @if($qaRbac->check(auth()->user(), $school, 'students.create'))
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.students.create', ['school' => $school->slug]) }}">Register student</a>
+      @endif
+      @if($qaRbac->check(auth()->user(), $school, 'students.update'))
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.students', ['school' => $school->slug]) }}">Assign class</a>
+      @endif
+      @if($qaRbac->check(auth()->user(), $school, 'report_cards.assign_review') || $qaRbac->check(auth()->user(), $school, 'report_cards.release'))
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.pending-review', ['school' => $school->slug]) }}">Publish results</a>
+      @endif
+    </div>
+  </div>
+@endif
+
 @if($show('stats') && count($figs))
 <div class="figs">
   @foreach($figs as $f)
