@@ -66,6 +66,8 @@
     <a class="btn btn-ghost btn-sm" href="{{ route('admin.billing.index') }}">Create plan</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('admin.trial-requests.index') }}">Review trial requests</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('admin.broadcast.create') }}">Send broadcast</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('admin.audit-log.index') }}">View audit logs</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('admin.modules.index') }}">Manage modules</a>
   </div>
 
   {{-- Dashboard Design Cross-Check, 2026-07-13: "Clone School / Suspend

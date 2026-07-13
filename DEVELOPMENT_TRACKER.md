@@ -1028,6 +1028,18 @@ Entries are added here as work starts on each item — see the current build pha
 - QA: new `PlatformBroadcastTest` (5 tests, `Mail::fake()`): broadcasting to all schools reaches a school owner but never a teacher at the same school; broadcasting to one plan only reaches schools on that plan; broadcasting to selected schools only reaches those; a real audit log row is written; a non super admin gets a 404 on the compose screen. Full suite: 510 passed, 0 failed.
 - Not built in this pass: an in-app notification/inbox version of the same message (email only for now, matching the request's own wording "broadcast tool" against what SMTP already supports); delivery/open tracking.
 
+### View Audit Logs full browser + Manage Modules cross-school screen (2026-07-13)
+- Status: Done
+- Started: 2026-07-13
+- Notes: cross-check items 15 and 16, both "quick action target" gaps where the dashboard already promised a link but nowhere real to land.
+  1. **View Audit Logs (item 15, was Partial)**: the dashboard's "Recent platform activity" list is capped at 8 rows with no search. New `App\Http\Controllers\Admin\AuditLogController::index()` (`admin.audit-log.index`): filter by action (text contains), by who (a bounded list of super admins, not an unbounded distinct scan of every `user_id` ever logged, which would grow unbounded on a large table), and a date range, paginated 40 per page.
+  2. **Manage Modules (item 16, was Blocked)**: investigated first, every school's optional module state already lives in the platform `module_states` table (`Rbac::moduleState()`/`setModuleState()`), toggled today only from inside each school's own Billing page one at a time. New `App\Http\Controllers\Admin\ModuleAdminController::index()` (`admin.modules.index`): a cross-school matrix, schools as rows, optional modules as columns, each cell a real On/Off toggle. The toggle itself is not new mutation logic, every cell's form posts straight to the existing `BillingController::toggleFeature()` route, this screen is a different way to reach the exact same real action, not a parallel implementation of it.
+  3. Both linked from the platform dashboard's Quick Actions row.
+- Issues/Bugs found: none.
+- Resolution: n/a.
+- QA: `AuditLogBrowserTest` (4 tests: real entries render, action filter narrows results, date range filter narrows results using a raw-insert backdated row since `AuditLog` is immutable and cannot be updated after creation, a non super admin gets 404) and `ManageModulesTest` (3 tests: the matrix shows a real school and real module names, toggling from the matrix through the real Billing route actually persists the state change, a non super admin gets 404). Full suite: 517 passed, 0 failed.
+- Not built in this pass: the modules matrix is a desktop-oriented wide table (`overflow-x:auto` on mobile, not a redesigned card layout), matching how every other wide admin table in the app already handles this, a cross-school-by-module grid inherently cannot become a one-handed mobile layout the way a single-school list can.
+
 ---
 
 ---
