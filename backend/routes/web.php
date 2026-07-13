@@ -176,6 +176,15 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::post('/students/guardians/{guardianId}/login/reset-password', [\App\Http\Controllers\School\StudentController::class, 'resetGuardianLoginPassword'])->name('school.students.guardians.login.reset-password');
         Route::post('/students/guardians/{guardianId}/login/toggle-access', [\App\Http\Controllers\School\StudentController::class, 'toggleGuardianLoginAccess'])->name('school.students.guardians.login.toggle-access');
 
+        Route::prefix('profile')->name('school.profile.')->group(function () {
+            $profile = \App\Http\Controllers\School\ProfileController::class;
+            Route::get('/', [$profile, 'edit'])->name('edit');
+            Route::post('/', [$profile, 'update'])->name('update');
+            Route::get('/approvals', [$profile, 'approvals'])->name('approvals');
+            Route::post('/approvals/{requestId}/approve', [$profile, 'approve'])->name('approve');
+            Route::post('/approvals/{requestId}/reject', [$profile, 'reject'])->name('reject');
+        });
+
         Route::prefix('staff')->name('school.staff.')->group(function () {
             $staff = \App\Http\Controllers\School\StaffController::class;
             Route::get('/', [$staff, 'index'])->name('index');

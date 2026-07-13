@@ -55,11 +55,13 @@ a{color:inherit;text-decoration:none}
 .side-link.active .ic{color:var(--accent)}
 .side-link .ic{width:18px;height:18px;flex-shrink:0;color:var(--side-mut)}
 .side-link .soon{margin-left:auto;font-size:.6rem;background:rgba(255,255,255,.08);color:var(--side-mut);padding:.1rem .35rem;border-radius:5px;font-weight:700}
-.side-foot{padding:.9rem 1rem;border-top:1px solid var(--side-line);display:flex;align-items:center;gap:.6rem}
+.side-foot{padding:.9rem 1rem;border-top:1px solid var(--side-line);display:flex;flex-direction:column;gap:.5rem}
+.side-foot-link{display:flex;align-items:center;gap:.6rem;color:inherit;text-decoration:none}
 .side-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#b8790f);color:var(--accent-ink);display:grid;place-items:center;font-weight:800;flex-shrink:0}
 .side-foot .who{flex:1;min-width:0}
 .side-foot b{font-size:.82rem;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .side-foot span{font-size:.7rem;color:var(--side-mut)}
+.side-foot-approvals{font-size:.72rem;color:var(--side-mut);text-decoration:underline;padding-left:2.6rem}
 
 .main{min-width:0;display:flex;flex-direction:column}
 .scrim{display:none}
@@ -196,8 +198,18 @@ tr:last-child td{border-bottom:none}
     </nav>
 
     <div class="side-foot">
-      <span class="side-avatar">{{ strtoupper(substr(auth()->user()->name ?? 'U',0,1)) }}</span>
-      <div class="who"><b>{{ auth()->user()->name }}</b><span>{{ $portal === 'admin' ? 'Platform admin' : 'Signed in' }}</span></div>
+      @if(isset($school) && \Illuminate\Support\Facades\Route::has('school.profile.edit'))
+        <a class="side-foot-link" href="{{ route('school.profile.edit', ['school' => $school->slug]) }}">
+          <span class="side-avatar">{{ strtoupper(substr(auth()->user()->name ?? 'U',0,1)) }}</span>
+          <div class="who"><b>{{ auth()->user()->name }}</b><span>My profile</span></div>
+        </a>
+        @if(app(\App\Services\Rbac\Rbac::class)->check(auth()->user(), $school, 'staff.update'))
+          <a class="side-foot-approvals" href="{{ route('school.profile.approvals', ['school' => $school->slug]) }}">Profile approvals</a>
+        @endif
+      @else
+        <span class="side-avatar">{{ strtoupper(substr(auth()->user()->name ?? 'U',0,1)) }}</span>
+        <div class="who"><b>{{ auth()->user()->name }}</b><span>{{ $portal === 'admin' ? 'Platform admin' : 'Signed in' }}</span></div>
+      @endif
     </div>
   </aside>
 
