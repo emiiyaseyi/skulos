@@ -88,6 +88,7 @@
     'dashboard' => ['school.dashboard', 'Dashboard', 'dashboard'],
     'student_records' => ['school.students', 'Students', 'students'],
     'staff_records' => ['school.staff.index', 'Staff', 'staff'],
+    'attendance_management' => ['school.attendance.index', 'Attendance', 'attendance'],
     'school_houses' => ['school.houses.index', 'Houses', 'school'],
     'school_sections' => ['school.academics.index', 'Classes &amp; Subjects', 'academics'],
     'classes_arms' => ['school.academics.index', 'Classes &amp; Subjects', 'academics'],

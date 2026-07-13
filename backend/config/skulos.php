@@ -34,7 +34,7 @@ return [
     */
     'staff_extra_access_modules' => [
         'students', 'staff', 'parents', 'academics', 'examinations',
-        'report_cards', 'calendar', 'communication', 'school_info',
+        'report_cards', 'calendar', 'communication', 'school_info', 'attendance',
     ],
 
     'modules' => [
@@ -1034,6 +1034,7 @@ return [
     'nav_permission_map' => [
         'student_records' => 'students.view',
         'staff_records' => 'staff.view',
+        'attendance_management' => 'attendance.view',
         'school_houses' => 'students.view',
         'school_sections' => 'academics.view',
         'classes_arms' => 'academics.view',

@@ -250,6 +250,13 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/{houseId}/members.csv', [$houses, 'downloadMembers'])->name('download-members');
             Route::delete('/{houseId}', [$houses, 'destroy'])->name('destroy');
         });
+        Route::prefix('attendance')->name('school.attendance.')->group(function () {
+            $attendance = \App\Http\Controllers\School\AttendanceController::class;
+            Route::get('/', [$attendance, 'index'])->name('index');
+            Route::post('/mark', [$attendance, 'markClass'])->name('mark');
+            Route::get('/staff', [$attendance, 'staffIndex'])->name('staff');
+            Route::post('/staff/mark', [$attendance, 'markStaff'])->name('staff.mark');
+        });
         Route::get('/setup', [\App\Http\Controllers\School\SetupController::class, 'index'])->name('school.setup');
         Route::post('/notifications/{id}/read', [SchoolPortalController::class, 'markNotificationRead'])->name('school.notifications.read');
         Route::prefix('notifications')->name('school.notifications.')->group(function () {

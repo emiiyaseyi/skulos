@@ -1,0 +1,199 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\School;
+use App\Models\Tenant\Attendance;
+use App\Models\Tenant\ClassArm;
+use App\Models\Tenant\SchoolClass;
+use App\Models\Tenant\Section;
+use App\Models\Tenant\Staff;
+use App\Models\Tenant\Student;
+use App\Models\User;
+use App\Services\Rbac\Rbac;
+use App\Services\Tenancy\TenantManager;
+use Database\Seeders\RbacSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\File;
+use Tests\TestCase;
+
+/**
+ * Attendance Management screen (queued 2026-07-13, "add all partial builds
+ * to the to do task"). The Attendance model/AttendanceService already
+ * existed and were unit tested (see AttendanceTest); this covers the
+ * actual controller/routes/views, and that a class or subject teacher only
+ * ever marks/sees their own class arm, same as StudentController.
+ */
+class AttendanceScreenTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected string $tenantDir;
+
+    protected Rbac $rbac;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->tenantDir = storage_path('framework/testing/tenants-'.getmypid());
+        config(['tenancy.sqlite_path' => $this->tenantDir, 'tenancy.driver' => 'sqlite', 'app.domain' => 'localhost']);
+        $this->seed(RbacSeeder::class);
+        $this->rbac = app(Rbac::class);
+    }
+
+    protected function tearDown(): void
+    {
+        app(TenantManager::class)->forget();
+        File::deleteDirectory($this->tenantDir);
+        parent::tearDown();
+    }
+
+    protected function schoolWithMember(string $roleSlug, string $slug): array
+    {
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => $slug]));
+        $user = User::factory()->create();
+        $role = $this->rbac->cloneTemplateRole($school, $roleSlug);
+        $school->users()->attach($user->id, ['role_id' => $role->id, 'status' => 'active']);
+
+        return [$school, $user];
+    }
+
+    protected function twoClassesWithStudents(): array
+    {
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $classA = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $armA = ClassArm::create(['school_class_id' => $classA->id, 'arm_id' => null]);
+        $studentA = Student::create(['admission_number' => 'A/001', 'first_name' => 'Ada', 'last_name' => 'Obi', 'current_class_arm_id' => $armA->id]);
+
+        $classB = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 2', 'sequence' => 2]);
+        $armB = ClassArm::create(['school_class_id' => $classB->id, 'arm_id' => null]);
+        $studentB = Student::create(['admission_number' => 'B/001', 'first_name' => 'Bode', 'last_name' => 'Ade', 'current_class_arm_id' => $armB->id]);
+
+        return compact('armA', 'studentA', 'armB', 'studentB');
+    }
+
+    public function test_owner_can_view_and_mark_a_class_register(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'attone');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $arm, 'studentA' => $student] = $this->twoClassesWithStudents();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/attendance?class_arm_id={$arm->id}&date=2026-01-15")
+            ->assertOk()->assertSee('Ada Obi');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/attendance/mark", [
+            'class_arm_id' => $arm->id, 'date' => '2026-01-15',
+            'marks' => [$student->id => 'present'],
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $mark = Attendance::students()->forDate('2026-01-15')->first();
+        app(TenantManager::class)->forget();
+        $this->assertSame('present', $mark->status);
+    }
+
+    public function test_a_class_teacher_only_sees_and_marks_their_own_class_arm(): void
+    {
+        [$school, $teacherUser] = $this->schoolWithMember('class-teacher', 'atttwo');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $armA, 'studentA' => $studentA, 'armB' => $armB, 'studentB' => $studentB] = $this->twoClassesWithStudents();
+        $staff = Staff::create(['staff_id' => 'STF/0001', 'first_name' => 'Tee', 'last_name' => 'Cher', 'status' => 'active', 'user_id' => $teacherUser->id]);
+        $armA->update(['class_teacher_staff_id' => $staff->id]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/attendance")
+            ->assertOk()->assertSee('Primary 1')->assertDontSee('Primary 2');
+
+        $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/attendance?class_arm_id={$armB->id}")
+            ->assertNotFound();
+
+        $this->actingAs($teacherUser)->post("http://{$school->slug}.localhost/attendance/mark", [
+            'class_arm_id' => $armB->id, 'date' => '2026-01-15',
+            'marks' => [$studentB->id => 'present'],
+        ])->assertNotFound();
+
+        $this->actingAs($teacherUser)->post("http://{$school->slug}.localhost/attendance/mark", [
+            'class_arm_id' => $armA->id, 'date' => '2026-01-15',
+            'marks' => [$studentA->id => 'present'],
+        ])->assertRedirect();
+    }
+
+    public function test_a_subject_teacher_can_view_but_not_mark(): void
+    {
+        [$school, $teacherUser] = $this->schoolWithMember('subject-teacher', 'attthree');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $arm, 'studentA' => $student] = $this->twoClassesWithStudents();
+        app(TenantManager::class)->forget();
+
+        // No teaching assignment yet: an unscoped-by-nothing subject teacher sees no class arms at all.
+        $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/attendance")->assertOk()->assertDontSee('Primary 1');
+
+        $this->actingAs($teacherUser)->post("http://{$school->slug}.localhost/attendance/mark", [
+            'class_arm_id' => $arm->id, 'date' => '2026-01-15',
+            'marks' => [$student->id => 'present'],
+        ])->assertForbidden();
+    }
+
+    public function test_stray_student_ids_outside_the_class_are_ignored(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'attfour');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $armA, 'studentA' => $studentA, 'studentB' => $studentB] = $this->twoClassesWithStudents();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/attendance/mark", [
+            'class_arm_id' => $armA->id, 'date' => '2026-01-15',
+            'marks' => [$studentA->id => 'present', $studentB->id => 'absent'],
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $count = Attendance::students()->forDate('2026-01-15')->count();
+        $studentBMarked = Attendance::where('person_id', $studentB->id)->forDate('2026-01-15')->exists();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(1, $count);
+        $this->assertFalse($studentBMarked);
+    }
+
+    public function test_staff_attendance_requires_staff_view_too(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'attfive');
+        $staffMember = null;
+        app(TenantManager::class)->use($school);
+        $staffMember = Staff::create(['staff_id' => 'STF/0002', 'first_name' => 'Bola', 'last_name' => 'Ade', 'status' => 'active']);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/attendance/staff")
+            ->assertOk()->assertSee('Bola Ade');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/attendance/staff/mark", [
+            'date' => '2026-01-15', 'marks' => [$staffMember->id => 'present'],
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $mark = Attendance::staff()->forDate('2026-01-15')->first();
+        app(TenantManager::class)->forget();
+        $this->assertSame('present', $mark->status);
+
+        // A class teacher has attendance.* but no staff.view, so staff attendance stays out of reach.
+        $teacherUser = User::factory()->create();
+        $teacherRole = $this->rbac->cloneTemplateRole($school, 'class-teacher');
+        $school->users()->attach($teacherUser->id, ['role_id' => $teacherRole->id, 'status' => 'active']);
+        $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/attendance/staff")->assertForbidden();
+    }
+
+    public function test_attendance_nav_link_appears_and_respects_permission(): void
+    {
+        $this->seed(\Database\Seeders\PlanSeeder::class);
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'attseven');
+        $school->update(['plan_id' => \App\Models\Plan::where('is_default', true)->first()->id]);
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertSee('href="http://attseven.localhost/attendance"', false);
+    }
+}
