@@ -128,6 +128,29 @@
 </div>
 
 <div class="card" style="margin-top:1.25rem">
+  <h3 style="margin-bottom:.3rem">Server health</h3>
+  <p class="muted" style="font-size:.78rem;margin-bottom:1rem">A self check, not full infrastructure monitoring, which is not wired in yet.</p>
+  <div class="grid cols-3">
+    <div>
+      <div class="muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.2rem">Database</div>
+      @if($serverHealth['database_ok'])
+        <div style="color:#12A97B;font-weight:700">Responding ({{ $serverHealth['database_ms'] }}ms)</div>
+      @else
+        <div style="color:#E14F63;font-weight:700">Not responding</div>
+      @endif
+    </div>
+    <div>
+      <div class="muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.2rem">Disk Free</div>
+      <div style="font-weight:700">{{ $serverHealth['disk_free_pct'] !== null ? $serverHealth['disk_free_pct'].'% ('.$serverHealth['disk_free_gb'].' GB)' : 'N/A' }}</div>
+    </div>
+    <div>
+      <div class="muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.2rem">Queue Driver</div>
+      <div style="font-weight:700">{{ ucfirst($serverHealth['queue_driver']) }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:1.25rem">
   <h3 style="margin-bottom:1rem">Recent platform activity</h3>
   @if($recentActivity->isEmpty())
     <p class="muted">Nothing recorded yet.</p>

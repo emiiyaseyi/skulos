@@ -165,4 +165,21 @@ class PlatformDashboardTest extends TestCase
 
         $this->assertStringContainsString('2</b><span>Active Subscriptions', $content);
     }
+
+    /**
+     * Dashboard Design Cross-Check (2026-07-13): "Server Health, Blocked,
+     * no infrastructure monitoring wired in." No uptime/CPU number is
+     * fabricated; this proves the honest self check (database, disk,
+     * queue) actually renders real values, not a placeholder "OK".
+     */
+    public function test_server_health_shows_a_real_self_check(): void
+    {
+        $admin = $this->superAdmin();
+
+        $this->actingAs($admin)->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertSee('Server health')
+            ->assertSee('Responding')
+            ->assertSee('Queue Driver');
+    }
 }

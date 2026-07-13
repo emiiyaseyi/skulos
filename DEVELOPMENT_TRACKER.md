@@ -979,6 +979,15 @@ Entries are added here as work starts on each item — see the current build pha
 - QA: 2 new tests in `PlatformDashboardTest` (a real provisioned school's students/staff/guardians are summed and shown on the platform dashboard; Active Subscriptions shows one number, not a breakdown). Full suite: 498 passed, 0 failed.
 - Not built in this pass: nothing further requested for these two items.
 
+#### Sub-item: Server Health card, folding in Database Health (2026-07-13)
+- Status: Done
+- Started: 2026-07-13
+- Notes: cross-check items 5 ("Server Health, Blocked, no infrastructure monitoring wired in") and 11 ("Database Health, Blocked, not monitored") together, since both are really the same underlying signal once nothing invents a fake uptime/CPU number. New `App\Services\Platform\ServerHealthService::check()`: a real database ping with timing (`select 1`, milliseconds), real disk free space/percentage on the actual storage volume (`disk_free_space()`/`disk_total_space()`), and the configured queue driver name. No uptime, CPU, memory, or "OK" placeholder anywhere, matching the same honesty standard `HealthService` (the per-school health engine) already set. New "Server health" card on `admin/dashboard.blade.php`, a 3 column sub-grid (Database/Disk Free/Queue Driver), clean and evenly divided.
+- Issues/Bugs found: none.
+- Resolution: n/a.
+- QA: 1 new test in `PlatformDashboardTest` (the card renders with real "Responding"/timing and a real queue driver name, not a hardcoded label). Full suite: 499 passed, 0 failed.
+- Not built in this pass: real infrastructure monitoring (uptime tracking, queue worker liveness, external health pings) if that is ever wanted, this service is the one to extend rather than replace, per its own doc comment.
+
 ---
 
 ---

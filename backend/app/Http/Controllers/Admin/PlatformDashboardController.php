@@ -11,6 +11,7 @@ use App\Models\School;
 use App\Models\TrialRequest;
 use App\Models\User;
 use App\Services\Platform\CrossSchoolAggregates;
+use App\Services\Platform\ServerHealthService;
 use App\Services\Tenancy\TenantManager;
 use Illuminate\Support\Facades\DB;
 
@@ -23,7 +24,7 @@ use Illuminate\Support\Facades\DB;
  */
 class PlatformDashboardController extends Controller
 {
-    public function index(CrossSchoolAggregates $aggregates, TenantManager $tenants): \Illuminate\View\View
+    public function index(CrossSchoolAggregates $aggregates, TenantManager $tenants, ServerHealthService $serverHealth): \Illuminate\View\View
     {
         $schools = School::all();
 
@@ -99,6 +100,7 @@ class PlatformDashboardController extends Controller
             'growthMax' => $growthMax,
             'activeSubscriptions' => $activeSubscriptions,
             'crossSchoolTotals' => $crossSchoolTotals,
+            'serverHealth' => $serverHealth->check(),
         ]);
     }
 }
