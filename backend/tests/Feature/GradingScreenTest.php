@@ -74,6 +74,32 @@ class GradingScreenTest extends TestCase
         $this->assertSame('F9', $senior->bands->firstWhere('min_score', 0)->grade);
     }
 
+    /**
+     * Regression test for a live bug found 2026-07-13: the Grading page
+     * listed scales alphabetically by name ("Junior Secondary Scale"
+     * before "Nursery and Primary Scale"), not the real pedagogical
+     * order, same class of bug already fixed for Section/SchoolClass/
+     * Subject ordering. Scales must read Nursery/Primary, then Junior,
+     * then Senior, matching config('skulos.default_grading_scales')'s
+     * own declared order.
+     */
+    public function test_default_scales_load_in_pedagogical_order_not_alphabetical(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'gradeeight');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/examinations/grading/apply-defaults");
+
+        app(TenantManager::class)->use($school);
+        $names = GradingScale::orderBy('sequence')->pluck('name')->all();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame([
+            'Nursery and Primary Scale',
+            'Junior Secondary Scale',
+            'Senior Secondary Scale (WAEC)',
+        ], $names);
+    }
+
     public function test_loading_defaults_only_tops_up_scales_not_already_present(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'gradetwo');

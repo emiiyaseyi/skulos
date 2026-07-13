@@ -48,7 +48,7 @@ class GradingController extends Controller
         return view('school.examinations.grading', [
             'school' => $school,
             'accent' => $school->branding()['color'],
-            'scales' => GradingScale::with('bands')->orderBy('name')->get(),
+            'scales' => GradingScale::with('bands')->orderBy('sequence')->orderBy('name')->get(),
             'defaultCatalog' => config('skulos.default_grading_scales'),
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'examinations.approve_results'),
         ]);
@@ -58,6 +58,13 @@ class GradingController extends Controller
      * Loads whichever of the 3 default scales are not already present by
      * name, so re-running after a school already loaded one (or defined
      * its own scale with a different name) only tops up what is missing.
+     * Each scale's sequence is its fixed position in the config catalog
+     * (Nursery/Primary, then Junior, then Senior — found live 2026-07-13:
+     * the Grading page previously sorted scales alphabetically by name,
+     * "Junior Secondary Scale" before "Nursery and Primary Scale"), only
+     * ever fills in a still-unset (0) sequence, so re-running this or the
+     * retroactive repair never resets a scale an admin already manually
+     * reordered.
      */
     public function applyDefaults(Request $request): \Illuminate\Http\RedirectResponse
     {
@@ -65,12 +72,12 @@ class GradingController extends Controller
         $existingNames = GradingScale::pluck('name')->all();
 
         $created = 0;
-        foreach (config('skulos.default_grading_scales') as $catalog) {
+        foreach (array_values(config('skulos.default_grading_scales')) as $index => $catalog) {
             if (in_array($catalog['name'], $existingNames, true)) {
                 continue;
             }
 
-            $scale = GradingScale::create(['name' => $catalog['name']]);
+            $scale = GradingScale::create(['name' => $catalog['name'], 'sequence' => $index + 1]);
             foreach ($catalog['bands'] as $band) {
                 GradingBand::create([
                     'grading_scale_id' => $scale->id,

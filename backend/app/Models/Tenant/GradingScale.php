@@ -16,16 +16,17 @@ class GradingScale extends Model
 
     protected $connection = 'tenant';
 
-    protected $fillable = ['name', 'is_default'];
+    protected $fillable = ['name', 'is_default', 'sequence'];
 
     protected function casts(): array
     {
-        return ['is_default' => 'boolean'];
+        return ['is_default' => 'boolean', 'sequence' => 'integer'];
     }
 
+    /** Highest grade first (A before F), same order the config catalog already declares each scale's bands in. */
     public function bands(): HasMany
     {
-        return $this->hasMany(GradingBand::class);
+        return $this->hasMany(GradingBand::class)->orderByDesc('min_score');
     }
 
     public function makeDefault(): void
