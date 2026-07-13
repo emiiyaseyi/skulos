@@ -208,6 +208,7 @@
       $link('school.backups.index', 'Backups', 'settings'),
       $link('school.maintenance.index', 'School Health &amp; Storage', 'settings'),
       $link('school.dashboard.edit', 'Dashboard look', 'settings'),
+      $link('school.settings.landing-pages.edit', 'Landing Pages', 'settings'),
       $link('school.students.settings.edit', 'Student Fields', 'students'),
       $link('school.settings.mail.edit', 'Mail Settings', 'settings'),
       $link('school.settings.idle-timeout.edit', 'Idle Timeout', 'settings'),

@@ -425,6 +425,33 @@ return [
     'default_report_card_review_chain' => ['class-teacher'],
 
     /*
+    | Picklist of pages an admin can set as a role's default landing page
+    | right after login (user request 2026-07-13: "admin-configurable
+    | landing page per staff/student/parent (default Dashboard)"). This
+    | array is only ever the catalog of *available* choices and each
+    | one's real permission code (never read live for the actual chosen
+    | value, that is DB-backed via tenant Setting "landing_pages", see
+    | LandingPageController). Every entry must be a route needing no
+    | parameters beyond {school}, and its permission (null for one every
+    | signed-in member can always reach) is re-checked at login time so a
+    | misconfigured choice degrades to the Dashboard instead of 403ing a
+    | user the moment they sign in.
+    */
+    'landing_page_options' => [
+        'school.dashboard' => ['label' => 'Dashboard', 'permission' => null],
+        'school.students' => ['label' => 'Students', 'permission' => 'students.view'],
+        'school.staff.index' => ['label' => 'Staff', 'permission' => 'staff.view'],
+        'school.houses.index' => ['label' => 'Houses', 'permission' => 'students.view'],
+        'school.academics.index' => ['label' => 'Classes and Subjects', 'permission' => 'academics.view'],
+        'school.examinations.index' => ['label' => 'Results Entry', 'permission' => 'examinations.view'],
+        'school.examinations.grading' => ['label' => 'Grading', 'permission' => 'examinations.view'],
+        'school.report-cards.index' => ['label' => 'Report Cards', 'permission' => 'report_cards.view'],
+        'school.report-cards.pending-review' => ['label' => 'Pending Report Card Reviews', 'permission' => 'report_cards.assign_review'],
+        'school.notifications.index' => ['label' => 'Notifications', 'permission' => null],
+        'school.profile.edit' => ['label' => 'My Profile', 'permission' => null],
+    ],
+
+    /*
     | Who can see a student's guardian/parent details (name, relationship,
     | contact, parent portal login) on their profile (user directive
     | 2026-07-12: "the admin should be able to set if class teacher only

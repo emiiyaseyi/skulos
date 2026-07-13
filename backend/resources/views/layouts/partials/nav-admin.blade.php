@@ -23,5 +23,6 @@
 
 <div class="side-group">Settings</div>
 {!! $item('admin.settings.mail.edit', 'Mail Settings', 'settings') !!}
+{!! $item('admin.settings.landing-pages.edit', 'Landing Pages', 'settings') !!}
 {!! $item('admin.settings.idle-timeout.edit', 'Idle Timeout', 'settings') !!}
 {!! $item('admin.settings.retention.edit', 'Retention', 'settings') !!}

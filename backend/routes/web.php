@@ -74,6 +74,11 @@ Route::domain($appDomain)->group(function () {
             Route::post('/', [$mailSettings, 'update'])->name('update');
             Route::post('/test', [$mailSettings, 'sendTest'])->name('test');
         });
+        Route::prefix('settings/landing-pages')->name('settings.landing-pages.')->group(function () {
+            $landingPages = \App\Http\Controllers\Admin\LandingPageSettingsController::class;
+            Route::get('/', [$landingPages, 'edit'])->name('edit');
+            Route::post('/', [$landingPages, 'update'])->name('update');
+        });
         Route::prefix('settings/idle-timeout')->name('settings.idle-timeout.')->group(function () {
             $idleTimeout = \App\Http\Controllers\Admin\IdleTimeoutController::class;
             Route::get('/', [$idleTimeout, 'edit'])->name('edit');
@@ -239,6 +244,8 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::post('/settings/branding', [SchoolPortalController::class, 'updateBranding'])->name('school.branding.update');
         Route::get('/settings/dashboard', [SchoolPortalController::class, 'editDashboard'])->name('school.dashboard.edit');
         Route::post('/settings/dashboard', [SchoolPortalController::class, 'updateDashboard'])->name('school.dashboard.update');
+        Route::get('/settings/landing-pages', [\App\Http\Controllers\School\LandingPageController::class, 'edit'])->name('school.settings.landing-pages.edit');
+        Route::post('/settings/landing-pages', [\App\Http\Controllers\School\LandingPageController::class, 'update'])->name('school.settings.landing-pages.update');
         Route::prefix('settings/calendar')->name('school.settings.calendar.')->group(function () {
             $academics = \App\Http\Controllers\School\AcademicsController::class;
             Route::get('/', [$academics, 'editCalendar'])->name('edit');

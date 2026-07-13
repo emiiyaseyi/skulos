@@ -75,9 +75,17 @@ class LoginController extends Controller
 
         app(Recorder::class)->record('auth.login', $user);
 
-        // Send users to where they belong.
+        // Send users to where they belong: their school's admin-configured
+        // landing page for their role (user request 2026-07-13:
+        // "admin-configurable landing page per staff/student/parent
+        // (default Dashboard)"), Dashboard if nothing is configured or the
+        // user has no role in this school (a platform admin impersonating
+        // via support access, for instance).
         if ($school) {
-            return redirect()->route('school.dashboard', ['school' => $school->slug]);
+            $role = $user->is_super_admin ? null : $user->roleIn($school);
+            $routeName = \App\Http\Controllers\School\LandingPageController::landingRouteFor($role);
+
+            return redirect()->route($routeName, ['school' => $school->slug]);
         }
 
         return redirect()->intended(Auth::user()->is_super_admin ? route('admin.dashboard') : '/');
