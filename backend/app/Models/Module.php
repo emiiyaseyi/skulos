@@ -29,4 +29,19 @@ class Module extends Model
     {
         return $this->is_core ? self::STATE_ENABLED : self::STATE_DISABLED;
     }
+
+    /**
+     * Optional (non core) modules, keyed by code, in the shape Billing and
+     * School Admin screens expect. Reads the seeded DB catalog, not
+     * config('skulos.modules') directly, so a module added later only
+     * needs a reseed, never a code change at every call site.
+     *
+     * @return array<string, array{name: string, core: bool}>
+     */
+    public static function optional(): array
+    {
+        return static::where('is_core', false)->orderBy('name')->get()
+            ->mapWithKeys(fn (self $m) => [$m->code => ['name' => $m->name, 'core' => $m->is_core]])
+            ->all();
+    }
 }

@@ -47,7 +47,7 @@ class RoleDashboard
             // Owner/Principal/Head Teacher/Vice Principal get the business
             // wide leadership view; School Administrator gets the day to
             // day operational one below.
-            in_array($slug, ['school-owner', 'principal', 'head-teacher', 'vice-principal'], true) => $this->admin($school),
+            in_array($slug, config('skulos.leadership_role_slugs'), true) => $this->admin($school),
             $slug === 'school-admin' => $this->schoolAdministrator(),
             $slug === 'class-teacher' => $this->classTeam($user, 'class_teacher'),
             $slug === 'class-assistant' => $this->classTeam($user, 'class_assistant'),

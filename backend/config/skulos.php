@@ -325,10 +325,12 @@ return [
 
     /*
     | Platform support contact, shown on sign in pages so a locked out
-    | admin/user has somewhere to turn. Same details published on the
-    | marketing site's Privacy/Terms pages; kept here as the single
-    | source so both stay in sync (env overridable, never hardcoded
-    | into a view).
+    | admin/user has somewhere to turn. This is only the seed/fallback
+    | value now (no-hardcoding audit, 2026-07-13): the live value a view
+    | actually renders comes from App\Services\Platform\SupportContactService,
+    | which reads a PlatformSetting override if a super admin has set one
+    | under Admin > Settings > Support Contact, falling back to this array
+    | (still env overridable) only until they do.
     */
     'support' => [
         'email' => env('SKULOS_SUPPORT_EMAIL', 'info@skulos.app'),
@@ -1058,6 +1060,21 @@ return [
         // matching the same tier as examinations.approve_results.
         'report_cards' => ['assign_review', 'release'],
     ],
+
+    /*
+    | Role slugs that get the business wide "leadership" dashboard view
+    | (RoleDashboard::admin()) rather than a narrower operational one.
+    | School Admin is deliberately excluded here (it gets its own
+    | day to day operational dashboard, RoleDashboard::schoolAdministrator())
+    | but IS still an admin tier role for platform wide counts like
+    | "total administrators" (PlatformDashboardController), which adds it
+    | back on top of this list rather than duplicating the base set.
+    | No-hardcoding audit, 2026-07-13: this single source replaced two
+    | independently hardcoded literal arrays that had drifted apart once
+    | already (see the "how can i have 449 users and 447 administrators"
+    | incident referenced in PlatformDashboardController).
+    */
+    'leadership_role_slugs' => ['school-owner', 'principal', 'head-teacher', 'vice-principal'],
 
     /*
     | Built-in role templates (tracker section 4.2) seeded with school_id = null.

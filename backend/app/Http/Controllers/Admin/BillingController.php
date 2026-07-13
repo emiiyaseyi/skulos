@@ -183,7 +183,7 @@ class BillingController extends Controller
 
     protected function optionalModules(): array
     {
-        return collect(config('skulos.modules'))->filter(fn ($m) => ! $m['core'])->all();
+        return Module::optional();
     }
 
     protected function addOnCodes(): array

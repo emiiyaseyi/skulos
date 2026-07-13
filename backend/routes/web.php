@@ -89,6 +89,11 @@ Route::domain($appDomain)->group(function () {
             Route::get('/', [$retention, 'edit'])->name('edit');
             Route::post('/', [$retention, 'update'])->name('update');
         });
+        Route::prefix('settings/support-contact')->name('settings.support-contact.')->group(function () {
+            $supportContact = \App\Http\Controllers\Admin\SupportContactController::class;
+            Route::get('/', [$supportContact, 'edit'])->name('edit');
+            Route::post('/', [$supportContact, 'update'])->name('update');
+        });
 
         Route::prefix('billing')->name('billing.')->group(function () {
             $billing = \App\Http\Controllers\Admin\BillingController::class;

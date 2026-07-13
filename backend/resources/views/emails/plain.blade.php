@@ -4,4 +4,4 @@ SKULOS
 
 ---
 This message was sent by SKULOS, the Education Operating System for Modern Schools.
-Questions any time: {{ config('skulos.support.email') }} or {{ config('skulos.support.phone') }}.
+Questions any time: {{ app(\App\Services\Platform\SupportContactService::class)->effective()['email'] }} or {{ app(\App\Services\Platform\SupportContactService::class)->effective()['phone'] }}.

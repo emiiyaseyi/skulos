@@ -175,9 +175,10 @@
           @include('auth.partials.powered')
         @else
           <p class="powered">Platform administration</p>
+          @php($support = app(\App\Services\Platform\SupportContactService::class)->effective())
           <div class="support-line">
-            Need help? <a href="mailto:{{ config('skulos.support.email') }}">{{ config('skulos.support.email') }}</a>
-            &middot; <a href="tel:{{ str_replace(' ', '', config('skulos.support.phone')) }}">{{ config('skulos.support.phone') }}</a>
+            Need help? <a href="mailto:{{ $support['email'] }}">{{ $support['email'] }}</a>
+            &middot; <a href="tel:{{ str_replace(' ', '', $support['phone']) }}">{{ $support['phone'] }}</a>
           </div>
         @endif
       </div>

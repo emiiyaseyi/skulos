@@ -258,7 +258,7 @@ class SchoolAdminController extends Controller
 
         $backups = \App\Models\Backup::where('school_id', $school->id)->orderByDesc('created_at')->get();
 
-        $optionalModules = collect(config('skulos.modules'))->filter(fn ($m) => ! $m['core'])->all();
+        $optionalModules = \App\Models\Module::optional();
         $rbac = app(\App\Services\Rbac\Rbac::class);
         $moduleStates = collect($optionalModules)->keys()
             ->mapWithKeys(fn ($code) => [$code => $rbac->moduleState($school, $code)])->all();

@@ -31,9 +31,10 @@
         <tr>
           <td style="padding:20px 32px;background-color:#F7F8FA;border-top:1px solid #E2E6ED;">
             <p style="margin:0;font-size:12px;line-height:20px;color:#7C8698;">
+              @php($support = app(\App\Services\Platform\SupportContactService::class)->effective())
               This message was sent by SKULOS, the Education Operating System for Modern Schools.
-              Questions any time: <a href="mailto:{{ config('skulos.support.email') }}" style="color:#7C8698;">{{ config('skulos.support.email') }}</a>
-              or {{ config('skulos.support.phone') }}.
+              Questions any time: <a href="mailto:{{ $support['email'] }}" style="color:#7C8698;">{{ $support['email'] }}</a>
+              or {{ $support['phone'] }}.
             </p>
           </td>
         </tr>

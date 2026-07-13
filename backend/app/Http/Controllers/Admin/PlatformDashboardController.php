@@ -70,7 +70,7 @@ class PlatformDashboardController extends Controller
         // 447 administrators" — the previous query counted every
         // student/parent/teacher account too, since they are all rows in
         // school_user regardless of role).
-        $adminRoleIds = Role::whereIn('slug', ['school-owner', 'school-admin', 'principal', 'head-teacher', 'vice-principal'])->pluck('id');
+        $adminRoleIds = Role::whereIn('slug', [...config('skulos.leadership_role_slugs'), 'school-admin'])->pluck('id');
         $totalAdministrators = DB::table('school_user')->whereIn('role_id', $adminRoleIds)->distinct('user_id')->count('user_id');
 
         return view('admin.dashboard', [

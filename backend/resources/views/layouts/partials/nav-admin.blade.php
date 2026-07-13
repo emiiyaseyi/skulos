@@ -26,3 +26,4 @@
 {!! $item('admin.settings.landing-pages.edit', 'Landing Pages', 'settings') !!}
 {!! $item('admin.settings.idle-timeout.edit', 'Idle Timeout', 'settings') !!}
 {!! $item('admin.settings.retention.edit', 'Retention', 'settings') !!}
+{!! $item('admin.settings.support-contact.edit', 'Support Contact', 'settings') !!}
