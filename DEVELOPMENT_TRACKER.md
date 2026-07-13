@@ -949,7 +949,23 @@ Entries are added here as work starts on each item — see the current build pha
 - Issues/Bugs found: n/a, in progress.
 - Resolution: n/a, in progress.
 - QA: n/a, in progress.
-- Not built in this pass: everything in the batch beyond Attendance itself; see the live todo list for the full ordered remainder.
+- Not built in this pass: everything in the batch beyond Attendance itself and wiring it into dashboards (below); see the live todo list for the full ordered remainder.
+
+#### Sub-item: wire real Attendance data into every dashboard that referenced it (2026-07-13)
+- Status: Done
+- Started: 2026-07-13
+- Notes: first item of the cross-check batch. `RoleDashboard` gained a shared `attendanceRate(string $personType): ?float` helper (null, not 0%, when nobody has been marked yet today, so an empty register reads as "not marked" rather than "everyone absent", per the standing no-dummy-data rule) and real attendance figures were added to every role dashboard the cross-check flagged:
+  - `admin()` (School Owner/Principal/Head Teacher/Vice Principal): added Parents, Subjects, Attendance Rate, Staff Attendance (12 to 16 figures, still a clean 4 column grid).
+  - `schoolAdministrator()`: same 4 additions (4 to 8 figures).
+  - `classTeam()` (Class Teacher/Class Assistant): added Attendance Today, Present Today, Absent Today, Class Average, for their own class arm only (4 to 8 figures).
+  - `subjectTeacher()`: added Attendance Today, Present Today, Absent Today, Classes Marked Today, across every class arm they actually teach (4 to 8 figures).
+  - `parent()`: added Attendance Today (aggregate across their linked children) and Report Cards Released this term (2 to 4 figures).
+  - `student()`: added Today (their own mark, "Present"/"Absent"/"Not marked"), My Attendance (term rate), Days Present, Days Absent, using the current term's date range (4 to 8 figures).
+  - Every addition keeps the `.figs` grid (a fixed `repeat(4,1fr)` on desktop) at a multiple of 4, per the standing design rule that a set of items must resolve to complete rows, not a dangling partial one; where only 1-2 new real metrics existed for a role, a couple of coherent extra ones (e.g. Class Average, Report Cards Released) were added alongside rather than leaving an incomplete row.
+- Issues/Bugs found: none in the app logic; the new tests needed two rounds of fixes, both test-authoring mistakes: `round(50.0, 1)` renders as the string `"50"` not `"50.0"` when interpolated (PHP drops the trailing zero on a whole-number float), and the student "Days Present" test needed a real current `AcademicSession`/`Term` created, since the term-scoped attendance query correctly returns nothing when no term exists yet, matching production behavior.
+- Resolution: see above.
+- QA: 4 new tests in `RoleDashboardTest` (admin dashboard shows real Attendance Rate/Parents/Subjects; a class teacher's dashboard shows their own class's today figures; a student sees their own today/term attendance; a parent sees their children's aggregate attendance today). Full suite: 496 passed, 0 failed (up from 492).
+- Not built in this pass: `ictOfficer()`/bursar-accountant (`peopleOnly()`) dashboards were left as is, neither was named for an attendance figure in the cross-check; Principal-specific figures (cross-check items "Student Population, Teacher Count" / "Attendance, Academic Performance") reuse the same `admin()` figures today since there is no Principal-specific dashboard branch yet, that remains its own separate backlog item.
 
 ---
 

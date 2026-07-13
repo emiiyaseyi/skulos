@@ -5,6 +5,7 @@ namespace App\Services\Dashboard;
 use App\Models\School;
 use App\Models\User;
 use App\Models\Tenant\AssessmentComponent;
+use App\Models\Tenant\Attendance;
 use App\Models\Tenant\Campus;
 use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\GradingScale;
@@ -13,6 +14,7 @@ use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Staff;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\StudentGuardian;
+use App\Models\Tenant\Subject;
 use App\Models\Tenant\TeachingAssignment;
 use App\Models\Tenant\Term;
 use App\Services\Results\ResultService;
@@ -110,6 +112,12 @@ class RoleDashboard
         [$boys, $girls] = $this->genderCounts($students);
         $newThisTerm = $term ? Student::active()->where('created_at', '>=', $term->created_at)->count() : 0;
         $unassigned = Student::active()->whereNull('current_class_arm_id')->count();
+        $uniqueGuardians = StudentGuardian::get(['email', 'phone', 'name'])
+            ->map(fn ($g) => $g->email ?: ($g->phone ?: $g->name))
+            ->unique()
+            ->count();
+        $studentRate = $this->attendanceRate(Attendance::PERSON_STUDENT);
+        $staffRate = $this->attendanceRate(Attendance::PERSON_STAFF);
 
         return [
             'kind' => 'admin',
@@ -121,6 +129,10 @@ class RoleDashboard
                 ['n' => number_format(SchoolClass::count()), 'l' => 'Classes', 'ic' => 'academics', 'c' => '#E5901C', 'pct' => '80%'],
                 ['n' => number_format(Campus::count()), 'l' => 'Campuses', 'ic' => 'school', 'c' => '#E14F63', 'pct' => '50%'],
                 ['n' => number_format(\App\Models\Tenant\House::count()), 'l' => 'Houses', 'ic' => 'school', 'c' => '#0EA5A0', 'pct' => '60%'],
+                ['n' => number_format($uniqueGuardians), 'l' => 'Parents', 'ic' => 'students', 'c' => '#6D4FE0', 'pct' => '60%'],
+                ['n' => number_format(Subject::count()), 'l' => 'Subjects', 'ic' => 'academics', 'c' => '#0EA5A0', 'pct' => '70%'],
+                ['n' => $studentRate !== null ? "{$studentRate}%" : 'N/A', 'l' => 'Attendance Rate', 'ic' => 'students', 'c' => '#12A97B', 'pct' => $studentRate !== null ? "{$studentRate}%" : '0%'],
+                ['n' => $staffRate !== null ? "{$staffRate}%" : 'N/A', 'l' => 'Staff Attendance', 'ic' => 'staff', 'c' => '#12A97B', 'pct' => $staffRate !== null ? "{$staffRate}%" : '0%'],
                 ['n' => number_format($newThisTerm), 'l' => 'New Registrations', 'ic' => 'students', 'c' => '#E5901C', 'pct' => '50%'],
                 ['n' => number_format($unassigned), 'l' => 'Awaiting Class', 'ic' => 'students', 'c' => '#E14F63', 'pct' => '40%'],
                 ['n' => number_format($pendingReviews->count()), 'l' => 'Reports Pending Review', 'ic' => 'results', 'c' => '#E5901C', 'pct' => '50%'],
@@ -159,6 +171,28 @@ class RoleDashboard
         $girls = $students->filter(fn ($s) => strtolower((string) $s->gender) === 'female')->count();
 
         return [$boys, $girls];
+    }
+
+    /**
+     * Today's attendance rate for students or staff (Dashboard Design
+     * Cross-Check, 2026-07-13: "Attendance Rate, Staff Attendance" was
+     * blocked because nothing could mark attendance yet; now that
+     * AttendanceController exists, this reads the real register). Null,
+     * not 0%, when nobody has been marked yet today, so an empty register
+     * reads as "not marked yet" rather than "everyone absent" (standing
+     * no-dummy-data rule).
+     */
+    protected function attendanceRate(string $personType): ?float
+    {
+        $counts = Attendance::where('person_type', $personType)->forDate(now())
+            ->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+
+        $marked = $counts->sum();
+        if ($marked === 0) {
+            return null;
+        }
+
+        return round((($counts['present'] ?? 0) / $marked) * 100, 1);
     }
 
     /**
@@ -237,12 +271,22 @@ class RoleDashboard
             ? Student::active()->where('created_at', '>=', $term->created_at)->count()
             : 0;
         $unassigned = Student::active()->whereNull('current_class_arm_id')->count();
+        $studentRate = $this->attendanceRate(Attendance::PERSON_STUDENT);
+        $staffRate = $this->attendanceRate(Attendance::PERSON_STAFF);
+        $uniqueGuardians = StudentGuardian::get(['email', 'phone', 'name'])
+            ->map(fn ($g) => $g->email ?: ($g->phone ?: $g->name))
+            ->unique()
+            ->count();
 
         return [
             'kind' => 'school_admin',
             'figs' => [
                 ['n' => number_format(Student::active()->count()), 'l' => 'Students', 'ic' => 'students', 'c' => '#0EA5A0', 'pct' => '72%'],
                 ['n' => number_format(Staff::active()->count()), 'l' => 'Staff', 'ic' => 'staff', 'c' => '#6D4FE0', 'pct' => '64%'],
+                ['n' => number_format($uniqueGuardians), 'l' => 'Parents', 'ic' => 'students', 'c' => '#6D4FE0', 'pct' => '60%'],
+                ['n' => number_format(Subject::count()), 'l' => 'Subjects', 'ic' => 'academics', 'c' => '#0EA5A0', 'pct' => '70%'],
+                ['n' => $studentRate !== null ? "{$studentRate}%" : 'N/A', 'l' => 'Attendance Today', 'ic' => 'students', 'c' => '#12A97B', 'pct' => $studentRate !== null ? "{$studentRate}%" : '0%'],
+                ['n' => $staffRate !== null ? "{$staffRate}%" : 'N/A', 'l' => 'Staff Attendance', 'ic' => 'staff', 'c' => '#12A97B', 'pct' => $staffRate !== null ? "{$staffRate}%" : '0%'],
                 ['n' => number_format($newThisTerm), 'l' => 'New Registrations', 'ic' => 'students', 'c' => '#E5901C', 'pct' => '50%'],
                 ['n' => number_format($unassigned), 'l' => 'Awaiting Class', 'ic' => 'students', 'c' => '#E14F63', 'pct' => '40%'],
             ],
@@ -270,6 +314,13 @@ class RoleDashboard
             $average = count($broadsheet) ? round(array_sum(array_column($broadsheet, 'average')) / count($broadsheet), 1) : null;
         }
 
+        $todayCounts = Attendance::students()->where('class_arm_id', $classArm->id)->forDate(now())
+            ->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+        $marked = $todayCounts->sum();
+        $present = $todayCounts['present'] ?? 0;
+        $absent = $todayCounts['absent'] ?? 0;
+        $attendanceRate = $marked > 0 ? round(($present / $marked) * 100, 1) : null;
+
         return [
             'kind' => $kind,
             'figs' => [
@@ -277,6 +328,10 @@ class RoleDashboard
                 ['n' => number_format($boys), 'l' => 'Boys', 'ic' => 'students', 'c' => '#6D4FE0', 'pct' => '55%'],
                 ['n' => number_format($girls), 'l' => 'Girls', 'ic' => 'students', 'c' => '#E14F63', 'pct' => '55%'],
                 ['n' => number_format($subjectsCount), 'l' => 'Subjects', 'ic' => 'academics', 'c' => '#E5901C', 'pct' => '80%'],
+                ['n' => $attendanceRate !== null ? "{$attendanceRate}%" : 'N/A', 'l' => 'Attendance Today', 'ic' => 'students', 'c' => '#12A97B', 'pct' => $attendanceRate !== null ? "{$attendanceRate}%" : '0%'],
+                ['n' => number_format($present), 'l' => 'Present Today', 'ic' => 'students', 'c' => '#0EA5A0', 'pct' => '60%'],
+                ['n' => number_format($absent), 'l' => 'Absent Today', 'ic' => 'students', 'c' => '#E14F63', 'pct' => '30%'],
+                ['n' => $average !== null ? "{$average}%" : 'N/A', 'l' => 'Class Average', 'ic' => 'results', 'c' => '#6D4FE0', 'pct' => '65%'],
             ],
             'panel' => [
                 'type' => 'class_overview',
@@ -316,6 +371,15 @@ class RoleDashboard
             $average = count($averages) ? round(array_sum($averages) / count($averages), 1) : null;
         }
 
+        $todayCounts = Attendance::students()->whereIn('class_arm_id', $classArmIds)->forDate(now())
+            ->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+        $marked = $todayCounts->sum();
+        $present = $todayCounts['present'] ?? 0;
+        $absent = $todayCounts['absent'] ?? 0;
+        $attendanceRate = $marked > 0 ? round(($present / $marked) * 100, 1) : null;
+        $classesMarkedToday = Attendance::students()->whereIn('class_arm_id', $classArmIds)->forDate(now())
+            ->distinct('class_arm_id')->count('class_arm_id');
+
         return [
             'kind' => 'subject_teacher',
             'figs' => [
@@ -323,6 +387,10 @@ class RoleDashboard
                 ['n' => number_format($classArmIds->count()), 'l' => 'My Classes', 'ic' => 'academics', 'c' => '#6D4FE0', 'pct' => '60%'],
                 ['n' => number_format($studentsCount), 'l' => 'Students Taught', 'ic' => 'students', 'c' => '#E5901C', 'pct' => '75%'],
                 ['n' => $average !== null ? "{$average}%" : 'N/A', 'l' => 'Average Score', 'ic' => 'results', 'c' => '#E14F63', 'pct' => '65%'],
+                ['n' => $attendanceRate !== null ? "{$attendanceRate}%" : 'N/A', 'l' => 'Attendance Today', 'ic' => 'students', 'c' => '#12A97B', 'pct' => $attendanceRate !== null ? "{$attendanceRate}%" : '0%'],
+                ['n' => number_format($present), 'l' => 'Present Today', 'ic' => 'students', 'c' => '#0EA5A0', 'pct' => '60%'],
+                ['n' => number_format($absent), 'l' => 'Absent Today', 'ic' => 'students', 'c' => '#E14F63', 'pct' => '30%'],
+                ['n' => $classesMarkedToday.'/'.$classArmIds->count(), 'l' => 'Classes Marked Today', 'ic' => 'academics', 'c' => '#6D4FE0', 'pct' => $classArmIds->count() > 0 ? round(($classesMarkedToday / $classArmIds->count()) * 100).'%' : '0%'],
             ],
             'panel' => [
                 'type' => 'subject_overview',
@@ -508,6 +576,18 @@ class RoleDashboard
     {
         $children = StudentGuardian::where('guardian_user_id', $user->id)->with('student.currentClassArm')->get();
         $upcomingEvents = \App\Models\Tenant\CalendarEvent::upcoming()->count();
+        $childIds = $children->pluck('student.id')->filter()->values();
+
+        $todayCounts = Attendance::students()->whereIn('person_id', $childIds)->forDate(now())
+            ->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+        $marked = $todayCounts->sum();
+        $attendanceRate = $marked > 0 ? round((($todayCounts['present'] ?? 0) / $marked) * 100, 1) : null;
+
+        $term = Term::current()->first();
+        $reportsReleased = $term
+            ? ReportCardReview::whereIn('student_id', $childIds)->where('term_id', $term->id)
+                ->where('status', ReportCardReview::STATUS_RELEASED)->count()
+            : 0;
 
         return [
             'kind' => 'parent',
@@ -521,6 +601,8 @@ class RoleDashboard
                 // entirely for now rather than shown with a fabricated
                 // value.
                 ['n' => number_format($upcomingEvents), 'l' => 'Upcoming Events', 'ic' => 'calendar', 'c' => '#E14F63', 'pct' => $upcomingEvents > 0 ? '70%' : '10%'],
+                ['n' => $attendanceRate !== null ? "{$attendanceRate}%" : 'N/A', 'l' => 'Attendance Today', 'ic' => 'students', 'c' => '#12A97B', 'pct' => $attendanceRate !== null ? "{$attendanceRate}%" : '0%'],
+                ['n' => number_format($reportsReleased), 'l' => 'Report Cards Released', 'ic' => 'results', 'c' => '#6D4FE0', 'pct' => $reportsReleased > 0 ? '70%' : '10%'],
             ],
             'panel' => [
                 'type' => 'children',
@@ -558,6 +640,16 @@ class RoleDashboard
             }
         }
 
+        $termMarks = ($term && $term->starts_on)
+            ? Attendance::where('person_id', $student->id)->where('person_type', Attendance::PERSON_STUDENT)
+                ->whereBetween('date', [$term->starts_on->toDateString(), min($term->ends_on ?? now(), now())->toDateString()])
+                ->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status')
+            : collect();
+        $termMarked = $termMarks->sum();
+        $termRate = $termMarked > 0 ? round((($termMarks['present'] ?? 0) / $termMarked) * 100, 1) : null;
+        $todayMark = Attendance::where('person_id', $student->id)->where('person_type', Attendance::PERSON_STUDENT)
+            ->forDate(now())->first();
+
         return [
             'kind' => 'student',
             'figs' => [
@@ -565,6 +657,10 @@ class RoleDashboard
                 ['n' => number_format($subjectsCount), 'l' => 'Subjects', 'ic' => 'academics', 'c' => '#6D4FE0', 'pct' => '75%'],
                 ['n' => $average !== null ? "{$average}%" : 'N/A', 'l' => 'My Average', 'ic' => 'results', 'c' => '#E5901C', 'pct' => '70%'],
                 ['n' => $position ?? 'N/A', 'l' => 'Position', 'ic' => 'results', 'c' => '#E14F63', 'pct' => '65%'],
+                ['n' => $todayMark ? ucfirst($todayMark->status) : 'Not marked', 'l' => 'Today', 'ic' => 'students', 'c' => '#12A97B', 'pct' => $todayMark?->status === 'present' ? '100%' : '30%'],
+                ['n' => $termRate !== null ? "{$termRate}%" : 'N/A', 'l' => 'My Attendance', 'ic' => 'students', 'c' => '#0EA5A0', 'pct' => $termRate !== null ? "{$termRate}%" : '0%'],
+                ['n' => number_format($termMarks['present'] ?? 0), 'l' => 'Days Present', 'ic' => 'students', 'c' => '#6D4FE0', 'pct' => '60%'],
+                ['n' => number_format($termMarks['absent'] ?? 0), 'l' => 'Days Absent', 'ic' => 'students', 'c' => '#E14F63', 'pct' => '30%'],
             ],
             'panel' => ['type' => 'own_result', 'term' => $term?->name, 'student_id' => $student->id],
         ];

@@ -356,4 +356,92 @@ class RoleDashboardTest extends TestCase
         $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/dashboard")
             ->assertOk()->assertSee('My Students')->assertSee('Basic 5');
     }
+
+    /**
+     * Dashboard Design Cross-Check (2026-07-13): "Attendance Rate, Staff
+     * Attendance" and "Parents, Subjects" were Blocked on the owner
+     * dashboard because nothing could mark attendance yet. Now that
+     * AttendanceController is real, this proves the dashboard actually
+     * reads it, not just that the labels exist.
+     */
+    public function test_admin_dashboard_shows_real_attendance_parents_and_subjects(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'rdattend');
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id]);
+        $a = Student::create(['admission_number' => 'AT1', 'first_name' => 'A', 'last_name' => 'One', 'current_class_arm_id' => $arm->id]);
+        $b = Student::create(['admission_number' => 'AT2', 'first_name' => 'B', 'last_name' => 'Two', 'current_class_arm_id' => $arm->id]);
+        Subject::create(['name' => 'Mathematics', 'code' => 'MTH']);
+        StudentGuardian::create(['student_id' => $a->id, 'name' => 'Guardian One', 'email' => 'g1@example.com']);
+        app(\App\Services\Attendance\AttendanceService::class)->markClass($arm->id, now(), [
+            $a->id => 'present', $b->id => 'absent',
+        ]);
+        app(TenantManager::class)->forget();
+
+        $data = app(RoleDashboard::class)->build($admin, $school);
+        $labels = collect($data['figs'])->pluck('n', 'l');
+
+        $this->assertSame('50%', $labels['Attendance Rate']);
+        $this->assertSame('1', $labels['Parents']);
+        $this->assertSame('1', $labels['Subjects']);
+    }
+
+    public function test_class_teacher_dashboard_shows_todays_class_attendance(): void
+    {
+        [$school, $teacherUser] = $this->schoolWithMember('class-teacher', 'rdattendtwo');
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 2', 'sequence' => 1]);
+        $staff = Staff::create(['staff_id' => 'STF/AT', 'first_name' => 'C', 'last_name' => 'T', 'user_id' => $teacherUser->id]);
+        $arm = ClassArm::create(['school_class_id' => $class->id, 'class_teacher_staff_id' => $staff->id]);
+        $a = Student::create(['admission_number' => 'CT1', 'first_name' => 'A', 'last_name' => 'One', 'current_class_arm_id' => $arm->id]);
+        app(\App\Services\Attendance\AttendanceService::class)->markClass($arm->id, now(), [$a->id => 'present']);
+        app(TenantManager::class)->forget();
+
+        $data = app(RoleDashboard::class)->build($teacherUser, $school);
+        $labels = collect($data['figs'])->pluck('n', 'l');
+
+        $this->assertSame('100%', $labels['Attendance Today']);
+        $this->assertSame('1', $labels['Present Today']);
+    }
+
+    public function test_student_dashboard_shows_own_attendance(): void
+    {
+        [$school, $studentUser] = $this->schoolWithMember('student', 'rdattendthree');
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 3', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id]);
+        $academicSession = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026', 'starts_on' => now()->subMonth(), 'ends_on' => now()->addMonths(3), 'is_current' => true]);
+        \App\Models\Tenant\Term::create(['academic_session_id' => $academicSession->id, 'name' => 'Term 1', 'sequence' => 1, 'starts_on' => now()->subMonth(), 'ends_on' => now()->addMonths(3), 'is_current' => true]);
+        $student = Student::create(['admission_number' => 'ST1', 'first_name' => 'Stu', 'last_name' => 'Dent', 'user_id' => $studentUser->id, 'current_class_arm_id' => $arm->id]);
+        app(\App\Services\Attendance\AttendanceService::class)->markClass($arm->id, now(), [$student->id => 'present']);
+        app(TenantManager::class)->forget();
+
+        $data = app(RoleDashboard::class)->build($studentUser, $school);
+        $labels = collect($data['figs'])->pluck('n', 'l');
+
+        $this->assertSame('Present', $labels['Today']);
+        $this->assertSame('1', $labels['Days Present']);
+    }
+
+    public function test_parent_dashboard_shows_childrens_attendance_today(): void
+    {
+        [$school, $parentUser] = $this->schoolWithMember('parent', 'rdattendfour');
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 4', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id]);
+        $child = Student::create(['admission_number' => 'PC1', 'first_name' => 'Kid', 'last_name' => 'One', 'current_class_arm_id' => $arm->id]);
+        StudentGuardian::create(['student_id' => $child->id, 'guardian_user_id' => $parentUser->id, 'name' => 'Mum']);
+        app(\App\Services\Attendance\AttendanceService::class)->markClass($arm->id, now(), [$child->id => 'present']);
+        app(TenantManager::class)->forget();
+
+        $data = app(RoleDashboard::class)->build($parentUser, $school);
+        $labels = collect($data['figs'])->pluck('n', 'l');
+
+        $this->assertSame('100%', $labels['Attendance Today']);
+    }
 }
