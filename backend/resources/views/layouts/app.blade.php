@@ -237,6 +237,11 @@ tr:last-child td{border-bottom:none}
         @hasSection('crumb')<div class="crumb">@yield('crumb')</div>@endif
       </div>
       <div class="appbar-spacer"></div>
+      @if(($portal ?? null) === 'school' && isset($school) && $school)
+        <form method="GET" action="{{ route('school.search.index', ['school' => $school->slug]) }}" style="display:flex;align-items:center;gap:.3rem">
+          <input type="search" name="q" placeholder="Search students, staff, parents" aria-label="Search" style="width:15rem;padding:.5rem .7rem;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:.85rem" />
+        </form>
+      @endif
       @isset($notifCount)
         <span class="iconbtn" title="Notifications">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>

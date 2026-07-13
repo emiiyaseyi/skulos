@@ -999,6 +999,15 @@ Entries are added here as work starts on each item — see the current build pha
 - QA: 1 new test in `PlatformDashboardTest` (a school with no backup and a suspended school both produce their own real alert banner). Full suite: 500 passed, 0 failed.
 - Not built in this pass: Schools Nearing Expiry, deliberately, see above.
 
+### Global Search (2026-07-13)
+- Status: Done
+- Started: 2026-07-13
+- Notes: found mid-session as a genuinely local, uncommitted file: `App\Http\Controllers\School\SearchController.php` already existed (a complete, reasonable implementation from an earlier interrupted session), searching Students/Staff/Parents with per category permission checks, but had no route and no view, so it was unreachable dead code. Rather than commit it half finished, finished it: new route `GET /search` (`school.search.index`), new `resources/views/school/search.blade.php` (three result tables, one per category, each only rendered if non-empty), and a search input added to the shared app bar (`layouts/app.blade.php`), shown only on school portal pages (`$portal === 'school'`), submitting a plain GET to the search route. Matches at least 2 characters, `students.view`/`staff.view` gate their respective categories the same way every other screen does, a role without `staff.view` (e.g. Registrar) never sees a staff match even if the text matches. Invoice/Receipt/Result/Library Book/Message from the original backlog doc's own example are deliberately not searched, none of those have a real module yet.
+- Issues/Bugs found: none, the controller logic was already correct when found.
+- Resolution: n/a.
+- QA: new `GlobalSearchTest` (4 tests): an owner finds a matching student, staff member, and guardian in one search; a query under 2 characters asks for more input rather than erroring; a registrar (no `staff.view`) never sees a staff result even on an exact name match; the search input actually renders in the app bar on a school portal page. Full suite: 504 passed, 0 failed.
+- Not built in this pass: search results are capped at 8 per category with no pagination (a "load more"/full results page was not requested); no keyboard shortcut or live-as-you-type results, it is a plain GET form.
+
 ---
 
 ---

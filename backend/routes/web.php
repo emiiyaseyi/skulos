@@ -257,6 +257,9 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/staff', [$attendance, 'staffIndex'])->name('staff');
             Route::post('/staff/mark', [$attendance, 'markStaff'])->name('staff.mark');
         });
+        Route::prefix('search')->name('school.search.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\School\SearchController::class, 'index'])->name('index');
+        });
         Route::get('/setup', [\App\Http\Controllers\School\SetupController::class, 'index'])->name('school.setup');
         Route::post('/notifications/{id}/read', [SchoolPortalController::class, 'markNotificationRead'])->name('school.notifications.read');
         Route::prefix('notifications')->name('school.notifications.')->group(function () {
