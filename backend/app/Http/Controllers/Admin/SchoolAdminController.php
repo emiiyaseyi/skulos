@@ -142,6 +142,10 @@ class SchoolAdminController extends Controller
         $admin->name = $admin->name ?: $name;
         $admin->password = Hash::make($password);
         $admin->email_verified_at = $admin->email_verified_at ?: now();
+        // Set by a platform admin on this owner's behalf, not chosen by
+        // the owner themselves, must be changed at first sign in (user
+        // directive 2026-07-13).
+        $admin->must_change_password = true;
         $admin->save();
 
         $ownerRole = Role::whereNull('school_id')->where('slug', 'school-owner')->value('id');

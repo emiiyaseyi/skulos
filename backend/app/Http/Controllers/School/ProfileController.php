@@ -4,11 +4,13 @@ namespace App\Http\Controllers\School;
 
 use App\Http\Controllers\Controller;
 use App\Models\School;
+use App\Models\Tenant\PasswordResetRequest;
 use App\Models\Tenant\ProfileChangeRequest;
 use App\Models\User;
 use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
 /**
@@ -22,13 +24,16 @@ use Illuminate\Validation\Rule;
  * to edit a *colleague's* staff record is reasonably trusted to edit
  * their own identity fields without a second sign-off.
  *
- * Password changes are deliberately left out of this gate and this
- * pass entirely: no self-service "change my password" flow exists yet
- * anywhere in the app (only an admin resetting someone else's), and
- * gating a user's own password behind another person's approval would
- * be a real security anti-pattern (a compromised account should be
- * fixable immediately, not left waiting), so it is left as a distinct,
- * separate concern rather than folded in here.
+ * Password self-service (user directive 2026-07-13: "let's add a new
+ * feature to all users profile, where they can change their own
+ * password if they want too"): unlike name/email/phone, a password
+ * change made while already authenticated applies immediately, no
+ * approval, a compromised account needs to be fixable right away, not
+ * left waiting on someone else's sign-off. This same action also backs
+ * the mandatory first-login gate (RequirePasswordChange middleware).
+ * Forgot-password (not authenticated) is a different, explicitly
+ * admin-approved flow, see PasswordResetRequest and requestReset()/
+ * approveReset()/rejectReset() below.
  */
 class ProfileController extends Controller
 {
@@ -97,6 +102,181 @@ class ProfileController extends Controller
         return back()->with('status', "Your changes have been sent to {$school->name}'s admin for approval, and will apply once approved.");
     }
 
+    /**
+     * The change-password form. Doubles as the mandatory first-login
+     * gate (RequirePasswordChange redirects here) and a voluntary
+     * "change my password" action reachable from the profile page,
+     * same form and action either way.
+     */
+    public function changePasswordForm(Request $request): \Illuminate\View\View
+    {
+        $school = $this->school($request);
+
+        return view('school.profile.change-password', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'forced' => (bool) Auth::user()->must_change_password,
+        ]);
+    }
+
+    public function updatePassword(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $user = Auth::user();
+
+        $data = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        if (! Hash::check($data['current_password'], $user->password)) {
+            return back()->withErrors(['current_password' => 'That is not your current password.']);
+        }
+
+        $user->password = Hash::make($data['password']);
+        $user->must_change_password = false;
+        $user->save();
+
+        $school = $this->school($request);
+        $role = $user->is_super_admin ? null : $user->roleIn($school);
+        $routeName = LandingPageController::landingRouteFor($role);
+
+        return redirect()->route($routeName, ['school' => $school->slug])->with('status', 'Your password has been changed.');
+    }
+
+    /**
+     * Forgot password (user directive 2026-07-13: "a forgot password
+     * option to the login page which users can reset their password to
+     * a new password they want whcih the school admin will have to
+     * approve"). Not authenticated, so the new password is collected
+     * immediately, hashed right away, and held pending — the OLD
+     * password keeps working until an admin approves the request,
+     * unlike a typical email-token reset which grants access
+     * immediately on its own.
+     */
+    public function forgotPasswordForm(Request $request): \Illuminate\View\View
+    {
+        $school = $this->school($request);
+
+        return view('school.profile.forgot-password', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+        ]);
+    }
+
+    public function requestPasswordReset(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $school = $this->school($request);
+
+        $data = $request->validate([
+            'identifier' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $identifier = trim($data['identifier']);
+        $user = str_contains($identifier, '@')
+            ? User::where('email', \Illuminate\Support\Str::lower($identifier))->first()
+            : (\App\Models\Tenant\Student::where('admission_number', $identifier)->first()?->user
+                ?? User::where('phone', preg_replace('/\D+/', '', $identifier))->first());
+
+        // Never confirm whether an identifier matched a real account,
+        // same message either way, so this cannot be used to enumerate
+        // who has an account at this school.
+        $generic = 'If that matches an account at this school, your request has been sent to the admin for approval.';
+
+        if ($user && $user->isMemberOf($school)) {
+            PasswordResetRequest::where('user_id', $user->id)
+                ->where('status', PasswordResetRequest::STATUS_PENDING)
+                ->update(['status' => PasswordResetRequest::STATUS_REJECTED, 'notes' => 'Superseded by a newer request.']);
+
+            PasswordResetRequest::create([
+                'user_id' => $user->id,
+                'password_hash' => Hash::make($data['password']),
+                'status' => PasswordResetRequest::STATUS_PENDING,
+            ]);
+        }
+
+        return redirect()->route('school.login', ['school' => $school->slug])->with('status', $generic);
+    }
+
+    /**
+     * The second forgot-password option (user directive 2026-07-13: "the
+     * user make use of password reset link and get it as a mail"):
+     * proving access to the inbox is the identity check, so this path
+     * applies immediately once the link is used, no admin approval,
+     * unlike requestPasswordReset() above. Reuses Laravel's own
+     * `password_reset_tokens` table directly rather than the full
+     * Password broker/Notification pipeline, since that pipeline
+     * assumes a single non-tenant `password.reset` route and this app's
+     * reset link has to land back on the right school subdomain.
+     */
+    public function sendResetLink(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $school = $this->school($request);
+        $data = $request->validate(['email' => ['required', 'email']]);
+
+        $email = \Illuminate\Support\Str::lower($data['email']);
+        $user = User::where('email', $email)->first();
+        $generic = 'If that email matches an account at this school, a reset link has been sent.';
+
+        if ($user && $user->isMemberOf($school)) {
+            $token = \Illuminate\Support\Str::random(64);
+            \Illuminate\Support\Facades\DB::table('password_reset_tokens')->updateOrInsert(
+                ['email' => $email],
+                ['token' => Hash::make($token), 'created_at' => now()]
+            );
+
+            $resetUrl = route('school.password.reset', ['school' => $school->slug, 'token' => $token, 'email' => $email]);
+            \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\PasswordResetLinkMail($user, $school, $resetUrl));
+        }
+
+        return redirect()->route('school.login', ['school' => $school->slug])->with('status', $generic);
+    }
+
+    public function resetViaTokenForm(Request $request): \Illuminate\View\View
+    {
+        $school = $this->school($request);
+
+        return view('school.profile.reset-token', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'token' => $request->query('token'),
+            'email' => $request->query('email'),
+        ]);
+    }
+
+    public function resetViaToken(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $school = $this->school($request);
+
+        $data = $request->validate([
+            'token' => ['required', 'string'],
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $email = \Illuminate\Support\Str::lower($data['email']);
+        $record = \Illuminate\Support\Facades\DB::table('password_reset_tokens')->where('email', $email)->first();
+
+        $valid = $record
+            && Hash::check($data['token'], $record->token)
+            && now()->diffInMinutes($record->created_at) <= 60;
+
+        if (! $valid) {
+            return back()->withErrors(['token' => 'This reset link is invalid or has expired, request a new one.']);
+        }
+
+        $user = User::where('email', $email)->first();
+        abort_unless($user && $user->isMemberOf($school), 404);
+
+        $user->password = Hash::make($data['password']);
+        $user->must_change_password = false;
+        $user->save();
+
+        \Illuminate\Support\Facades\DB::table('password_reset_tokens')->where('email', $email)->delete();
+
+        return redirect()->route('school.login', ['school' => $school->slug])->with('status', 'Your password has been reset, you can sign in now.');
+    }
+
     public function approvals(Request $request): \Illuminate\View\View
     {
         abort_unless($this->canSelfApply($request), 403, 'You do not have permission for this.');
@@ -107,11 +287,68 @@ class ProfileController extends Controller
             ->orderBy('created_at')
             ->get();
 
+        $passwordRequests = PasswordResetRequest::where('status', PasswordResetRequest::STATUS_PENDING)
+            ->with('applicant')
+            ->orderBy('created_at')
+            ->get();
+
         return view('school.profile.approvals', [
             'school' => $school,
             'accent' => $school->branding()['color'],
             'requests' => $requests,
+            'passwordRequests' => $passwordRequests,
         ]);
+    }
+
+    public function approveReset(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless($this->canSelfApply($request), 403, 'You do not have permission for this.');
+        $resetRequest = PasswordResetRequest::where('status', PasswordResetRequest::STATUS_PENDING)
+            ->findOrFail($request->route('requestId'));
+
+        $applicant = User::findOrFail($resetRequest->user_id);
+        // Set the column directly, bypassing Eloquent's 'hashed' cast:
+        // password_hash was already hashed at request time, re-assigning
+        // it through $user->password = ... would hash it a second time.
+        \Illuminate\Support\Facades\DB::table('users')->where('id', $applicant->id)->update([
+            'password' => $resetRequest->password_hash,
+            'must_change_password' => false,
+        ]);
+
+        $resetRequest->update([
+            'status' => PasswordResetRequest::STATUS_APPROVED,
+            'reviewed_by_user_id' => Auth::id(),
+            'reviewed_at' => now(),
+        ]);
+
+        // Tells the user their own chosen password is now live (user
+        // directive 2026-07-13: "will show approved on the user end once
+        // the admin approve"); they are not authenticated to see an
+        // in-app notification, email is the only channel available.
+        if ($applicant->email) {
+            \Illuminate\Support\Facades\Mail::to($applicant->email)
+                ->send(new \App\Mail\PasswordResetApprovedMail($applicant, $this->school($request)));
+        }
+
+        return back()->with('status', "{$applicant->name}'s password reset has been approved and applied.");
+    }
+
+    public function rejectReset(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless($this->canSelfApply($request), 403, 'You do not have permission for this.');
+        $resetRequest = PasswordResetRequest::where('status', PasswordResetRequest::STATUS_PENDING)
+            ->findOrFail($request->route('requestId'));
+
+        $data = $request->validate(['notes' => ['required', 'string', 'max:500']]);
+
+        $resetRequest->update([
+            'status' => PasswordResetRequest::STATUS_REJECTED,
+            'reviewed_by_user_id' => Auth::id(),
+            'reviewed_at' => now(),
+            'notes' => $data['notes'],
+        ]);
+
+        return back()->with('status', 'The password reset request has been rejected.');
     }
 
     public function approve(Request $request): \Illuminate\Http\RedirectResponse

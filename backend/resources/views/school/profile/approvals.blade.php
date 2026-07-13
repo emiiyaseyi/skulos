@@ -46,6 +46,38 @@
   @endif
 </div>
 
+<div class="card" style="margin-top:1.25rem">
+  <h3 style="margin-bottom:.6rem">Forgot-password requests</h3>
+  @if($passwordRequests->isEmpty())
+    <p class="muted">Nothing waiting on you right now.</p>
+  @else
+    <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Requested by</th><th>Requested</th><th></th></tr></thead>
+      <tbody>
+        @foreach($passwordRequests as $req)
+          <tr>
+            <td><strong>{{ $req->applicant?->name ?? 'Unknown' }}</strong></td>
+            <td class="muted">{{ $req->created_at->diffForHumans() }}</td>
+            <td style="white-space:nowrap">
+              <form method="POST" action="{{ route('school.profile.reset.approve', ['school' => $school->slug, 'requestId' => $req->id]) }}" style="display:inline">
+                @csrf
+                <button class="btn btn-primary btn-sm" type="submit">Approve</button>
+              </form>
+              <form method="POST" action="{{ route('school.profile.reset.reject', ['school' => $school->slug, 'requestId' => $req->id]) }}" style="display:inline" class="reject-form">
+                @csrf
+                <input type="hidden" name="notes" value="" />
+                <button class="btn btn-ghost btn-sm reject-btn" type="button">Reject</button>
+              </form>
+            </td>
+          </tr>
+        @endforeach
+      </tbody>
+    </table>
+    </div>
+  @endif
+</div>
+
 <script>
   (function(){
     document.querySelectorAll('.reject-btn').forEach(function(btn){

@@ -133,6 +133,10 @@ class ParentPortalTest extends TestCase
         $guardian = StudentGuardian::find($guardianId);
         app(TenantManager::class)->forget();
         $parentUser = User::find($guardian->guardian_user_id);
+        // A freshly provisioned login must change its temporary password
+        // first (user directive 2026-07-13), covered separately in
+        // PasswordManagementTest; not what this test is checking.
+        $parentUser->forceFill(['must_change_password' => false])->save();
 
         $this->actingAs($parentUser)->get("http://{$school->slug}.localhost/dashboard")
             ->assertOk()->assertSee('Ada Obi');

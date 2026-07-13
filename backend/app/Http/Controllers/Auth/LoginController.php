@@ -42,6 +42,7 @@ class LoginController extends Controller
         $data = $request->validate([
             'email' => ['required', 'string'],
             'password' => ['required', 'string'],
+            'as' => ['nullable', 'string', 'in:staff,parent,student'],
         ]);
 
         $identifier = trim($data['email']);
@@ -53,9 +54,7 @@ class LoginController extends Controller
         }
 
         $school = $request->attributes->get('school');
-        $user = str_contains($identifier, '@')
-            ? \App\Models\User::where('email', Str::lower($identifier))->first()
-            : \App\Models\User::where('phone', preg_replace('/\D+/', '', $identifier))->first();
+        $user = $this->resolveUser($identifier, $data['as'] ?? null, $school);
 
         // Verify credentials and, on a school portal, membership BEFORE
         // authenticating, so a non member is never signed in even briefly.
@@ -75,6 +74,17 @@ class LoginController extends Controller
 
         app(Recorder::class)->record('auth.login', $user);
 
+        // Every first-time login on a system-generated password (created
+        // by an admin, or reset by one) must be changed before reaching
+        // anywhere else (user directive 2026-07-13: "all first time users
+        // must change the default password when they login in for the
+        // first time"). The change-password route itself, and logout, are
+        // the only things excluded from this gate, see
+        // RequirePasswordChange.
+        if ($user->must_change_password) {
+            return redirect()->route($school ? 'school.password.change' : 'password.change', $school ? ['school' => $school->slug] : []);
+        }
+
         // Send users to where they belong: their school's admin-configured
         // landing page for their role (user request 2026-07-13:
         // "admin-configurable landing page per staff/student/parent
@@ -89,6 +99,31 @@ class LoginController extends Controller
         }
 
         return redirect()->intended(Auth::user()->is_super_admin ? route('admin.dashboard') : '/');
+    }
+
+    /**
+     * A student's identifier can also be their admission number, which
+     * has no fixed format (no reliable way to distinguish it from a
+     * phone number by shape alone), so the login page asks which of
+     * staff/parent/student is signing in first (user directive
+     * 2026-07-13) and this only tries the admission-number lookup when
+     * $as is explicitly "student". An email is always unambiguous
+     * (contains "@"), tried first regardless of $as.
+     */
+    protected function resolveUser(string $identifier, ?string $as, ?\App\Models\School $school): ?\App\Models\User
+    {
+        if (str_contains($identifier, '@')) {
+            return \App\Models\User::where('email', Str::lower($identifier))->first();
+        }
+
+        if ($as === 'student' && $school) {
+            $student = \App\Models\Tenant\Student::where('admission_number', $identifier)->first();
+            if ($student && $student->user_id) {
+                return \App\Models\User::find($student->user_id);
+            }
+        }
+
+        return \App\Models\User::where('phone', preg_replace('/\D+/', '', $identifier))->first();
     }
 
     public function logout(Request $request): RedirectResponse

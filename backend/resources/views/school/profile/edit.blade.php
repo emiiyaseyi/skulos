@@ -56,4 +56,10 @@
     </p>
   </form>
 </div>
+
+<div class="card" style="max-width:32rem;margin-top:1.25rem">
+  <h3 style="margin-bottom:.4rem">Password</h3>
+  <p class="muted" style="margin-bottom:.8rem">Changing your password applies immediately, no approval needed.</p>
+  <a class="btn btn-ghost btn-sm" href="{{ route('school.password.change', ['school' => $school->slug]) }}">Change password</a>
+</div>
 @endsection

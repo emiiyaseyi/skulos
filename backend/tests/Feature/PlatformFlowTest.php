@@ -111,9 +111,12 @@ class PlatformFlowTest extends TestCase
         ]);
         $this->app['auth']->forgetGuards(); // drop the super-admin session
 
+        // A platform-admin-set password is a temporary one, this owner's
+        // first login must change it before reaching the dashboard (user
+        // directive 2026-07-13).
         $this->post('http://sunrise.localhost/login', [
             'email' => 'sam@sunrise.test', 'password' => 'sunrise-pass-1',
-        ])->assertRedirect(route('school.dashboard', ['school' => 'sunrise']));
+        ])->assertRedirect(route('school.password.change', ['school' => 'sunrise']));
         $this->assertAuthenticated();
     }
 
@@ -137,7 +140,26 @@ class PlatformFlowTest extends TestCase
         $this->get('http://portal.localhost/login')
             ->assertOk()
             ->assertSee('Portal School')
-            ->assertSee('Sign in');
+            ->assertSee('Staff');
+    }
+
+    /**
+     * A school login asks who is signing in first (user directive
+     * 2026-07-13: staff/parent/student, since a student's admission
+     * number has no fixed format to distinguish it from a phone number
+     * by shape alone), the actual identifier/password form only renders
+     * once a role is picked.
+     */
+    public function test_school_login_shows_the_identifier_form_only_after_picking_a_role(): void
+    {
+        $school = $this->provisionSchool('rolepicker', 'Role Picker School');
+
+        $this->get('http://rolepicker.localhost/login')
+            ->assertOk()->assertSee('Staff')->assertSee('Parent')->assertSee('Student')
+            ->assertDontSee('id="password"', false);
+
+        $this->get('http://rolepicker.localhost/login?as=staff')
+            ->assertOk()->assertSee('id="password"', false);
     }
 
     public function test_school_member_can_sign_in_and_see_dashboard(): void

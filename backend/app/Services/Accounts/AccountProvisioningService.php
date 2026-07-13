@@ -38,6 +38,9 @@ class AccountProvisioningService
         $user->name = $user->name ?: $name;
         $user->password = Hash::make($password);
         $user->email_verified_at = $user->email_verified_at ?: now();
+        // A system-generated password must be changed at first sign in
+        // (user directive 2026-07-13), not mass assignable, set directly.
+        $user->must_change_password = true;
         $user->save();
 
         // cloneTemplateRole(), not a raw reference to the shared template
@@ -57,7 +60,9 @@ class AccountProvisioningService
     public function resetPassword(School $school, User $user): string
     {
         $password = Str::password(12);
-        $user->update(['password' => Hash::make($password)]);
+        $user->password = Hash::make($password);
+        $user->must_change_password = true;
+        $user->save();
 
         Mail::to($user->email)->send(new PasswordResetByAdminMail($user, $school, $password));
 

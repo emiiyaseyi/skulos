@@ -156,9 +156,14 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
     Route::middleware('guest')->group(function () {
         Route::get('/login', [LoginController::class, 'show'])->name('school.login');
         Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:10,1')->name('school.login.submit');
+        Route::get('/password/forgot', [\App\Http\Controllers\School\ProfileController::class, 'forgotPasswordForm'])->name('school.password.forgot');
+        Route::post('/password/forgot', [\App\Http\Controllers\School\ProfileController::class, 'requestPasswordReset'])->middleware('throttle:5,1')->name('school.password.forgot.submit');
+        Route::post('/password/email-link', [\App\Http\Controllers\School\ProfileController::class, 'sendResetLink'])->middleware('throttle:5,1')->name('school.password.email-link');
+        Route::get('/password/reset', [\App\Http\Controllers\School\ProfileController::class, 'resetViaTokenForm'])->name('school.password.reset');
+        Route::post('/password/reset', [\App\Http\Controllers\School\ProfileController::class, 'resetViaToken'])->middleware('throttle:5,1')->name('school.password.reset.submit');
     });
 
-    Route::middleware(['auth', 'school_member'])->group(function () {
+    Route::middleware(['auth', 'school_member', 'require_password_change'])->group(function () {
         Route::get('/dashboard', [SchoolPortalController::class, 'dashboard'])->name('school.dashboard');
 
         // Students
@@ -191,7 +196,11 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/approvals', [$profile, 'approvals'])->name('approvals');
             Route::post('/approvals/{requestId}/approve', [$profile, 'approve'])->name('approve');
             Route::post('/approvals/{requestId}/reject', [$profile, 'reject'])->name('reject');
+            Route::post('/approvals/reset/{requestId}/approve', [$profile, 'approveReset'])->name('reset.approve');
+            Route::post('/approvals/reset/{requestId}/reject', [$profile, 'rejectReset'])->name('reset.reject');
         });
+        Route::get('/password/change', [\App\Http\Controllers\School\ProfileController::class, 'changePasswordForm'])->name('school.password.change');
+        Route::post('/password/change', [\App\Http\Controllers\School\ProfileController::class, 'updatePassword'])->name('school.password.change.update');
 
         Route::prefix('staff')->name('school.staff.')->group(function () {
             $staff = \App\Http\Controllers\School\StaffController::class;

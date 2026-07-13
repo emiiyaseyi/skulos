@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant' => \App\Http\Middleware\ResolveTenant::class,
             'super_admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
             'school_member' => \App\Http\Middleware\EnsureSchoolMember::class,
+            'require_password_change' => \App\Http\Middleware\RequirePasswordChange::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
