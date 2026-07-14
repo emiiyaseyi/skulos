@@ -42,19 +42,26 @@
     $active = $cur === $routeName;
     $url = ($slug && \Illuminate\Support\Facades\Route::has($routeName)) ? route($routeName, ['school' => $slug]) : '#';
 
+    // Label first, icon last (Design Lookbook v4 nav rule: "sidebar
+    // labels LEFT, monogram icons RIGHT" — an explicit exception to the
+    // project's general no-left-alignment rule, since a nav list is
+    // scanned by its label). nav-admin.blade.php is a separate file and
+    // keeps its own icon-left order untouched.
     return [
       'active' => $active,
       'html' => '<a class="side-link'.($active ? ' active' : '').'" href="'.$url.'">'.
+        '<span>'.$label.'</span>'.
         view('layouts.partials.icon', ['name' => $icon])->render().
-        '<span>'.$label.'</span></a>',
+        '</a>',
     ];
   };
   $soonLink = function($label, $icon) {
     return [
       'active' => false,
       'html' => '<a class="side-link" href="#">'.
+        '<span>'.$label.'</span><span class="soon">Soon</span>'.
         view('layouts.partials.icon', ['name' => $icon])->render().
-        '<span>'.$label.'</span><span class="soon">Soon</span></a>',
+        '</a>',
     ];
   };
 

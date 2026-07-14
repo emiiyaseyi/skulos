@@ -9,10 +9,26 @@
 <script>
 (function(){try{var s=localStorage.getItem('skulos-theme');var t=s||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
 </script>
+@php
+  // Computed early (not just in the shell block below) so the <style>
+  // block can pick a portal-aware default --accent before any markup
+  // renders. A school's own saved brand colour ($accent, from Branding)
+  // always wins regardless of portal, this only changes the unbranded
+  // fallback.
+  $portal = $portal ?? (auth()->user()?->is_super_admin ? 'admin' : 'school');
+  $defaultAccent = $portal === 'school' ? '#C88A2E' : '#E8A33D';
+  // Always the same dynamic, WCAG-aware computation for every accent, a
+  // school's own custom colour or the unbranded default alike (never
+  // hardcode ink for a colour, per the standing "text on a colour must
+  // always be readable" rule). The default school amber (#C88A2E,
+  // luminance 0.306) already computes to white through this, matching the
+  // lookbook's near-white CTA text, with no special-casing needed.
+  $accentInk = \App\Support\ColorContrast::inkFor($accent ?? $defaultAccent);
+@endphp
 <style>
 :root{
-  --accent: {{ $accent ?? '#E8A33D' }};
-  --accent-ink: {{ \App\Support\ColorContrast::inkFor($accent ?? '#E8A33D') }};
+  --accent: {{ $accent ?? $defaultAccent }};
+  --accent-ink: {{ $accentInk }};
   --bg:#EEF1F6; --panel:#FFFFFF; --ink:#0B1420; --mut:rgba(11,20,32,.60); --mut-dim:rgba(11,20,32,.42);
   --line:rgba(11,20,32,.10); --soft:rgba(11,20,32,.035); --ok:#12A97B; --warn:#E5901C; --bad:#E14F63;
   --side:#0C1826; --side-ink:#E7ECF3; --side-mut:rgba(231,236,243,.55); --side-line:rgba(231,236,243,.10); --side-active:rgba(255,255,255,.08);
@@ -27,6 +43,55 @@
 }}
 :root[data-theme="light"]{--bg:#EEF1F6;--panel:#FFFFFF;--ink:#0B1420;--mut:rgba(11,20,32,.60);--mut-dim:rgba(11,20,32,.42);--line:rgba(11,20,32,.10);--soft:rgba(11,20,32,.035);--shadow:0 1px 2px rgba(15,23,35,.06),0 8px 24px -14px rgba(15,23,35,.18);--side:#0C1826;}
 :root[data-theme="dark"]{--bg:#070C14;--panel:#0E1B2B;--ink:#F3F5F8;--mut:rgba(243,245,248,.62);--mut-dim:rgba(243,245,248,.40);--line:rgba(243,245,248,.10);--soft:rgba(243,245,248,.04);--shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -16px rgba(0,0,0,.6);--side:#0A1420;}
+
+/* ---- School Administration theme (Design Lookbook v4, applied 2026-07-14) ----
+   Scoped to .shell.school-theme (portal=school only), never touches the
+   platform admin portal's dark navy/blue-grey look or nav-admin.blade.php.
+   A school's own saved brand colour ($accent) still overrides --accent
+   the same as before, this only changes the surrounding palette. */
+/* --panel is the lookbook's "--card" (#FFFDF6, what every card/metric/
+   data-fig sits on); --shell is its "--paper" (#FBF6EA, the app shell and
+   sidebar's own background, one shade deeper than the page canvas). The
+   sidebar is LIGHT paper, not a dark rail, matching the approved lookbook
+   artifact exactly, not the platform admin portal's dark navy sidebar. */
+.school-theme{
+  --bg:#F5EEDC; --panel:#FFFDF6; --shell:#FBF6EA; --ink:#1A1613;
+  --mut:rgba(26,22,19,.62); --mut-dim:rgba(26,22,19,.42);
+  --line:#E4D9BE; --line-deep:#C9B98F; --soft:rgba(26,22,19,.035);
+  --ok:#4A6B3A; --warn:#B5731A; --bad:#B23A2A;
+  --side:var(--shell); --side-ink:var(--ink); --side-mut:rgba(26,22,19,.55); --side-line:var(--line); --side-active:var(--panel);
+  --shadow:0 1px 2px rgba(26,22,19,.07),0 10px 26px -16px rgba(26,22,19,.22);
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --font-serif:Georgia,'Iowan Old Style','Palatino Linotype','Book Antiqua',serif;
+  --radius:10px;
+}
+@media(prefers-color-scheme:dark){.school-theme{
+  --bg:#171310; --panel:#2A241D; --shell:#211C17; --ink:#F0E9D8;
+  --mut:rgba(240,233,216,.62); --mut-dim:rgba(240,233,216,.40);
+  --line:rgba(240,233,216,.10); --line-deep:rgba(240,233,216,.18); --soft:rgba(240,233,216,.04);
+  --side-mut:rgba(240,233,216,.55); --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -16px rgba(0,0,0,.6);
+}}
+:root[data-theme="light"] .school-theme{--bg:#F5EEDC;--panel:#FFFDF6;--shell:#FBF6EA;--ink:#1A1613;--mut:rgba(26,22,19,.62);--mut-dim:rgba(26,22,19,.42);--line:#E4D9BE;--line-deep:#C9B98F;--soft:rgba(26,22,19,.035);--side-mut:rgba(26,22,19,.55);--shadow:0 1px 2px rgba(26,22,19,.07),0 10px 26px -16px rgba(26,22,19,.22);}
+:root[data-theme="dark"] .school-theme{--bg:#171310;--panel:#2A241D;--shell:#211C17;--ink:#F0E9D8;--mut:rgba(240,233,216,.62);--mut-dim:rgba(240,233,216,.40);--line:rgba(240,233,216,.10);--line-deep:rgba(240,233,216,.18);--soft:rgba(240,233,216,.04);--side-mut:rgba(240,233,216,.55);--shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -16px rgba(0,0,0,.6);}
+
+/* numbers and headline-weight text set in serif per the lookbook,
+   uppercase sans labels stay on the base --font everywhere else */
+.school-theme h1.title,.school-theme .appbar h2,.school-theme .card h3,
+.school-theme .stat b,.school-theme .auth-logo,.school-theme .side-brand{font-family:var(--font-serif)}
+/* card icon + title centred (standing design system rule) applied to the
+   shared stat-card primitive */
+.school-theme .stat-card{flex-direction:column;text-align:center;gap:.5rem}
+.school-theme .stat-ic{margin:0 auto}
+.school-theme .stat b{font-size:1.9rem}
+/* sidebar labels stay left, monogram icons move right (lookbook nav rule,
+   an explicit exception to "no left alignment") */
+.school-theme:not(.collapsed) .side-link .ic{margin-left:auto}
+.school-theme .side-badge{border-radius:8px}
+.school-theme .side{border-right:1px solid var(--side-line)}
+.school-theme .side-link.active{color:var(--ink)}
+.school-theme .side-link.active .ic{color:inherit}
+.school-theme .btn-ghost{background:var(--panel);border-color:var(--line-deep)}
+
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:var(--font);background:var(--bg);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
@@ -175,7 +240,6 @@ tr:last-child td{border-bottom:none}
   @yield('content')
 @else
 @php
-  $portal = $portal ?? (auth()->user()?->is_super_admin ? 'admin' : 'school');
   $sSlug = isset($school) ? $school->slug : null;
   $cur = request()->route()?->getName();
   $idleSettings = app(\App\Services\Security\IdleTimeoutService::class)->effective();
@@ -183,7 +247,7 @@ tr:last-child td{border-bottom:none}
     return compact('routeName','params','label','icon','active','soon');
   };
 @endphp
-<div class="shell" id="shell">
+<div class="shell{{ $portal === 'school' ? ' school-theme' : '' }}" id="shell">
   <aside class="side" id="sideNav">
     <div class="side-brand"><span class="brandfull">SK<em>U</em>LOS</span><span class="brandshort">S<em style="color:var(--accent)"></em></span></div>
     @isset($school)

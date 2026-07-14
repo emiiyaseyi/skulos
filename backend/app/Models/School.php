@@ -55,7 +55,7 @@ class School extends Model
         $layouts = array_keys(config('skulos.login_layouts', []));
 
         return [
-            'color' => $this->brand_color ?: '#E8A33D',
+            'color' => $this->brand_color ?: '#C88A2E',
             'logo' => $this->logo_path,
             'headline' => $this->welcome_headline ?: "Welcome to {$this->name}",
             'message' => $this->welcome_message ?: 'Sign in to continue to your school portal.',

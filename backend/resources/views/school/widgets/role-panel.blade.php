@@ -190,7 +190,7 @@
       </div>
     </div>
 
-    <div class="grid cols-2" style="align-items:start;margin-bottom:1.1rem">
+    <div class="grid cols-2" style="margin-bottom:1.1rem">
       <div class="card rp-card" style="margin-bottom:0">
         <h3 style="margin-bottom:.6rem">Today's birthdays</h3>
         @if(empty($panel['birthdaysToday']))

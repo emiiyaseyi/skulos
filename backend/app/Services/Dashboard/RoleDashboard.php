@@ -142,7 +142,7 @@ class RoleDashboard
                 ['n' => number_format($unassigned), 'l' => 'Awaiting Class', 'ic' => 'students', 'c' => '#E14F63', 'pct' => '40%'],
                 ['n' => number_format($pendingReviews->count()), 'l' => 'Reports Pending Review', 'ic' => 'results', 'c' => '#E5901C', 'pct' => '50%'],
                 ['n' => $avg !== null ? "{$avg}%" : 'N/A', 'l' => 'Term Average', 'ic' => 'results', 'c' => '#6D4FE0', 'pct' => '65%'],
-                ['n' => $healthScore !== null ? $healthScore : 'N/A', 'l' => 'Health Score', 'ic' => 'settings', 'c' => $healthScore === null ? '#E14F63' : ($healthScore >= 80 ? '#12A97B' : ($healthScore >= 50 ? '#E5901C' : '#E14F63')), 'pct' => $healthScore !== null ? "{$healthScore}%" : '0%'],
+                ['n' => $healthScore !== null ? $healthScore : 'N/A', 'l' => 'Health Score', 'ic' => 'health', 'c' => $healthScore === null ? '#E14F63' : ($healthScore >= 80 ? '#12A97B' : ($healthScore >= 50 ? '#E5901C' : '#E14F63')), 'pct' => $healthScore !== null ? "{$healthScore}%" : '0%'],
             ],
             'panel' => [
                 'type' => 'admin_overview',
