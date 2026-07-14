@@ -234,5 +234,22 @@
         <a class="btn btn-ghost btn-sm" style="margin-top:.8rem" href="{{ route('school.report-cards.pending-review', ['school' => $school->slug]) }}">Open pending review</a>
       @endif
     </div>
+
+    @if(! empty($panel['resultTrend']))
+      <div class="card rp-card">
+        <h3 style="margin-bottom:.3rem">Result performance</h3>
+        <p class="muted" style="font-size:.8rem;margin-bottom:.8rem">Average score across every term with results recorded so far.</p>
+        @php($trendMax = max(1, ...array_column($panel['resultTrend'], 'average')))
+        <div style="display:flex;align-items:flex-end;gap:.8rem;height:120px">
+          @foreach($panel['resultTrend'] as $t)
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:.35rem">
+              <span class="muted" style="font-size:.72rem;font-variant-numeric:tabular-nums">{{ $t['average'] }}%</span>
+              <div style="width:100%;background:color-mix(in srgb,var(--accent) 70%,transparent);border-radius:6px 6px 0 0;min-height:3px;height:{{ max(4, round($t['average'] / $trendMax * 100)) }}%"></div>
+              <span class="muted" style="font-size:.72rem;text-align:center">{{ $t['label'] }}</span>
+            </div>
+          @endforeach
+        </div>
+      </div>
+    @endif
     @break
 @endswitch

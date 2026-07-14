@@ -1085,6 +1085,15 @@ Entries are added here as work starts on each item — see the current build pha
 - QA: 4 new tests in `CalendarEventScreenTest` (a real event is created and is not marked default; it appears on the index; a seeded default event shows a "(default)" label with no remove control while a custom one can be deleted; a subject teacher, who holds `calendar.view` but not `calendar.create`, gets a real 403 on the create form). Full suite: 530 passed, 0 failed.
 - Not built in this pass: a month/week calendar grid view (list view only, sorted by date); recurring events.
 
+### Result Performance trend chart (2026-07-13)
+- Status: Done
+- Started: 2026-07-13
+- Notes: cross-check item 18, "Partial, Term Average card stands in, no trend chart." `RoleDashboard::admin()` panel gained `resultTrend`: the last 6 terms that actually have any scores recorded, in real chronological order (by academic session then term sequence, not creation order, the same ordering discipline already established for classes/subjects/sections earlier this project), each with the real average across every score in that term. A term with zero scores yet is skipped entirely rather than rendered as a misleading 0%. New bar chart card on the School Owner dashboard's panel (`role-panel.blade.php`), reusing the school's own accent colour, same visual language as the platform dashboard's existing "School growth" bars.
+- Issues/Bugs found: none.
+- Resolution: n/a.
+- QA: 1 new test in `RoleDashboardTest` (two terms with real scores of 60 and 80 appear in order with the exact right averages; a third term created with zero scores is proven absent from the trend, not shown as 0%). Full suite: 531 passed, 0 failed.
+- Not built in this pass: nothing further requested.
+
 ---
 
 ---

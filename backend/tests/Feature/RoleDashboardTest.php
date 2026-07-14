@@ -468,4 +468,44 @@ class RoleDashboardTest extends TestCase
         $this->assertSame($expected, $score);
         $this->assertLessThan(100, $score, 'a brand new school with no term and no backup should not score a perfect 100');
     }
+
+    /**
+     * Dashboard Design Cross-Check (2026-07-13): "Result Performance,
+     * Partial, Term Average card stands in, no trend chart." Proves the
+     * trend is real term-over-term averages in real chronological order
+     * (by session then term sequence, not creation order), not a
+     * hardcoded series, and that a term with no scores yet is skipped
+     * rather than shown as a misleading 0%.
+     */
+    public function test_admin_dashboard_shows_a_real_result_performance_trend(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'rdtrend');
+        app(TenantManager::class)->use($school);
+
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id]);
+        $subject = Subject::create(['name' => 'Mathematics', 'code' => 'MTH']);
+        $student = Student::create(['admission_number' => 'RT1', 'first_name' => 'A', 'last_name' => 'B', 'current_class_arm_id' => $arm->id]);
+        $component = \App\Models\Tenant\AssessmentComponent::create(['name' => 'Exam', 'type' => 'exam', 'max_score' => 100, 'sequence' => 1]);
+
+        $session = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026']);
+        $termOne = \App\Models\Tenant\Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1]);
+        $termTwo = \App\Models\Tenant\Term::create(['academic_session_id' => $session->id, 'name' => 'Second Term', 'sequence' => 2, 'is_current' => true]);
+        $termThree = \App\Models\Tenant\Term::create(['academic_session_id' => $session->id, 'name' => 'Third Term', 'sequence' => 3]); // no scores yet
+
+        \App\Models\Tenant\Score::create(['student_id' => $student->id, 'subject_id' => $subject->id, 'class_arm_id' => $arm->id, 'term_id' => $termOne->id, 'assessment_component_id' => $component->id, 'score' => 60]);
+        \App\Models\Tenant\Score::create(['student_id' => $student->id, 'subject_id' => $subject->id, 'class_arm_id' => $arm->id, 'term_id' => $termTwo->id, 'assessment_component_id' => $component->id, 'score' => 80]);
+
+        $data = app(RoleDashboard::class)->build($admin, $school);
+        app(TenantManager::class)->forget();
+
+        $trend = $data['panel']['resultTrend'];
+
+        $this->assertCount(2, $trend, 'a term with no scores yet must not appear in the trend');
+        $this->assertSame('First Term', $trend[0]['label']);
+        $this->assertSame(60.0, $trend[0]['average']);
+        $this->assertSame('Second Term', $trend[1]['label']);
+        $this->assertSame(80.0, $trend[1]['average']);
+    }
 }

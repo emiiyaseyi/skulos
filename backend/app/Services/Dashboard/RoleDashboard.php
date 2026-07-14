@@ -155,6 +155,7 @@ class RoleDashboard
                     'status' => ReportCardReview::statusLabel($r->status),
                 ])->all(),
                 'pendingReviewsMore' => max(0, $pendingReviews->count() - 6),
+                'resultTrend' => $this->resultTrend(),
             ],
         ];
     }
@@ -198,6 +199,34 @@ class RoleDashboard
         }
 
         return round((($counts['present'] ?? 0) / $marked) * 100, 1);
+    }
+
+    /**
+     * Result Performance trend (Dashboard Design Cross-Check, 2026-07-13:
+     * "Partial, Term Average card stands in, no trend chart"). The last 6
+     * terms with any real scores recorded, in real chronological order
+     * (academic session then term sequence, not creation order), each
+     * with the real average across every score in that term. A term with
+     * zero scores yet is skipped rather than shown as a misleading 0%.
+     *
+     * @return list<array{label: string, average: float}>
+     */
+    protected function resultTrend(int $limit = 6): array
+    {
+        $terms = Term::with('session')->get()
+            ->sortBy(fn (Term $t) => sprintf('%05d-%05d', $t->session?->id ?? 0, $t->sequence ?? 0))
+            ->values();
+
+        $trend = [];
+        foreach ($terms as $term) {
+            $average = \App\Models\Tenant\Score::where('term_id', $term->id)->avg('score');
+            if ($average === null) {
+                continue;
+            }
+            $trend[] = ['label' => $term->name, 'average' => round((float) $average, 1)];
+        }
+
+        return array_slice($trend, -$limit);
     }
 
     /**
