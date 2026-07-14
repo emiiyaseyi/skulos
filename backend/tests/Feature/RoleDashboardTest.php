@@ -287,6 +287,16 @@ class RoleDashboardTest extends TestCase
         $backupsFig = collect($data['figs'])->firstWhere('l', 'Backups');
         $this->assertSame('1', $backupsFig['n']);
         $this->assertTrue($data['panel']['has_backup']);
+
+        $labels = array_column($data['figs'], 'l');
+        $this->assertContains('Database Size', $labels);
+        $this->assertContains('Backups Storage', $labels);
+        $this->assertContains('Storage Used', $labels);
+        $this->assertContains('Storage Limit', $labels);
+        $backupsStorageFig = collect($data['figs'])->firstWhere('l', 'Backups Storage');
+        $this->assertSame('2 KB', $backupsStorageFig['n'], 'the one 2048 byte backup created above must be reflected in the real total');
+        $limitFig = collect($data['figs'])->firstWhere('l', 'Storage Limit');
+        $this->assertSame('No limit', $limitFig['n'], 'a school with no plan/no storage_limit_mb set must say so honestly, not show 0');
     }
 
     /**

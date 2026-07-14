@@ -1206,6 +1206,17 @@ Entries are added here as work starts on each item — see the current build pha
 - QA: 1 new test in `RoleDashboardTest`, two children of the same parent, one with a real released `ReportCardReview` and one with none, asserting the first shows the correct term name and a non-null release timestamp while the second shows neither. Full suite: 537 passed, 0 failed (up from 536).
 - Not built in this pass: no average/position shown inline, per the reasoning above; a dedicated child-switcher UI was judged unnecessary rather than skipped by omission.
 
+### Storage card on the ICT Officer dashboard (2026-07-14)
+- Status: Done
+- Started: 2026-07-14
+- Notes: cross-check item "Storage card on relevant dashboards." `App\Services\Maintenance\StorageService` already existed (built for the Maintenance Center page, a real per-school breakdown: tenant database bytes, backups bytes, plan storage limit) but was never surfaced on any role dashboard, only the dedicated Maintenance Center screen.
+  1. `RoleDashboard::ictOfficer()` now calls the same `StorageService::breakdown($school)` (reused, not re-implemented, same pattern as Health Score reusing `HealthService` and Result Performance reusing `ResultService`) and adds 4 new figures: Database Size, Backups Storage (the real total across every backup, distinct from the pre-existing "Backup Size" figure which is only the most recent one), Storage Used (database plus backups combined), and Storage Limit (from the school's plan, or an honest "No limit" rather than showing 0 when a plan has none set). ICT Officer's grid grows from 4 to 8 figures (2 to 4 rows), keeping the standing "resolve to complete rows" rule.
+  2. Scoped to ICT Officer only, the role that actually owns backups/storage concerns day to day; the School Owner/Principal dashboard already carries 16 figures including a Health Score that factors backup health in, so a second storage breakdown there was judged unnecessary duplication rather than "more dashboards" for its own sake.
+- Issues/Bugs found: none.
+- Resolution: n/a.
+- QA: extended the existing `RoleDashboardTest::test_ict_officer_sees_active_users_and_backup_history` with real assertions on all 4 new figures against a real 2048 byte backup row, confirming "Backups Storage" reads the exact real total ("2 KB", not a placeholder) and "Storage Limit" reads "No limit" honestly for a school with no plan. Full suite: 537 passed, 0 failed (same as before, no new test file, extended an existing one).
+- Not built in this pass: no dedicated "Storage" widget for School Owner/Principal (see reasoning above); no storage growth-over-time trend (would need historical snapshots, same blocker already noted for the Platform Student/Storage Growth chart item).
+
 ---
 
 ---

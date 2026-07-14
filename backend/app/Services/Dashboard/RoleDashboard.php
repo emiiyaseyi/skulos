@@ -625,6 +625,13 @@ class RoleDashboard
         $activeUsers = $school->users()->wherePivot('status', 'active')->count();
         $backups = \App\Models\Backup::where('school_id', $school->id)->orderByDesc('created_at')->get();
         $lastBackup = $backups->first();
+        // Storage card (Dashboard Design Cross-Check): the real per-school
+        // breakdown already built for the Maintenance Center
+        // (App\Services\Maintenance\StorageService), reused here rather
+        // than a second computation, same pattern as Health Score reusing
+        // HealthService on the admin dashboard.
+        $storage = app(\App\Services\Maintenance\StorageService::class)->breakdown($school);
+        $totalUsedBytes = ($storage['database_bytes'] ?? 0) + ($storage['backups_bytes'] ?? 0);
 
         return [
             'kind' => 'ict_officer',
@@ -633,6 +640,10 @@ class RoleDashboard
                 ['n' => number_format($backups->count()), 'l' => 'Backups', 'ic' => 'settings', 'c' => '#6D4FE0', 'pct' => '60%'],
                 ['n' => $lastBackup ? $lastBackup->created_at->diffForHumans() : 'Never', 'l' => 'Last Backup', 'ic' => 'settings', 'c' => '#E5901C', 'pct' => '50%'],
                 ['n' => $lastBackup ? $lastBackup->humanSize() : 'N/A', 'l' => 'Backup Size', 'ic' => 'settings', 'c' => '#E14F63', 'pct' => '40%'],
+                ['n' => \App\Services\Maintenance\StorageService::humanBytes($storage['database_bytes']), 'l' => 'Database Size', 'ic' => 'settings', 'c' => '#0EA5A0', 'pct' => '60%'],
+                ['n' => \App\Services\Maintenance\StorageService::humanBytes($storage['backups_bytes']), 'l' => 'Backups Storage', 'ic' => 'settings', 'c' => '#6D4FE0', 'pct' => '55%'],
+                ['n' => \App\Services\Maintenance\StorageService::humanBytes($totalUsedBytes), 'l' => 'Storage Used', 'ic' => 'settings', 'c' => '#E5901C', 'pct' => '65%'],
+                ['n' => $storage['limit_mb'] ? number_format($storage['limit_mb']).' MB' : 'No limit', 'l' => 'Storage Limit', 'ic' => 'settings', 'c' => '#E14F63', 'pct' => '50%'],
             ],
             'panel' => ['type' => 'ict_overview', 'has_backup' => (bool) $lastBackup],
         ];
