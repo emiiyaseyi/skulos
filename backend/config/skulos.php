@@ -594,6 +594,7 @@ return [
         'stats' => ['label' => 'Key figures', 'default' => true],
         'notifications' => ['label' => 'Notifications', 'default' => true],
         'calendar' => ['label' => 'Upcoming calendar', 'default' => true],
+        'holidays' => ['label' => 'Public holidays', 'default' => true],
     ],
 
     /*

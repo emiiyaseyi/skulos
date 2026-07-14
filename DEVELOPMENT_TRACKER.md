@@ -1138,6 +1138,28 @@ Entries are added here as work starts on each item — see the current build pha
 - QA: extended `RoleDashboardTest::test_admin_sees_school_wide_figures` with a real second school membership on a `class-teacher` role, asserting the new figure reads exactly `1` (not the school owner too, proving the count is genuinely role-filtered, not just "every member"). Full suite: 531 passed, 0 failed. Did I change or break anything not asked? The `Campuses` figure's removal touches every `leadership_role_slugs` role's dashboard (School Owner included, not just Principal, since they share one view) — flagged here explicitly since it is a real behavioural change beyond the literal ask, not hidden in the diff.
 - Not built in this pass: no Principal-specific dashboard branch was created (still shares `admin()` with School Owner/Head Teacher/Vice Principal, as it already did); if a future request wants Principal to see something School Owner should not (or vice versa), that would need its own `match()` branch in `RoleDashboard::build()`.
 
+### Head Teacher/analytics dashboard — performance confirmed, behaviour still blocked (2026-07-14)
+- Status: Done (performance half); behaviour half stays blocked
+- Started: 2026-07-14
+- Notes: cross-check item pairing "Head Teacher dashboard" with "performance + behaviour charts." Head Teacher already shares the same `admin()` dashboard as School Owner/Principal/Vice Principal (confirmed in code, not assumed), so it already has real Result Performance trend (built 2026-07-13), Term Average, Attendance Rate, Staff Attendance, and now Teacher Count (item immediately above). No further work needed for the performance half.
+- Issues/Bugs found: none.
+- Resolution: n/a.
+- QA: covered by the existing `RoleDashboardTest::test_head_teacher_sees_school_wide_admin_figures` plus the Result Performance trend and Teacher Count tests above; no new test needed since nothing new was built here beyond confirming existing coverage already satisfies this.
+- Not built in this pass: behaviour tracking/charts. There is no behaviour/discipline model, screen, or data anywhere in the product yet (Discipline Management is a listed Enterprise-tier module, not built on any plan), so a "behaviour chart" would be fabricated data if attempted now. Stays on the backlog as a genuinely net-new feature, not attempted.
+
+### Public Holidays as its own list (2026-07-14)
+- Status: Done
+- Started: 2026-07-14
+- Notes: cross-check item asking for Public Holidays to have their own list, separate from the existing "Upcoming on the calendar" widget, which already showed every `CalendarEvent` category mixed together (with a category badge per row) rather than holidays getting their own dedicated view.
+  1. `SchoolPortalController::dashboard()` now also loads `upcomingHolidays` (`CalendarEvent::where('category', 'holiday')->upcoming()->limit(5)->get()`), reusing the existing `scopeUpcoming()` the general calendar widget already uses, just with a category filter added.
+  2. New `school/widgets/holidays.blade.php` partial, matching the existing calendar/birthday widget's visual pattern (a `.notif` list with an empty state, "No dated holidays yet. Date them from your calendar settings.", consistent tone with the empty state already used by the general calendar widget).
+  3. New `holidays` entry added to `config('skulos.dashboard_widgets')` (defaulting on), so it is genuinely admin-toggleable through the existing Dashboard Look settings screen exactly like every other widget, not hardcoded into the layout, per the standing "nothing hardcoded" and "config catalog, admin editable" rules; `settings-dashboard.blade.php` already loops that config array, so it needed no changes to pick up the new toggle.
+  4. Bottom dashboard grid changed from `.grid.cols-2` (Notifications, Calendar) to `.grid.cols-3` (Notifications, Calendar, Public Holidays); `.cols-3` already existed as a shared primitive and already collapses to one column under 1000px, so no new responsive CSS was needed.
+- Issues/Bugs found: none.
+- Resolution: n/a.
+- QA: 3 new tests in `PublicHolidaysWidgetTest` (a `holiday` category event appears inside the Public Holidays section specifically while a `meeting` category event on the same dashboard does not, proving the filter is genuine, not just "show everything again"; a school with no dated holidays yet sees the real empty state text; toggling the `holidays` widget off via the real Dashboard Look settings POST endpoint actually removes it from the next page load, not just cosmetically). Full suite: 534 passed, 0 failed (up from 531, the 3 new tests). Did I fully solve what was asked? Yes; did I change or break anything not asked? The bottom grid gained a third column for every role dashboard that shows it (previously 2 columns), a visible but intentional and requested layout change, not a side effect.
+- Not built in this pass: nothing further requested.
+
 ---
 
 ---

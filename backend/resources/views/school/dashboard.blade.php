@@ -194,11 +194,13 @@
 @php
   $notes = view('school.widgets.notifications', ['feed' => $feed, 'school' => $school])->render();
   $cal = view('school.widgets.calendar', ['upcoming' => $upcoming])->render();
+  $holidays = view('school.widgets.holidays', ['upcomingHolidays' => $upcomingHolidays])->render();
 @endphp
 
-<div class="grid cols-2">
+<div class="grid cols-3">
   @if($show('notifications')){!! $notes !!}@endif
   @if($show('calendar')){!! $cal !!}@endif
+  @if($show('holidays')){!! $holidays !!}@endif
 </div>
 @endsection
 
