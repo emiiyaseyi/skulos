@@ -125,11 +125,20 @@ class TeacherNavTest extends TestCase
         $arm->update(['class_teacher_staff_id' => $staff->id]);
         app(TenantManager::class)->forget();
 
-        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/dashboard")
-            ->assertOk()
+        $response = $this->actingAs($teacher)->get("http://{$school->slug}.localhost/dashboard");
+        $response->assertOk()
+            ->assertSee('Take attendance')
             ->assertSee('Enter CA &amp; exam scores', false)
             ->assertSee('Report cards')
             ->assertSee('My students');
+
+        // The button must link to a genuinely reachable, class-preselected
+        // attendance screen, not just render text (2026-07-14 correction
+        // pattern: verify quick action links point at real routes).
+        $this->assertStringContainsString(
+            route('school.attendance.index', ['school' => $school->slug, 'class_arm_id' => $arm->id]),
+            $response->getContent()
+        );
     }
 
     public function test_a_subject_teachers_dashboard_shows_real_quick_actions(): void
@@ -149,6 +158,26 @@ class TeacherNavTest extends TestCase
             ->assertOk()
             ->assertSee('Enter CA &amp; exam scores', false)
             ->assertSee('My students')
-            ->assertDontSee('Report cards'); // subject-teacher holds no report_cards permission at all
+            ->assertDontSee('Report cards') // subject-teacher holds no report_cards permission at all
+            ->assertDontSee('Take attendance'); // subject-teacher holds attendance.view only, not attendance.create
+    }
+
+    public function test_a_class_assistants_dashboard_shows_take_attendance_but_not_ca_or_report_cards(): void
+    {
+        [$school, $assistant] = $this->schoolWithMember('class-assistant', 'navseven');
+
+        app(TenantManager::class)->use($school);
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 2', 'sequence' => 1]);
+        $arm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $class->id, 'arm_id' => null]);
+        $staff = \App\Models\Tenant\Staff::create(['staff_id' => 'STF/0003', 'first_name' => 'A', 'last_name' => 'S', 'position' => 'Class Assistant', 'status' => 'active', 'user_id' => $assistant->id]);
+        $arm->update(['assistant_teacher_staff_id' => $staff->id]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($assistant)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()
+            ->assertSee('Take attendance') // holds attendance.create, unlike a subject teacher
+            ->assertDontSee('Enter CA &amp; exam scores', false) // read only: no examinations.create
+            ->assertDontSee('Report cards'); // read only: no report_cards.create
     }
 }

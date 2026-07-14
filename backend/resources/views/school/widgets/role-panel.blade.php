@@ -53,13 +53,18 @@
           </p>
         </div>
       </div>
-      @unless($panel['read_only'])
-        <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem">
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem">
+        {{-- Take attendance: every class-scoped role holds attendance.create
+             (class-teacher and class-assistant alike), unlike CA/report
+             cards which only a class teacher can actually enter, so this
+             sits outside the read_only gate below. --}}
+        <a class="btn btn-primary btn-sm" href="{{ route('school.attendance.index', ['school' => $school->slug, 'class_arm_id' => $panel['class_arm_id']]) }}">Take attendance</a>
+        @unless($panel['read_only'])
           <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.index', ['school' => $school->slug]) }}">Enter CA &amp; exam scores</a>
           <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.index', ['school' => $school->slug]) }}">Report cards</a>
-          <a class="btn btn-ghost btn-sm" href="{{ route('school.students', ['school' => $school->slug]) }}">My students</a>
-        </div>
-      @endunless
+        @endunless
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.students', ['school' => $school->slug]) }}">My students</a>
+      </div>
     </div>
     @include('school.widgets._students-at-risk', ['items' => $panel['studentsAtRisk'] ?? [], 'title' => 'Students needing attention'])
     @include('school.widgets._birthdays', ['today' => $panel['birthdaysToday'] ?? [], 'upcoming' => $panel['birthdaysUpcoming'] ?? []])

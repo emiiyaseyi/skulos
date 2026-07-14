@@ -415,7 +415,14 @@ class RoleDashboard
     protected function classTeam(User $user, string $kind): array
     {
         $staff = Staff::where('user_id', $user->id)->first();
-        $classArm = $staff ? ClassArm::where('class_teacher_staff_id', $staff->id)->first() : null;
+        // Bug found 2026-07-14 while extending dashboard test coverage: this
+        // always looked up class_teacher_staff_id regardless of $kind, so a
+        // real class assistant (assigned via the separate
+        // assistant_teacher_staff_id column, see AcademicsController's own
+        // save logic) never resolved a class arm here at all and silently
+        // fell through to the empty "no_class" state.
+        $column = $kind === 'class_assistant' ? 'assistant_teacher_staff_id' : 'class_teacher_staff_id';
+        $classArm = $staff ? ClassArm::where($column, $staff->id)->first() : null;
 
         if (! $classArm) {
             return ['kind' => $kind, 'figs' => $this->emptyFigs(), 'panel' => ['type' => 'no_class']];
@@ -453,6 +460,7 @@ class RoleDashboard
             ],
             'panel' => [
                 'type' => 'class_overview',
+                'class_arm_id' => $classArm->id,
                 'class_label' => $classArm->label(),
                 'boys' => $boys,
                 'girls' => $girls,
