@@ -560,4 +560,38 @@ class RoleDashboardTest extends TestCase
         $this->assertStringContainsString('Average 25', $byName['Low Score']['reason']);
         $this->assertFalse($byName->has('Doing Fine'), 'a student with good attendance and a good score must not be flagged');
     }
+
+    public function test_class_teacher_only_sees_at_risk_students_in_their_own_class(): void
+    {
+        [$school, $teacherUser] = $this->schoolWithMember('class-teacher', 'rdrisk2');
+        app(TenantManager::class)->use($school);
+
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Basic 4', 'sequence' => 1]);
+        $arm = Arm::create(['name' => 'A']);
+        $staff = Staff::create(['staff_id' => 'STF/2', 'first_name' => 'F', 'last_name' => 'T', 'user_id' => $teacherUser->id]);
+        $classArm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => $arm->id, 'class_teacher_staff_id' => $staff->id]);
+        $otherArm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => Arm::create(['name' => 'B'])->id]);
+
+        $session = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026']);
+        $term = \App\Models\Tenant\Term::create([
+            'academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1, 'is_current' => true,
+            'starts_on' => now()->subDays(10), 'ends_on' => now()->addDays(50),
+        ]);
+        $subject = Subject::create(['name' => 'English', 'code' => 'ENG']);
+        $component = \App\Models\Tenant\AssessmentComponent::create(['name' => 'Exam', 'type' => 'exam', 'max_score' => 100, 'sequence' => 1]);
+
+        $inClassRisky = Student::create(['admission_number' => 'RC1', 'first_name' => 'In', 'last_name' => 'Class', 'current_class_arm_id' => $classArm->id]);
+        \App\Models\Tenant\Score::create(['student_id' => $inClassRisky->id, 'subject_id' => $subject->id, 'class_arm_id' => $classArm->id, 'term_id' => $term->id, 'assessment_component_id' => $component->id, 'score' => 10]);
+
+        $otherClassRisky = Student::create(['admission_number' => 'RC2', 'first_name' => 'Other', 'last_name' => 'Class', 'current_class_arm_id' => $otherArm->id]);
+        \App\Models\Tenant\Score::create(['student_id' => $otherClassRisky->id, 'subject_id' => $subject->id, 'class_arm_id' => $otherArm->id, 'term_id' => $term->id, 'assessment_component_id' => $component->id, 'score' => 5]);
+
+        $data = app(RoleDashboard::class)->build($teacherUser, $school);
+        app(TenantManager::class)->forget();
+
+        $names = collect($data['panel']['studentsAtRisk'])->pluck('name');
+        $this->assertTrue($names->contains('In Class'));
+        $this->assertFalse($names->contains('Other Class'), 'a student in a different class arm must not appear on this class teacher\'s at-risk list');
+    }
 }

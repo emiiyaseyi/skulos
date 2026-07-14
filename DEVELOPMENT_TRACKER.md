@@ -1172,6 +1172,17 @@ Entries are added here as work starts on each item — see the current build pha
 - QA: 1 new test in `RoleDashboardTest` with three real students on the same class arm: one with a real 20% attendance record over real dated `Attendance` rows, one with a real 25% average `Score`, and one with both good attendance and a good score; asserted the first two appear with the correct, specific reason text and the healthy student does not appear at all. Full suite: 535 passed, 0 failed (up from 534).
 - Not built in this pass: the two thresholds are not yet a per-school editable Setting (see note above); the raw `Score` average used for the risk signal is a simpler heuristic than `ResultService::classBroadsheet()`'s actual subject-then-overall averaging methodology (deliberately, to avoid an expensive per-class-arm broadsheet computation across every class just for a warning flag), so a student's number here may not exactly match their eventual report card average, the card's own copy says "an early flag, not a formal report" precisely because of this.
 
+### Extend Birthdays + Students At Risk to Class Teacher/Class Assistant and Subject Teacher dashboards (2026-07-14)
+- Status: Done
+- Started: 2026-07-14
+- Notes: cross-check item "Extend Birthdays... Students Needing Attention widgets to more dashboards." Both `todaysBirthdays()`/`upcomingBirthdays()` and the new `studentsAtRisk()` already accepted a generic student collection, so extending them to a teacher's own class/taught students was mostly wiring, not new logic.
+  1. `classTeam()` (Class Teacher/Class Assistant, their own class arm only) and `subjectTeacher()` (across every class arm they actually teach, `Student::whereIn('current_class_arm_id', $classArmIds)` fetched as a real collection rather than just a count as before) both now compute and pass `birthdaysToday`/`birthdaysUpcoming`/`studentsAtRisk` scoped to their own students only, reusing the exact same helpers the School Owner/Principal dashboard already used, not a second implementation.
+  2. Extracted the previously admin-only inline "Students at risk" markup into a reusable `school/widgets/_students-at-risk.blade.php` partial (takes `items`/optional `title`, "Students needing attention" on the two teacher dashboards vs "Students at risk" on the leadership one, same underlying rule) and a new `school/widgets/_birthdays.blade.php` (a single compact Today/Upcoming card, distinct from the admin dashboard's existing two-separate-cards layout, which was left untouched since it already had its own establishment two-column treatment).
+- Issues/Bugs found: none.
+- Resolution: n/a.
+- QA: 1 new test in `RoleDashboardTest`, two students each with a real low score in two different class arms of the same school class, one inside the class teacher's own arm and one in a sibling arm, asserting only the student in the teacher's own class appears on their at-risk list, proving genuine class-arm scoping rather than a school-wide list reused verbatim. Full suite: 536 passed, 0 failed (up from 535).
+- Not built in this pass: registrar/ICT-officer/bursar-style dashboards were not extended (none of them have a natural "my students" scope the way a class or subject teacher does); Parent Messages and Upcoming Exams, the other two widgets named in the same original cross-check bucket, remain net new/blocked as already noted elsewhere in this tracker.
+
 ---
 
 ---

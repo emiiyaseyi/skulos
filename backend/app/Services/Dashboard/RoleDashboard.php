@@ -459,6 +459,9 @@ class RoleDashboard
                 'term' => $term?->name,
                 'average' => $average,
                 'read_only' => $kind === 'class_assistant',
+                'birthdaysToday' => $this->todaysBirthdays($students),
+                'birthdaysUpcoming' => $this->upcomingBirthdays($students),
+                'studentsAtRisk' => $this->studentsAtRisk($students, $term),
             ],
         ];
     }
@@ -474,7 +477,8 @@ class RoleDashboard
 
         $subjectIds = $assignments->pluck('subject_id')->unique();
         $classArmIds = $assignments->pluck('class_arm_id')->unique();
-        $studentsCount = Student::whereIn('current_class_arm_id', $classArmIds)->active()->count();
+        $taughtStudents = Student::whereIn('current_class_arm_id', $classArmIds)->active()->get();
+        $studentsCount = $taughtStudents->count();
 
         $term = Term::current()->first();
         $average = null;
@@ -524,6 +528,9 @@ class RoleDashboard
                         ->all())
                     ->all(),
                 'term' => $term?->name,
+                'birthdaysToday' => $this->todaysBirthdays($taughtStudents),
+                'birthdaysUpcoming' => $this->upcomingBirthdays($taughtStudents),
+                'studentsAtRisk' => $this->studentsAtRisk($taughtStudents, $term),
             ],
         ];
     }
