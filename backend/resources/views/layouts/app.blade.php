@@ -55,24 +55,24 @@
    sidebar is LIGHT paper, not a dark rail, matching the approved lookbook
    artifact exactly, not the platform admin portal's dark navy sidebar. */
 .school-theme{
-  --bg:#F5EEDC; --panel:#FFFDF6; --shell:#FBF6EA; --ink:#1A1613;
-  --mut:rgba(26,22,19,.62); --mut-dim:rgba(26,22,19,.42);
+  --bg:#FFFFFF; --panel:#FFFFFF; --shell:#FFFFFF; --ink:#1A1613;
+  --mut:rgba(26,22,19,.68); --mut-dim:rgba(26,22,19,.58);
   --line:#E4D9BE; --line-deep:#C9B98F; --soft:rgba(26,22,19,.035);
   --ok:#4A6B3A; --warn:#B5731A; --bad:#B23A2A;
-  --side:var(--shell); --side-ink:var(--ink); --side-mut:rgba(26,22,19,.55); --side-line:var(--line); --side-active:var(--panel);
+  --side:var(--shell); --side-ink:var(--ink); --side-mut:rgba(26,22,19,.62); --side-line:var(--line); --side-active:#F5EEDC;
   --shadow:0 1px 2px rgba(26,22,19,.07),0 10px 26px -16px rgba(26,22,19,.22);
   --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
   --font-serif:Georgia,'Iowan Old Style','Palatino Linotype','Book Antiqua',serif;
   --radius:10px;
 }
 @media(prefers-color-scheme:dark){.school-theme{
-  --bg:#171310; --panel:#2A241D; --shell:#211C17; --ink:#F0E9D8;
-  --mut:rgba(240,233,216,.62); --mut-dim:rgba(240,233,216,.40);
+  --bg:#171310; --panel:#211C17; --shell:#171310; --ink:#F0E9D8;
+  --mut:rgba(240,233,216,.68); --mut-dim:rgba(240,233,216,.55);
   --line:rgba(240,233,216,.10); --line-deep:rgba(240,233,216,.18); --soft:rgba(240,233,216,.04);
-  --side-mut:rgba(240,233,216,.55); --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -16px rgba(0,0,0,.6);
+  --side-mut:rgba(240,233,216,.62); --side-active:#211C17; --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -16px rgba(0,0,0,.6);
 }}
-:root[data-theme="light"] .school-theme{--bg:#F5EEDC;--panel:#FFFDF6;--shell:#FBF6EA;--ink:#1A1613;--mut:rgba(26,22,19,.62);--mut-dim:rgba(26,22,19,.42);--line:#E4D9BE;--line-deep:#C9B98F;--soft:rgba(26,22,19,.035);--side-mut:rgba(26,22,19,.55);--shadow:0 1px 2px rgba(26,22,19,.07),0 10px 26px -16px rgba(26,22,19,.22);}
-:root[data-theme="dark"] .school-theme{--bg:#171310;--panel:#2A241D;--shell:#211C17;--ink:#F0E9D8;--mut:rgba(240,233,216,.62);--mut-dim:rgba(240,233,216,.40);--line:rgba(240,233,216,.10);--line-deep:rgba(240,233,216,.18);--soft:rgba(240,233,216,.04);--side-mut:rgba(240,233,216,.55);--shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -16px rgba(0,0,0,.6);}
+:root[data-theme="light"] .school-theme{--bg:#FFFFFF;--panel:#FFFFFF;--shell:#FFFFFF;--ink:#1A1613;--mut:rgba(26,22,19,.68);--mut-dim:rgba(26,22,19,.58);--line:#E4D9BE;--line-deep:#C9B98F;--soft:rgba(26,22,19,.035);--side-mut:rgba(26,22,19,.62);--side-active:#F5EEDC;--shadow:0 1px 2px rgba(26,22,19,.07),0 10px 26px -16px rgba(26,22,19,.22);}
+:root[data-theme="dark"] .school-theme{--bg:#171310;--panel:#211C17;--shell:#171310;--ink:#F0E9D8;--mut:rgba(240,233,216,.68);--mut-dim:rgba(240,233,216,.55);--line:rgba(240,233,216,.10);--line-deep:rgba(240,233,216,.18);--soft:rgba(240,233,216,.04);--side-mut:rgba(240,233,216,.62);--side-active:#211C17;--shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -16px rgba(0,0,0,.6);}
 
 /* numbers and headline-weight text set in serif per the lookbook,
    uppercase sans labels stay on the base --font everywhere else */

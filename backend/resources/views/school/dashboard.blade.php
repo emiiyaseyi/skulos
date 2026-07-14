@@ -21,10 +21,10 @@
      icon tucked in the corner at low opacity, no per-item colour, no top
      bar). Scoped to .school-theme so the platform admin portal keeps its
      original left-aligned, per-item-coloured row treatment untouched. */
-  .school-theme .fig-classic{flex-direction:column;text-align:center;gap:.3rem;padding:2rem 1rem 1rem;background:var(--panel);border:1px solid var(--line);box-shadow:none}
+  .school-theme .fig-classic{flex-direction:column;text-align:center;gap:.3rem;padding:2.5rem 1rem 1rem;background:var(--panel);border:1px solid var(--line);box-shadow:none}
   .school-theme .fig-classic::before{display:none}
-  .school-theme .fig-classic .fic{position:absolute;top:.7rem;right:.7rem;width:1.15rem;height:1.15rem;background:none;color:var(--warn);opacity:.55;margin:0}
-  .school-theme .fig-classic .fic svg{width:1.15rem;height:1.15rem}
+  .school-theme .fig-classic .fic{position:absolute;top:.75rem;right:.75rem;width:1.9rem;height:1.9rem;background:none;color:var(--warn);opacity:.6;margin:0}
+  .school-theme .fig-classic .fic svg{width:1.9rem;height:1.9rem}
   .school-theme .fig b{font-family:var(--font-serif);font-size:1.7rem}
   .school-theme .fig span{font-size:.7rem}
   /* "let's only have two rows and a button to view more": rows past the
