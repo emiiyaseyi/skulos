@@ -6,7 +6,6 @@ use App\Models\School;
 use App\Models\User;
 use App\Models\Tenant\AssessmentComponent;
 use App\Models\Tenant\Attendance;
-use App\Models\Tenant\Campus;
 use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\GradingScale;
 use App\Models\Tenant\ReportCardReview;
@@ -123,6 +122,7 @@ class RoleDashboard
         // exact same score HealthService already computes for the
         // Maintenance Center, not a second parallel scoring formula.
         $healthScore = $school ? $this->health->check($school)['score'] : null;
+        $teacherCount = $school ? $this->teacherCount($school) : 0;
 
         return [
             'kind' => 'admin',
@@ -131,8 +131,8 @@ class RoleDashboard
                 ['n' => number_format($boys), 'l' => 'Boys', 'ic' => 'students', 'c' => '#6D4FE0', 'pct' => '55%'],
                 ['n' => number_format($girls), 'l' => 'Girls', 'ic' => 'students', 'c' => '#E14F63', 'pct' => '55%'],
                 ['n' => number_format(Staff::active()->count()), 'l' => 'Staff', 'ic' => 'staff', 'c' => '#6D4FE0', 'pct' => '64%'],
+                ['n' => number_format($teacherCount), 'l' => 'Teachers', 'ic' => 'staff', 'c' => '#0EA5A0', 'pct' => '68%'],
                 ['n' => number_format(SchoolClass::count()), 'l' => 'Classes', 'ic' => 'academics', 'c' => '#E5901C', 'pct' => '80%'],
-                ['n' => number_format(Campus::count()), 'l' => 'Campuses', 'ic' => 'school', 'c' => '#E14F63', 'pct' => '50%'],
                 ['n' => number_format(\App\Models\Tenant\House::count()), 'l' => 'Houses', 'ic' => 'school', 'c' => '#0EA5A0', 'pct' => '60%'],
                 ['n' => number_format($uniqueGuardians), 'l' => 'Parents', 'ic' => 'students', 'c' => '#6D4FE0', 'pct' => '60%'],
                 ['n' => number_format(Subject::count()), 'l' => 'Subjects', 'ic' => 'academics', 'c' => '#0EA5A0', 'pct' => '70%'],
@@ -199,6 +199,26 @@ class RoleDashboard
         }
 
         return round((($counts['present'] ?? 0) / $marked) * 100, 1);
+    }
+
+    /**
+     * Teaching staff specifically, not every staff member (Dashboard
+     * Design Cross-Check: Principal wants "Teacher Count" distinct from
+     * the school-wide "Staff" figure). Same role slug set already used
+     * for the Announcements "teachers" audience
+     * (AnnouncementController::resolveRecipients()), kept in sync with it
+     * rather than re-deriving a different definition of "teacher" here.
+     * $school->users() is the platform-side membership pivot (role_id),
+     * the only place a staff member's role actually lives; Staff itself
+     * is a tenant-database record with no role of its own.
+     */
+    protected function teacherCount(School $school): int
+    {
+        $teacherRoleIds = \App\Models\Role::where('school_id', $school->id)
+            ->whereIn('slug', ['teacher', 'class-teacher', 'subject-teacher', 'class-assistant'])
+            ->pluck('id');
+
+        return $school->users()->wherePivot('status', 'active')->whereIn('role_id', $teacherRoleIds)->count();
     }
 
     /**

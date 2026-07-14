@@ -1127,6 +1127,17 @@ Entries are added here as work starts on each item — see the current build pha
 - QA: full suite re-run after this pass, 531 passed / 0 failed, same as before, no regressions. Verified via the same disposable `actingAs()` snapshot-and-inspect method as the first pass (no browser tool available in this environment); confirmed via grep on the captured HTML that `--bg`/`--panel`/`--shell` all resolve to `#FFFFFF`, `--mut-dim` to the new `.58` opacity, and the corner icon markup to `1.9rem`, then republished the same Artifact URL for the user to check directly in a browser.
 - Not built in this pass: nothing further requested; same scope caveats as the first pass still apply (classic layout variant and dashboard page only).
 
+### Principal dashboard: Teacher Count figure (2026-07-14)
+- Status: Done
+- Started: 2026-07-14
+- Notes: cross-check item naming "Student Population, Teacher Count" and "Attendance, Academic Performance" for the Principal dashboard. Principal already routes through `admin()` (every `leadership_role_slugs` role — School Owner, Principal, Head Teacher, Vice Principal — shares one dashboard), and that view already had Students (population), Attendance Rate, and Term Average (academic performance); the one genuine gap was Teacher Count as its own figure distinct from the generic school-wide Staff count.
+  1. New `RoleDashboard::teacherCount(School $school)`: counts active school memberships (`$school->users()`) whose `role_id` matches one of `['teacher', 'class-teacher', 'subject-teacher', 'class-assistant']` — the exact same role slug set `AnnouncementController::resolveRecipients()` already uses to define "teachers" for the Announcements "teachers" audience, deliberately reused rather than re-derived, so the platform has one consistent definition of "who counts as a teacher." Queried through the platform-side `school_user` pivot (where a staff member's role actually lives), not the tenant-side `Staff` table, which has no role of its own.
+  2. New "Teachers" figure added to `admin()`'s figure grid, `Campuses` figure removed to keep the grid at 16 items (a multiple of 4, the standing "grid must resolve to complete rows" rule) — a considered trade rather than growing the grid, since campus count is a niche figure (most schools are single campus) already visible on its own `school.campuses` screen, whereas Teacher Count was explicitly named in the cross-check and had no other home on this dashboard.
+- Issues/Bugs found: none.
+- Resolution: n/a.
+- QA: extended `RoleDashboardTest::test_admin_sees_school_wide_figures` with a real second school membership on a `class-teacher` role, asserting the new figure reads exactly `1` (not the school owner too, proving the count is genuinely role-filtered, not just "every member"). Full suite: 531 passed, 0 failed. Did I change or break anything not asked? The `Campuses` figure's removal touches every `leadership_role_slugs` role's dashboard (School Owner included, not just Principal, since they share one view) — flagged here explicitly since it is a real behavioural change beyond the literal ask, not hidden in the diff.
+- Not built in this pass: no Principal-specific dashboard branch was created (still shares `admin()` with School Owner/Head Teacher/Vice Principal, as it already did); if a future request wants Principal to see something School Owner should not (or vice versa), that would need its own `match()` branch in `RoleDashboard::build()`.
+
 ---
 
 ---

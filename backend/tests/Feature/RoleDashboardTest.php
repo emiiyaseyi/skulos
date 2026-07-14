@@ -65,16 +65,20 @@ class RoleDashboardTest extends TestCase
     public function test_admin_sees_school_wide_figures(): void
     {
         [$school, $admin] = $this->schoolWithMember('school-owner', 'rdone');
+        $teacherUser = User::factory()->create();
+        $teacherRole = $this->rbac->cloneTemplateRole($school, 'class-teacher');
+        $school->users()->attach($teacherUser->id, ['role_id' => $teacherRole->id, 'status' => 'active']);
         app(TenantManager::class)->use($school);
         Student::create(['admission_number' => 'A1', 'first_name' => 'A', 'last_name' => 'B']);
-        \App\Models\Tenant\Campus::create(['name' => 'Main', 'is_main' => true]);
 
         $data = app(RoleDashboard::class)->build($admin, $school);
         app(TenantManager::class)->forget();
 
         $this->assertSame('admin', $data['kind']);
         $labels = array_column($data['figs'], 'l');
-        $this->assertContains('Campuses', $labels);
+        $figsByLabel = array_column($data['figs'], 'n', 'l');
+        $this->assertContains('Teachers', $labels);
+        $this->assertSame('1', $figsByLabel['Teachers'], 'the school owner (not teacher-scoped) must not be counted as a teacher');
         $this->assertContains('Classes', $labels);
         $this->assertContains('Houses', $labels, 'admin dashboard must have grown beyond the original 4 figures');
         $this->assertContains('Reports Pending Review', $labels);
