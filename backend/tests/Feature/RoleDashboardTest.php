@@ -184,6 +184,32 @@ class RoleDashboardTest extends TestCase
         $this->assertSame('Linked Child', $data['panel']['children'][0]['name']);
     }
 
+    public function test_parent_sees_which_child_has_a_released_report_card_and_which_does_not(): void
+    {
+        [$school, $parentUser] = $this->schoolWithMember('parent', 'rdreport');
+        app(TenantManager::class)->use($school);
+
+        $reportedChild = Student::create(['admission_number' => 'PR1', 'first_name' => 'Has', 'last_name' => 'Report']);
+        $unreportedChild = Student::create(['admission_number' => 'PR2', 'first_name' => 'No', 'last_name' => 'Report']);
+        StudentGuardian::create(['student_id' => $reportedChild->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parentUser->id, 'is_primary' => true]);
+        StudentGuardian::create(['student_id' => $unreportedChild->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parentUser->id, 'is_primary' => true]);
+
+        $session = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026']);
+        $term = \App\Models\Tenant\Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1]);
+        \App\Models\Tenant\ReportCardReview::create([
+            'student_id' => $reportedChild->id, 'term_id' => $term->id,
+            'status' => \App\Models\Tenant\ReportCardReview::STATUS_RELEASED, 'released_at' => now(),
+        ]);
+
+        $data = app(RoleDashboard::class)->build($parentUser, $school);
+        app(TenantManager::class)->forget();
+
+        $byName = collect($data['panel']['children'])->keyBy('name');
+        $this->assertSame('First Term', $byName['Has Report']['latestReportTerm']);
+        $this->assertNotNull($byName['Has Report']['latestReportReleasedAt']);
+        $this->assertNull($byName['No Report']['latestReportTerm']);
+    }
+
     public function test_class_teacher_without_a_class_assignment_gets_an_empty_state(): void
     {
         [$school, $teacherUser] = $this->schoolWithMember('class-teacher', 'rdfive');

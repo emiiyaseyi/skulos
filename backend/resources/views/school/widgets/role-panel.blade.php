@@ -96,7 +96,15 @@
         <ul class="rp-list">
           @foreach($panel['children'] as $child)
             <li>
-              <span class="rp-text"><strong>{{ $child['name'] }}</strong><span class="muted">{{ $child['class'] ?? 'Not yet placed in a class' }}</span></span>
+              <span class="rp-text">
+                <strong>{{ $child['name'] }}</strong>
+                <span class="muted">{{ $child['class'] ?? 'Not yet placed in a class' }}</span>
+                @if($child['latestReportTerm'])
+                  <span class="muted">Report card released for {{ $child['latestReportTerm'] }}{{ $child['latestReportReleasedAt'] ? ' ('.$child['latestReportReleasedAt']->diffForHumans().')' : '' }}</span>
+                @else
+                  <span class="muted">No report card released yet.</span>
+                @endif
+              </span>
               @if($child['id'])
                 <a class="btn btn-ghost btn-sm" href="{{ route('school.students.show', ['school' => $school->slug, 'studentId' => $child['id']]) }}">View report</a>
               @endif

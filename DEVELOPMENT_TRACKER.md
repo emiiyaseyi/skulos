@@ -1183,6 +1183,29 @@ Entries are added here as work starts on each item — see the current build pha
 - QA: 1 new test in `RoleDashboardTest`, two students each with a real low score in two different class arms of the same school class, one inside the class teacher's own arm and one in a sibling arm, asserting only the student in the teacher's own class appears on their at-risk list, proving genuine class-arm scoping rather than a school-wide list reused verbatim. Full suite: 536 passed, 0 failed (up from 535).
 - Not built in this pass: registrar/ICT-officer/bursar-style dashboards were not extended (none of them have a natural "my students" scope the way a class or subject teacher does); Parent Messages and Upcoming Exams, the other two widgets named in the same original cross-check bucket, remain net new/blocked as already noted elsewhere in this tracker.
 
+### Bursar "Pending Grading" / "CA Pending" — investigated, not built (2026-07-14)
+- Status: Not built, deliberately, pending clarification
+- Started: 2026-07-14
+- Notes: two carried-over todo items from before this session's context was summarized ("Bursar dashboard: Pending Grading real count", "CA Pending: real dedicated count"), neither with a surviving verbatim spec anywhere in this tracker (the original 50+ row cross-check table was explicitly *not* duplicated into the tracker to avoid drift, per the "Dashboard Design Cross-Check batch" entry above, only tracked live in a todo list that did not survive a context summarization). Investigated rather than guessed:
+  - Bursar is already, correctly, on the explicit `coming_soon` dashboard state (`RoleDashboard::comingSoon()`), since Finance is not built on any plan. "Pending Grading" has no real relationship to a Bursar role (grading is an academic concern, Bursar is finance), so this item is almost certainly a mislabelling from summarization, not a real, missed requirement. Left as is rather than inventing a Bursar-side grading figure that would not make sense in the product.
+  - "CA Pending" (a raw continuous-assessment score-entry completeness count, distinct from the already-real "Reports Pending Review" figure, which is about the report card approval workflow, not raw score entry) is plausible and would be buildable, but computing an honest "expected vs entered" CA count needs a reliable "which students take which subjects" enrollment source, and building that on a guess risks either an inaccurate count or a mismatched definition of "pending" from whatever the original cross-check row actually asked for.
+- Issues/Bugs found: none, this is a scope/clarity gap, not a defect.
+- Resolution: n/a.
+- QA: n/a, nothing built.
+- Not built in this pass: both items left open. If "CA Pending" is still wanted, re-confirm the exact definition (which components, which role sees it, per class or school wide) before building, per the standing practice of not shipping an ambiguous business rule as a guess.
+
+### Parent dashboard: Report Card widget (2026-07-14)
+- Status: Done (Report Card half); Child Selector judged already satisfied, not separately built
+- Started: 2026-07-14
+- Notes: cross-check item "Child Selector + Report Card widget." The parent dashboard's existing "My children" panel already lists each child individually by name with their own "View report" link straight to their student profile (where the real academic report already renders, `ResultService::studentReport()`), so a separate dropdown/tab selector was judged unnecessary for what is, in practice, a short list (most parents have 1 to 3 children at one school); building a redundant selector control on top of an already-clear list was not pursued. The real gap was the "Report Card widget" half: the list gave no sense of whether a report had actually been released for a child without clicking through to check.
+  1. `RoleDashboard::parent()` now looks up each child's most recently released `ReportCardReview` (by `released_at` descending, the real timestamp already stored when a report card is released), attaching `latestReportTerm` and `latestReportReleasedAt` to that child's panel entry.
+  2. `role-panel.blade.php`'s `children` case now shows "Report card released for {term} ({time ago})" per child when one exists, or an honest "No report card released yet." when it does not, instead of giving no signal either way.
+  3. Deliberately did not attempt to show the child's actual average/position inline: `ReportCardReview` does not store which class arm a student was in at release time (only their *current* one, which can differ after a promotion), so computing a precise average via `ResultService::classBroadsheet()` for a possibly-stale class arm risked showing a wrong number; the term name and release recency are both facts the review record actually stores, an average is not, and the existing "View report" link already goes straight to the real, precise report for anyone who wants the number.
+- Issues/Bugs found: none.
+- Resolution: n/a.
+- QA: 1 new test in `RoleDashboardTest`, two children of the same parent, one with a real released `ReportCardReview` and one with none, asserting the first shows the correct term name and a non-null release timestamp while the second shows neither. Full suite: 537 passed, 0 failed (up from 536).
+- Not built in this pass: no average/position shown inline, per the reasoning above; a dedicated child-switcher UI was judged unnecessary rather than skipped by omission.
+
 ---
 
 ---

@@ -731,11 +731,23 @@ class RoleDashboard
             ],
             'panel' => [
                 'type' => 'children',
-                'children' => $children->map(fn ($g) => [
-                    'id' => $g->student?->id,
-                    'name' => $g->student?->fullName(),
-                    'class' => $g->student?->currentClassArm?->label(),
-                ])->all(),
+                'children' => $children->map(function ($g) {
+                    $latestReport = $g->student
+                        ? ReportCardReview::where('student_id', $g->student->id)
+                            ->where('status', ReportCardReview::STATUS_RELEASED)
+                            ->with('term')
+                            ->orderByDesc('released_at')
+                            ->first()
+                        : null;
+
+                    return [
+                        'id' => $g->student?->id,
+                        'name' => $g->student?->fullName(),
+                        'class' => $g->student?->currentClassArm?->label(),
+                        'latestReportTerm' => $latestReport?->term?->name,
+                        'latestReportReleasedAt' => $latestReport?->released_at,
+                    ];
+                })->all(),
             ],
         ];
     }
