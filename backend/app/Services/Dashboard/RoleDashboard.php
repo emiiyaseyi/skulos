@@ -156,6 +156,7 @@ class RoleDashboard
                 ])->all(),
                 'pendingReviewsMore' => max(0, $pendingReviews->count() - 6),
                 'resultTrend' => $this->resultTrend(),
+                'studentsAtRisk' => $this->studentsAtRisk($students, $term),
             ],
         ];
     }
@@ -219,6 +220,69 @@ class RoleDashboard
             ->pluck('id');
 
         return $school->users()->wherePivot('status', 'active')->whereIn('role_id', $teacherRoleIds)->count();
+    }
+
+    /**
+     * Students At Risk (Dashboard Design Cross-Check, rule-based): flags
+     * an active student whose current term attendance rate or raw average
+     * score falls below `config('skulos.at_risk_thresholds')`. A student
+     * with no attendance marks or no scores yet this term is not flagged
+     * on that signal (nothing to be "below" yet), matching the standing
+     * no-dummy-data rule rather than treating missing data as a 0%.
+     *
+     * @param \Illuminate\Support\Collection<int, Student> $students
+     * @return list<array{name: string, class: ?string, reason: string}>
+     */
+    protected function studentsAtRisk($students, ?Term $term, int $limit = 8): array
+    {
+        if (! $term || ! $term->starts_on) {
+            return [];
+        }
+
+        $thresholds = config('skulos.at_risk_thresholds', ['attendance_pct' => 75, 'score_pct' => 40]);
+        $end = min($term->ends_on ?? now(), now());
+
+        $attendanceByStudent = Attendance::where('person_type', Attendance::PERSON_STUDENT)
+            ->whereBetween('date', [$term->starts_on->toDateString(), $end->toDateString()])
+            ->selectRaw('person_id, status, count(*) as total')
+            ->groupBy('person_id', 'status')
+            ->get()
+            ->groupBy('person_id');
+
+        $averageByStudent = \App\Models\Tenant\Score::where('term_id', $term->id)
+            ->selectRaw('student_id, avg(score) as avg_score')
+            ->groupBy('student_id')
+            ->pluck('avg_score', 'student_id');
+
+        $atRisk = [];
+        foreach ($students as $student) {
+            $reasons = [];
+
+            $marks = $attendanceByStudent->get($student->id);
+            if ($marks) {
+                $total = $marks->sum('total');
+                $present = $marks->firstWhere('status', 'present')?->total ?? 0;
+                $rate = $total > 0 ? round(($present / $total) * 100, 1) : null;
+                if ($rate !== null && $rate < $thresholds['attendance_pct']) {
+                    $reasons[] = "Attendance {$rate}%";
+                }
+            }
+
+            $avg = $averageByStudent[$student->id] ?? null;
+            if ($avg !== null && round((float) $avg, 1) < $thresholds['score_pct']) {
+                $reasons[] = 'Average '.round((float) $avg, 1).'%';
+            }
+
+            if ($reasons) {
+                $atRisk[] = [
+                    'name' => $student->fullName(),
+                    'class' => $student->currentClassArm?->schoolClass?->name,
+                    'reason' => implode(', ', $reasons),
+                ];
+            }
+        }
+
+        return array_slice($atRisk, 0, $limit);
     }
 
     /**

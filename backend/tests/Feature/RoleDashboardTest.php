@@ -512,4 +512,52 @@ class RoleDashboardTest extends TestCase
         $this->assertSame('Second Term', $trend[1]['label']);
         $this->assertSame(80.0, $trend[1]['average']);
     }
+
+    public function test_students_at_risk_flags_low_attendance_and_low_average_but_not_a_healthy_student(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'rdrisk');
+        app(TenantManager::class)->use($school);
+
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id]);
+        $subject = Subject::create(['name' => 'Mathematics', 'code' => 'MTH']);
+        $component = \App\Models\Tenant\AssessmentComponent::create(['name' => 'Exam', 'type' => 'exam', 'max_score' => 100, 'sequence' => 1]);
+        $session = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026']);
+        $term = \App\Models\Tenant\Term::create([
+            'academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1, 'is_current' => true,
+            'starts_on' => now()->subDays(10), 'ends_on' => now()->addDays(50),
+        ]);
+
+        $lowAttendanceStudent = Student::create(['admission_number' => 'RK1', 'first_name' => 'Low', 'last_name' => 'Attendance', 'current_class_arm_id' => $arm->id]);
+        $lowScoreStudent = Student::create(['admission_number' => 'RK2', 'first_name' => 'Low', 'last_name' => 'Score', 'current_class_arm_id' => $arm->id]);
+        $healthyStudent = Student::create(['admission_number' => 'RK3', 'first_name' => 'Doing', 'last_name' => 'Fine', 'current_class_arm_id' => $arm->id]);
+
+        // Low attendance student: 2 present, 8 absent over the term = 20%.
+        \App\Models\Tenant\Attendance::create(['date' => now()->subDays(1), 'person_type' => 'student', 'person_id' => $lowAttendanceStudent->id, 'status' => 'present']);
+        \App\Models\Tenant\Attendance::create(['date' => now()->subDays(2), 'person_type' => 'student', 'person_id' => $lowAttendanceStudent->id, 'status' => 'present']);
+        for ($i = 3; $i <= 10; $i++) {
+            \App\Models\Tenant\Attendance::create(['date' => now()->subDays($i), 'person_type' => 'student', 'person_id' => $lowAttendanceStudent->id, 'status' => 'absent']);
+        }
+
+        // Low score student: below the 40% threshold.
+        \App\Models\Tenant\Score::create(['student_id' => $lowScoreStudent->id, 'subject_id' => $subject->id, 'class_arm_id' => $arm->id, 'term_id' => $term->id, 'assessment_component_id' => $component->id, 'score' => 25]);
+
+        // Healthy student: good attendance and a good score, must not appear.
+        \App\Models\Tenant\Attendance::create(['date' => now()->subDays(1), 'person_type' => 'student', 'person_id' => $healthyStudent->id, 'status' => 'present']);
+        \App\Models\Tenant\Score::create(['student_id' => $healthyStudent->id, 'subject_id' => $subject->id, 'class_arm_id' => $arm->id, 'term_id' => $term->id, 'assessment_component_id' => $component->id, 'score' => 90]);
+
+        $data = app(RoleDashboard::class)->build($admin, $school);
+        app(TenantManager::class)->forget();
+
+        $atRisk = $data['panel']['studentsAtRisk'];
+        $byName = collect($atRisk)->keyBy('name');
+
+        $this->assertCount(2, $atRisk, 'only the two genuinely at-risk students should appear');
+        $this->assertTrue($byName->has('Low Attendance'));
+        $this->assertStringContainsString('Attendance 20%', $byName['Low Attendance']['reason']);
+        $this->assertTrue($byName->has('Low Score'));
+        $this->assertStringContainsString('Average 25', $byName['Low Score']['reason']);
+        $this->assertFalse($byName->has('Doing Fine'), 'a student with good attendance and a good score must not be flagged');
+    }
 }

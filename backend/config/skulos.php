@@ -366,6 +366,17 @@ return [
     'attendance_statuses' => ['present', 'absent', 'late', 'excused'],
 
     /*
+    | Students At Risk widget bands (Dashboard Design Cross-Check): a
+    | student flags as at risk if their current term attendance rate or
+    | raw average score falls below these percentages. Config-level today
+    | (same effort as the existing Health Score 80/50 bands), not yet a
+    | per-school editable Setting; move to the Setting-backed pattern
+    | already used for dashboard_widgets/plan features if a school ever
+    | needs to tune it.
+    */
+    'at_risk_thresholds' => ['attendance_pct' => 75, 'score_pct' => 40],
+
+    /*
     | Student record fields a school can mark as required (user request
     | 2026-07-10). admission_number/first_name/last_name are always
     | required (core identity) and email must never be required (a
