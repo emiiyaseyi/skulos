@@ -129,6 +129,9 @@
       @if($qaRbac->check(auth()->user(), $school, 'report_cards.assign_review') || $qaRbac->check(auth()->user(), $school, 'report_cards.release'))
         <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.pending-review', ['school' => $school->slug]) }}">Publish results</a>
       @endif
+      @if($qaRbac->check(auth()->user(), $school, 'communication.broadcast'))
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.announcements.create', ['school' => $school->slug]) }}">Send announcement</a>
+      @endif
     </div>
   </div>
 @endif

@@ -264,6 +264,12 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::prefix('search')->name('school.search.')->group(function () {
             Route::get('/', [\App\Http\Controllers\School\SearchController::class, 'index'])->name('index');
         });
+        Route::prefix('announcements')->name('school.announcements.')->group(function () {
+            $announcements = \App\Http\Controllers\School\AnnouncementController::class;
+            Route::get('/', [$announcements, 'index'])->name('index');
+            Route::get('/create', [$announcements, 'create'])->name('create');
+            Route::post('/create', [$announcements, 'store'])->name('store');
+        });
         Route::get('/setup', [\App\Http\Controllers\School\SetupController::class, 'index'])->name('school.setup');
         Route::post('/notifications/{id}/read', [SchoolPortalController::class, 'markNotificationRead'])->name('school.notifications.read');
         Route::prefix('notifications')->name('school.notifications.')->group(function () {

@@ -1,0 +1,165 @@
+<?php
+
+namespace App\Http\Controllers\School;
+
+use App\Http\Controllers\Controller;
+use App\Models\Role;
+use App\Models\School;
+use App\Models\Tenant\Announcement;
+use App\Models\Tenant\ClassArm;
+use App\Models\Tenant\Student;
+use App\Models\Tenant\StudentGuardian;
+use App\Services\Communication\NotificationService;
+use App\Services\Rbac\Rbac;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
+
+/**
+ * Send Announcement (Dashboard Design Cross-Check, 2026-07-13: "Blocked,
+ * announcements can be viewed now, not composed, no compose screen yet").
+ * `Announcement`, `NotificationService::dispatchAnnouncement()`, and
+ * `CommunicationService::emailAnnouncement()` already existed, fully
+ * built and working, this is the missing compose screen in front of them,
+ * not new delivery logic.
+ *
+ * The {school} route sits under a domain wildcard, so nested route params
+ * are read via $request->route() rather than typed method parameters
+ * (the recurring gotcha documented in CLAUDE.md).
+ */
+class AnnouncementController extends Controller
+{
+    protected function school(Request $request): School
+    {
+        return $request->attributes->get('school');
+    }
+
+    protected function authorizeAction(Request $request, string $permission): void
+    {
+        abort_unless(
+            app(Rbac::class)->check(Auth::user(), $this->school($request), $permission),
+            403,
+            'You do not have permission for this.'
+        );
+    }
+
+    public function index(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'communication.view');
+        $school = $this->school($request);
+
+        return view('school.announcements.index', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'announcements' => Announcement::orderByDesc('created_at')->paginate(20),
+            'canCompose' => app(Rbac::class)->check(Auth::user(), $school, 'communication.broadcast'),
+        ]);
+    }
+
+    public function create(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'communication.broadcast');
+        $school = $this->school($request);
+
+        $classArms = ClassArm::with('schoolClass.section', 'arm')->get()
+            ->sortBy(fn (ClassArm $arm) => $arm->orderKey())->values();
+
+        return view('school.announcements.create', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'classArms' => $classArms,
+        ]);
+    }
+
+    public function store(Request $request, NotificationService $notifications): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'communication.broadcast');
+        $school = $this->school($request);
+
+        $data = $request->validate([
+            'title' => ['required', 'string', 'max:150'],
+            'body' => ['required', 'string', 'max:5000'],
+            'audience' => ['required', Rule::in(['all', 'parents', 'teachers', 'staff', 'students', 'class'])],
+            'class_arm_id' => ['nullable', 'required_if:audience,class', 'exists:tenant.class_arms,id'],
+        ]);
+
+        $announcement = Announcement::create([
+            'title' => $data['title'],
+            'body' => $data['body'],
+            'audience' => $data['audience'],
+            'class_arm_id' => $data['audience'] === 'class' ? $data['class_arm_id'] : null,
+            'status' => Announcement::STATUS_DRAFT,
+            'created_by_user_id' => Auth::id(),
+        ]);
+
+        $recipients = $this->resolveRecipients($school, $data['audience'], $data['class_arm_id'] ?? null);
+        $result = $notifications->dispatchAnnouncement($announcement, $recipients);
+
+        return redirect()->route('school.announcements.index', ['school' => $school->slug])->with('status',
+            "Announcement published to {$result['in_app']} recipient(s), {$result['email_sent']} emailed.");
+    }
+
+    /**
+     * @return list<array{user_id:int, email:?string, audience:string}>
+     */
+    protected function resolveRecipients(School $school, string $audience, ?int $classArmId): array
+    {
+        if ($audience === 'class' && $classArmId) {
+            return $this->classRecipients($classArmId);
+        }
+
+        $familyRoleIds = Role::whereIn('slug', config('skulos.family_scoped_roles', ['parent', 'student']))->pluck('id');
+        $teacherRoleIds = Role::whereIn('slug', ['teacher', 'class-teacher', 'subject-teacher', 'class-assistant'])->pluck('id');
+        $parentRoleIds = Role::where('slug', 'parent')->pluck('id');
+        $studentRoleIds = Role::where('slug', 'student')->pluck('id');
+
+        $query = $school->users()->wherePivot('status', 'active');
+
+        match ($audience) {
+            'parents' => $query->whereIn('role_id', $parentRoleIds),
+            'students' => $query->whereIn('role_id', $studentRoleIds),
+            'teachers' => $query->whereIn('role_id', $teacherRoleIds),
+            'staff' => $query->whereNotIn('role_id', $familyRoleIds),
+            default => null, // 'all': no filter
+        };
+
+        $users = $query->get();
+        $teacherIds = $teacherRoleIds->all();
+        $parentIds = $parentRoleIds->all();
+        $studentIds = $studentRoleIds->all();
+
+        return $users->map(function ($u) use ($teacherIds, $parentIds, $studentIds) {
+            $roleId = $u->pivot->role_id;
+            $label = in_array($roleId, $parentIds, true) ? 'parents'
+                : (in_array($roleId, $studentIds, true) ? 'students'
+                : (in_array($roleId, $teacherIds, true) ? 'teachers' : 'staff'));
+
+            return ['user_id' => $u->id, 'email' => $u->email, 'audience' => $label];
+        })->all();
+    }
+
+    /**
+     * @return list<array{user_id:int, email:?string, audience:string}>
+     */
+    protected function classRecipients(int $classArmId): array
+    {
+        $students = Student::where('current_class_arm_id', $classArmId)->active()->whereNotNull('user_id')->with('user')->get();
+        $studentIds = Student::where('current_class_arm_id', $classArmId)->active()->pluck('id');
+        $guardians = StudentGuardian::whereIn('student_id', $studentIds)->whereNotNull('guardian_user_id')->with('user')->get()
+            ->unique('guardian_user_id');
+
+        $recipients = [];
+        foreach ($students as $s) {
+            if ($s->user) {
+                $recipients[] = ['user_id' => $s->user->id, 'email' => $s->user->email, 'audience' => 'students'];
+            }
+        }
+        foreach ($guardians as $g) {
+            if ($g->user) {
+                $recipients[] = ['user_id' => $g->user->id, 'email' => $g->user->email, 'audience' => 'parents'];
+            }
+        }
+
+        return $recipients;
+    }
+}

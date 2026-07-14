@@ -1060,6 +1060,18 @@ Entries are added here as work starts on each item — see the current build pha
 - QA: 4 new tests in `SchoolDashboardQuickActionsTest` (an owner sees all four actions; a class teacher never sees the row at all; a registrar sees the student actions but not staff creation, proving per-button permission gating, not just role-kind gating; the linked routes are genuinely reachable, not just rendered text). Full suite: 522 passed, 0 failed.
 - Not built in this pass: "Send Announcement" and "Create Event" quick actions, both queued as their own cross-check items (21, 22) since those compose screens do not exist yet, to be added to this same row once built.
 
+### Announcements compose screen (2026-07-13)
+- Status: Done
+- Started: 2026-07-13
+- Notes: cross-check item 21, "Blocked, announcements can be viewed now, not composed, no compose screen yet." Investigated first: `App\Models\Tenant\Announcement`, `App\Services\Communication\NotificationService::dispatchAnnouncement()` (writes an in-app `Notification` row per recipient and emails whichever audiences the school has email turned on for), and `CommunicationService::emailAnnouncement()` all already existed, fully built and working, just with no screen in front of them, matching the exact same shape as the Global Search and Send Broadcast items earlier this session.
+  1. New `App\Http\Controllers\School\AnnouncementController` (`school.announcements.index`/`.create`/`.store`), gated on the existing `communication.view` (browse) and `communication.broadcast` (compose) permission codes, `communication.broadcast` already existed in `config('skulos.extra_permissions')` with no screen behind it yet either.
+  2. Audience picker: Everyone, Parents, Teachers, All staff, Students, or One class. `resolveRecipients()` resolves each to the real `{user_id, email, audience}` list `dispatchAnnouncement()` expects: role-based for the first five (parents/students/teachers matched by role slug, staff as "every active member whose role is not `config('skulos.family_scoped_roles')`"), and for "one class" specifically the real students and their real linked guardians (`StudentGuardian.guardian_user_id`) for that one class arm, not the whole school.
+  3. New "Send announcement" link in the school dashboard's Quick Actions row (built earlier this session), and a real "Announcements" nav link (`nav_permission_map['announcements'] = 'communication.view'`, `builtRoutes` entry) replacing what was previously a "Soon" placeholder for any school whose plan includes the `announcements` catalog feature.
+- Issues/Bugs found: none.
+- Resolution: n/a.
+- QA: 4 new tests in `AnnouncementComposeTest` (an announcement to "Everyone" actually creates real `Notification` rows; sending to one class reaches exactly that class's 2 real people, students and guardian, not the whole school; a teacher without `communication.broadcast` gets a real 403 on the compose screen; a sent announcement appears in the index list). Full suite: 526 passed, 0 failed.
+- Not built in this pass: a rich text editor for the message body (plain textarea); scheduling a send for later (always sends immediately on submit, matching every other compose-style screen in the product today).
+
 ---
 
 ---

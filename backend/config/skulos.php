@@ -1035,6 +1035,7 @@ return [
         'student_records' => 'students.view',
         'staff_records' => 'staff.view',
         'attendance_management' => 'attendance.view',
+        'announcements' => 'communication.view',
         'school_houses' => 'students.view',
         'school_sections' => 'academics.view',
         'classes_arms' => 'academics.view',
