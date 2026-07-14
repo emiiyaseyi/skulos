@@ -555,6 +555,15 @@ return [
     | display/colour. Nothing here is hardcoded into calendar logic; it is
     | seed data a school owns once provisioned.
     */
+    /*
+    | Category vocabulary a school picks from when adding its own calendar
+    | event (drives the same colour coding the seeded defaults already use
+    | via their own 'category' value). A closed technical vocabulary, not
+    | a business catalog a school customizes, same shape as
+    | attendance_statuses.
+    */
+    'calendar_event_categories' => ['term', 'break', 'celebration', 'staff', 'sports', 'holiday', 'exam', 'meeting', 'event'],
+
     'default_calendar_events' => [
         ['title' => 'Beginning of Term', 'category' => 'term'],
         ['title' => 'Mid Term Break', 'category' => 'break'],

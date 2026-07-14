@@ -124,7 +124,7 @@
   // inside a collapsed Administration submenu.
   $renderedRoutes = ['school.dashboard' => true];
   $groups = [
-    'Main' => [$link('school.dashboard', 'Dashboard', 'dashboard'), $link('school.setup', 'Guided Setup', 'settings')],
+    'Main' => [$link('school.dashboard', 'Dashboard', 'dashboard'), $link('school.setup', 'Guided Setup', 'settings'), $link('school.calendar.index', 'Calendar', 'calendar')],
   ];
 
   foreach (config('skulos.plan_feature_catalog') as $categoryKey => $category) {

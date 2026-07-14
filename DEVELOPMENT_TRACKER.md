@@ -1072,6 +1072,19 @@ Entries are added here as work starts on each item — see the current build pha
 - QA: 4 new tests in `AnnouncementComposeTest` (an announcement to "Everyone" actually creates real `Notification` rows; sending to one class reaches exactly that class's 2 real people, students and guardian, not the whole school; a teacher without `communication.broadcast` gets a real 403 on the compose screen; a sent announcement appears in the index list). Full suite: 526 passed, 0 failed.
 - Not built in this pass: a rich text editor for the message body (plain textarea); scheduling a send for later (always sends immediately on submit, matching every other compose-style screen in the product today).
 
+### Calendar event browse + create screen (2026-07-13)
+- Status: Done
+- Started: 2026-07-13
+- Notes: cross-check item 22, "Blocked, no calendar event creation screen exists yet, only the auto-seeded default notable days." `CalendarEvent` and `CalendarService::seedDefaults()` already existed, but there was no screen at all to browse or add to a school's calendar, and no nav link either, `calendar` is a core module (always on for every school) so it never went through the plan-feature-catalog nav loop the way purchasable features do.
+  1. New `App\Http\Controllers\School\CalendarEventController` (`school.calendar.index`/`.create`/`.store`/`.destroy`), gated on the already-generic `calendar.view`/`calendar.create`/`calendar.delete` permission codes (auto-generated for every module in the catalog, no new permission catalog entry needed).
+  2. New `config('skulos.calendar_event_categories')` (term, break, celebration, staff, sports, holiday, exam, meeting, event), a closed technical vocabulary for the create form's dropdown, same shape as `attendance_statuses`, not a business catalog a school customizes.
+  3. A default (seeded) event can be viewed but never removed from this screen, only a school's own custom events can be deleted, protecting the seed catalog from accidental loss.
+  4. New "Calendar" link pinned in the nav's Main group (alongside Dashboard/Guided Setup) since it is a core module with no plan gate to loop over, and a new "Create event" link in the school dashboard's Quick Actions row.
+- Issues/Bugs found: none.
+- Resolution: n/a.
+- QA: 4 new tests in `CalendarEventScreenTest` (a real event is created and is not marked default; it appears on the index; a seeded default event shows a "(default)" label with no remove control while a custom one can be deleted; a subject teacher, who holds `calendar.view` but not `calendar.create`, gets a real 403 on the create form). Full suite: 530 passed, 0 failed.
+- Not built in this pass: a month/week calendar grid view (list view only, sorted by date); recurring events.
+
 ---
 
 ---

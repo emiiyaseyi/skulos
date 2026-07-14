@@ -132,6 +132,9 @@
       @if($qaRbac->check(auth()->user(), $school, 'communication.broadcast'))
         <a class="btn btn-ghost btn-sm" href="{{ route('school.announcements.create', ['school' => $school->slug]) }}">Send announcement</a>
       @endif
+      @if($qaRbac->check(auth()->user(), $school, 'calendar.create'))
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.calendar.create', ['school' => $school->slug]) }}">Create event</a>
+      @endif
     </div>
   </div>
 @endif
