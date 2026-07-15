@@ -46,6 +46,10 @@
       <a href="{{ route('school.login', ['school' => $school->slug]) }}">Not {{ ucfirst($as) }}? Change</a> &middot;
       <a href="{{ route('school.password.forgot', ['school' => $school->slug]) }}">Forgot password?</a>
     </p>
+  @else
+    <p class="support-line" style="margin-top:.8rem">
+      <a href="{{ route('login.forgot') }}">Forgot password?</a>
+    </p>
   @endif
 @endif
 @php

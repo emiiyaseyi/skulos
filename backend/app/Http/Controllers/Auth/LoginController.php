@@ -64,6 +64,32 @@ class LoginController extends Controller
             $this->logFailedLogin($request, $school, $identifier, \App\Models\FailedLogin::REASON_NOT_MEMBER);
             throw ValidationException::withMessages(['email' => 'This account is not a member of this school.']);
         }
+        // The login page asks "staff / parent / student" before showing
+        // the credential form (see login-form.blade.php), but that choice
+        // was previously cosmetic, it only steered the admission-number
+        // lookup, so a staff member picking "Parent" or "Student" (or vice
+        // versa) and typing their own real credentials still signed
+        // straight in as themselves (user report 2026-07-15: "STAFF CAN
+        // LOGIN WITH PARENT AND STUDENT LOGIN"). Enforced here instead:
+        // the account's actual role in this school must belong to the
+        // category the user selected, checked after credentials are
+        // confirmed correct so a wrong-portal guess still reads as "those
+        // details do not match" rather than leaking which portal an email
+        // belongs to.
+        if ($ok && $school && ! $user->is_super_admin && ! empty($data['as'])) {
+            $roleSlug = optional($user->roleIn($school))->slug;
+            $isFamilyRole = in_array($roleSlug, config('skulos.family_scoped_roles', []), true);
+            $wrongPortal = match ($data['as']) {
+                'staff' => $isFamilyRole,
+                'parent', 'student' => $roleSlug !== $data['as'],
+                default => false,
+            };
+            if ($wrongPortal) {
+                RateLimiter::hit($key, 60);
+                $this->logFailedLogin($request, $school, $identifier, \App\Models\FailedLogin::REASON_WRONG_PORTAL);
+                throw ValidationException::withMessages(['email' => 'Those details do not match our records.']);
+            }
+        }
         if (! $ok) {
             RateLimiter::hit($key, 60);
             $reason = $user ? \App\Models\FailedLogin::REASON_BAD_PASSWORD : \App\Models\FailedLogin::REASON_NOT_FOUND;
@@ -143,6 +169,82 @@ class LoginController extends Controller
         }
 
         return \App\Models\User::where('phone', preg_replace('/\D+/', '', $identifier))->first();
+    }
+
+    /**
+     * Forgot password, for the platform admin login only ($school is
+     * always null here, the school-scoped equivalent is
+     * School\ProfileController::forgotPasswordForm()). Was entirely
+     * missing (user report 2026-07-15), unlike the school login which
+     * already had it. Platform admins always have a real email (it is
+     * their platform-wide identifier), so unlike the school version there
+     * is no "admin approves it" path, there is no admin above a super
+     * admin to approve one, just the immediate emailed reset link.
+     */
+    public function forgotPasswordForm(): \Illuminate\View\View
+    {
+        return view('auth.forgot-password');
+    }
+
+    public function sendResetLink(Request $request): RedirectResponse
+    {
+        $data = $request->validate(['email' => ['required', 'email']]);
+
+        $email = Str::lower($data['email']);
+        $user = \App\Models\User::where('email', $email)->where('is_super_admin', true)->first();
+        $generic = 'If that email matches a platform administrator account, a reset link has been sent.';
+
+        if ($user) {
+            $token = Str::random(64);
+            \Illuminate\Support\Facades\DB::table('password_reset_tokens')->updateOrInsert(
+                ['email' => $email],
+                ['token' => \Illuminate\Support\Facades\Hash::make($token), 'created_at' => now()]
+            );
+
+            $resetUrl = route('login.reset', ['token' => $token, 'email' => $email]);
+            \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\PasswordResetLinkMail($user, null, $resetUrl));
+        }
+
+        return redirect()->route('login')->with('status', $generic);
+    }
+
+    public function resetViaTokenForm(Request $request): \Illuminate\View\View
+    {
+        return view('auth.reset-password', [
+            'token' => $request->query('token'),
+            'email' => $request->query('email'),
+        ]);
+    }
+
+    public function resetViaToken(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'token' => ['required', 'string'],
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $email = Str::lower($data['email']);
+        $record = \Illuminate\Support\Facades\DB::table('password_reset_tokens')->where('email', $email)->first();
+
+        $valid = $record
+            && \Illuminate\Support\Facades\Hash::check($data['token'], $record->token)
+            && now()->diffInMinutes($record->created_at) <= 60;
+
+        if (! $valid) {
+            return back()->withErrors(['token' => 'This reset link is invalid or has expired, request a new one.']);
+        }
+
+        $user = \App\Models\User::where('email', $email)->where('is_super_admin', true)->first();
+        abort_unless($user, 404);
+
+        $user->password = \Illuminate\Support\Facades\Hash::make($data['password']);
+        $user->must_change_password = false;
+        $user->save();
+
+        \Illuminate\Support\Facades\DB::table('password_reset_tokens')->where('email', $email)->delete();
+
+        return redirect()->route('login')->with('status', 'Your password has been reset, you can sign in now.');
     }
 
     public function logout(Request $request): RedirectResponse

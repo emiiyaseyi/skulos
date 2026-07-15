@@ -33,6 +33,10 @@ Route::domain($appDomain)->group(function () {
     Route::middleware('guest')->group(function () {
         Route::get('/login', [LoginController::class, 'show'])->name('login');
         Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:10,1');
+        Route::get('/login/forgot', [LoginController::class, 'forgotPasswordForm'])->name('login.forgot');
+        Route::post('/login/forgot', [LoginController::class, 'sendResetLink'])->middleware('throttle:5,1')->name('login.forgot.submit');
+        Route::get('/login/reset', [LoginController::class, 'resetViaTokenForm'])->name('login.reset');
+        Route::post('/login/reset', [LoginController::class, 'resetViaToken'])->middleware('throttle:5,1')->name('login.reset.submit');
     });
 
     // Public "Start a Trial" lead form (user request 2026-07-09): no

@@ -95,6 +95,18 @@
     'dashboard' => ['school.dashboard', 'Dashboard', 'dashboard'],
     'student_records' => ['school.students', 'Students', 'students'],
     'staff_records' => ['school.staff.index', 'Staff', 'staff'],
+    // "Teacher Portal", "Parent Portal", and "Student Portal" are not
+    // separate screens, an admin never "visits" a portal, a portal is what
+    // that person sees once they sign in, which already exists (teachers
+    // are staff with a teaching role; parent/student login accounts are
+    // created and managed per student, see StudentController::
+    // createGuardianLogin()/createStudentLogin()). Pointing them at the
+    // screens where that actually happens (user report 2026-07-15: these
+    // three falsely showed "Soon" even though all three are built and in
+    // active use) rather than inventing a redundant standalone page.
+    'teacher_portal' => ['school.staff.index', 'Staff', 'staff'],
+    'parent_portal' => ['school.students', 'Students', 'students'],
+    'student_portal' => ['school.students', 'Students', 'students'],
     'attendance_management' => ['school.attendance.index', 'Attendance', 'attendance'],
     'announcements' => ['school.announcements.index', 'Announcements', 'comms'],
     'parent_broadcast' => ['school.messages.index', 'Messages', 'comms'],
@@ -202,10 +214,18 @@
   // screens yet (all render as "Soon"), so a scoped teacher role never
   // sees them either (2026-07-12).
   $addOnModules = $isRestrictedNav ? [] : [
-    'School Operations' => ['library' => 'Library', 'hostel' => 'Hostel', 'transport' => 'Transport', 'inventory' => 'Inventory', 'medical' => 'Medical / Clinic', 'visitors' => 'Visitor Management', 'discipline' => 'Discipline'],
+    'School Operations' => [
+      'library' => ['Library', 'library'],
+      'hostel' => ['Hostel', 'hostel'],
+      'transport' => ['Transport', 'transport'],
+      'inventory' => ['Inventory', 'inventory'],
+      'medical' => ['Medical / Clinic', 'medical'],
+      'visitors' => ['Visitor Management', 'visitors'],
+      'discipline' => ['Discipline', 'discipline'],
+    ],
   ];
   foreach ($addOnModules as $groupLabel => $modules) {
-    foreach ($modules as $moduleCode => $label) {
+    foreach ($modules as $moduleCode => [$label, $icon]) {
       if (! $school) {
         continue;
       }
@@ -213,7 +233,7 @@
       if (in_array($state, [\App\Models\Module::STATE_DISABLED, \App\Models\Module::STATE_HIDDEN], true)) {
         continue;
       }
-      $groups[$groupLabel] = array_merge($groups[$groupLabel] ?? [], [$soonLink($label, 'school')]);
+      $groups[$groupLabel] = array_merge($groups[$groupLabel] ?? [], [$soonLink($label, $icon)]);
     }
   }
 
@@ -226,14 +246,14 @@
   // configures.
   if (! $isRestrictedNav) {
     $groups['Settings'] = [
-      $link('school.backups.index', 'Backups', 'settings'),
-      $link('school.maintenance.index', 'School Health &amp; Storage', 'settings'),
+      $link('school.backups.index', 'Backups', 'backup'),
+      $link('school.maintenance.index', 'School Health &amp; Storage', 'health'),
       $link('school.dashboard.edit', 'Dashboard look', 'settings'),
-      $link('school.settings.landing-pages.edit', 'Landing Pages', 'settings'),
+      $link('school.settings.landing-pages.edit', 'Landing Pages', 'pages'),
       $link('school.students.settings.edit', 'Student Fields', 'students'),
-      $link('school.settings.mail.edit', 'Mail Settings', 'settings'),
-      $link('school.settings.idle-timeout.edit', 'Idle Timeout', 'settings'),
-      $link('school.settings.retention.edit', 'Retention', 'settings'),
+      $link('school.settings.mail.edit', 'Mail Settings', 'mail'),
+      $link('school.settings.idle-timeout.edit', 'Idle Timeout', 'clock'),
+      $link('school.settings.retention.edit', 'Retention', 'retention'),
     ];
   }
 

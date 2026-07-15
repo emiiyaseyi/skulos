@@ -17,13 +17,13 @@
 <div class="side-group">Platform</div>
 {!! $item('admin.dashboard', 'Dashboard', 'dashboard') !!}
 {!! $item('admin.schools.index', 'Schools', 'school') !!}
-{!! $item('admin.trial-requests.index', 'Trial Requests', 'comms', $pendingTrialCount ?? 0) !!}
-{!! $item('admin.billing.index', 'Billing', 'results') !!}
-{!! $item('admin.schools.archive-list', 'Archive', 'library') !!}
+{!! $item('admin.trial-requests.index', 'Trial Requests', 'trial', $pendingTrialCount ?? 0) !!}
+{!! $item('admin.billing.index', 'Billing', 'billing') !!}
+{!! $item('admin.schools.archive-list', 'Archive', 'archive') !!}
 
 <div class="side-group">Settings</div>
-{!! $item('admin.settings.mail.edit', 'Mail Settings', 'settings') !!}
-{!! $item('admin.settings.landing-pages.edit', 'Landing Pages', 'settings') !!}
-{!! $item('admin.settings.idle-timeout.edit', 'Idle Timeout', 'settings') !!}
-{!! $item('admin.settings.retention.edit', 'Retention', 'settings') !!}
-{!! $item('admin.settings.support-contact.edit', 'Support Contact', 'settings') !!}
+{!! $item('admin.settings.mail.edit', 'Mail Settings', 'mail') !!}
+{!! $item('admin.settings.landing-pages.edit', 'Landing Pages', 'pages') !!}
+{!! $item('admin.settings.idle-timeout.edit', 'Idle Timeout', 'clock') !!}
+{!! $item('admin.settings.retention.edit', 'Retention', 'retention') !!}
+{!! $item('admin.settings.support-contact.edit', 'Support Contact', 'support') !!}

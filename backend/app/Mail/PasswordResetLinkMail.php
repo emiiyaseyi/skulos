@@ -23,18 +23,21 @@ class PasswordResetLinkMail extends Mailable
     use Queueable;
     use SerializesModels;
 
-    public function __construct(public User $user, public School $school, public string $resetUrl)
+    public function __construct(public User $user, public ?School $school, public string $resetUrl)
     {
     }
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: "Reset your {$this->school->name} password");
+        $place = $this->school?->name ?? 'SKULOS platform administration';
+
+        return new Envelope(subject: "Reset your {$place} password");
     }
 
     public function content(): Content
     {
-        $intro = "Hi {$this->user->name}, you asked to reset your password at {$this->school->name} on SKULOS.";
+        $place = $this->school?->name ?? 'SKULOS platform administration';
+        $intro = "Hi {$this->user->name}, you asked to reset your password at {$place}.";
         $advice = 'If this was not you, you can safely ignore this email, your password will not change. This link expires in 60 minutes.';
 
         $html = '<p style="margin:0 0 16px;">'.e($intro).'</p>'

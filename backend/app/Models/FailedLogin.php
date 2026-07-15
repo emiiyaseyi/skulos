@@ -21,6 +21,8 @@ class FailedLogin extends Model
 
     public const REASON_NOT_MEMBER = 'not_member';
 
+    public const REASON_WRONG_PORTAL = 'wrong_portal';
+
     protected $fillable = [
         'school_id', 'identifier', 'reason', 'ip_address', 'user_agent',
     ];
@@ -36,6 +38,7 @@ class FailedLogin extends Model
             self::REASON_NOT_FOUND => 'No account found',
             self::REASON_BAD_PASSWORD => 'Wrong password',
             self::REASON_NOT_MEMBER => 'Not a member of this school',
+            self::REASON_WRONG_PORTAL => 'Wrong portal (staff/parent/student) for this account',
             default => ucfirst(str_replace('_', ' ', $reason)),
         };
     }

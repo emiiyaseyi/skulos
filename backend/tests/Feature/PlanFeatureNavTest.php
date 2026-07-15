@@ -199,6 +199,32 @@ class PlanFeatureNavTest extends TestCase
         $response->assertOk()->assertSee('Report settings')->assertDontSee('Report Cards<');
     }
 
+    /**
+     * "Teacher Portal", "Parent Portal", and "Student Portal" are not
+     * separate screens, they are what a teacher/parent/student sees once
+     * they sign in, which already exists. They must not render as "Soon"
+     * (user report 2026-07-15: "THOUGHT THEY HAVE BEEN BUILT AND READY TO
+     * GO"), and Teacher Portal specifically folds into the Staff link
+     * rather than getting its own line ("MERGE TEACHER PORTAL TO STAFF
+     * PORTAL").
+     */
+    public function test_teacher_parent_student_portal_features_do_not_render_as_soon(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(
+            ['staff_records', 'student_records', 'teacher_portal', 'parent_portal', 'student_portal'],
+            'planeight'
+        );
+
+        $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard");
+
+        $response->assertOk()
+            ->assertSee('Staff')
+            ->assertSee('Students')
+            ->assertDontSee('Teacher Portal')
+            ->assertDontSee('Parent Portal')
+            ->assertDontSee('Student Portal');
+    }
+
     public function test_a_school_with_no_plan_falls_back_to_the_default_plan(): void
     {
         Plan::create([
