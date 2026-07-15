@@ -299,6 +299,8 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/', [$calendar, 'index'])->name('index');
             Route::get('/create', [$calendar, 'create'])->name('create');
             Route::post('/create', [$calendar, 'store'])->name('store');
+            Route::get('/{eventId}/edit', [$calendar, 'edit'])->name('edit');
+            Route::post('/{eventId}/edit', [$calendar, 'update'])->name('update');
             Route::delete('/{eventId}', [$calendar, 'destroy'])->name('destroy');
         });
         Route::prefix('assignments')->name('school.assignments.')->group(function () {

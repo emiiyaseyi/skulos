@@ -107,6 +107,65 @@ class CalendarEventController extends Controller
             ->with('status', 'Event added to the calendar.');
     }
 
+    /**
+     * Edit an event, including a seeded default one, whose starts_on is
+     * often null until a school fills it in (user directive 2026-07-15:
+     * "EACH CALENDAR DATE CAN BE CLICKED AND EDITED"), matching how the
+     * index view already lets a default event's Remove button stay
+     * hidden while everything else (including editing) stays open to it.
+     */
+    public function edit(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'calendar.create');
+        $school = $this->school($request);
+        $event = CalendarEvent::findOrFail($request->route('eventId'));
+
+        return view('school.calendar.edit', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'event' => $event,
+            'categories' => config('skulos.calendar_event_categories'),
+            'subjects' => Subject::orderBy('name')->get(),
+            'classArms' => ClassArm::with('schoolClass.section', 'arm')->get()
+                ->sortBy(fn (ClassArm $arm) => $arm->orderKey())
+                ->values(),
+        ]);
+    }
+
+    public function update(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'calendar.create');
+        $school = $this->school($request);
+        $event = CalendarEvent::findOrFail($request->route('eventId'));
+
+        $data = $request->validate([
+            'title' => ['required', 'string', 'max:150'],
+            'category' => ['required', Rule::in(config('skulos.calendar_event_categories'))],
+            'description' => ['nullable', 'string', 'max:2000'],
+            'starts_on' => ['required', 'date'],
+            'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
+            'all_day' => ['sometimes', 'boolean'],
+            'subject_id' => ['nullable', 'integer', 'exists:tenant.subjects,id'],
+            'class_arm_id' => ['nullable', 'integer', 'exists:tenant.class_arms,id'],
+        ]);
+
+        $isExam = $data['category'] === 'exam';
+
+        $event->update([
+            'title' => $data['title'],
+            'category' => $data['category'],
+            'description' => $data['description'] ?? null,
+            'starts_on' => $data['starts_on'],
+            'ends_on' => $data['ends_on'] ?? null,
+            'all_day' => $request->boolean('all_day'),
+            'subject_id' => $isExam ? ($data['subject_id'] ?? null) : null,
+            'class_arm_id' => $isExam ? ($data['class_arm_id'] ?? null) : null,
+        ]);
+
+        return redirect()->route('school.calendar.index', ['school' => $school->slug])
+            ->with('status', 'Event updated.');
+    }
+
     public function destroy(Request $request, string $eventId): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'calendar.delete');

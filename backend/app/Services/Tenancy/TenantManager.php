@@ -53,10 +53,15 @@ class TenantManager
 
         $this->migrate($school);
 
-        // Seed the school's default calendar (notable days). Admin can edit,
-        // remove, or add more afterwards.
+        // Seed the school's default calendar (notable days and public
+        // holidays) for this year and next, so a school provisioned late
+        // in the year still has next year's calendar ready on day one
+        // (user directive 2026-07-15: "ALWAYS DO IT FOR EVERY YEAR GOING
+        // FORWARD TOO"). Admin can edit, remove, or add more afterwards.
         $this->connectTo($school, function () {
-            app(\App\Services\Calendar\CalendarService::class)->seedDefaults();
+            $calendar = app(\App\Services\Calendar\CalendarService::class);
+            $calendar->seedDefaults(now()->year);
+            $calendar->seedDefaults(now()->year + 1);
         });
 
         $school->forceFill([

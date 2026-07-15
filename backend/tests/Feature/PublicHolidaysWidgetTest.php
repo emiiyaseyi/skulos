@@ -71,14 +71,43 @@ class PublicHolidaysWidgetTest extends TestCase
         $this->assertStringNotContainsString('PTA Meeting', $holidaysSection);
     }
 
-    public function test_empty_state_when_no_holidays_are_dated_yet(): void
+    /**
+     * A freshly provisioned school now seeds real, dated public holidays
+     * by default (2026-07-15: "CHECK THE PUBLIC HOLIDAY CALENDAR... AND
+     * POPULATE"), so the empty state can no longer happen on a normal
+     * provision, that IS the point of that fix. Still verified directly
+     * by clearing every holiday-category date first.
+     */
+    public function test_empty_state_when_no_holidays_are_dated(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'holtwo');
+
+        app(TenantManager::class)->use($school);
+        CalendarEvent::where('category', 'holiday')->update(['starts_on' => null]);
+        app(TenantManager::class)->forget();
 
         $this->actingAs($owner)->get(route('school.dashboard', ['school' => $school->slug]))
             ->assertOk()
             ->assertSee('Public holidays')
             ->assertSee('No dated holidays yet');
+    }
+
+    /** Positive coverage of the actual fix: a freshly provisioned school shows real holidays, not an empty state. */
+    public function test_a_freshly_provisioned_school_shows_real_holidays_by_default(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'holfour');
+
+        $response = $this->actingAs($owner)->get(route('school.dashboard', ['school' => $school->slug]));
+        $response->assertOk()->assertSee('Public holidays')->assertDontSee('No dated holidays yet');
+
+        // At least one of the real named holidays should be upcoming or
+        // recently past within the widget's own window; Christmas Day is
+        // always seeded for the current year regardless of when the test
+        // runs, safest single anchor to check for by name.
+        app(TenantManager::class)->use($school);
+        $christmas = CalendarEvent::where('title', 'Christmas Day')->whereYear('starts_on', now()->year)->first();
+        app(TenantManager::class)->forget();
+        $this->assertNotNull($christmas);
     }
 
     public function test_widget_can_be_turned_off_from_dashboard_look_settings(): void

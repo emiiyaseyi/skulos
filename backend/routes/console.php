@@ -26,3 +26,14 @@ Schedule::command('skulos:retention-cleanup')->weeklyOn(1, '02:00')->withoutOver
 // Dbase recommendation: "weekly scheduled MySQL maintenance (optimize/
 // analyze/repair tables) per school database."
 Schedule::command('skulos:optimize-tables')->weeklyOn(1, '03:00')->withoutOverlapping();
+
+// Keeps every school's calendar topped up with the current and next
+// year's default notable days/public holidays automatically, forever,
+// not just once at provisioning time (user directive 2026-07-15: "ALWAYS
+// DO IT FOR EVERY YEAR GOING FORWARD TOO. ITS DEFAULT"). Monthly is far
+// more often than actually needed (a year only changes once), but the
+// command is fully idempotent (dedupes per title+year), so running it
+// monthly instead of trying to land exactly on January 1st just means the
+// year rolls over correctly no matter which day the cron happens to catch
+// it on.
+Schedule::command('skulos:seed-calendar-defaults')->monthlyOn(1, '04:00')->withoutOverlapping();

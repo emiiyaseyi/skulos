@@ -35,6 +35,13 @@ return [
     'staff_extra_access_modules' => [
         'students', 'staff', 'parents', 'academics', 'examinations',
         'report_cards', 'calendar', 'communication', 'school_info', 'attendance',
+        // Added 2026-07-15 ("MORE FEATURES TO BE GIVEN TO A USER"): the
+        // first module built since this list was curated that has a real
+        // screen behind it (increments batch, see tracker), extend this
+        // list as more modules get real screens, not by widening it to
+        // the full module catalog (see the comment on this key's own
+        // definition below for why).
+        'assignments',
     ],
 
     'modules' => [
@@ -603,15 +610,51 @@ return [
         'two_way' => 'Two way (they can reply, chat)',
     ],
 
+    /*
+    | Seeded per school, per year, by CalendarService::seedDefaults() (user
+    | directive 2026-07-15: "CALENDAT SHOULD HAVE DATE POPULATED ALREADY
+    | AND SOME DAYS ARE FIXED ALREADY - CHECK THE PUBLIC HOLIDAY CALENDAR
+    | FOR THE YEAR IN QUESTION AND POPULATE", followed by "ADD ALL PUBLIC
+    | HOLIDAYES IN NIGERIA TOO AND ALWAYS DO IT FOR EVERY YEAR GOING
+    | FORWARD TOO. ITS DEFAULT"). Three shapes for a real date:
+    |   - 'month'/'day': a fixed-date Nigerian public holiday or
+    |     observance, the same Gregorian date every year.
+    |   - 'easter_offset': days from Easter Sunday (moves every year), see
+    |     CalendarService::easterDate().
+    |   - 'hijri_month'/'hijri_day': an Islamic holiday, an ESTIMATED
+    |     Gregorian date via the tabular Hijri calendar (see
+    |     CalendarService::islamicHolidayDate()'s own docblock for why this
+    |     is an estimate, not an official confirmed date, its title says
+    |     "(estimated)" for the same reason). $hijriMonth is 0-indexed
+    |     (0=Muharram ... 9=Shawwal ... 11=Dhu al-Hijjah), matching ICU.
+    |   - none of the above: no real-world fixed date exists (a school's
+    |     own term dates, or an internal school-culture day each school
+    |     schedules itself), starts_on is left null, an admin sets it by
+    |     editing the seeded row ("EACH CALENDAR DATE CAN BE CLICKED AND
+    |     EDITED"), seeded once ever, not re-added every year.
+    | Every dated entry is re-seeded automatically each year by the
+    | scheduled `skulos:seed-calendar-defaults` command (routes/console.php),
+    | see App\Console\Commands\SeedCalendarDefaults.
+    */
     'default_calendar_events' => [
+        ['title' => "New Year's Day", 'category' => 'holiday', 'month' => 1, 'day' => 1],
+        ['title' => 'Good Friday', 'category' => 'holiday', 'easter_offset' => -2],
+        ['title' => 'Easter Monday', 'category' => 'holiday', 'easter_offset' => 1],
+        ['title' => "Workers' Day", 'category' => 'holiday', 'month' => 5, 'day' => 1],
+        ['title' => "Children's Day", 'category' => 'celebration', 'month' => 5, 'day' => 27],
+        ['title' => 'Democracy Day', 'category' => 'holiday', 'month' => 6, 'day' => 12],
+        ['title' => 'Independence Day', 'category' => 'holiday', 'month' => 10, 'day' => 1],
+        ['title' => 'Christmas Day', 'category' => 'holiday', 'month' => 12, 'day' => 25],
+        ['title' => 'Boxing Day', 'category' => 'holiday', 'month' => 12, 'day' => 26],
+        ['title' => 'Eid el-Fitr (estimated)', 'category' => 'holiday', 'hijri_month' => 9, 'hijri_day' => 1],
+        ['title' => 'Eid el-Kabir (estimated)', 'category' => 'holiday', 'hijri_month' => 11, 'hijri_day' => 10],
+        ['title' => 'Eid el-Mawlid (estimated)', 'category' => 'holiday', 'hijri_month' => 2, 'hijri_day' => 12],
         ['title' => 'Beginning of Term', 'category' => 'term'],
         ['title' => 'Mid Term Break', 'category' => 'break'],
         ['title' => 'End of Term', 'category' => 'term'],
-        ['title' => "Children's Day", 'category' => 'celebration'],
         ['title' => 'Art and Culture Day', 'category' => 'celebration'],
         ['title' => 'Professional Day', 'category' => 'staff'],
         ['title' => 'Inter House Sports Day', 'category' => 'sports'],
-        ['title' => 'Public Holiday', 'category' => 'holiday'],
     ],
 
     /*

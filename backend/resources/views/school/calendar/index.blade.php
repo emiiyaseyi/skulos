@@ -23,8 +23,15 @@
         @foreach($events as $event)
           <tr>
             <td class="muted" style="white-space:nowrap">
-              {{ $event->starts_on?->format('d M Y') }}
-              @if($event->ends_on && ! $event->ends_on->equalTo($event->starts_on)) &ndash; {{ $event->ends_on->format('d M Y') }} @endif
+              @if($canCreate)
+                <a href="{{ route('school.calendar.edit', ['school' => $school->slug, 'eventId' => $event->id]) }}">
+                  {{ $event->starts_on?->format('d M Y') ?? 'Set a date' }}
+                  @if($event->ends_on && ! $event->ends_on->equalTo($event->starts_on)) &ndash; {{ $event->ends_on->format('d M Y') }} @endif
+                </a>
+              @else
+                {{ $event->starts_on?->format('d M Y') ?? 'Not set' }}
+                @if($event->ends_on && ! $event->ends_on->equalTo($event->starts_on)) &ndash; {{ $event->ends_on->format('d M Y') }} @endif
+              @endif
             </td>
             <td>
               <strong>{{ $event->title }}</strong>
