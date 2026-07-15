@@ -9,6 +9,7 @@ use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\Section;
 use App\Services\Communication\AudienceResolver;
 use App\Services\Communication\NotificationService;
+use App\Services\Media\ImageProcessingService;
 use App\Services\Rbac\Rbac;
 use App\Support\HtmlSanitizer;
 use Illuminate\Http\Request;
@@ -87,7 +88,7 @@ class MessageController extends Controller
         ]);
     }
 
-    public function store(Request $request, NotificationService $notifications, AudienceResolver $resolver): \Illuminate\Http\RedirectResponse
+    public function store(Request $request, NotificationService $notifications, AudienceResolver $resolver, ImageProcessingService $images): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'communication.broadcast');
         $school = $this->school($request);
@@ -99,6 +100,11 @@ class MessageController extends Controller
             'scope' => ['required', Rule::in(array_keys(config('skulos.message_scopes')))],
             'section_id' => ['nullable', 'required_if:scope,section', 'exists:tenant.sections,id'],
             'class_arm_id' => ['nullable', 'required_if:scope,class', 'exists:tenant.class_arms,id'],
+            // "Light image": capped at 5MB on upload, but the stored file
+            // is always the WebP-converted, downsized version regardless
+            // of how large the original photo was (a phone camera photo is
+            // routinely 3-8MB; nothing close to that is ever kept).
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:5120'],
         ]);
 
         // Sanitize the rich-text body before it is stored or shown to any
@@ -109,10 +115,15 @@ class MessageController extends Controller
             return back()->withInput()->withErrors(['body' => 'The message cannot be empty.']);
         }
 
+        $imagePath = $request->hasFile('image')
+            ? $images->toWebp($request->file('image'), "messages/{$school->slug}")
+            : null;
+
         $broadcast = Announcement::create([
             'title' => $data['title'],
             'body' => $body,
             'type' => Announcement::TYPE_BROADCAST,
+            'image_path' => $imagePath,
             'audience' => $data['audience'],
             'section_id' => $data['scope'] === 'section' ? $data['section_id'] : null,
             'class_arm_id' => $data['scope'] === 'class' ? $data['class_arm_id'] : null,

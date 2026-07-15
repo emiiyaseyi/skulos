@@ -15,8 +15,10 @@
   $pendingBroadcast = \App\Models\Tenant\Notification::forUser(auth()->id())
       ->where('category', 'broadcast')
       ->whereNull('read_at')
+      ->with('announcement')
       ->latest()
       ->first();
+  $bcImageUrl = $pendingBroadcast?->announcement?->imageUrl();
 @endphp
 @if($pendingBroadcast)
 <div class="bc-scrim" role="alertdialog" aria-modal="true" aria-labelledby="bcTitle">
@@ -25,6 +27,9 @@
       <span class="bc-tag">Broadcast</span>
       <h3 id="bcTitle">{{ $pendingBroadcast->title }}</h3>
     </div>
+    @if($bcImageUrl)
+      <img src="{{ $bcImageUrl }}" alt="" class="bc-image" />
+    @endif
     <div class="bc-body">{!! $pendingBroadcast->body !!}</div>
     <form method="POST" action="{{ route('school.notifications.read', ['school' => $school->slug, 'id' => $pendingBroadcast->id]) }}">
       @csrf
@@ -37,6 +42,7 @@
   .bc-card{width:100%;max-width:32rem;max-height:85vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:1.6rem 1.7rem;box-shadow:var(--shadow)}
   .bc-tag{display:inline-block;font-size:.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--accent-ink);background:var(--accent);padding:.15rem .5rem;border-radius:6px;margin-bottom:.5rem}
   .bc-head h3{font-size:1.2rem;font-weight:800;margin:.1rem 0 1rem}
+  .bc-image{width:100%;border-radius:10px;margin-bottom:1rem;display:block}
   .bc-body{font-size:.95rem;line-height:1.6;color:var(--ink);margin-bottom:1.4rem}
   .bc-body ul,.bc-body ol{margin:.4rem 0 .4rem 1.4rem}
 </style>

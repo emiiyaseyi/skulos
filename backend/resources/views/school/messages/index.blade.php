@@ -33,8 +33,15 @@
           <tr>
             <td class="muted" style="white-space:nowrap">{{ $b->published_at?->format('d M Y') ?? $b->created_at->format('d M Y') }}</td>
             <td>
-              <strong>{{ $b->title }}</strong>
-              <div class="muted" style="font-size:.8rem">{{ \Illuminate\Support\Str::limit(strip_tags($b->body), 90) }}</div>
+              <div style="display:flex;align-items:center;gap:.6rem">
+                @if($b->image_path)
+                  <img src="{{ $b->imageUrl() }}" alt="" style="width:2.4rem;height:2.4rem;object-fit:cover;border-radius:6px;flex-shrink:0" />
+                @endif
+                <div>
+                  <strong>{{ $b->title }}</strong>
+                  <div class="muted" style="font-size:.8rem">{{ \Illuminate\Support\Str::limit(strip_tags($b->body), 90) }}</div>
+                </div>
+              </div>
             </td>
             <td class="muted" style="white-space:nowrap">{!! $target !!}</td>
             <td style="white-space:nowrap">

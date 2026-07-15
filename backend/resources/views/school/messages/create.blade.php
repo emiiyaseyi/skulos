@@ -11,7 +11,7 @@
 </div>
 
 <div class="card" style="max-width:40rem">
-  <form method="POST" action="{{ route('school.messages.store', ['school' => $school->slug]) }}">
+  <form method="POST" action="{{ route('school.messages.store', ['school' => $school->slug]) }}" enctype="multipart/form-data">
     @csrf
     <div class="field">
       <label for="title">Title</label>
@@ -60,6 +60,12 @@
     <div class="field">
       <label>Message</label>
       @include('school.widgets._richtext', ['name' => 'body', 'value' => old('body')])
+    </div>
+
+    <div class="field">
+      <label for="image">Image (optional)</label>
+      <input id="image" name="image" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
+      <p class="hint">A light photo works best. It is compressed automatically.</p>
     </div>
 
     <button class="btn btn-primary btn-sm" type="submit">Send broadcast</button>

@@ -23,9 +23,14 @@ class Announcement extends Model
     protected $connection = 'tenant';
 
     protected $fillable = [
-        'title', 'body', 'type', 'audience', 'class_arm_id', 'section_id', 'status',
+        'title', 'body', 'type', 'image_path', 'audience', 'class_arm_id', 'section_id', 'status',
         'published_at', 'created_by_user_id',
     ];
+
+    public function imageUrl(): ?string
+    {
+        return $this->image_path ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->image_path) : null;
+    }
 
     protected function casts(): array
     {

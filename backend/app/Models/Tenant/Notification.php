@@ -18,6 +18,11 @@ class Notification extends Model
         'user_id', 'audience', 'title', 'body', 'category', 'type', 'announcement_id', 'read_at', 'pinned_at', 'archived_at',
     ];
 
+    public function announcement(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Announcement::class);
+    }
+
     protected function casts(): array
     {
         return ['read_at' => 'datetime', 'pinned_at' => 'datetime', 'archived_at' => 'datetime'];
