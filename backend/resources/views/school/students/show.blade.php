@@ -44,7 +44,7 @@
     @else
       <div style="overflow-x:auto;margin-bottom:.8rem">
       <table>
-        <thead><tr><th>Name</th><th>Relationship</th><th>Contact</th><th>Login (Parent Portal)</th>@if($canMessageGuardians)<th>Message</th>@endif</tr></thead>
+        <thead><tr><th>Name</th><th>Relationship</th><th>Contact</th><th>Login (Parent Portal)</th>@if($canMessageGuardians)<th>Message</th>@endif @if($canManage)<th>Edit</th>@endif</tr></thead>
         <tbody>
           @foreach($student->guardians as $guardian)
             <tr>
@@ -88,6 +88,43 @@
                   @else
                     <span class="muted" style="font-size:.82rem">No login yet</span>
                   @endif
+                </td>
+              @endif
+              @if($canManage)
+                <td>
+                  <details>
+                    <summary class="btn btn-ghost btn-sm" style="display:inline-block;cursor:pointer">Edit</summary>
+                    <div style="margin-top:.6rem;min-width:16rem">
+                      <form method="POST" action="{{ route('school.students.guardians.update', ['school' => $school->slug, 'guardianId' => $guardian->id]) }}" style="margin-bottom:.5rem">
+                        @csrf
+                        <div class="field" style="margin-bottom:.4rem">
+                          <label>Name</label>
+                          <input name="name" value="{{ $guardian->name }}" required />
+                        </div>
+                        <div class="field" style="margin-bottom:.4rem">
+                          <label>Relationship</label>
+                          <input name="relationship" value="{{ $guardian->relationship }}" />
+                        </div>
+                        <div class="field" style="margin-bottom:.4rem">
+                          <label>Email</label>
+                          <input name="email" type="email" value="{{ $guardian->email }}" @required($parentIdentifier === 'email') />
+                        </div>
+                        <div class="field" style="margin-bottom:.4rem">
+                          <label>Phone</label>
+                          <input name="phone" value="{{ $guardian->phone }}" @required($parentIdentifier === 'phone') />
+                        </div>
+                        <label style="display:flex;gap:.4rem;align-items:center;margin-bottom:.6rem;font-weight:500">
+                          <input type="checkbox" name="is_primary" value="1" style="width:auto" @checked($guardian->is_primary) /> Primary guardian
+                        </label>
+                        <button class="btn btn-primary btn-sm" type="submit">Save</button>
+                      </form>
+                      <form method="POST" action="{{ route('school.students.guardians.destroy', ['school' => $school->slug, 'guardianId' => $guardian->id]) }}" onsubmit="return confirm('Remove {{ $guardian->name }} as a guardian? Their login, if any, is not deleted.')">
+                        @csrf
+                        @method('DELETE')
+                        <button class="btn btn-ghost btn-sm" type="submit" style="color:var(--bad)">Remove guardian</button>
+                      </form>
+                    </div>
+                  </details>
                 </td>
               @endif
             </tr>

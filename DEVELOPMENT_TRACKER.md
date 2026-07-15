@@ -1329,6 +1329,26 @@ User directed building the previously-blocked net-new modules and answered a rou
 - QA: `PlanFeatureNavTest::test_teacher_parent_student_portal_features_render_as_their_own_real_links` rewritten (was `..._do_not_render_as_soon`, its old assertion that these labels should NOT appear was itself the bug) to assert all three labels DO appear, alongside Staff/Students, with no "Soon" anywhere on the page. New `MessagingWidgetTest` (3 tests): a parent with one unread chat message sees the widget pointed at Chat with badge "1"; a school owner with one unread broadcast notification sees the widget pointed at Messages; a Librarian (no `communication.view`) sees no widget at all. Full suite re-run: 597 passed.
 - Not built in this pass: an inline pop-up chat panel (explicitly deferred by the user's own answer, "Floating button + badge" over a full AJAX panel); a live/polling badge update without a page reload (the badge is only as fresh as the last full page load, matching how the rest of this server-rendered, JS-light product already works, not a regression specific to this feature).
 
+### Guardian edit/delete (2026-07-15)
+- Status: Done
+- Started: 2026-07-15
+- Notes: closes a gap the "Guardians can be viewed and added" item (2026-07-11) deliberately left open at the time ("only add exists so far, matching what was actually asked for... not a full guardian CRUD suite"). Picked up as a scoped, bounded backlog item while waiting on an unrelated background test run, per the user's own "look at the tracker for items partially built" direction.
+  1. `StudentController::updateGuardian()` — same validation as `storeGuardian()` (name required, relationship optional, email/phone required per the school's `parent_identifier` setting), edits a guardian's own contact details in place.
+  2. `StudentController::destroyGuardian()` — deletes only the `StudentGuardian` link row, deliberately never touches the linked platform `User`/login, since the same guardian account can be linked to other children (siblings) and deleting a guardian-of-one-student row must never delete an account that still needs to sign in for another.
+  3. View: a native `<details>`/`<summary>` disclosure per guardian row (zero JavaScript, in keeping with the project's dependency-light ethos) revealing an inline edit form and a "Remove guardian" button with the standing `confirm()` pattern used elsewhere for destructive single-row actions, explicitly naming that the login survives ("Their login, if any, is not deleted.").
+- Issues/Bugs found: none.
+- Resolution: n/a.
+- QA: 2 new tests in `StudentScreenTest` — a guardian's details (name/email/primary flag) can be edited and persist; removing a guardian deletes the `StudentGuardian` row but the linked platform `User` is confirmed to still exist afterward. Full suite re-run (bundled with the phone normalization fix below, same session).
+
+### Phone number country-code normalization at sign in (2026-07-15)
+- Status: Done
+- Started: 2026-07-15
+- Notes: closes a gap the "Sign in accepts a phone number as well as email" item (2026-07-12) deliberately left open at the time ("no change to normalizing a phone number typed with a country code prefix"). A phone is stored exactly as an admin originally typed it (no normalization at write time), so a sign-in attempt typed in a different but equivalent form than what happened to be stored (e.g. `+234 803...` when the stored value is the local `0803...` form, or vice versa) previously never matched, an exact string match only. `LoginController::resolveUser()` now tries a small set of phone candidates via `phoneCandidates()`: the digits as typed, plus the other equivalent Nigerian form (`234` prefix <-> local `0` prefix) when the digit count matches one of those two shapes (13 or 11 digits). The exact-match case (the common one, e.g. every demo-seeded phone) is unaffected, this only adds a second candidate to try when the first does not match.
+- Issues/Bugs found: none.
+- Resolution: n/a.
+- QA: 2 new tests in `PlatformFlowTest` — a member whose phone is stored in the local `0803...` form can sign in typing `+234 803 123 4567`; a member whose phone is stored with the `234` prefix can sign in typing the local `0803...` form. Both pre-existing phone-login tests (exact-match sign-in, unknown-phone failure) re-run unmodified and still pass. Full suite re-run (bundled with the guardian edit/delete item above, same session).
+- Not built in this pass: normalization for any country other than Nigeria (the product is explicitly Nigeria-first); normalizing/rewriting a phone number at the point it is typed into a staff/guardian/student form (this fix is sign-in lookup only, stored values are untouched, matching the original item's own scope).
+
 ---
 
 ---

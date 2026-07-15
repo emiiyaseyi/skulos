@@ -488,6 +488,49 @@ class StudentController extends Controller
     }
 
     /**
+     * Edit an existing guardian's own details (name/relationship/contact),
+     * previously the only guardian action was add, deliberately, matching
+     * what was asked for at the time ("view every information" plus
+     * practical usability, not a full guardian CRUD suite). Kept as a
+     * separate pass since the request is now specifically for the missing
+     * edit/delete half.
+     */
+    public function updateGuardian(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.update');
+        $guardian = StudentGuardian::findOrFail($request->route('guardianId'));
+
+        $identifier = Setting::grab('parent_identifier', 'email');
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'relationship' => ['nullable', 'string', 'max:60'],
+            'email' => [$identifier === 'email' ? 'required' : 'nullable', 'email', 'max:150'],
+            'phone' => [$identifier === 'phone' ? 'required' : 'nullable', 'string', 'max:40'],
+            'is_primary' => ['sometimes', 'boolean'],
+        ]);
+
+        $guardian->update($data + ['is_primary' => $request->boolean('is_primary')]);
+
+        return back()->with('status', 'Guardian updated.');
+    }
+
+    /**
+     * Removes the guardian's link to this student only. Their platform
+     * login (if any) is left untouched, since the same account can be
+     * linked to other students (siblings) and deleting a StudentGuardian
+     * row must never delete a User record as a side effect.
+     */
+    public function destroyGuardian(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.update');
+        $guardian = StudentGuardian::findOrFail($request->route('guardianId'));
+        $name = $guardian->name;
+        $guardian->delete();
+
+        return back()->with('status', "{$name} removed as a guardian.");
+    }
+
+    /**
      * Creates a parent/guardian's login (Parent Portal, user request
      * 2026-07-12: the parent dashboard already existed once an account
      * was linked, but there was no screen to actually create one). Sign

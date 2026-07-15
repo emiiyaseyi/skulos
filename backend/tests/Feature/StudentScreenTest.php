@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\School;
 use App\Models\Tenant\Student;
+use App\Models\Tenant\StudentGuardian;
 use App\Models\User;
 use App\Services\Rbac\Rbac;
 use App\Services\Tenancy\TenantManager;
@@ -220,6 +221,53 @@ class StudentScreenTest extends TestCase
         app(TenantManager::class)->forget();
         $this->assertSame('Mrs Obi', $guardian->name);
         $this->assertTrue($guardian->is_primary);
+    }
+
+    /** The other half of guardian CRUD, added later, only "add" existed before this (2026-07-15). */
+    public function test_a_guardians_details_can_be_edited(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'profileguardianedit');
+
+        app(TenantManager::class)->use($school);
+        $student = Student::create(['admission_number' => 'ADM/904', 'first_name' => 'Ada', 'last_name' => 'Obi']);
+        $guardian = $student->guardians()->create(['name' => 'Mrs Obi', 'relationship' => 'Mother', 'email' => 'old@example.com', 'is_primary' => false]);
+        $guardianId = $guardian->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/guardians/{$guardianId}/edit", [
+            'name' => 'Mrs Obi-Ade', 'relationship' => 'Mother', 'email' => 'new@example.com', 'is_primary' => '1',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $updated = StudentGuardian::find($guardianId);
+        app(TenantManager::class)->forget();
+        $this->assertSame('Mrs Obi-Ade', $updated->name);
+        $this->assertSame('new@example.com', $updated->email);
+        $this->assertTrue($updated->is_primary);
+    }
+
+    /** Removing a guardian must not delete their platform login, they may be linked to other children too. */
+    public function test_a_guardian_can_be_removed_without_deleting_their_login(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'profileguardiandelete');
+        $guardianUser = User::factory()->create();
+        $role = $this->rbac->cloneTemplateRole($school, 'parent');
+        $school->users()->attach($guardianUser->id, ['role_id' => $role->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        $student = Student::create(['admission_number' => 'ADM/905', 'first_name' => 'Ada', 'last_name' => 'Obi']);
+        $guardian = $student->guardians()->create(['name' => 'Mrs Obi', 'guardian_user_id' => $guardianUser->id, 'is_primary' => true]);
+        $guardianId = $guardian->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->delete("http://{$school->slug}.localhost/students/guardians/{$guardianId}")
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $gone = StudentGuardian::find($guardianId);
+        app(TenantManager::class)->forget();
+        $this->assertNull($gone);
+        $this->assertNotNull(User::find($guardianUser->id), 'the platform login must survive the guardian link being removed');
     }
 
     /**
