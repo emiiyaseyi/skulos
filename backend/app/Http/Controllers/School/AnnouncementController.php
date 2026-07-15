@@ -51,7 +51,10 @@ class AnnouncementController extends Controller
         return view('school.announcements.index', [
             'school' => $school,
             'accent' => $school->branding()['color'],
-            'announcements' => Announcement::orderByDesc('created_at')->paginate(20),
+            // Memos (type=memo) have their own screen with read receipts;
+            // this list is announcements only, so the two do not bleed into
+            // each other.
+            'announcements' => Announcement::announcements()->orderByDesc('created_at')->paginate(20),
             'canCompose' => app(Rbac::class)->check(Auth::user(), $school, 'communication.broadcast'),
         ]);
     }
@@ -86,6 +89,7 @@ class AnnouncementController extends Controller
         $announcement = Announcement::create([
             'title' => $data['title'],
             'body' => $data['body'],
+            'type' => Announcement::TYPE_ANNOUNCEMENT,
             'audience' => $data['audience'],
             'class_arm_id' => $data['audience'] === 'class' ? $data['class_arm_id'] : null,
             'status' => Announcement::STATUS_DRAFT,
@@ -100,6 +104,11 @@ class AnnouncementController extends Controller
     }
 
     /**
+     * Announcements keep their own broadcast audience model (which includes
+     * a non-teaching "staff" audience the newer message composer does not),
+     * so they resolve recipients here rather than through the messaging
+     * AudienceResolver, whose audiences are role-group x scope.
+     *
      * @return list<array{user_id:int, email:?string, audience:string}>
      */
     protected function resolveRecipients(School $school, string $audience, ?int $classArmId): array
@@ -120,7 +129,7 @@ class AnnouncementController extends Controller
             'students' => $query->whereIn('role_id', $studentRoleIds),
             'teachers' => $query->whereIn('role_id', $teacherRoleIds),
             'staff' => $query->whereNotIn('role_id', $familyRoleIds),
-            default => null, // 'all': no filter
+            default => null, // 'all'
         };
 
         $users = $query->get();

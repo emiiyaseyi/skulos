@@ -68,6 +68,13 @@ class NotificationService
         $inApp = 0;
         $emailTargets = [];
 
+        // A broadcast (type='broadcast') is delivered as a sign-in pop-up
+        // the recipient acknowledges; its notifications carry the
+        // 'broadcast' category so the pop-up can find the unacknowledged
+        // ones. A plain announcement keeps its 'announcement' category and
+        // stays in the quieter notifications list, no pop-up.
+        $category = $announcement->type === Announcement::TYPE_BROADCAST ? 'broadcast' : 'announcement';
+
         foreach ($recipients as $r) {
             // Everyone gets an in-app notification.
             Notification::create([
@@ -75,8 +82,8 @@ class NotificationService
                 'audience' => $r['audience'] ?? null,
                 'title' => $announcement->title,
                 'body' => $announcement->body,
-                'category' => 'announcement',
-                'type' => Notification::typeFor('announcement'),
+                'category' => $category,
+                'type' => Notification::typeFor($category),
                 'announcement_id' => $announcement->id,
             ]);
             $inApp++;

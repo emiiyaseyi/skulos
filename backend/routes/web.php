@@ -270,6 +270,12 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/create', [$announcements, 'create'])->name('create');
             Route::post('/create', [$announcements, 'store'])->name('store');
         });
+        Route::prefix('messages')->name('school.messages.')->group(function () {
+            $messages = \App\Http\Controllers\School\MessageController::class;
+            Route::get('/', [$messages, 'index'])->name('index');
+            Route::get('/create', [$messages, 'create'])->name('create');
+            Route::post('/create', [$messages, 'store'])->name('store');
+        });
         Route::prefix('calendar')->name('school.calendar.')->group(function () {
             $calendar = \App\Http\Controllers\School\CalendarEventController::class;
             Route::get('/', [$calendar, 'index'])->name('index');

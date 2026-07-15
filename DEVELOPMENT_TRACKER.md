@@ -1231,6 +1231,39 @@ Entries are added here as work starts on each item — see the current build pha
 
 ---
 
+### Net-new modules batch: scope decisions (2026-07-15)
+User directed building the previously-blocked net-new modules and answered a round of scoping questions. Decisions, so a future session does not re-litigate them:
+- **Behaviour / Discipline tracking: skipped entirely for now.** Stays the deferred Enterprise-tier "Discipline Management" module it always was, not built.
+- **Timetable Management: deferred.** Not built this batch (user answer "defere").
+- **Exam scheduling: simple exam calendar**, reusing the existing `CalendarEvent` `exam` category (date + subject + class arm), no rooms/invigilators. Built (see batch-1 commit).
+- **Failed Logins: passive tracking**, no account-lockout policy. Built (batch-1).
+- **Assignments only** (not Behaviour). Built (batch-1).
+- **Messaging: unified Messages system, built in tested increments**, not one big drop. The original raw-requirements split ("Internal Messaging" + "Memo to Parents") is reconciled into one feature with a one-way vs two-way mode. Detailed spec captured from a series of user messages 2026-07-15:
+  - Platform owner can broadcast to school owners / admins / all users (selectable). School owner/admin can message teachers / parents / students, scoped to a class, a section, or all.
+  - Content is rich text (bold, highlight, list, align, etc.) or a light image.
+  - Each message is one-way OR two-way ("expecting a response").
+  - **One-way (broadcast/memo)**: shows as a **pop-up on the recipient's next sign-in**; they acknowledge (read) and close; the acknowledgement is **tracked back to the sender** (read receipts).
+  - **Two-way**: a **chat widget**, replies are **private 1-to-1 threads** (each recipient <-> sender; a parent never sees another parent's reply).
+  - Platform "all users" fan-out across every tenant DB is deferred; first version reaches school owners + admins.
+- Build order (each its own tested + committed + pushed increment, per the user's "commit and push after each task" directive): (1) school one-way broadcast + pop-up + acknowledge + role/section/class targeting + read receipts + rich text; (2) light image attachment; (3) platform-owner broadcast to owners/admins; (4) two-way chat widget.
+
+### Messaging increment 1: school one-way broadcast with sign-in pop-up + acknowledge (2026-07-15)
+- Status: Done
+- Started: 2026-07-15
+- Notes: a school owner/admin composes a broadcast to a role group (parents/students/teachers/everyone) x scope (whole school / one section / one class). Reuses the existing `Announcement` + `NotificationService::dispatchAnnouncement()` delivery rather than a parallel model: a broadcast is an `Announcement` with `type='broadcast'`, whose per-recipient `Notification` rows carry `category='broadcast'` and their own `read_at`.
+  1. New `App\Services\Communication\AudienceResolver` resolves audience x scope to concrete recipients (students in scope, their guardians, and the teachers who class-teach/assist/teach those class arms; the whole-school variants for scope=all). Announcements kept their own separate recipient logic (they have a non-teaching "staff" audience the message composer does not), so the two do not force-share a resolver.
+  2. Audiences, scopes, and modes are **config catalogs** (`config('skulos.message_audiences'/'message_scopes'/'message_modes')`), not literals; the compose form and its validation read from them (standing "nothing hardcoded" rule, reinforced by the user mid-build).
+  3. **Rich text**: a dependency-free `_richtext` editor (contenteditable + a small toolbar using `document.execCommand`, no external library/CDN, in keeping with the mobile-first lightweight ethos). The **server** re-sanitizes every submitted body through a new `App\Support\HtmlSanitizer` (a conservative DOMDocument allowlist: only formatting tags, only `text-align` + validated colour styles, everything else — scripts, event handlers, links, images, class/id/data-* — stripped). This is the **stored-XSS boundary** since message bodies are shown to other users. `symfony/html-sanitizer` could not be fetched (offline-ish environment), so the sanitizer is hand-rolled but hardened against real vectors (see its unit test). A body that sanitizes to nothing is rejected as empty.
+  4. **Pop-up delivery**: `layouts/partials/broadcast-popup` (included in the shared layout, guarded to the school portal with an authenticated tenant user) surfaces the most-recent unacknowledged broadcast as a modal on any page load; "Acknowledge and close" posts to the existing per-user `school.notifications.read` route (already scoped to the signed-in user, so nobody can acknowledge another person's), marking it read. The next unacknowledged one appears on reload.
+  5. **Read receipts**: the sender's `Messages` screen lists each broadcast with "X of Y acknowledged", computed from the broadcast's notifications' `read_at` (`withCount`).
+  6. New `messages` tenant migrations added `type` and `section_id` to `announcements`; nav entry "Messages" keyed on the existing `parent_broadcast` plan feature; new `broadcast` notification category.
+- Issues/Bugs found: a test-data collision (two class arms named "A" hit the `arms.name` unique constraint), a test-only fix.
+- Resolution: n/a for app code.
+- QA: 10 XSS-vector unit tests on `HtmlSanitizer` (script/onerror/onclick/javascript-url/style-expression/class-id-data all stripped, formatting kept), 5 feature tests on `MessageBroadcastTest` (parents-only reach + body sanitized before storage; section scope reaches only that section's students; the recipient sees the pop-up and acknowledging marks it read so the sender sees "1 of 1"; a script-only body is rejected as empty; a teacher without `communication.broadcast` is forbidden). `AnnouncementComposeTest` re-run green to prove the shared-delivery refactor did not regress Announcements. Full suite run (result in the commit).
+- Not built in this increment: image attachment (increment 2), platform-owner broadcast (increment 3), two-way chat widget (increment 4).
+
+---
+
 ---
 
 ## 0. Reference & Inspiration Links

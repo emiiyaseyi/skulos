@@ -1,0 +1,55 @@
+@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => 'Messages'])
+@section('title', 'Messages')
+
+@section('content')
+<div class="page-head">
+  <div>
+    <h1 class="title">Messages</h1>
+    <p class="subtitle">Broadcasts to parents, students, and teachers, with read receipts.</p>
+  </div>
+  @if($canCompose)
+    <a class="btn btn-primary btn-sm" href="{{ route('school.messages.create', ['school' => $school->slug]) }}">New broadcast</a>
+  @endif
+</div>
+
+<div class="card">
+  @if($broadcasts->isEmpty())
+    <p class="muted">No broadcasts sent yet.</p>
+  @else
+    <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Sent</th><th>Title</th><th>To</th><th>Acknowledged</th></tr></thead>
+      <tbody>
+        @foreach($broadcasts as $b)
+          @php
+            $delivered = (int) $b->delivered_count;
+            $read = (int) $b->read_count;
+            $pct = $delivered > 0 ? round($read / $delivered * 100) : 0;
+            $target = ucfirst($b->audience);
+            if ($b->classArm) { $target .= ' &middot; '.$b->classArm->label(); }
+            elseif ($b->section) { $target .= ' &middot; '.$b->section->name; }
+            else { $target .= ' &middot; whole school'; }
+          @endphp
+          <tr>
+            <td class="muted" style="white-space:nowrap">{{ $b->published_at?->format('d M Y') ?? $b->created_at->format('d M Y') }}</td>
+            <td>
+              <strong>{{ $b->title }}</strong>
+              <div class="muted" style="font-size:.8rem">{{ \Illuminate\Support\Str::limit(strip_tags($b->body), 90) }}</div>
+            </td>
+            <td class="muted" style="white-space:nowrap">{!! $target !!}</td>
+            <td style="white-space:nowrap">
+              @if($delivered === 0)
+                <span class="muted">No recipients</span>
+              @else
+                <span class="badge {{ $pct >= 66 ? 'badge-ok' : ($pct >= 33 ? 'badge-warn' : 'badge-bad') }}">{{ $read }} of {{ $delivered }}</span>
+              @endif
+            </td>
+          </tr>
+        @endforeach
+      </tbody>
+    </table>
+    </div>
+    <div style="margin-top:1rem">{{ $broadcasts->links() }}</div>
+  @endif
+</div>
+@endsection

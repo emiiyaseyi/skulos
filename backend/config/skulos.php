@@ -557,6 +557,7 @@ return [
     ],
     'notification_categories' => [
         'announcement' => ['label' => 'Announcement', 'type' => 'system'],
+        'broadcast' => ['label' => 'Broadcast', 'type' => 'urgent'],
         'report_card_review' => ['label' => 'Report card review', 'type' => 'academic'],
     ],
 
@@ -575,6 +576,32 @@ return [
     | attendance_statuses.
     */
     'calendar_event_categories' => ['term', 'break', 'celebration', 'staff', 'sports', 'holiday', 'exam', 'meeting', 'event'],
+
+    /*
+    | Messaging (2026-07-15). A school owner/admin composes a broadcast
+    | choosing WHO (a message_audience: a role group, or everyone) and the
+    | SCOPE (message_scope: the whole school, one section, or one class).
+    | Both are config catalogs, not literals in the controller/view, so the
+    | compose form and its validation read from here (standing "nothing
+    | hardcoded" rule). Delivery mode (one_way / two_way) is likewise a
+    | catalog; one_way broadcasts pop up on sign-in and are acknowledged,
+    | two_way opens the chat widget.
+    */
+    'message_audiences' => [
+        'everyone' => 'Everyone',
+        'parents' => 'Parents',
+        'students' => 'Students',
+        'teachers' => 'Teachers',
+    ],
+    'message_scopes' => [
+        'all' => 'Whole school',
+        'section' => 'A section',
+        'class' => 'A class',
+    ],
+    'message_modes' => [
+        'one_way' => 'One way (broadcast, they acknowledge)',
+        'two_way' => 'Two way (they can reply, chat)',
+    ],
 
     'default_calendar_events' => [
         ['title' => 'Beginning of Term', 'category' => 'term'],
@@ -1058,6 +1085,7 @@ return [
         'staff_records' => 'staff.view',
         'attendance_management' => 'attendance.view',
         'announcements' => 'communication.view',
+        'parent_broadcast' => 'communication.view',
         'school_houses' => 'students.view',
         'school_sections' => 'academics.view',
         'classes_arms' => 'academics.view',

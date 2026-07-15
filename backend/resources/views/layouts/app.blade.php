@@ -332,6 +332,14 @@ tr:last-child td{border-bottom:none}
   </div>
 </div>
 
+{{-- Broadcast pop-up: on the school portal only (needs an authenticated
+     tenant user), surface any unacknowledged broadcast as a modal the user
+     acknowledges. Guarded so it never runs on the admin portal or bare
+     pages, where there is no tenant Notification table. --}}
+@if(($portal ?? null) === 'school' && isset($school) && $school && auth()->check())
+  @include('layouts.partials.broadcast-popup', ['school' => $school])
+@endif
+
 {{-- Idle session security timeout (user request 2026-07-09, made admin
      configurable 2026-07-11: platform default + optional per-school
      override + an off switch, previously hardcoded). --}}

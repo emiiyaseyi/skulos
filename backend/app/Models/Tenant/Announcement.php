@@ -17,10 +17,13 @@ class Announcement extends Model
     public const STATUS_DRAFT = 'draft';
     public const STATUS_PUBLISHED = 'published';
 
+    public const TYPE_ANNOUNCEMENT = 'announcement';
+    public const TYPE_BROADCAST = 'broadcast';
+
     protected $connection = 'tenant';
 
     protected $fillable = [
-        'title', 'body', 'audience', 'class_arm_id', 'status',
+        'title', 'body', 'type', 'audience', 'class_arm_id', 'section_id', 'status',
         'published_at', 'created_by_user_id',
     ];
 
@@ -34,8 +37,34 @@ class Announcement extends Model
         return $this->hasMany(CommunicationLog::class);
     }
 
+    /** The per-recipient in-app notifications this announcement/broadcast produced, each carrying its own read_at (used for broadcast read receipts). */
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(Notification::class);
+    }
+
+    public function section(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Section::class);
+    }
+
+    public function classArm(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(ClassArm::class);
+    }
+
     public function isPublished(): bool
     {
         return $this->status === self::STATUS_PUBLISHED;
+    }
+
+    public function scopeBroadcasts($query)
+    {
+        return $query->where('type', self::TYPE_BROADCAST);
+    }
+
+    public function scopeAnnouncements($query)
+    {
+        return $query->where('type', self::TYPE_ANNOUNCEMENT);
     }
 }
