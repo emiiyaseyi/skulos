@@ -168,11 +168,24 @@
       $targetLabel = $forceGroup[$featureKey] ?? $category['label'];
       if (isset($builtRoutes[$featureKey])) {
         [$routeName, $label, $icon] = $builtRoutes[$featureKey];
-        if (isset($renderedRoutes[$routeName])) {
-          continue; // several feature keys can point at the same already built screen
+        // "Teacher Portal"/"Parent Portal"/"Student Portal" intentionally
+        // render their OWN line every time, using the plan feature's own
+        // label, even though they point at an already-linked screen
+        // (Staff/Students). The normal same-route dedupe below exists so
+        // e.g. Classes/Subjects/Sections do not repeat three times, but
+        // applying it here made these three vanish from the menu
+        // entirely instead of showing as real links (user report
+        // 2026-07-15: "I CANT SEE STUDENT AND PARENT PORTAL UNDER THE
+        // MENU SECTION", right after they'd been fixed to stop showing
+        // "Soon" — deduping them away was a worse regression, not a fix).
+        $alwaysOwnLine = in_array($featureKey, ['teacher_portal', 'parent_portal', 'student_portal'], true);
+        if (! $alwaysOwnLine) {
+          if (isset($renderedRoutes[$routeName])) {
+            continue; // several feature keys can point at the same already built screen
+          }
+          $renderedRoutes[$routeName] = true;
         }
-        $renderedRoutes[$routeName] = true;
-        $groups[$targetLabel][] = $link($routeName, $label, $icon);
+        $groups[$targetLabel][] = $link($routeName, $alwaysOwnLine ? $featureLabel : $label, $icon);
       } else {
         $groups[$targetLabel][] = $soonLink($featureLabel, 'settings');
       }

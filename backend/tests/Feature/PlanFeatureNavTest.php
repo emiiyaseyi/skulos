@@ -202,13 +202,20 @@ class PlanFeatureNavTest extends TestCase
     /**
      * "Teacher Portal", "Parent Portal", and "Student Portal" are not
      * separate screens, they are what a teacher/parent/student sees once
-     * they sign in, which already exists. They must not render as "Soon"
-     * (user report 2026-07-15: "THOUGHT THEY HAVE BEEN BUILT AND READY TO
-     * GO"), and Teacher Portal specifically folds into the Staff link
-     * rather than getting its own line ("MERGE TEACHER PORTAL TO STAFF
-     * PORTAL").
+     * they sign in, which already exists (teacher access is Staff with a
+     * teaching role; parent/student logins are managed per student). They
+     * must not render as "Soon" (user report 2026-07-15: "THOUGHT THEY
+     * HAVE BEEN BUILT AND READY TO GO"), fixed by pointing them at
+     * Staff/Students. A first attempt at that fix deduped them away
+     * entirely (since Staff/Students already render their own line under
+     * a different feature key), which made them vanish from the menu
+     * instead of showing as real links, an even more confusing regression
+     * (user report 2026-07-15: "I CANT SEE STUDENT AND PARENT PORTAL
+     * UNDER THE MENU SECTION"). They must render as their OWN line, using
+     * their own plan-feature label, alongside Staff/Students, not merged
+     * into and hidden by them.
      */
-    public function test_teacher_parent_student_portal_features_do_not_render_as_soon(): void
+    public function test_teacher_parent_student_portal_features_render_as_their_own_real_links(): void
     {
         [$school, $user] = $this->schoolOnPlan(
             ['staff_records', 'student_records', 'teacher_portal', 'parent_portal', 'student_portal'],
@@ -220,9 +227,10 @@ class PlanFeatureNavTest extends TestCase
         $response->assertOk()
             ->assertSee('Staff')
             ->assertSee('Students')
-            ->assertDontSee('Teacher Portal')
-            ->assertDontSee('Parent Portal')
-            ->assertDontSee('Student Portal');
+            ->assertSee('Teacher Portal')
+            ->assertSee('Parent Portal')
+            ->assertSee('Student Portal')
+            ->assertDontSee('Soon');
     }
 
     public function test_a_school_with_no_plan_falls_back_to_the_default_plan(): void

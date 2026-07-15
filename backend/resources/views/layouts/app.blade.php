@@ -338,6 +338,7 @@ tr:last-child td{border-bottom:none}
      pages, where there is no tenant Notification table. --}}
 @if(($portal ?? null) === 'school' && isset($school) && $school && auth()->check())
   @include('layouts.partials.broadcast-popup', ['school' => $school])
+  @include('layouts.partials.messaging-widget', ['school' => $school])
 @endif
 
 {{-- Idle session security timeout (user request 2026-07-09, made admin
