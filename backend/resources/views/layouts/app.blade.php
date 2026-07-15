@@ -252,6 +252,11 @@ tr:last-child td{border-bottom:none}
     <div class="side-brand"><span class="brandfull">SK<em>U</em>LOS</span><span class="brandshort">S<em style="color:var(--accent)"></em></span></div>
     @isset($school)
       <div class="side-school">
+        @if($portal === 'school')
+          <button type="button" id="navToggleAllBtn" class="side-toggle-all" aria-expanded="false" aria-label="Expand or collapse all menu sections">
+            <svg class="chev-toggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+        @endif
         <span class="side-badge">{{ strtoupper(substr($school->name,0,1)) }}</span>
         <div><b>{{ \Illuminate\Support\Str::limit($school->name, 20) }}</b><span>{{ $school->slug }}.{{ config('app.domain') }}</span></div>
       </div>

@@ -211,11 +211,14 @@ class PlanFeatureNavTest extends TestCase
      * a different feature key), which made them vanish from the menu
      * instead of showing as real links, an even more confusing regression
      * (user report 2026-07-15: "I CANT SEE STUDENT AND PARENT PORTAL
-     * UNDER THE MENU SECTION"). They must render as their OWN line, using
-     * their own plan-feature label, alongside Staff/Students, not merged
-     * into and hidden by them.
+     * UNDER THE MENU SECTION"). "Parent Portal"/"Student Portal" must
+     * render as their OWN line. "Teacher Portal" and "Staff" were later
+     * merged into a single "Staff Portal" line, per a further directive
+     * the same day ("STAFF AND TEACHER PORTAL SHOULD BE MERGE INTO ONE
+     * AND RENAMED STAFF PORTAL"), so it must appear exactly once, not as
+     * two separate entries.
      */
-    public function test_teacher_parent_student_portal_features_render_as_their_own_real_links(): void
+    public function test_teacher_parent_student_portal_features_render_as_real_links(): void
     {
         [$school, $user] = $this->schoolOnPlan(
             ['staff_records', 'student_records', 'teacher_portal', 'parent_portal', 'student_portal'],
@@ -223,14 +226,74 @@ class PlanFeatureNavTest extends TestCase
         );
 
         $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard");
+        $content = $response->getContent();
 
         $response->assertOk()
-            ->assertSee('Staff')
+            ->assertSee('Staff Portal')
             ->assertSee('Students')
-            ->assertSee('Teacher Portal')
             ->assertSee('Parent Portal')
             ->assertSee('Student Portal')
             ->assertDontSee('Soon');
+        $this->assertSame(1, substr_count($content, 'Staff Portal'), 'Staff and Teacher Portal must merge into exactly one line, not render twice');
+    }
+
+    /**
+     * Nav restructuring (user directive 2026-07-15): "ASSESSMENT
+     * STRUCTURE, SESSIONS & TERM, BRANDING, CAMPUSES AND HOUSES SHOULD BE
+     * MOVED TO SETTINGS"; "I WANT TO MOVE THE WHOLE ADMINISTRATION
+     * SECTION TO COME IMMEDIATELY AFTER ACADEMIC SECTION"; "STAFF
+     * PORTAL, PARENT AND STUDENT PORTAL SHOULD BE MOVED TO ACADEMIC".
+     */
+    public function test_the_nav_groups_are_reordered_and_five_items_moved_into_settings(): void
+    {
+        [$school, $user] = $this->schoolOnPlan([
+            'staff_records', 'student_records', 'teacher_portal', 'parent_portal', 'student_portal',
+            'continuous_assessment', 'academic_sessions_terms', 'school_branding', 'school_profile', 'school_houses',
+            'user_role_management',
+        ], 'plannine');
+
+        $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard");
+        $content = $response->getContent();
+
+        $response->assertOk();
+
+        $academicPos = strpos($content, 'data-group="academic"');
+        $administrationPos = strpos($content, 'data-group="administration"');
+        $this->assertNotFalse($academicPos);
+        $this->assertNotFalse($administrationPos);
+        $this->assertTrue($academicPos < $administrationPos, 'Administration must render immediately after Academic');
+
+        // Everything between the Academic and Administration group markers
+        // must include the three portal links (moved there) and the five
+        // relocated settings items must NOT be in that slice (they moved
+        // out of Academic/Administration entirely, into Settings).
+        $academicSlice = substr($content, $academicPos, $administrationPos - $academicPos);
+        $this->assertStringContainsString('Staff Portal', $academicSlice);
+        $this->assertStringContainsString('Parent Portal', $academicSlice);
+        $this->assertStringContainsString('Student Portal', $academicSlice);
+
+        $settingsPos = strpos($content, 'data-group="settings"');
+        $this->assertNotFalse($settingsPos);
+        $nextGroupAfterSettings = strpos($content, 'side-section', $settingsPos + 1);
+        $settingsSlice = substr($content, $settingsPos, ($nextGroupAfterSettings ?: strlen($content)) - $settingsPos);
+        $this->assertStringContainsString('Assessment Structure', $settingsSlice);
+        $this->assertStringContainsString('Sessions &amp; Terms', $settingsSlice);
+        $this->assertStringContainsString('Branding', $settingsSlice);
+        $this->assertStringContainsString('Campuses', $settingsSlice);
+        $this->assertStringContainsString('Houses', $settingsSlice);
+    }
+
+    /** The single arrow toggle next to the school name exists on the school portal, not the admin one. */
+    public function test_the_nav_has_a_single_expand_collapse_arrow_next_to_the_school_name(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['school_houses'], 'plannavtoggle');
+
+        $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard");
+
+        $response->assertOk()
+            ->assertSee('id="navToggleAllBtn"', false)
+            ->assertDontSee('>Collapse all<', false)
+            ->assertDontSee('>Expand all<', false);
     }
 
     public function test_a_school_with_no_plan_falls_back_to_the_default_plan(): void

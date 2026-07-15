@@ -94,19 +94,22 @@
     // feature key => [routeName, label, icon]
     'dashboard' => ['school.dashboard', 'Dashboard', 'dashboard'],
     'student_records' => ['school.students', 'Students', 'students'],
-    'staff_records' => ['school.staff.index', 'Staff', 'staff'],
-    // "Teacher Portal", "Parent Portal", and "Student Portal" are not
-    // separate screens, an admin never "visits" a portal, a portal is what
-    // that person sees once they sign in, which already exists (teachers
-    // are staff with a teaching role; parent/student login accounts are
-    // created and managed per student, see StudentController::
-    // createGuardianLogin()/createStudentLogin()). Pointing them at the
-    // screens where that actually happens (user report 2026-07-15: these
-    // three falsely showed "Soon" even though all three are built and in
-    // active use) rather than inventing a redundant standalone page.
-    'teacher_portal' => ['school.staff.index', 'Staff', 'staff'],
-    'parent_portal' => ['school.students', 'Students', 'students'],
-    'student_portal' => ['school.students', 'Students', 'students'],
+    // "Teacher Portal" and "Staff Records" are the same screen, seen from
+    // two different plan-feature names (user directive 2026-07-15: "STAFF
+    // AND TEACHER PORTAL SHOULD BE MERGE INTO ONE AND RENAMED STAFF
+    // PORTAL"), so both keys share one label and one route, whichever is
+    // processed first in the catalog loop renders it, the dedupe below
+    // stops the second one from rendering a duplicate. "Parent Portal"
+    // and "Student Portal" are not separate screens either, an admin
+    // never "visits" a portal, a portal is what that person sees once
+    // they sign in, which already exists (parent/student login accounts
+    // are created and managed per student, see StudentController::
+    // createGuardianLogin()/createStudentLogin()), pointed at the screen
+    // where that actually happens rather than a redundant standalone page.
+    'staff_records' => ['school.staff.index', 'Staff Portal', 'staff'],
+    'teacher_portal' => ['school.staff.index', 'Staff Portal', 'staff'],
+    'parent_portal' => ['school.students', 'Parent Portal', 'students'],
+    'student_portal' => ['school.students', 'Student Portal', 'students'],
     'attendance_management' => ['school.attendance.index', 'Attendance', 'attendance'],
     'announcements' => ['school.announcements.index', 'Announcements', 'comms'],
     'parent_broadcast' => ['school.messages.index', 'Messages', 'comms'],
@@ -134,8 +137,22 @@
   // able to reach it, same as Backups or Mail Settings, so it is no
   // longer read from the catalog loop at all, see the unconditional
   // append below instead.
+  // User directive 2026-07-15: "ASSESSMENT STRUCTURE, SESSIONS & TERM,
+  // BRANDING, CAMPUSES AND HOUSES SHOULD BE MOVED TO SETTINGS", and
+  // separately "STAFF PORTAL, PARENT AND STUDENT PORTAL SHOULD BE MOVED
+  // TO ACADEMIC" (regardless of which catalog category, Administration,
+  // they were originally ticked under).
   $forceGroup = [
     'basic_report_cards' => 'Reports & Analytics',
+    'continuous_assessment' => 'Settings',
+    'academic_sessions_terms' => 'Settings',
+    'school_branding' => 'Settings',
+    'school_profile' => 'Settings',
+    'school_houses' => 'Settings',
+    'staff_records' => 'Academic',
+    'teacher_portal' => 'Academic',
+    'parent_portal' => 'Academic',
+    'student_portal' => 'Academic',
   ];
 
   // Dashboard stays pinned in Main regardless of which catalog category
@@ -168,24 +185,25 @@
       $targetLabel = $forceGroup[$featureKey] ?? $category['label'];
       if (isset($builtRoutes[$featureKey])) {
         [$routeName, $label, $icon] = $builtRoutes[$featureKey];
-        // "Teacher Portal"/"Parent Portal"/"Student Portal" intentionally
-        // render their OWN line every time, using the plan feature's own
-        // label, even though they point at an already-linked screen
-        // (Staff/Students). The normal same-route dedupe below exists so
+        // "Parent Portal"/"Student Portal" intentionally render their OWN
+        // line every time, even though they point at an already-linked
+        // screen (Students). The normal same-route dedupe below exists so
         // e.g. Classes/Subjects/Sections do not repeat three times, but
-        // applying it here made these three vanish from the menu
-        // entirely instead of showing as real links (user report
-        // 2026-07-15: "I CANT SEE STUDENT AND PARENT PORTAL UNDER THE
-        // MENU SECTION", right after they'd been fixed to stop showing
-        // "Soon" — deduping them away was a worse regression, not a fix).
-        $alwaysOwnLine = in_array($featureKey, ['teacher_portal', 'parent_portal', 'student_portal'], true);
+        // applying it here made these vanish from the menu entirely
+        // instead of showing as real links (user report 2026-07-15: "I
+        // CANT SEE STUDENT AND PARENT PORTAL UNDER THE MENU SECTION",
+        // right after they'd been fixed to stop showing "Soon" —
+        // deduping them away was a worse regression, not a fix). "Staff
+        // Portal"/"Teacher Portal" deliberately are NOT in this list, per
+        // the merge above they collapse into one line, not two.
+        $alwaysOwnLine = in_array($featureKey, ['parent_portal', 'student_portal'], true);
         if (! $alwaysOwnLine) {
           if (isset($renderedRoutes[$routeName])) {
             continue; // several feature keys can point at the same already built screen
           }
           $renderedRoutes[$routeName] = true;
         }
-        $groups[$targetLabel][] = $link($routeName, $alwaysOwnLine ? $featureLabel : $label, $icon);
+        $groups[$targetLabel][] = $link($routeName, $label, $icon);
       } else {
         $groups[$targetLabel][] = $soonLink($featureLabel, 'settings');
       }
@@ -258,7 +276,11 @@
   // settings"), none of these are things a class or subject teacher
   // configures.
   if (! $isRestrictedNav) {
-    $groups['Settings'] = [
+    // array_merge, not a plain assignment: the catalog loop above may
+    // already have pushed Assessment Structure/Sessions & Terms/Branding/
+    // Campuses/Houses into $groups['Settings'] via $forceGroup, a plain
+    // `=` here would silently wipe those back out.
+    $groups['Settings'] = array_merge($groups['Settings'] ?? [], [
       $link('school.backups.index', 'Backups', 'backup'),
       $link('school.maintenance.index', 'School Health &amp; Storage', 'health'),
       $link('school.dashboard.edit', 'Dashboard look', 'settings'),
@@ -268,7 +290,7 @@
       $link('school.settings.idle-timeout.edit', 'Idle Timeout', 'clock'),
       $link('school.settings.retention.edit', 'Retention', 'retention'),
       $link('school.settings.communication.edit', 'Communication', 'chat'),
-    ];
+    ]);
   }
 
   // "Guided Setup" itself is a first-run admin task (creating sessions,
@@ -295,6 +317,21 @@
   if ($isTeacherScoped || $scopedRoleSlug === 'parent') {
     $groups['Main'][] = $link('school.chat.index', 'Chat', 'chat');
   }
+
+  // Explicit group order (user directive 2026-07-15: "I WANT TO MOVE THE
+  // WHOLE ADMINISTRATION SECTION TO COME IMMEDIATELY AFTER ACADEMIC
+  // SECTION"), overriding whatever order the catalog categories happened
+  // to iterate in above. Any group not named here keeps its existing
+  // relative order, appended after these two.
+  $groupOrder = ['Main', 'Academic', 'Administration'];
+  $orderedGroups = [];
+  foreach ($groupOrder as $name) {
+    if (isset($groups[$name])) {
+      $orderedGroups[$name] = $groups[$name];
+      unset($groups[$name]);
+    }
+  }
+  $groups = $orderedGroups + $groups;
 @endphp
 
 @foreach($groups as $label => $entries)
@@ -319,33 +356,79 @@
   @endif
 @endforeach
 
+<style>
+  .side-toggle-all{flex-shrink:0;width:1.6rem;height:1.6rem;border-radius:6px;border:1px solid transparent;
+    background:transparent;color:var(--mut);display:grid;place-items:center;cursor:pointer;padding:0}
+  .side-toggle-all:hover{color:var(--ink);border-color:var(--line)}
+  .side-toggle-all .chev-toggle{width:1.1rem;height:1.1rem;transition:transform .18s ease}
+  .side-toggle-all.is-open .chev-toggle{transform:rotate(180deg)}
+</style>
 <script>
 (function(){
   var STORAGE_KEY = 'skulos-nav-groups';
   var state = {};
   try { state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch(e){}
 
+  var pairs = []; // {btn, panel, name}
   document.querySelectorAll('.side-group-btn').forEach(function(btn){
     var name = btn.getAttribute('data-group');
     var panel = document.querySelector('.side-submenu[data-group-panel="'+name+'"]');
     if (!panel) return;
+    pairs.push({btn: btn, panel: panel, name: name});
+  });
 
-    // A saved "closed" only wins if this group has no active link, the
-    // current page's own group always stays open regardless of history.
-    if (state[name] === false && btn.getAttribute('aria-expanded') !== 'true') {
-      panel.classList.remove('open');
-      btn.setAttribute('aria-expanded', 'false');
-    } else if (state[name] === true) {
-      panel.classList.add('open');
-      btn.setAttribute('aria-expanded', 'true');
-    }
+  function setOpen(pair, open){
+    pair.panel.classList.toggle('open', open);
+    pair.btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    state[pair.name] = open;
+  }
+  function persist(){
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
+  }
 
-    btn.addEventListener('click', function(){
-      var open = panel.classList.toggle('open');
-      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-      state[name] = open;
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
+  // Only one group open at a time (user directive 2026-07-15: "WHEN ONE
+  // IS IN A MENU SECTION, OTHER MENU OPTIONS SHOULD COLLAPSE SO ITS
+  // EASIER TO SCROLL THROUGH THE MENU SECTIONS"). On load: the group
+  // containing the current page's active link always wins regardless of
+  // saved history; otherwise the last group saved open wins; everything
+  // else starts closed, even if a stale pre-accordion save had several
+  // marked open at once.
+  var activePair = pairs.find(function(p){ return p.btn.getAttribute('aria-expanded') === 'true'; });
+  var toOpen = activePair || pairs.slice().reverse().find(function(p){ return state[p.name] === true; }) || null;
+  pairs.forEach(function(p){ setOpen(p, p === toOpen); });
+
+  // A single arrow toggle next to the school name (user directive
+  // 2026-07-15, after a first "Collapse all"/"Expand all" two-button
+  // strip was rejected: "I DONT LIKE THE LOOK, JUST PUT AND ARROW AND
+  // ARROW DOWN IN FROM OF THE SCHOOL NAME"), flips between opening every
+  // group and closing every group, pointing down when collapsed
+  // (something to reveal) and up when expanded (something to tuck away).
+  var toggleAllBtn = document.getElementById('navToggleAllBtn');
+  function updateToggleAllIcon(){
+    if (!toggleAllBtn) return;
+    var anyOpen = pairs.some(function(p){ return p.panel.classList.contains('open'); });
+    toggleAllBtn.classList.toggle('is-open', anyOpen);
+    toggleAllBtn.setAttribute('aria-expanded', anyOpen ? 'true' : 'false');
+    toggleAllBtn.title = anyOpen ? 'Collapse all' : 'Expand all';
+  }
+
+  pairs.forEach(function(pair){
+    pair.btn.addEventListener('click', function(){
+      var open = !pair.panel.classList.contains('open');
+      pairs.forEach(function(p){ setOpen(p, p === pair ? open : false); });
+      persist();
+      updateToggleAllIcon();
     });
   });
+
+  if (toggleAllBtn) {
+    toggleAllBtn.addEventListener('click', function(){
+      var anyOpen = pairs.some(function(p){ return p.panel.classList.contains('open'); });
+      pairs.forEach(function(p){ setOpen(p, !anyOpen); });
+      persist();
+      updateToggleAllIcon();
+    });
+  }
+  updateToggleAllIcon();
 })();
 </script>
