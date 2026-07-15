@@ -5,20 +5,32 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Mail\PlatformBroadcastMail;
 use App\Models\Plan;
+use App\Models\PlatformBroadcast;
 use App\Models\Role;
 use App\Models\School;
 use App\Services\Auditing\Recorder;
+use App\Services\Communication\PlatformBroadcastService;
+use App\Services\Media\ImageProcessingService;
+use App\Support\HtmlSanitizer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 
 /**
  * Send Broadcast (Dashboard Design Cross-Check, 2026-07-13: "Blocked, no
  * platform-wide broadcast tool exists"). A message from the SKULOS team to
- * a chosen set of schools' leadership (owner/admin tier), delivered by
- * email through the existing branded transactional layout. At today's real
- * scale (a handful of schools) this sends synchronously, the same
- * un-queued pattern trial request emails already use; revisit with a
- * queued job if the school count ever makes that slow.
+ * a chosen set of schools' leadership, delivered two ways: an email
+ * (unchanged since 2026-07-13, always sent, un-queued at today's real
+ * school count) and, since messaging increment 3 (2026-07-15), the same
+ * sign-in pop-up + acknowledge mechanism school-level broadcasts use,
+ * fanned into each matched school's own tenant database by
+ * PlatformBroadcastService so the sender can see who has actually
+ * acknowledged it, not just that an email was sent.
+ *
+ * "recipient_group" (which role tier within each matched school) is new in
+ * increment 3 and optional: omitting it (as the pre-increment-3 API did)
+ * falls back to "leadership", the exact original hardcoded reach, so
+ * nothing already relying on this endpoint's old behavior changes.
  */
 class BroadcastController extends Controller
 {
@@ -27,18 +39,22 @@ class BroadcastController extends Controller
         return view('admin.broadcast', [
             'schools' => School::whereNotNull('provisioned_at')->orderBy('name')->get(),
             'plans' => Plan::orderBy('name')->get(),
+            'recipientGroups' => config('skulos.platform_message_audiences'),
+            'recent' => PlatformBroadcast::with('creator')->latest()->limit(10)->get(),
         ]);
     }
 
-    public function send(Request $request): \Illuminate\Http\RedirectResponse
+    public function send(Request $request, PlatformBroadcastService $delivery, ImageProcessingService $images): \Illuminate\Http\RedirectResponse
     {
         $data = $request->validate([
             'audience' => ['required', 'in:all,plan,selected'],
             'plan_id' => ['nullable', 'exists:plans,id'],
             'school_ids' => ['nullable', 'array'],
             'school_ids.*' => ['exists:schools,id'],
+            'recipient_group' => ['nullable', 'in:'.implode(',', array_keys(config('skulos.platform_message_audiences')))],
             'subject' => ['required', 'string', 'max:150'],
-            'body' => ['required', 'string', 'max:5000'],
+            'body' => ['required', 'string', 'max:20000'],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:5120'],
         ]);
 
         $schools = match ($data['audience']) {
@@ -51,13 +67,23 @@ class BroadcastController extends Controller
             return back()->with('error', 'No schools matched that audience.')->withInput();
         }
 
-        $leadershipRoleIds = Role::whereIn('slug', [...config('skulos.leadership_role_slugs'), 'school-admin'])->pluck('id');
+        $recipientGroup = $data['recipient_group'] ?? 'leadership';
+        $body = HtmlSanitizer::clean($data['body']);
+        if (trim(strip_tags($body)) === '') {
+            return back()->withInput()->withErrors(['body' => 'The message cannot be empty.']);
+        }
+        $imagePath = $request->hasFile('image')
+            ? $images->toWebp($request->file('image'), 'platform-broadcasts')
+            : null;
+
+        $roleSlugs = config("skulos.platform_message_audience_roles.{$recipientGroup}", []);
+        $roleIds = Role::whereIn('slug', $roleSlugs)->pluck('id');
         $sent = 0;
-        $schoolsReached = 0;
+        $emailSchoolsReached = 0;
 
         foreach ($schools as $school) {
             $recipients = $school->users()->wherePivot('status', 'active')
-                ->whereIn('role_id', $leadershipRoleIds)
+                ->whereIn('role_id', $roleIds)
                 ->whereNotNull('email')
                 ->get();
 
@@ -66,18 +92,30 @@ class BroadcastController extends Controller
             }
 
             foreach ($recipients as $recipient) {
-                Mail::to($recipient->email)->send(new PlatformBroadcastMail($data['subject'], $data['body'], $school->name));
+                Mail::to($recipient->email)->send(new PlatformBroadcastMail($data['subject'], $body, $school->name));
                 $sent++;
             }
-            $schoolsReached++;
+            $emailSchoolsReached++;
         }
 
-        app(Recorder::class)->record('platform.broadcast_sent', null, [], [
-            'subject' => $data['subject'], 'audience' => $data['audience'],
-            'schools_reached' => $schoolsReached, 'emails_sent' => $sent,
+        $broadcast = PlatformBroadcast::create([
+            'title' => $data['subject'],
+            'body' => $body,
+            'image_path' => $imagePath,
+            'recipient_group' => $recipientGroup,
+            'school_scope' => $data['audience'],
+            'plan_id' => $data['plan_id'] ?? null,
+            'created_by_user_id' => Auth::id(),
+        ]);
+        $popupResult = $delivery->deliver($broadcast, $schools);
+
+        app(Recorder::class)->record('platform.broadcast_sent', $broadcast, [], [
+            'subject' => $data['subject'], 'audience' => $data['audience'], 'recipient_group' => $recipientGroup,
+            'schools_reached' => $emailSchoolsReached, 'emails_sent' => $sent,
+            'popup_schools_reached' => $popupResult['schools_reached'], 'popup_recipients' => $popupResult['recipients_reached'],
         ]);
 
         return redirect()->route('admin.dashboard')->with('status',
-            "Broadcast sent to {$sent} recipient(s) across {$schoolsReached} school(s).");
+            "Broadcast sent to {$sent} recipient(s) across {$emailSchoolsReached} school(s), and delivered as a sign-in pop-up to {$popupResult['recipients_reached']} recipient(s).");
     }
 }

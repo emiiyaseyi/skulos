@@ -56,6 +56,12 @@ class MessageController extends Controller
         $school = $this->school($request);
 
         $broadcasts = Announcement::broadcasts()
+            // A platform-owner broadcast (messaging increment 3) is
+            // delivered into this school's tenant DB so its owner/admin get
+            // the same sign-in pop-up, but the school did not author it, it
+            // must not appear on the school's own "sent" ledger here, see
+            // PlatformBroadcastService.
+            ->whereNull('platform_broadcast_id')
             ->with('section', 'classArm.schoolClass')
             ->withCount([
                 'notifications as delivered_count',

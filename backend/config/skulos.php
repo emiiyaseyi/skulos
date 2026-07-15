@@ -1129,6 +1129,31 @@ return [
     'leadership_role_slugs' => ['school-owner', 'principal', 'head-teacher', 'vice-principal'],
 
     /*
+    | Who a platform-owner broadcast reaches within each matched school
+    | (messaging increment 3, 2026-07-15, user directive: "THE PLATFORM
+    | OWNER CAN SEND BROADCAST OR MESSAGE TO ALL SCHOOLS OWNSERS, ADMIN OR
+    | ALL USERS, THIS WILL BE SELECTED"). "All users" (every teacher,
+    | parent, student across every school) was explicitly deferred by the
+    | user's own follow-up answer ("School owners + admins first") so is
+    | not a selectable option yet. "leadership" preserves the original
+    | Send Broadcast tool's reach (built 2026-07-13, before this option
+    | existed) so it stays available and is the default when a caller
+    | omits the field entirely (BroadcastController::send()).
+    */
+    'platform_message_audiences' => [
+        'owners' => 'School Owners',
+        'admins' => 'School Admins',
+        'owners_and_admins' => 'School Owners & Admins',
+        'leadership' => 'Leadership tier & Admin (Owner, Principal, Head Teacher, Vice Principal, Admin)',
+    ],
+    'platform_message_audience_roles' => [
+        'owners' => ['school-owner'],
+        'admins' => ['school-admin'],
+        'owners_and_admins' => ['school-owner', 'school-admin'],
+        'leadership' => ['school-owner', 'principal', 'head-teacher', 'vice-principal', 'school-admin'],
+    ],
+
+    /*
     | Built-in role templates (tracker section 4.2) seeded with school_id = null.
     | Every school can clone/customize these. "grants" gives the default
     | permission set: "*" = everything, "module.*" = whole module,
