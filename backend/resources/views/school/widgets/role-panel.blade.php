@@ -64,6 +64,7 @@
           <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.index', ['school' => $school->slug]) }}">Report cards</a>
         @endunless
         <a class="btn btn-ghost btn-sm" href="{{ route('school.students', ['school' => $school->slug]) }}">My students</a>
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.chat.index', ['school' => $school->slug]) }}">Message parents</a>
       </div>
     </div>
     @include('school.widgets._students-at-risk', ['items' => $panel['studentsAtRisk'] ?? [], 'title' => 'Students needing attention'])
@@ -88,6 +89,7 @@
       <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem">
         <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.index', ['school' => $school->slug]) }}">Enter CA &amp; exam scores</a>
         <a class="btn btn-ghost btn-sm" href="{{ route('school.students', ['school' => $school->slug]) }}">My students</a>
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.chat.index', ['school' => $school->slug]) }}">Message parents</a>
       </div>
     </div>
     @include('school.widgets._students-at-risk', ['items' => $panel['studentsAtRisk'] ?? [], 'title' => 'Students needing attention'])
@@ -120,6 +122,9 @@
             </li>
           @endforeach
         </ul>
+        <div style="margin-top:1rem">
+          <a class="btn btn-ghost btn-sm" href="{{ route('school.chat.index', ['school' => $school->slug]) }}">Chat with a teacher</a>
+        </div>
       @endif
     </div>
     @include('school.widgets._upcoming-exams', ['items' => $panel['upcomingExams'] ?? []])

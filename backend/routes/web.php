@@ -280,6 +280,18 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/create', [$messages, 'create'])->name('create');
             Route::post('/create', [$messages, 'store'])->name('store');
         });
+        Route::prefix('settings/communication')->name('school.settings.communication.')->group(function () {
+            $commSettings = \App\Http\Controllers\School\CommunicationSettingsController::class;
+            Route::get('/', [$commSettings, 'edit'])->name('edit');
+            Route::post('/', [$commSettings, 'update'])->name('update');
+        });
+        Route::prefix('chat')->name('school.chat.')->group(function () {
+            $chat = \App\Http\Controllers\School\ChatController::class;
+            Route::get('/', [$chat, 'index'])->name('index');
+            Route::get('/start', [$chat, 'start'])->name('start');
+            Route::get('/{threadId}', [$chat, 'show'])->name('show');
+            Route::post('/{threadId}/messages', [$chat, 'store'])->name('messages.store');
+        });
         Route::prefix('calendar')->name('school.calendar.')->group(function () {
             $calendar = \App\Http\Controllers\School\CalendarEventController::class;
             Route::get('/', [$calendar, 'index'])->name('index');

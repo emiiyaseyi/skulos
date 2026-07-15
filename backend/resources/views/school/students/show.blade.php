@@ -44,7 +44,7 @@
     @else
       <div style="overflow-x:auto;margin-bottom:.8rem">
       <table>
-        <thead><tr><th>Name</th><th>Relationship</th><th>Contact</th><th>Login (Parent Portal)</th></tr></thead>
+        <thead><tr><th>Name</th><th>Relationship</th><th>Contact</th><th>Login (Parent Portal)</th>@if($canMessageGuardians)<th>Message</th>@endif</tr></thead>
         <tbody>
           @foreach($student->guardians as $guardian)
             <tr>
@@ -79,10 +79,32 @@
                   @endif
                 @endif
               </td>
+              @if($canMessageGuardians)
+                <td>
+                  @if($guardian->user && $teacherParentMessagingEnabled)
+                    <a class="btn btn-ghost btn-sm" href="{{ route('school.chat.start', ['school' => $school->slug, 'student_id' => $student->id, 'user_id' => $guardian->user->id]) }}">Message</a>
+                  @elseif($guardian->user)
+                    <span class="muted" style="font-size:.82rem">Messaging is off</span>
+                  @else
+                    <span class="muted" style="font-size:.82rem">No login yet</span>
+                  @endif
+                </td>
+              @endif
             </tr>
           @endforeach
         </tbody>
       </table>
+      </div>
+    @endif
+
+    @if($teacherTargetsForFamily->isNotEmpty())
+      <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--line)">
+        <h4 style="margin-bottom:.6rem;font-size:.9rem">Message a teacher</h4>
+        <div class="stack" style="flex-direction:row;flex-wrap:wrap;gap:.5rem">
+          @foreach($teacherTargetsForFamily as $teacherUser)
+            <a class="btn btn-ghost btn-sm" href="{{ route('school.chat.start', ['school' => $school->slug, 'student_id' => $student->id, 'user_id' => $teacherUser->id]) }}">Message {{ $teacherUser->name }}</a>
+          @endforeach
+        </div>
       </div>
     @endif
 

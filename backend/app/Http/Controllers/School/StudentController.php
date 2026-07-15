@@ -15,6 +15,7 @@ use App\Models\Tenant\Term;
 use App\Models\User;
 use App\Services\Accounts\AccountProvisioningService;
 use App\Services\Bulk\CsvReader;
+use App\Services\Communication\ChatService;
 use App\Services\Bulk\Importer;
 use App\Services\Bulk\Importers\StudentImporter;
 use App\Services\Rbac\FamilyScope;
@@ -377,6 +378,18 @@ class StudentController extends Controller
             || in_array($roleSlug, ['class-teacher', 'class-assistant'], true)
             || (Setting::grab('guardian_visibility', 'class_teacher_only') === 'both');
 
+        // "Message" buttons on this page (messaging increment 4, 2026-07-15):
+        // a teacher of this student can message its guardians, a guardian
+        // of this student can message its class teacher/assistant. Neither
+        // is shown to anyone else (a school owner/admin viewing this same
+        // page does not get a 1-to-1 chat entry point, that is not the
+        // pairing this feature covers).
+        $chat = app(ChatService::class);
+        $canMessageGuardians = $chat->isTeacherOf($user, $school, $student);
+        $teacherTargetsForFamily = $chat->isGuardianOf($user, $school, $student)
+            ? $chat->teacherTargetsFor($student, $school)
+            : collect();
+
         return view('school.students.show', [
             'school' => $school,
             'accent' => $school->branding()['color'],
@@ -386,6 +399,9 @@ class StudentController extends Controller
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'students.update'),
             'canSeeGuardianDetails' => $canSeeGuardianDetails,
             'parentIdentifier' => Setting::grab('parent_identifier', 'email'),
+            'canMessageGuardians' => $canMessageGuardians,
+            'teacherTargetsForFamily' => $teacherTargetsForFamily,
+            'teacherParentMessagingEnabled' => $chat->teacherParentMessagingEnabled(),
         ]);
     }
 

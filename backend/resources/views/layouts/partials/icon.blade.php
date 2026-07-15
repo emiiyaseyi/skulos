@@ -29,5 +29,6 @@
   @case('trial') {!! $s !!}<rect x="8" y="2.5" width="8" height="4" rx="1"/><path d="M9 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-3"/><path d="m9 13 2 2 4-4"/></svg> @break
   @case('archive') {!! $s !!}<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8"/><path d="M10 13h4"/></svg> @break
   @case('support') {!! $s !!}<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><path d="m5.6 5.6 3.1 3.1M15.3 15.3l3.1 3.1M18.4 5.6l-3.1 3.1M8.7 15.3l-3.1 3.1"/></svg> @break
+  @case('chat') {!! $s !!}<path d="M8 10h.01M12 10h.01M16 10h.01"/><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-4 3.5V16H6a2 2 0 0 1-2-2z"/></svg> @break
   @default {!! $s !!}<circle cx="12" cy="12" r="9"/></svg>
 @endswitch

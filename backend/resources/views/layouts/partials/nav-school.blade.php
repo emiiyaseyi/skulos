@@ -254,6 +254,7 @@
       $link('school.settings.mail.edit', 'Mail Settings', 'mail'),
       $link('school.settings.idle-timeout.edit', 'Idle Timeout', 'clock'),
       $link('school.settings.retention.edit', 'Retention', 'retention'),
+      $link('school.settings.communication.edit', 'Communication', 'chat'),
     ];
   }
 
@@ -271,6 +272,15 @@
   // override is otherwise shared with) sees.
   if ($isFamilyScoped) {
     $groups['Main'][] = $link('school.students', $scopedRoleSlug === 'parent' ? 'My Children' : 'My Report', 'students');
+  }
+
+  // "Chat" (messaging increment 4, 2026-07-15): only the two roles that
+  // actually participate in the teacher<->guardian 1-to-1 pairing get a
+  // nav entry for it, a "student" role does not (see ChatService::
+  // isGuardianOf()'s deliberate role-slug guard), neither does an
+  // unrestricted staff role (owner/admin send broadcasts, not this).
+  if ($isTeacherScoped || $scopedRoleSlug === 'parent') {
+    $groups['Main'][] = $link('school.chat.index', 'Chat', 'chat');
   }
 @endphp
 
