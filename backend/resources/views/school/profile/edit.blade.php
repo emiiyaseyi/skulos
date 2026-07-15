@@ -13,6 +13,7 @@
   <div class="card" style="margin-bottom:1.25rem;border-color:var(--warn,#c98a1c);max-width:32rem">
     <h3 style="margin-bottom:.4rem">Awaiting approval</h3>
     <p class="muted" style="margin-bottom:.6rem">You have a change waiting on {{ $school->name }}'s admin. It has not taken effect yet.</p>
+    <div style="overflow-x:auto">
     <table>
       <thead><tr><th>Field</th><th>Current</th><th>Requested</th></tr></thead>
       <tbody>
@@ -25,6 +26,7 @@
         @endforeach
       </tbody>
     </table>
+    </div>
   </div>
 @endif
 

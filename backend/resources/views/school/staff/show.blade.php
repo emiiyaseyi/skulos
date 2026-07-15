@@ -26,18 +26,20 @@
 <div class="grid cols-2" style="align-items:start;margin-bottom:1.1rem">
   <div class="card">
     <h3 style="margin-bottom:.7rem">Profile</h3>
+    <div style="overflow-x:auto">
     <table>
       <tbody>
         <tr><td class="muted">Status</td><td><span class="badge {{ $staffMember->status === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucwords(str_replace('_', ' ', $staffMember->status)) }}</span></td></tr>
         <tr><td class="muted">Gender</td><td>{{ $staffMember->gender ?: 'Not set' }}</td></tr>
         <tr><td class="muted">Date of birth</td><td>{{ optional($staffMember->date_of_birth)->toFormattedDateString() ?: 'Not set' }}</td></tr>
-        <tr><td class="muted">Email</td><td>{{ $staffMember->email ?: 'Not set' }}</td></tr>
+        <tr><td class="muted">Email</td><td style="word-break:break-word">{{ $staffMember->email ?: 'Not set' }}</td></tr>
         <tr><td class="muted">Phone</td><td>{{ $staffMember->phone ?: 'Not set' }}</td></tr>
         <tr><td class="muted">Employed on</td><td>{{ optional($staffMember->employed_on)->toFormattedDateString() ?: 'Not set' }}</td></tr>
         <tr><td class="muted">Qualification</td><td>{{ $staffMember->qualification ?: 'Not set' }}</td></tr>
         <tr><td class="muted">Address</td><td>{{ $staffMember->address ?: 'Not set' }}</td></tr>
       </tbody>
     </table>
+    </div>
   </div>
 
   <div class="card">
