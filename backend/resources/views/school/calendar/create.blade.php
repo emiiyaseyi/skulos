@@ -19,11 +19,31 @@
     </div>
     <div class="field">
       <label for="category">Category</label>
-      <select id="category" name="category">
+      <select id="category" name="category" onchange="document.getElementById('examFields').style.display=this.value==='exam'?'block':'none'">
         @foreach($categories as $cat)
           <option value="{{ $cat }}">{{ ucfirst($cat) }}</option>
         @endforeach
       </select>
+    </div>
+    <div id="examFields" style="display:none">
+      <div class="field">
+        <label for="subject_id">Subject</label>
+        <select id="subject_id" name="subject_id">
+          <option value="">Select a subject</option>
+          @foreach($subjects as $subject)
+            <option value="{{ $subject->id }}">{{ $subject->name }}</option>
+          @endforeach
+        </select>
+      </div>
+      <div class="field">
+        <label for="class_arm_id">Class</label>
+        <select id="class_arm_id" name="class_arm_id">
+          <option value="">Select a class</option>
+          @foreach($classArms as $arm)
+            <option value="{{ $arm->id }}">{{ $arm->label() }}</option>
+          @endforeach
+        </select>
+      </div>
     </div>
     <div class="field">
       <label for="starts_on">Starts</label>

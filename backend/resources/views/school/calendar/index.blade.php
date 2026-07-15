@@ -26,7 +26,13 @@
               {{ $event->starts_on?->format('d M Y') }}
               @if($event->ends_on && ! $event->ends_on->equalTo($event->starts_on)) &ndash; {{ $event->ends_on->format('d M Y') }} @endif
             </td>
-            <td><strong>{{ $event->title }}</strong>@if($event->description)<div class="muted" style="font-size:.8rem">{{ \Illuminate\Support\Str::limit($event->description, 90) }}</div>@endif</td>
+            <td>
+              <strong>{{ $event->title }}</strong>
+              @if($event->category === 'exam' && ($event->subject || $event->classArm))
+                <div class="muted" style="font-size:.8rem">{{ $event->subject?->name }}{{ $event->subject && $event->classArm ? ' &middot; ' : '' }}{{ $event->classArm?->label() }}</div>
+              @endif
+              @if($event->description)<div class="muted" style="font-size:.8rem">{{ \Illuminate\Support\Str::limit($event->description, 90) }}</div>@endif
+            </td>
             <td class="muted">{{ ucfirst($event->category) }}{{ $event->is_default ? ' (default)' : '' }}</td>
             @if($canCreate)
               <td>

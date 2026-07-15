@@ -67,6 +67,8 @@
       </div>
     </div>
     @include('school.widgets._students-at-risk', ['items' => $panel['studentsAtRisk'] ?? [], 'title' => 'Students needing attention'])
+    @include('school.widgets._upcoming-exams', ['items' => $panel['upcomingExams'] ?? []])
+    @include('school.widgets._upcoming-assignments', ['items' => $panel['upcomingAssignments'] ?? []])
     @include('school.widgets._birthdays', ['today' => $panel['birthdaysToday'] ?? [], 'upcoming' => $panel['birthdaysUpcoming'] ?? []])
     @break
 
@@ -89,6 +91,8 @@
       </div>
     </div>
     @include('school.widgets._students-at-risk', ['items' => $panel['studentsAtRisk'] ?? [], 'title' => 'Students needing attention'])
+    @include('school.widgets._upcoming-exams', ['items' => $panel['upcomingExams'] ?? []])
+    @include('school.widgets._upcoming-assignments', ['items' => $panel['upcomingAssignments'] ?? []])
     @include('school.widgets._birthdays', ['today' => $panel['birthdaysToday'] ?? [], 'upcoming' => $panel['birthdaysUpcoming'] ?? []])
     @break
 
@@ -118,6 +122,8 @@
         </ul>
       @endif
     </div>
+    @include('school.widgets._upcoming-exams', ['items' => $panel['upcomingExams'] ?? []])
+    @include('school.widgets._upcoming-assignments', ['items' => $panel['upcomingAssignments'] ?? []])
     @break
 
   @case('own_result')
@@ -128,6 +134,8 @@
         <p class="muted">Your student record has not been linked to this login yet. Contact the school office if this seems wrong.</p>
       @endif
     </div>
+    @include('school.widgets._upcoming-exams', ['items' => $panel['upcomingExams'] ?? []])
+    @include('school.widgets._upcoming-assignments', ['items' => $panel['upcomingAssignments'] ?? []])
     @break
 
   @case('no_class')
@@ -159,6 +167,21 @@
         <a class="btn btn-ghost btn-sm" style="margin-top:.8rem" href="{{ route('school.report-cards.pending-review', ['school' => $school->slug]) }}">Open pending review</a>
       @endif
     </div>
+    @if(isset($panel['upcomingExams']))
+      <div class="card rp-card">
+        <h3 style="margin-bottom:.3rem">Upcoming exams</h3>
+        @if(empty($panel['upcomingExams']))
+          <p class="muted">No exams scheduled yet.</p>
+        @else
+          <ul class="rp-list">
+            @foreach($panel['upcomingExams'] as $exam)
+              <li><span><strong>{{ $exam['title'] }}</strong> <span class="muted">{{ $exam['subject'] }}{{ $exam['subject'] && $exam['class'] ? ' &middot; ' : '' }}{{ $exam['class'] }}</span></span><span class="muted">{{ $exam['date'] }}</span></li>
+            @endforeach
+          </ul>
+        @endif
+        <a class="btn btn-ghost btn-sm" style="margin-top:.8rem" href="{{ route('school.calendar.index', ['school' => $school->slug]) }}">Open calendar</a>
+      </div>
+    @endif
     @break
 
   @case('registrar_overview')
@@ -180,6 +203,19 @@
         <p class="muted">Most recent backup shown above.</p>
       @endif
       <a class="btn btn-ghost btn-sm" style="margin-top:.6rem" href="{{ route('school.backups.index', ['school' => $school->slug]) }}">Manage backups</a>
+    </div>
+    <div class="card rp-card">
+      <h3 style="margin-bottom:.3rem">Recent failed logins</h3>
+      <p class="muted" style="font-size:.8rem;margin-bottom:.8rem">Last 7 days. Tracked passively, no account is locked automatically.</p>
+      @if(empty($panel['recentFailedLogins']))
+        <p class="muted">No failed sign in attempts in the last 7 days.</p>
+      @else
+        <ul class="rp-list">
+          @foreach($panel['recentFailedLogins'] as $attempt)
+            <li><span><strong>{{ $attempt['identifier'] }}</strong> <span class="muted">{{ $attempt['reason'] }}{{ $attempt['ip'] ? ' &middot; '.$attempt['ip'] : '' }}</span></span><span class="muted">{{ $attempt['when'] }}</span></li>
+          @endforeach
+        </ul>
+      @endif
     </div>
     @break
 

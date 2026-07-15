@@ -47,6 +47,7 @@ return [
         'examinations' => ['name' => 'Examinations & Results', 'core' => true],
         'report_cards' => ['name' => 'Report Cards', 'core' => true],
         'timetable' => ['name' => 'Timetable', 'core' => true],
+        'assignments' => ['name' => 'Assignments', 'core' => true],
         'calendar' => ['name' => 'School Calendar & Events', 'core' => true],
         'communication' => ['name' => 'Communication', 'core' => true],
         'analytics' => ['name' => 'Analytics & Reporting', 'core' => true],
@@ -1113,7 +1114,7 @@ return [
         'head-teacher' => ['name' => 'Head Teacher', 'grants' => ['*']],
         'vice-principal' => ['name' => 'Vice Principal', 'grants' => [
             'students.*', 'staff.*', 'academics.*', 'attendance.*',
-            'examinations.*', 'report_cards.*', 'timetable.*', 'calendar.*',
+            'examinations.*', 'report_cards.*', 'timetable.*', 'assignments.*', 'calendar.*',
             'communication.*', 'analytics.*',
         ]],
         'registrar' => ['name' => 'Registrar', 'grants' => [
@@ -1134,18 +1135,21 @@ return [
         'teacher' => ['name' => 'Teacher', 'grants' => [
             'students.view', 'attendance.view', 'attendance.create', 'attendance.update',
             'examinations.view', 'examinations.create', 'examinations.update',
-            'timetable.view', 'calendar.view', 'communication.view', 'communication.create',
+            'timetable.view', 'assignments.view', 'assignments.create', 'assignments.update', 'assignments.delete',
+            'calendar.view', 'communication.view', 'communication.create',
         ]],
         'class-teacher' => ['name' => 'Class Teacher', 'grants' => [
             'students.view', 'students.update', 'attendance.*',
             'examinations.view', 'examinations.create', 'examinations.update',
             'report_cards.view', 'report_cards.create', 'report_cards.update',
-            'timetable.view', 'calendar.view', 'communication.view', 'communication.create',
+            'timetable.view', 'assignments.view', 'assignments.create', 'assignments.update', 'assignments.delete',
+            'calendar.view', 'communication.view', 'communication.create',
         ]],
         'subject-teacher' => ['name' => 'Subject Teacher', 'grants' => [
             'students.view', 'attendance.view',
             'examinations.view', 'examinations.create', 'examinations.update',
-            'timetable.view', 'calendar.view', 'communication.view',
+            'timetable.view', 'assignments.view', 'assignments.create', 'assignments.update', 'assignments.delete',
+            'calendar.view', 'communication.view',
         ]],
         'librarian' => ['name' => 'Librarian', 'grants' => ['library.*', 'students.view', 'staff.view']],
         'nurse' => ['name' => 'Nurse', 'grants' => ['medical.*', 'students.view']],
@@ -1153,13 +1157,13 @@ return [
         'accountant' => ['name' => 'Accountant', 'grants' => ['students.view', 'parents.view', 'analytics.view']],
         'class-assistant' => ['name' => 'Class Assistant', 'grants' => [
             'students.view', 'attendance.view', 'attendance.create',
-            'timetable.view', 'calendar.view', 'communication.view',
+            'timetable.view', 'assignments.view', 'calendar.view', 'communication.view',
         ]],
         'parent' => ['name' => 'Parent', 'grants' => [
-            'calendar.view', 'communication.view', 'timetable.view', 'students.view',
+            'calendar.view', 'communication.view', 'timetable.view', 'assignments.view', 'students.view',
         ]],
         'student' => ['name' => 'Student', 'grants' => [
-            'calendar.view', 'communication.view', 'timetable.view', 'students.view',
+            'calendar.view', 'communication.view', 'timetable.view', 'assignments.view', 'students.view',
         ]],
         'security' => ['name' => 'Security', 'grants' => []],
         'hostel-master' => ['name' => 'Hostel Master', 'grants' => ['hostel.*', 'students.view']],

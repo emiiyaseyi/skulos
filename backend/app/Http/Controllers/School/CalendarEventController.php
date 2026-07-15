@@ -5,6 +5,8 @@ namespace App\Http\Controllers\School;
 use App\Http\Controllers\Controller;
 use App\Models\School;
 use App\Models\Tenant\CalendarEvent;
+use App\Models\Tenant\ClassArm;
+use App\Models\Tenant\Subject;
 use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -59,6 +61,10 @@ class CalendarEventController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'categories' => config('skulos.calendar_event_categories'),
+            'subjects' => Subject::orderBy('name')->get(),
+            'classArms' => ClassArm::with('schoolClass.section', 'arm')->get()
+                ->sortBy(fn (ClassArm $arm) => $arm->orderKey())
+                ->values(),
         ]);
     }
 
@@ -74,7 +80,15 @@ class CalendarEventController extends Controller
             'starts_on' => ['required', 'date'],
             'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
             'all_day' => ['sometimes', 'boolean'],
+            // Only meaningful for category=exam (the "simple exam calendar"
+            // scope decision 2026-07-15: date + subject + class arm per
+            // exam sitting, no rooms/invigilators), ignored for every other
+            // category regardless of what is posted.
+            'subject_id' => ['nullable', 'integer', 'exists:tenant.subjects,id'],
+            'class_arm_id' => ['nullable', 'integer', 'exists:tenant.class_arms,id'],
         ]);
+
+        $isExam = $data['category'] === 'exam';
 
         CalendarEvent::create([
             'title' => $data['title'],
@@ -84,6 +98,8 @@ class CalendarEventController extends Controller
             'ends_on' => $data['ends_on'] ?? null,
             'all_day' => $request->boolean('all_day'),
             'is_default' => false,
+            'subject_id' => $isExam ? ($data['subject_id'] ?? null) : null,
+            'class_arm_id' => $isExam ? ($data['class_arm_id'] ?? null) : null,
             'created_by_user_id' => Auth::id(),
         ]);
 

@@ -470,6 +470,15 @@ class RoleDashboard
                 'birthdaysToday' => $this->todaysBirthdays($students),
                 'birthdaysUpcoming' => $this->upcomingBirthdays($students),
                 'studentsAtRisk' => $this->studentsAtRisk($students, $term),
+                'upcomingExams' => \App\Models\Tenant\CalendarEvent::exams()->upcoming()
+                    ->where(fn ($q) => $q->whereNull('class_arm_id')->orWhere('class_arm_id', $classArm->id))
+                    ->with('subject')->take(5)->get()
+                    ->map(fn ($e) => ['title' => $e->title, 'date' => $e->starts_on?->format('d M Y'), 'subject' => $e->subject?->name])
+                    ->all(),
+                'upcomingAssignments' => \App\Models\Tenant\Assignment::where('class_arm_id', $classArm->id)
+                    ->upcoming()->with('subject')->take(5)->get()
+                    ->map(fn ($a) => ['title' => $a->title, 'date' => $a->due_on?->format('d M Y'), 'subject' => $a->subject?->name])
+                    ->all(),
             ],
         ];
     }
@@ -539,6 +548,15 @@ class RoleDashboard
                 'birthdaysToday' => $this->todaysBirthdays($taughtStudents),
                 'birthdaysUpcoming' => $this->upcomingBirthdays($taughtStudents),
                 'studentsAtRisk' => $this->studentsAtRisk($taughtStudents, $term),
+                'upcomingExams' => \App\Models\Tenant\CalendarEvent::exams()->upcoming()
+                    ->where(fn ($q) => $q->whereNull('class_arm_id')->orWhereIn('class_arm_id', $classArmIds))
+                    ->with('subject', 'classArm')->take(5)->get()
+                    ->map(fn ($e) => ['title' => $e->title, 'date' => $e->starts_on?->format('d M Y'), 'subject' => $e->subject?->name, 'class' => $e->classArm?->label()])
+                    ->all(),
+                'upcomingAssignments' => \App\Models\Tenant\Assignment::whereIn('class_arm_id', $classArmIds)
+                    ->upcoming()->with('subject', 'classArm')->take(5)->get()
+                    ->map(fn ($a) => ['title' => $a->title, 'date' => $a->due_on?->format('d M Y'), 'subject' => $a->subject?->name, 'class' => $a->classArm?->label()])
+                    ->all(),
             ],
         ];
     }
@@ -564,6 +582,13 @@ class RoleDashboard
         $released = $term
             ? ReportCardReview::where('term_id', $term->id)->where('status', ReportCardReview::STATUS_RELEASED)->count()
             : 0;
+        // Exams Scheduled (Dashboard Design Cross-Check: "Exams Scheduled,
+        // Results Pending, CA Pending, Published Results"), real now that
+        // the simple exam calendar exists (2026-07-15): CalendarEvent rows
+        // with category=exam. "Grading Scales" (a setup count, not a day
+        // to day figure) is swapped out for it to keep the grid at 4,
+        // closer to the doc's original intended 4 figures for this role.
+        $upcomingExams = \App\Models\Tenant\CalendarEvent::exams()->upcoming()->with('subject', 'classArm.schoolClass')->get();
 
         return [
             'kind' => 'examination_officer',
@@ -571,7 +596,7 @@ class RoleDashboard
                 ['n' => number_format($pending->count()), 'l' => 'Pending Review', 'ic' => 'results', 'c' => '#E5901C', 'pct' => '50%'],
                 ['n' => number_format($released), 'l' => 'Released', 'ic' => 'results', 'c' => '#0EA5A0', 'pct' => '70%'],
                 ['n' => number_format(AssessmentComponent::count()), 'l' => 'Assessment Components', 'ic' => 'academics', 'c' => '#6D4FE0', 'pct' => '60%'],
-                ['n' => number_format(GradingScale::count()), 'l' => 'Grading Scales', 'ic' => 'academics', 'c' => '#E14F63', 'pct' => '60%'],
+                ['n' => number_format($upcomingExams->count()), 'l' => 'Exams Scheduled', 'ic' => 'calendar', 'c' => '#E14F63', 'pct' => '60%'],
             ],
             'panel' => [
                 'type' => 'pending_reviews',
@@ -582,6 +607,12 @@ class RoleDashboard
                     'status' => ReportCardReview::statusLabel($r->status),
                 ])->all(),
                 'more' => max(0, $pending->count() - 8),
+                'upcomingExams' => $upcomingExams->take(6)->map(fn ($e) => [
+                    'title' => $e->title,
+                    'date' => $e->starts_on?->format('d M Y'),
+                    'subject' => $e->subject?->name,
+                    'class' => $e->classArm?->label(),
+                ])->all(),
             ],
         ];
     }
@@ -640,6 +671,19 @@ class RoleDashboard
         // HealthService on the admin dashboard.
         $storage = app(\App\Services\Maintenance\StorageService::class)->breakdown($school);
         $totalUsedBytes = ($storage['database_bytes'] ?? 0) + ($storage['backups_bytes'] ?? 0);
+        // Failed Logins (Dashboard Design Cross-Check: "Active Users,
+        // Failed Logins, Storage, Backups"), real now that LoginController
+        // logs every failed attempt (2026-07-15). Scoped to this school
+        // only (a failed attempt on the base platform /login, school_id
+        // null, is a platform-level concern, not this school's ICT
+        // Officer's). Passive tracking only, no lockout policy.
+        $recentFailedLogins = \App\Models\FailedLogin::where('school_id', $school->id)
+            ->where('created_at', '>=', now()->subDays(7))
+            ->orderByDesc('created_at')
+            ->get();
+        $failedLogins24h = $recentFailedLogins->where('created_at', '>=', now()->subDay())->count();
+        $uniqueIps7d = $recentFailedLogins->pluck('ip_address')->filter()->unique()->count();
+        $lastFailedLogin = $recentFailedLogins->first();
 
         return [
             'kind' => 'ict_officer',
@@ -652,8 +696,21 @@ class RoleDashboard
                 ['n' => \App\Services\Maintenance\StorageService::humanBytes($storage['backups_bytes']), 'l' => 'Backups Storage', 'ic' => 'settings', 'c' => '#6D4FE0', 'pct' => '55%'],
                 ['n' => \App\Services\Maintenance\StorageService::humanBytes($totalUsedBytes), 'l' => 'Storage Used', 'ic' => 'settings', 'c' => '#E5901C', 'pct' => '65%'],
                 ['n' => $storage['limit_mb'] ? number_format($storage['limit_mb']).' MB' : 'No limit', 'l' => 'Storage Limit', 'ic' => 'settings', 'c' => '#E14F63', 'pct' => '50%'],
+                ['n' => number_format($recentFailedLogins->count()), 'l' => 'Failed Logins (7d)', 'ic' => 'settings', 'c' => '#E14F63', 'pct' => '50%'],
+                ['n' => number_format($failedLogins24h), 'l' => 'Failed Logins (24h)', 'ic' => 'settings', 'c' => '#E5901C', 'pct' => '50%'],
+                ['n' => number_format($uniqueIps7d), 'l' => 'Unique IPs (7d)', 'ic' => 'settings', 'c' => '#6D4FE0', 'pct' => '50%'],
+                ['n' => $lastFailedLogin ? $lastFailedLogin->created_at->diffForHumans() : 'None', 'l' => 'Last Failed Attempt', 'ic' => 'settings', 'c' => '#0EA5A0', 'pct' => '50%'],
             ],
-            'panel' => ['type' => 'ict_overview', 'has_backup' => (bool) $lastBackup],
+            'panel' => [
+                'type' => 'ict_overview',
+                'has_backup' => (bool) $lastBackup,
+                'recentFailedLogins' => $recentFailedLogins->take(8)->map(fn ($f) => [
+                    'identifier' => $f->identifier,
+                    'reason' => \App\Models\FailedLogin::reasonLabel($f->reason),
+                    'ip' => $f->ip_address,
+                    'when' => $f->created_at->diffForHumans(),
+                ])->all(),
+            ],
         ];
     }
 
@@ -721,6 +778,10 @@ class RoleDashboard
         $children = StudentGuardian::where('guardian_user_id', $user->id)->with('student.currentClassArm')->get();
         $upcomingEvents = \App\Models\Tenant\CalendarEvent::upcoming()->count();
         $childIds = $children->pluck('student.id')->filter()->values();
+        $childArmIds = $children->pluck('student.currentClassArm.id')->filter()->unique()->values();
+        $upcomingExams = \App\Models\Tenant\CalendarEvent::exams()->upcoming()
+            ->where(fn ($q) => $q->whereNull('class_arm_id')->orWhereIn('class_arm_id', $childArmIds))
+            ->with('subject', 'classArm')->take(5)->get();
 
         $todayCounts = Attendance::students()->whereIn('person_id', $childIds)->forDate(now())
             ->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
@@ -767,6 +828,16 @@ class RoleDashboard
                         'latestReportReleasedAt' => $latestReport?->released_at,
                     ];
                 })->all(),
+                'upcomingExams' => $upcomingExams->map(fn ($e) => [
+                    'title' => $e->title,
+                    'date' => $e->starts_on?->format('d M Y'),
+                    'subject' => $e->subject?->name,
+                    'class' => $e->classArm?->label(),
+                ])->all(),
+                'upcomingAssignments' => \App\Models\Tenant\Assignment::whereIn('class_arm_id', $childArmIds)
+                    ->upcoming()->with('subject', 'classArm')->take(5)->get()
+                    ->map(fn ($a) => ['title' => $a->title, 'date' => $a->due_on?->format('d M Y'), 'subject' => $a->subject?->name, 'class' => $a->classArm?->label()])
+                    ->all(),
             ],
         ];
     }
@@ -818,7 +889,25 @@ class RoleDashboard
                 ['n' => number_format($termMarks['present'] ?? 0), 'l' => 'Days Present', 'ic' => 'students', 'c' => '#6D4FE0', 'pct' => '60%'],
                 ['n' => number_format($termMarks['absent'] ?? 0), 'l' => 'Days Absent', 'ic' => 'students', 'c' => '#E14F63', 'pct' => '30%'],
             ],
-            'panel' => ['type' => 'own_result', 'term' => $term?->name, 'student_id' => $student->id],
+            'panel' => [
+                'type' => 'own_result',
+                'term' => $term?->name,
+                'student_id' => $student->id,
+                'upcomingExams' => $classArm
+                    ? \App\Models\Tenant\CalendarEvent::exams()->upcoming()
+                        ->where(fn ($q) => $q->whereNull('class_arm_id')->orWhere('class_arm_id', $classArm->id))
+                        ->with('subject')->take(5)
+                        ->get()
+                        ->map(fn ($e) => ['title' => $e->title, 'date' => $e->starts_on?->format('d M Y'), 'subject' => $e->subject?->name])
+                        ->all()
+                    : [],
+                'upcomingAssignments' => $classArm
+                    ? \App\Models\Tenant\Assignment::where('class_arm_id', $classArm->id)
+                        ->upcoming()->with('subject')->take(5)->get()
+                        ->map(fn ($a) => ['title' => $a->title, 'date' => $a->due_on?->format('d M Y'), 'subject' => $a->subject?->name])
+                        ->all()
+                    : [],
+            ],
         ];
     }
 

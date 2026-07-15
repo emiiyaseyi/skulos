@@ -18,7 +18,7 @@ class CalendarEvent extends Model
     protected $fillable = [
         'title', 'category', 'description', 'starts_on', 'ends_on',
         'all_day', 'is_default', 'academic_session_id', 'term_id',
-        'created_by_user_id',
+        'subject_id', 'class_arm_id', 'created_by_user_id',
     ];
 
     protected function casts(): array
@@ -41,5 +41,20 @@ class CalendarEvent extends Model
         return $query->whereNotNull('starts_on')
             ->whereDate('starts_on', '>=', now()->toDateString())
             ->orderBy('starts_on');
+    }
+
+    public function scopeExams($query)
+    {
+        return $query->where('category', 'exam');
+    }
+
+    public function subject(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Subject::class);
+    }
+
+    public function classArm(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(ClassArm::class);
     }
 }

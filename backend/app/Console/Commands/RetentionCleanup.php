@@ -36,6 +36,15 @@ class RetentionCleanup extends Command
             $this->info("Purged {$sessionsPurged} expired session(s).");
         }
 
+        // Failed Logins (2026-07-15): a fixed 90 day window, platform
+        // level (not per school Setting like notifications/communication
+        // logs above, this table has no tenant connection at all), same
+        // "anything unbounded gets a retention policy" rule.
+        $failedLoginsPurged = \App\Models\FailedLogin::where('created_at', '<', now()->subDays(90))->delete();
+        if ($failedLoginsPurged) {
+            $this->info("Purged {$failedLoginsPurged} failed login record(s) older than 90 days.");
+        }
+
         $schools = School::whereNotNull('database')->whereNotNull('provisioned_at')->get();
         foreach ($schools as $school) {
             try {

@@ -61,10 +61,13 @@ class LoginController extends Controller
         $ok = $user && \Illuminate\Support\Facades\Hash::check($data['password'], $user->password);
         if ($ok && $school && ! $user->is_super_admin && ! $user->isMemberOf($school)) {
             RateLimiter::hit($key, 60);
+            $this->logFailedLogin($request, $school, $identifier, \App\Models\FailedLogin::REASON_NOT_MEMBER);
             throw ValidationException::withMessages(['email' => 'This account is not a member of this school.']);
         }
         if (! $ok) {
             RateLimiter::hit($key, 60);
+            $reason = $user ? \App\Models\FailedLogin::REASON_BAD_PASSWORD : \App\Models\FailedLogin::REASON_NOT_FOUND;
+            $this->logFailedLogin($request, $school, $identifier, $reason);
             throw ValidationException::withMessages(['email' => 'Those details do not match our records.']);
         }
 
@@ -99,6 +102,22 @@ class LoginController extends Controller
         }
 
         return redirect()->intended(Auth::user()->is_super_admin ? route('admin.dashboard') : '/');
+    }
+
+    /**
+     * Never stores the attempted password (security: sensitive attributes
+     * excluded from logs, matching the standing audit trail rule), only
+     * the identifier string typed and why it failed.
+     */
+    protected function logFailedLogin(Request $request, ?\App\Models\School $school, string $identifier, string $reason): void
+    {
+        \App\Models\FailedLogin::create([
+            'school_id' => $school?->id,
+            'identifier' => $identifier,
+            'reason' => $reason,
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
     }
 
     /**

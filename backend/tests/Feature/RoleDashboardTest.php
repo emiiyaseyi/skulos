@@ -245,6 +245,40 @@ class RoleDashboardTest extends TestCase
         $this->assertSame('Ada Obi', $data['panel']['items'][0]['student']);
     }
 
+    public function test_examination_officer_sees_exams_scheduled_and_a_students_own_class_sees_only_its_own_exam(): void
+    {
+        [$school, $officer] = $this->schoolWithMember('examination-officer', 'rdexam');
+        $studentUser = User::factory()->create();
+        $studentRole = $this->rbac->cloneTemplateRole($school, 'student');
+        $school->users()->attach($studentUser->id, ['role_id' => $studentRole->id, 'status' => 'active']);
+        app(TenantManager::class)->use($school);
+
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Basic 5', 'sequence' => 1]);
+        $armA = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => Arm::create(['name' => 'A'])->id]);
+        $armB = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => Arm::create(['name' => 'B'])->id]);
+        $subject = Subject::create(['name' => 'English', 'code' => 'ENG']);
+        $student = Student::create(['admission_number' => 'EX1', 'first_name' => 'Exam', 'last_name' => 'Student', 'current_class_arm_id' => $armA->id, 'user_id' => $studentUser->id]);
+
+        \App\Models\Tenant\CalendarEvent::create(['title' => 'English Exam', 'category' => 'exam', 'starts_on' => now()->addDays(3), 'all_day' => true, 'subject_id' => $subject->id, 'class_arm_id' => $armA->id]);
+        \App\Models\Tenant\CalendarEvent::create(['title' => 'Other Class Exam', 'category' => 'exam', 'starts_on' => now()->addDays(4), 'all_day' => true, 'subject_id' => $subject->id, 'class_arm_id' => $armB->id]);
+        \App\Models\Tenant\CalendarEvent::create(['title' => 'PTA Meeting', 'category' => 'meeting', 'starts_on' => now()->addDays(2), 'all_day' => true]);
+
+        $officerData = app(RoleDashboard::class)->build($officer, $school);
+        $studentData = app(RoleDashboard::class)->build($studentUser, $school);
+        app(TenantManager::class)->forget();
+
+        $scheduledFig = collect($officerData['figs'])->firstWhere('l', 'Exams Scheduled');
+        $this->assertSame('2', $scheduledFig['n'], 'must count only exam-category events, not the PTA meeting');
+        $officerExamTitles = collect($officerData['panel']['upcomingExams'])->pluck('title');
+        $this->assertTrue($officerExamTitles->contains('English Exam'));
+        $this->assertTrue($officerExamTitles->contains('Other Class Exam'), 'the officer sees every class\'s exams, not just one');
+
+        $studentExamTitles = collect($studentData['panel']['upcomingExams'])->pluck('title');
+        $this->assertTrue($studentExamTitles->contains('English Exam'));
+        $this->assertFalse($studentExamTitles->contains('Other Class Exam'), 'a student must not see another class arm\'s exam');
+    }
+
     public function test_registrar_sees_student_and_guardian_counts(): void
     {
         [$school, $registrar] = $this->schoolWithMember('registrar', 'rdeight');

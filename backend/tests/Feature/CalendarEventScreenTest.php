@@ -99,4 +99,50 @@ class CalendarEventScreenTest extends TestCase
 
         $this->actingAs($teacher)->get(route('school.calendar.create', ['school' => $school->slug]))->assertForbidden();
     }
+
+    public function test_an_exam_event_can_be_scheduled_with_a_subject_and_class(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'calfive');
+
+        app(TenantManager::class)->use($school);
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 3', 'sequence' => 1]);
+        $arm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $class->id]);
+        $subject = \App\Models\Tenant\Subject::create(['name' => 'Mathematics', 'code' => 'MTH']);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post(route('school.calendar.store', ['school' => $school->slug]), [
+            'title' => 'First Term Maths Exam', 'category' => 'exam', 'starts_on' => now()->addDays(10)->toDateString(),
+            'all_day' => '1', 'subject_id' => $subject->id, 'class_arm_id' => $arm->id,
+        ])->assertRedirect(route('school.calendar.index', ['school' => $school->slug]));
+
+        app(TenantManager::class)->use($school);
+        $event = CalendarEvent::where('title', 'First Term Maths Exam')->first();
+        app(TenantManager::class)->forget();
+
+        $this->assertNotNull($event);
+        $this->assertSame($subject->id, $event->subject_id);
+        $this->assertSame($arm->id, $event->class_arm_id);
+    }
+
+    public function test_subject_and_class_are_ignored_for_a_non_exam_category(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'calsix');
+
+        app(TenantManager::class)->use($school);
+        $subject = \App\Models\Tenant\Subject::create(['name' => 'Mathematics', 'code' => 'MTH']);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post(route('school.calendar.store', ['school' => $school->slug]), [
+            'title' => 'PTA Meeting', 'category' => 'meeting', 'starts_on' => now()->addDays(5)->toDateString(),
+            'all_day' => '1', 'subject_id' => $subject->id,
+        ]);
+
+        app(TenantManager::class)->use($school);
+        $event = CalendarEvent::where('title', 'PTA Meeting')->first();
+        app(TenantManager::class)->forget();
+
+        $this->assertNotNull($event);
+        $this->assertNull($event->subject_id, 'subject_id must be discarded for a category other than exam');
+    }
 }
