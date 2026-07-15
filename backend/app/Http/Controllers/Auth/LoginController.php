@@ -168,7 +168,31 @@ class LoginController extends Controller
             }
         }
 
-        return \App\Models\User::where('phone', preg_replace('/\D+/', '', $identifier))->first();
+        return \App\Models\User::whereIn('phone', $this->phoneCandidates(preg_replace('/\D+/', '', $identifier)))->first();
+    }
+
+    /**
+     * A phone number is stored exactly as an admin originally typed it
+     * (no normalization at write time), so a sign-in attempt typed in a
+     * different but equivalent form (a Nigerian number with the +234
+     * country code where the stored value is the local 0-prefixed form,
+     * or vice versa) previously never matched at all (tracker gap noted
+     * 2026-07-12: "no change to normalizing a phone number typed with a
+     * country code prefix"). Tries the exact digits first (unchanged
+     * behavior for the common case), then the other equivalent form.
+     *
+     * @return list<string>
+     */
+    protected function phoneCandidates(string $digits): array
+    {
+        $candidates = [$digits];
+        if (str_starts_with($digits, '234') && strlen($digits) === 13) {
+            $candidates[] = '0'.substr($digits, 3);
+        } elseif (str_starts_with($digits, '0') && strlen($digits) === 11) {
+            $candidates[] = '234'.substr($digits, 1);
+        }
+
+        return array_unique($candidates);
     }
 
     /**

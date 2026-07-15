@@ -205,6 +205,39 @@ class PlatformFlowTest extends TestCase
         $this->assertGuest();
     }
 
+    /**
+     * A phone stored in the local 0-prefixed form (how every existing
+     * staff/guardian phone field is typed) must still match a sign-in
+     * attempt typed with the +234 country code, previously an exact
+     * string match only, tracker gap closed 2026-07-15.
+     */
+    public function test_a_member_can_sign_in_with_a_country_code_prefixed_version_of_their_stored_local_phone(): void
+    {
+        $school = $this->provisionSchool('phonelogincc', 'Phone Login CC School');
+        $teacher = User::factory()->create(['phone' => '08031234567', 'password' => bcrypt('teachpass123')]);
+        $school->users()->attach($teacher->id, ['status' => 'active']);
+
+        $this->post('http://phonelogincc.localhost/login', [
+            'email' => '+234 803 123 4567',
+            'password' => 'teachpass123',
+        ])->assertRedirect(route('school.dashboard', ['school' => 'phonelogincc']));
+        $this->assertAuthenticatedAs($teacher);
+    }
+
+    /** The reverse direction: stored with the 234 prefix, typed in the local 0-prefixed form. */
+    public function test_a_member_can_sign_in_with_the_local_form_of_their_234_prefixed_stored_phone(): void
+    {
+        $school = $this->provisionSchool('phonelocalform', 'Phone Local Form School');
+        $teacher = User::factory()->create(['phone' => '2348031234567', 'password' => bcrypt('teachpass123')]);
+        $school->users()->attach($teacher->id, ['status' => 'active']);
+
+        $this->post('http://phonelocalform.localhost/login', [
+            'email' => '08031234567',
+            'password' => 'teachpass123',
+        ])->assertRedirect(route('school.dashboard', ['school' => 'phonelocalform']));
+        $this->assertAuthenticatedAs($teacher);
+    }
+
     public function test_error_pages_use_the_branded_template_not_the_framework_default(): void
     {
         $school = $this->provisionSchool('errorpage', 'Error Page School');
