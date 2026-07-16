@@ -2,10 +2,12 @@
 
 namespace App\Services\Results;
 
+use App\Models\Tenant\AssessmentComponent;
 use App\Models\Tenant\GradingScale;
 use App\Models\Tenant\Score;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\Subject;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Computes results from raw component scores using the school's configured
@@ -43,6 +45,43 @@ class ResultService
             'remark' => $band?->remark,
             'components' => $components,
         ];
+    }
+
+    /**
+     * The average subject percentage across every student and subject with
+     * a recorded score in $termId, for dashboard figures (Term Average,
+     * Result performance). Bug found 2026-07-15 (user report: "HOW COME
+     * THE Term Average IS SUPER POOR... I WAS EXPECTING HIGHER THAN 80%"):
+     * the dashboard previously did `Score::avg('score')` directly, a raw
+     * average across individual ASSESSMENT COMPONENT rows (a Score is "one
+     * component in one subject", per the model's own docblock, e.g. a CA
+     * out of 20 and an Exam out of 60 are two separate rows), not subject
+     * totals. Averaging a batch of ~15/20 CA scores together with ~45/60
+     * exam scores as if they were on the same scale produces a number with
+     * no real meaning, and reads far lower than the actual, correct
+     * percentage a student earned (CA 15 + Exam 45 = 75/100, not ~30).
+     * This sums components per (student, subject) first, matching exactly
+     * what subjectResult() above already does per student, then averages
+     * those normalized-to-100 totals, the mathematically correct number.
+     */
+    public function termAveragePercentage(int $termId): ?float
+    {
+        $totalPossible = AssessmentComponent::totalPossible();
+        if ($totalPossible <= 0) {
+            return null;
+        }
+
+        $subjectTotals = Score::where('term_id', $termId)
+            ->select('student_id', 'subject_id', DB::raw('SUM(score) as subject_total'))
+            ->groupBy('student_id', 'subject_id')
+            ->get()
+            ->pluck('subject_total');
+
+        if ($subjectTotals->isEmpty()) {
+            return null;
+        }
+
+        return round(((float) $subjectTotals->avg()) / $totalPossible * 100, 1);
     }
 
     /**

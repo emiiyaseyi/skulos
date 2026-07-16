@@ -161,7 +161,12 @@ class PopulateStudentScores extends Command
                 // across terms for one student (some variation term to term,
                 // not a full reroll), without needing to persist anything.
                 mt_srand($student->id * 1000 + $term->id);
-                $ability = mt_rand(35, 92);
+                // Range raised 2026-07-16 (user directive: "Term Average
+                // SHOULD STILL GO HIGHER UP TO 80%"), was mt_rand(35, 92)
+                // (averaging ~63), now averages ~80 while keeping enough
+                // spread for a genuine low end, Students At Risk still
+                // needs some students to actually be at risk.
+                $ability = mt_rand(62, 98);
                 $subjectTotals = [];
 
                 foreach ($subjects as $subject) {

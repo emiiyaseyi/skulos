@@ -100,7 +100,7 @@ class RoleDashboard
     protected function admin(?School $school = null): array
     {
         $term = Term::current()->first();
-        $avg = $term ? round((float) \App\Models\Tenant\Score::where('term_id', $term->id)->avg('score'), 1) : null;
+        $avg = $term ? app(\App\Services\Results\ResultService::class)->termAveragePercentage($term->id) : null;
         $pendingReviews = $term
             ? ReportCardReview::where('term_id', $term->id)
                 ->whereIn('status', [ReportCardReview::STATUS_PENDING_REVIEW, ReportCardReview::STATUS_NEEDS_CORRECTION])
@@ -301,13 +301,14 @@ class RoleDashboard
             ->sortBy(fn (Term $t) => sprintf('%05d-%05d', $t->session?->id ?? 0, $t->sequence ?? 0))
             ->values();
 
+        $resultService = app(\App\Services\Results\ResultService::class);
         $trend = [];
         foreach ($terms as $term) {
-            $average = \App\Models\Tenant\Score::where('term_id', $term->id)->avg('score');
+            $average = $resultService->termAveragePercentage($term->id);
             if ($average === null) {
                 continue;
             }
-            $trend[] = ['label' => $term->name, 'average' => round((float) $average, 1)];
+            $trend[] = ['label' => $term->name, 'average' => $average];
         }
 
         return array_slice($trend, -$limit);

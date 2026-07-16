@@ -299,12 +299,23 @@
       <div class="card rp-card">
         <h3 style="margin-bottom:.3rem">Result performance</h3>
         <p class="muted" style="font-size:.8rem;margin-bottom:.8rem">Average score across every term with results recorded so far.</p>
-        @php($trendMax = max(1, ...array_column($panel['resultTrend'], 'average')))
+        {{--
+          Bug found 2026-07-16 (user report, screenshot: six bars all
+          reading 62-64% but rendering at visually the same near-full
+          height): the bar height used to scale against the highest
+          value IN THIS DATASET ($trendMax), not a fixed ceiling, so a
+          tight cluster of similar percentages stretched to fill the
+          whole chart regardless of how good or bad they actually were,
+          making the chart meaningless at a glance. $t['average'] is
+          already a 0-100 percentage (ResultService::termAveragePercentage()),
+          so it is now used directly as the height percentage against a
+          fixed 100% ceiling, matching what the axis actually represents.
+        --}}
         <div style="display:flex;align-items:flex-end;gap:.8rem;height:120px">
           @foreach($panel['resultTrend'] as $t)
             <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:.35rem">
               <span class="muted" style="font-size:.72rem;font-variant-numeric:tabular-nums">{{ $t['average'] }}%</span>
-              <div style="width:100%;background:color-mix(in srgb,var(--accent) 70%,transparent);border-radius:6px 6px 0 0;min-height:3px;height:{{ max(4, round($t['average'] / $trendMax * 100)) }}%"></div>
+              <div style="width:100%;background:color-mix(in srgb,var(--accent) 70%,transparent);border-radius:6px 6px 0 0;min-height:3px;height:{{ max(4, min(100, round($t['average']))) }}%"></div>
               <span class="muted" style="font-size:.72rem;text-align:center">{{ $t['label'] }}</span>
             </div>
           @endforeach

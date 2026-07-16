@@ -583,6 +583,90 @@ class RoleDashboardTest extends TestCase
         $this->assertSame(80.0, $trend[1]['average']);
     }
 
+    /**
+     * Bug found 2026-07-15 (user report: "HOW COME THE Term Average IS
+     * SUPER POOR... I WAS EXPECTING HIGHER THAN 80%"): a Score row is one
+     * assessment COMPONENT (a CA out of 20, an Exam out of 60), not a
+     * subject total, so a raw average across Score rows blends different
+     * scales together and reads far lower than the real percentage a
+     * student earned. This test only exercises the bug with more than one
+     * component per subject, the pre-existing single-component trend test
+     * above never would have caught it (with only one 0-100 component,
+     * the buggy raw average and the correct sum-based total happen to be
+     * numerically identical, which is exactly why this went unnoticed).
+     */
+    public function test_term_average_and_result_trend_are_correct_with_multiple_assessment_components(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'rdmulticomp');
+        app(TenantManager::class)->use($school);
+
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id]);
+        $subject = Subject::create(['name' => 'Mathematics', 'code' => 'MTH']);
+        $student = Student::create(['admission_number' => 'RT2', 'first_name' => 'A', 'last_name' => 'B', 'current_class_arm_id' => $arm->id]);
+        $ca = \App\Models\Tenant\AssessmentComponent::create(['name' => 'CA', 'type' => 'ca', 'max_score' => 20, 'sequence' => 1]);
+        $exam = \App\Models\Tenant\AssessmentComponent::create(['name' => 'Exam', 'type' => 'exam', 'max_score' => 80, 'sequence' => 2]);
+
+        $session = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026']);
+        $term = \App\Models\Tenant\Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1, 'is_current' => true]);
+
+        // CA 18/20 + Exam 72/80 = 90/100, the real percentage. The old
+        // buggy computation would average the raw rows (18+72)/2 = 45.
+        \App\Models\Tenant\Score::create(['student_id' => $student->id, 'subject_id' => $subject->id, 'class_arm_id' => $arm->id, 'term_id' => $term->id, 'assessment_component_id' => $ca->id, 'score' => 18]);
+        \App\Models\Tenant\Score::create(['student_id' => $student->id, 'subject_id' => $subject->id, 'class_arm_id' => $arm->id, 'term_id' => $term->id, 'assessment_component_id' => $exam->id, 'score' => 72]);
+
+        $data = app(RoleDashboard::class)->build($admin, $school);
+        app(TenantManager::class)->forget();
+
+        $termAverageFig = collect($data['figs'])->firstWhere('l', 'Term Average');
+        $this->assertSame('90%', $termAverageFig['n'], 'must be the real subject percentage (90), not a raw blend of a 20-point and an 80-point score (45)');
+
+        $trend = $data['panel']['resultTrend'];
+        $this->assertSame(90.0, $trend[0]['average']);
+    }
+
+    /**
+     * Bug found 2026-07-16 (user report, with a screenshot: six terms
+     * reading 62-64% but every bar rendered at visually the same near-
+     * full height). `role-panel.blade.php`'s Result performance chart
+     * used to scale each bar's height against the highest value IN THE
+     * DATASET, not a fixed 100% ceiling, so a tight cluster of similar
+     * percentages stretched to fill the whole chart regardless of how
+     * good or bad they actually were. Two terms at very different
+     * percentages (40% and 90%) must render at correspondingly different
+     * bar heights, not both near 100%.
+     */
+    public function test_the_result_performance_chart_bars_scale_against_a_fixed_100_percent_ceiling(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'rdchartscale');
+        app(TenantManager::class)->use($school);
+
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id]);
+        $subject = Subject::create(['name' => 'Mathematics', 'code' => 'MTH']);
+        $student = Student::create(['admission_number' => 'RT3', 'first_name' => 'A', 'last_name' => 'B', 'current_class_arm_id' => $arm->id]);
+        $component = \App\Models\Tenant\AssessmentComponent::create(['name' => 'Exam', 'type' => 'exam', 'max_score' => 100, 'sequence' => 1]);
+
+        $session = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026']);
+        $termOne = \App\Models\Tenant\Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1]);
+        $termTwo = \App\Models\Tenant\Term::create(['academic_session_id' => $session->id, 'name' => 'Second Term', 'sequence' => 2, 'is_current' => true]);
+
+        \App\Models\Tenant\Score::create(['student_id' => $student->id, 'subject_id' => $subject->id, 'class_arm_id' => $arm->id, 'term_id' => $termOne->id, 'assessment_component_id' => $component->id, 'score' => 40]);
+        \App\Models\Tenant\Score::create(['student_id' => $student->id, 'subject_id' => $subject->id, 'class_arm_id' => $arm->id, 'term_id' => $termTwo->id, 'assessment_component_id' => $component->id, 'score' => 90]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($admin)->get(route('school.dashboard', ['school' => $school->slug]));
+        $response->assertOk();
+
+        $response->assertSee('height:40%', false);
+        $response->assertSee('height:90%', false);
+        // The old bug would have rendered 40 scaled against a max of 90
+        // (44%) and 90 scaled against itself (100%), never these two exact values together.
+        $response->assertDontSee('height:44%', false);
+    }
+
     public function test_students_at_risk_flags_low_attendance_and_low_average_but_not_a_healthy_student(): void
     {
         [$school, $admin] = $this->schoolWithMember('school-owner', 'rdrisk');
