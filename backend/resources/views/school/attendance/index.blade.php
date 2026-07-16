@@ -7,9 +7,12 @@
     <h1 class="title">Attendance</h1>
     <p class="subtitle">Pick a class and a date, then mark or review the register.</p>
   </div>
-  @if(app(\App\Services\Rbac\Rbac::class)->check(auth()->user(), $school, 'staff.view'))
-    <a class="btn btn-ghost btn-sm" href="{{ route('school.attendance.staff', ['school' => $school->slug]) }}">Staff attendance</a>
-  @endif
+  <div class="stack" style="flex-direction:row;gap:.6rem">
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.attendance.dashboard', ['school' => $school->slug]) }}">Dashboard</a>
+    @if(app(\App\Services\Rbac\Rbac::class)->check(auth()->user(), $school, 'staff.view'))
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.attendance.staff', ['school' => $school->slug]) }}">Staff attendance</a>
+    @endif
+  </div>
 </div>
 
 <div class="card" style="margin-bottom:1.25rem">

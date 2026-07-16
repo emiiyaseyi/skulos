@@ -379,4 +379,37 @@ class AttendanceScreenTest extends TestCase
             'class_arm_id' => $armB->id, 'file' => $file,
         ])->assertNotFound();
     }
+
+    /** User directive 2026-07-16 ("ALL THERE", build out the remaining "Soon" items): a real Attendance Dashboard, not just the marking screen. */
+    public function test_attendance_dashboard_shows_todays_figures_and_a_trend(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'attdashone');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $arm, 'studentA' => $student] = $this->twoClassesWithStudents();
+        Attendance::create(['date' => now()->toDateString(), 'person_type' => 'student', 'person_id' => $student->id, 'class_arm_id' => $arm->id, 'status' => 'present']);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/attendance/dashboard")
+            ->assertOk()
+            ->assertSee("Today's rate", false)
+            ->assertSee('Attendance rate trend')
+            ->assertSee('By class');
+    }
+
+    /** A class teacher only ever sees their own class's numbers, the school wide "By class" comparison is admin only. */
+    public function test_a_class_teacher_does_not_see_the_by_class_comparison_on_the_dashboard(): void
+    {
+        [$school, $teacherUser] = $this->schoolWithMember('class-teacher', 'attdashtwo');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $arm] = $this->twoClassesWithStudents();
+        $staff = Staff::create(['staff_id' => 'STF/0005', 'first_name' => 'C', 'last_name' => 'T', 'status' => 'active', 'user_id' => $teacherUser->id]);
+        $arm->update(['class_teacher_staff_id' => $staff->id]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/attendance/dashboard")
+            ->assertOk()
+            ->assertDontSee('By class');
+    }
 }

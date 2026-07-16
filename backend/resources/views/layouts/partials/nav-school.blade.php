@@ -126,6 +126,7 @@
     'parent_portal' => ['school.parents.directory', 'Parent Portal', 'students'],
     'student_portal' => ['school.students', 'Student Portal', 'students'],
     'attendance_management' => ['school.attendance.index', 'Attendance', 'attendance'],
+    'attendance_dashboard' => ['school.attendance.dashboard', 'Attendance Dashboard', 'results'],
     // Fully built (NotificationController: categories, search, pin,
     // archive, bulk actions) since 2026-07-12 but never wired into this
     // catalog, so it only ever showed as "Soon" despite already working

@@ -112,6 +112,91 @@ class AttendanceController extends Controller
         ]);
     }
 
+    /**
+     * Attendance Dashboard (user directive 2026-07-16, "ALL THERE": build
+     * out the remaining Reports & Analytics "Soon" items). A trend over
+     * the last 14 real school days (weekends/holidays excluded, reusing
+     * AttendanceService::nonSchoolDatesWithin() rather than a second copy
+     * of that logic) plus, for an unrestricted (admin type) user, a per
+     * class comparison; a restricted teacher role only ever sees the
+     * trend for their own class arm(s), same TeacherScope narrowing
+     * markClass()/index() already apply.
+     */
+    public function dashboard(Request $request, TeacherScope $teacherScope): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'attendance.view');
+        $school = $this->school($request);
+        $user = Auth::user();
+        $armIds = $teacherScope->classArmIds($user, $school);
+
+        $service = app(AttendanceService::class);
+        $to = now();
+        $from = now()->subDays(45);
+        $nonSchoolDates = $service->nonSchoolDatesWithin($from, $to);
+
+        $schoolDates = collect();
+        for ($d = $to->copy(); $d->gte($from) && $schoolDates->count() < 14; $d->subDay()) {
+            if (! isset($nonSchoolDates[$d->toDateString()])) {
+                $schoolDates->push($d->toDateString());
+            }
+        }
+        $schoolDates = $schoolDates->sort()->values();
+
+        $marksQuery = Attendance::students()->whereIn('date', $schoolDates->all());
+        if ($armIds !== null) {
+            $marksQuery->whereIn('class_arm_id', $armIds);
+        }
+        $marksByDate = $marksQuery->selectRaw('date, status, count(*) as total')
+            ->groupBy('date', 'status')->get()->groupBy('date');
+
+        $trend = $schoolDates->map(function ($date) use ($marksByDate) {
+            $dayMarks = $marksByDate->get($date, collect());
+            $total = $dayMarks->sum('total');
+            $present = $dayMarks->firstWhere('status', 'present')?->total ?? 0;
+
+            return [
+                'date' => $date,
+                'label' => \Illuminate\Support\Carbon::parse($date)->format('j M'),
+                'rate' => $total > 0 ? round($present / $total * 100, 1) : null,
+                'total' => $total,
+            ];
+        })->values();
+
+        $classRates = collect();
+        if ($armIds === null) {
+            $classArms = ClassArm::with('schoolClass.section', 'arm')->get();
+            $classMarks = Attendance::students()->whereIn('date', $schoolDates->all())
+                ->selectRaw('class_arm_id, status, count(*) as total')
+                ->groupBy('class_arm_id', 'status')->get()->groupBy('class_arm_id');
+
+            foreach ($classArms as $arm) {
+                $armMarks = $classMarks->get($arm->id, collect());
+                $total = $armMarks->sum('total');
+                if ($total === 0) {
+                    continue;
+                }
+                $present = $armMarks->firstWhere('status', 'present')?->total ?? 0;
+                $classRates->push(['label' => $arm->label(), 'rate' => round($present / $total * 100, 1)]);
+            }
+            $classRates = $classRates->sortByDesc('rate')->values();
+        }
+
+        $todayCounts = Attendance::students()->when($armIds !== null, fn ($q) => $q->whereIn('class_arm_id', $armIds))
+            ->forDate(now())->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+        $todayMarked = $todayCounts->sum();
+
+        return view('school.attendance.dashboard', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'trend' => $trend,
+            'classRates' => $classRates,
+            'statuses' => Attendance::statuses(),
+            'todayCounts' => $todayCounts,
+            'todayMarked' => $todayMarked,
+            'todayRate' => $todayMarked > 0 ? round((($todayCounts['present'] ?? 0) / $todayMarked) * 100, 1) : null,
+        ]);
+    }
+
     public function markClass(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'attendance.create');
