@@ -181,4 +181,34 @@ class SetupWizardTest extends TestCase
             'brand_color' => '#000000',
         ])->assertForbidden();
     }
+
+    /**
+     * User report 2026-07-16, two screenshots: "THE GUIDED SETUP
+     * ARRANGEMENT HAS A BAD DESIGN - LET IT HAVE A BETTER DESIGN AND CHECK
+     * THE OVERLAPPING TEXT AND ICONS". Root cause: the "done" step's
+     * checkmark was `'&#10003;'` inside a double brace `{{ }}` Blade
+     * expression, which auto escapes its output, so the literal 8
+     * character string "&#10003;" rendered crammed into the tiny circular
+     * badge instead of an actual checkmark, colliding with the step title
+     * text right beside it.
+     */
+    public function test_a_completed_step_shows_a_real_checkmark_not_an_escaped_html_entity(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'setupeight');
+        $school->update(['brand_color' => '#123524']);
+
+        $content = $this->actingAs($admin)->get("http://{$school->slug}.localhost/setup")->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('&amp;#10003;', $content, 'the checkmark entity must not render escaped as literal text');
+        $this->assertStringContainsString('✓', $content, 'a completed step must show a real checkmark character');
+    }
+
+    /** The number/checkmark badge and the step title are now separate elements, not run together as one flex text node. */
+    public function test_the_rail_gives_the_step_title_its_own_label_element(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'setupnine');
+
+        $this->actingAs($admin)->get("http://{$school->slug}.localhost/setup")
+            ->assertOk()->assertSee('class="setup-label"', false);
+    }
 }

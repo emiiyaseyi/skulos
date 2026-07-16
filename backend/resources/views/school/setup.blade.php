@@ -3,14 +3,23 @@
 
 @push('head')
 <style>
-  .setup-rail{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1.1rem}
-  .setup-dot{display:flex;align-items:center;gap:.4rem;padding:.35rem .7rem;border-radius:999px;background:var(--soft);border:1px solid var(--line);font-size:.8rem;font-weight:600;color:var(--muted);text-decoration:none}
+  .setup-rail{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.1rem}
+  .setup-dot{display:inline-flex;align-items:center;gap:.45rem;padding:.4rem .8rem .4rem .4rem;border-radius:999px;background:var(--soft);border:1px solid var(--line);font-size:.8rem;font-weight:600;color:var(--mut);text-decoration:none;line-height:1.1;max-width:100%}
   .setup-dot.done{color:var(--ok)}
   .setup-dot.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-  .setup-num{width:1.4rem;height:1.4rem;border-radius:50%;background:var(--line);display:grid;place-items:center;font-weight:800;flex-shrink:0;font-size:.72rem}
+  .setup-num{width:1.5rem;height:1.5rem;border-radius:50%;background:var(--line);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;font-size:.72rem;line-height:1}
   .setup-dot.done .setup-num{background:var(--ok);color:#fff}
   .setup-dot.active .setup-num{background:var(--accent-ink);color:var(--accent)}
+  .setup-label{white-space:nowrap}
   .setup-nav{display:flex;justify-content:space-between;margin-top:1.1rem;gap:.6rem;flex-wrap:wrap}
+  /* Mobile: the rail's pills can outgrow a narrow phone width with 9
+     steps (design system rule: "genuinely usable on a phone, not just
+     responsive-looking"), let the rail scroll sideways at that width
+     instead of the flex-wrap causing pills to squeeze/wrap awkwardly. */
+  @media (max-width:520px){
+    .setup-rail{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:.3rem}
+    .setup-dot{flex-shrink:0}
+  }
 </style>
 @endpush
 
@@ -26,7 +35,7 @@
 <div class="setup-rail">
   @foreach($steps as $i => $step)
     <a class="setup-dot @if($step['done']) done @endif @if($i === $current) active @endif" href="{{ route('school.setup', ['school' => $school->slug, 'step' => $i + 1]) }}">
-      <span class="setup-num">{{ $step['done'] ? '&#10003;' : $i + 1 }}</span> {{ $step['title'] }}
+      <span class="setup-num">{{ $step['done'] ? '✓' : $i + 1 }}</span><span class="setup-label">{{ $step['title'] }}</span>
     </a>
   @endforeach
 </div>
