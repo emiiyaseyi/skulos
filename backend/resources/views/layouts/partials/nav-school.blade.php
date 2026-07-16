@@ -94,6 +94,7 @@
     // feature key => [routeName, label, icon]
     'dashboard' => ['school.dashboard', 'Dashboard', 'dashboard'],
     'student_records' => ['school.students', 'Students', 'students'],
+    'academic_calendar' => ['school.calendar.index', 'Calendar', 'calendar'],
     // "Teacher Portal" and "Staff Records" are the same screen, seen from
     // two different plan-feature names (user directive 2026-07-15: "STAFF
     // AND TEACHER PORTAL SHOULD BE MERGE INTO ONE AND RENAMED STAFF
@@ -171,7 +172,12 @@
   // inside a collapsed Administration submenu.
   $renderedRoutes = ['school.dashboard' => true];
   $groups = [
-    'Main' => [$link('school.dashboard', 'Dashboard', 'dashboard'), $link('school.setup', 'Guided Setup', 'settings'), $link('school.calendar.index', 'Calendar', 'calendar'), $link('school.assignments.index', 'Assignments', 'assignments')],
+    // "Calendar" moved out of Main, merged with the "Academic Calendar"
+    // plan feature (user directive 2026-07-16: "ACADEMIC CALENDAR AND
+    // CALENDAR SHOULD BE MERGE AS ONE AND PLACED UNDER ACADEMICS"), see
+    // 'academic_calendar' in $builtRoutes below, its own catalog category
+    // is already 'academic', so no forceGroup override is needed.
+    'Main' => [$link('school.dashboard', 'Dashboard', 'dashboard'), $link('school.setup', 'Guided Setup', 'settings'), $link('school.assignments.index', 'Assignments', 'assignments')],
   ];
 
   foreach (config('skulos.plan_feature_catalog') as $categoryKey => $category) {

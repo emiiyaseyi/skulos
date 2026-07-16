@@ -1423,6 +1423,15 @@ User directed building the previously-blocked net-new modules and answered a rou
 - QA: new `test_results_and_report_cards_merge_into_one_nav_line` (renders exactly once, scoped to the sidebar `<aside id="sideNav">` specifically, not the whole page, since a dashboard quick-action button also happens to say "Results" and is a separate, legitimate, out-of-scope UI element) and `test_the_report_cards_page_still_links_to_the_results_screen_after_the_merge`. Full suite re-run: 618 passed (bundled with the chart-scale/rescale batch above, same session).
 - Not built in this pass: nothing deferred.
 
+### Calendar merged with Academic Calendar, moved under Academic (2026-07-16)
+- Status: Done
+- Started: 2026-07-16
+- Notes: user directive: "ACADEMIC CALENDAR AND CALENDAR SHOULD BE MERGE AS ONE AND PLACED UNDER ACADEMICS - LET IT BE ACTIVE". "Calendar" (`school.calendar.index`) was hardcoded, unconditionally pinned in the "Main" nav group, entirely outside the plan-feature catalog loop; "academic_calendar" was a real, already-in-plan catalog feature with no `$builtRoutes` entry, so it always rendered "Soon" even though a working Calendar screen already existed under a different name. Removed from the hardcoded Main array, added `'academic_calendar' => ['school.calendar.index', 'Calendar', 'calendar']` to `$builtRoutes` instead, its own catalog category is already `academic`, so no `$forceGroup` override was needed, it lands under Academic automatically via the normal loop. Confirmed safe against real data first: all 7 real provisioned schools already have `academic_calendar` in their plan, so nobody loses the link.
+- Issues/Bugs found: none.
+- Resolution: n/a.
+- QA: new `test_calendar_merges_with_academic_calendar_and_moves_under_academic` — renders exactly once, and is confirmed absent from the Main group's own slice of the sidebar (not just "present somewhere"). Existing `CalendarEventScreenTest`/`CalendarTest` suites (32 tests) re-run unmodified and still pass, unaffected since they hit the route directly rather than asserting nav position, and plan-feature gating only ever controls nav visibility, never the controller's own RBAC authorization.
+- Not built in this pass: nothing deferred. A restricted teacher/parent/student role still does not see Calendar in nav (the "Main" group override for those roles already excluded it before this change too, unrelated pre-existing gap, not touched here).
+
 ---
 
 ---

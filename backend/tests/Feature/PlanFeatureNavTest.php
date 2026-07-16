@@ -329,6 +329,33 @@ class PlanFeatureNavTest extends TestCase
         $response->assertOk()->assertSee(route('school.examinations.index', ['school' => $school->slug]), false);
     }
 
+    /**
+     * User directive 2026-07-16: "ACADEMIC CALENDAR AND CALENDAR SHOULD
+     * BE MERGE AS ONE AND PLACED UNDER ACADEMICS - LET IT BE ACTIVE".
+     * Calendar used to be hardcoded, unconditionally pinned in the Main
+     * group; it is now the "academic_calendar" plan feature, grouped
+     * under Academic like everything else in that catalog category.
+     */
+    public function test_calendar_merges_with_academic_calendar_and_moves_under_academic(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['academic_calendar', 'student_records'], 'plantwelve');
+
+        $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard");
+        $content = $response->getContent();
+        $response->assertOk();
+
+        $this->assertSame(1, substr_count($content, '>Calendar<'), 'must render exactly once, not twice');
+
+        $mainPos = strpos($content, 'side-section');
+        $academicPos = strpos($content, 'data-group="academic"');
+        $this->assertNotFalse($mainPos);
+        $this->assertNotFalse($academicPos);
+
+        $nextSectionAfterMain = strpos($content, 'side-section', $mainPos + 1);
+        $mainSlice = substr($content, $mainPos, ($nextSectionAfterMain ?: strlen($content)) - $mainPos);
+        $this->assertStringNotContainsString('>Calendar<', $mainSlice, 'must no longer be pinned in Main');
+    }
+
     /** The single arrow toggle next to the school name exists on the school portal, not the admin one. */
     public function test_the_nav_has_a_single_expand_collapse_arrow_next_to_the_school_name(): void
     {
