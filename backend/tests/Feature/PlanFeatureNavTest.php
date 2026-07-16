@@ -414,4 +414,26 @@ class PlanFeatureNavTest extends TestCase
         $this->assertTrue($school->hasFeature('student_records'));
         $this->assertFalse($school->hasFeature('payroll'));
     }
+
+    /**
+     * User directive 2026-07-16 ("ALL THERE", build out the remaining
+     * Reports & Analytics/Communication "Soon" items): the Notification
+     * Center screen (NotificationController) was fully built back on
+     * 2026-07-12, categories/search/pin/archive/bulk actions and all, but
+     * was never wired into this catalog, so "In App Notifications" showed
+     * as "Soon" despite already working.
+     */
+    public function test_in_app_notifications_renders_as_a_real_link_not_soon(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['in_app_notifications'], 'plannotifs');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()
+            ->assertSee('Notifications')
+            ->assertSee('href="http://plannotifs.localhost/notifications"', false)
+            ->assertDontSee('Soon');
+
+        // The link actually goes somewhere real, not a 404/500 behind it.
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/notifications")->assertOk();
+    }
 }

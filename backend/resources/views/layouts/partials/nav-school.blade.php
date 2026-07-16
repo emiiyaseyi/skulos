@@ -126,6 +126,12 @@
     'parent_portal' => ['school.parents.directory', 'Parent Portal', 'students'],
     'student_portal' => ['school.students', 'Student Portal', 'students'],
     'attendance_management' => ['school.attendance.index', 'Attendance', 'attendance'],
+    // Fully built (NotificationController: categories, search, pin,
+    // archive, bulk actions) since 2026-07-12 but never wired into this
+    // catalog, so it only ever showed as "Soon" despite already working
+    // (user directive 2026-07-16: build out the remaining Reports &
+    // Analytics/Communication "Soon" items).
+    'in_app_notifications' => ['school.notifications.index', 'Notifications', 'comms'],
     'announcements' => ['school.announcements.index', 'Announcements', 'comms'],
     'parent_broadcast' => ['school.messages.index', 'Messages', 'comms'],
     'school_houses' => ['school.houses.index', 'Houses', 'school'],
