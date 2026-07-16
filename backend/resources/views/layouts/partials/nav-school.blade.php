@@ -318,6 +318,7 @@
       $link('school.settings.mail.edit', 'Mail Settings', 'mail'),
       $link('school.settings.idle-timeout.edit', 'Idle Timeout', 'clock'),
       $link('school.settings.retention.edit', 'Retention', 'retention'),
+      $link('school.settings.at-risk-thresholds.edit', 'At Risk Thresholds', 'results'),
       $link('school.settings.communication.edit', 'Communication', 'chat'),
     ]);
   }

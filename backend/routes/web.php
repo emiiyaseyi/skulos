@@ -478,6 +478,12 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/', [$idleTimeout, 'update'])->name('update');
         });
 
+        Route::prefix('settings/at-risk-thresholds')->name('school.settings.at-risk-thresholds.')->group(function () {
+            $atRisk = \App\Http\Controllers\School\AtRiskThresholdController::class;
+            Route::get('/', [$atRisk, 'edit'])->name('edit');
+            Route::post('/', [$atRisk, 'update'])->name('update');
+        });
+
         // Retention windows (optional per-school override of the platform default).
         Route::prefix('settings/retention')->name('school.settings.retention.')->group(function () {
             $retention = \App\Http\Controllers\School\RetentionController::class;

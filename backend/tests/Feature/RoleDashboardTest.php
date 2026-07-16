@@ -757,15 +757,21 @@ class RoleDashboardTest extends TestCase
         $data = app(RoleDashboard::class)->build($admin, $school);
         app(TenantManager::class)->forget();
 
-        $atRisk = $data['panel']['studentsAtRisk'];
-        $byName = collect($atRisk)->keyBy('name');
+        // Now two separate cards (user directive 2026-07-16: split into
+        // an Attendance card and a Performance card), not one combined
+        // list with both reasons folded into a single line.
+        $attendanceAtRisk = collect($data['panel']['attendanceAtRisk'])->keyBy('name');
+        $performanceAtRisk = collect($data['panel']['performanceAtRisk'])->keyBy('name');
 
-        $this->assertCount(2, $atRisk, 'only the two genuinely at-risk students should appear');
-        $this->assertTrue($byName->has('Low Attendance'));
-        $this->assertStringContainsString('Attendance 20%', $byName['Low Attendance']['reason']);
-        $this->assertTrue($byName->has('Low Score'));
-        $this->assertStringContainsString('Average 25', $byName['Low Score']['reason']);
-        $this->assertFalse($byName->has('Doing Fine'), 'a student with good attendance and a good score must not be flagged');
+        $this->assertCount(1, $attendanceAtRisk);
+        $this->assertTrue($attendanceAtRisk->has('Low Attendance'));
+        $this->assertStringContainsString('Attendance 20%', $attendanceAtRisk['Low Attendance']['reason']);
+        $this->assertFalse($attendanceAtRisk->has('Doing Fine'), 'a student with good attendance must not be flagged on the attendance card');
+
+        $this->assertCount(1, $performanceAtRisk);
+        $this->assertTrue($performanceAtRisk->has('Low Score'));
+        $this->assertStringContainsString('Average 25', $performanceAtRisk['Low Score']['reason']);
+        $this->assertFalse($performanceAtRisk->has('Doing Fine'), 'a student with a good score must not be flagged on the performance card');
     }
 
     public function test_class_teacher_only_sees_at_risk_students_in_their_own_class(): void
@@ -797,8 +803,45 @@ class RoleDashboardTest extends TestCase
         $data = app(RoleDashboard::class)->build($teacherUser, $school);
         app(TenantManager::class)->forget();
 
-        $names = collect($data['panel']['studentsAtRisk'])->pluck('name');
+        $names = collect($data['panel']['performanceAtRisk'])->pluck('name');
         $this->assertTrue($names->contains('In Class'));
         $this->assertFalse($names->contains('Other Class'), 'a student in a different class arm must not appear on this class teacher\'s at-risk list');
+    }
+
+    /**
+     * User directive 2026-07-16: "add it to what admin can configure
+     * threshold for under settings". A school's own Setting must actually
+     * change which students get flagged, not just the seed default.
+     */
+    public function test_a_schools_own_configured_threshold_changes_who_is_flagged(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'rdriskthreshold');
+        app(TenantManager::class)->use($school);
+
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id]);
+        $subject = Subject::create(['name' => 'Mathematics', 'code' => 'MTH']);
+        $component = \App\Models\Tenant\AssessmentComponent::create(['name' => 'Exam', 'type' => 'exam', 'max_score' => 100, 'sequence' => 1]);
+        $session = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026']);
+        $term = \App\Models\Tenant\Term::create([
+            'academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1, 'is_current' => true,
+            'starts_on' => now()->subDays(10), 'ends_on' => now()->addDays(50),
+        ]);
+
+        $student = Student::create(['admission_number' => 'RT1', 'first_name' => 'Mid', 'last_name' => 'Scorer', 'current_class_arm_id' => $arm->id]);
+        \App\Models\Tenant\Score::create(['student_id' => $student->id, 'subject_id' => $subject->id, 'class_arm_id' => $arm->id, 'term_id' => $term->id, 'assessment_component_id' => $component->id, 'score' => 55]);
+
+        // Default threshold (40%) does not flag a 55% average.
+        $data = app(RoleDashboard::class)->build($admin, $school);
+        $this->assertEmpty($data['panel']['performanceAtRisk']);
+
+        // Raising the school's own threshold above 55% now flags them.
+        \App\Models\Tenant\Setting::put('at_risk_thresholds', ['attendance_pct' => 75, 'score_pct' => 60]);
+        $data = app(RoleDashboard::class)->build($admin, $school);
+        app(TenantManager::class)->forget();
+
+        $names = collect($data['panel']['performanceAtRisk'])->pluck('name');
+        $this->assertTrue($names->contains('Mid Scorer'));
     }
 }

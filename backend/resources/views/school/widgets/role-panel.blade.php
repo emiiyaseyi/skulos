@@ -67,7 +67,8 @@
         <a class="btn btn-ghost btn-sm" href="{{ route('school.chat.index', ['school' => $school->slug]) }}">Message parents</a>
       </div>
     </div>
-    @include('school.widgets._students-at-risk', ['items' => $panel['studentsAtRisk'] ?? [], 'title' => 'Students needing attention'])
+    @include('school.widgets._students-at-risk', ['items' => $panel['attendanceAtRisk'] ?? [], 'title' => 'Attendance needing attention', 'subtitle' => 'Low attendance this term, an early flag, not a formal report.'])
+    @include('school.widgets._students-at-risk', ['items' => $panel['performanceAtRisk'] ?? [], 'title' => 'Performance needing attention', 'subtitle' => 'Low average score this term, an early flag, not a formal report.'])
     @include('school.widgets._upcoming-exams', ['items' => $panel['upcomingExams'] ?? []])
     @include('school.widgets._upcoming-assignments', ['items' => $panel['upcomingAssignments'] ?? []])
     @include('school.widgets._birthdays', ['today' => $panel['birthdaysToday'] ?? [], 'upcoming' => $panel['birthdaysUpcoming'] ?? []])
@@ -92,7 +93,8 @@
         <a class="btn btn-ghost btn-sm" href="{{ route('school.chat.index', ['school' => $school->slug]) }}">Message parents</a>
       </div>
     </div>
-    @include('school.widgets._students-at-risk', ['items' => $panel['studentsAtRisk'] ?? [], 'title' => 'Students needing attention'])
+    @include('school.widgets._students-at-risk', ['items' => $panel['attendanceAtRisk'] ?? [], 'title' => 'Attendance needing attention', 'subtitle' => 'Low attendance this term, an early flag, not a formal report.'])
+    @include('school.widgets._students-at-risk', ['items' => $panel['performanceAtRisk'] ?? [], 'title' => 'Performance needing attention', 'subtitle' => 'Low average score this term, an early flag, not a formal report.'])
     @include('school.widgets._upcoming-exams', ['items' => $panel['upcomingExams'] ?? []])
     @include('school.widgets._upcoming-assignments', ['items' => $panel['upcomingAssignments'] ?? []])
     @include('school.widgets._birthdays', ['today' => $panel['birthdaysToday'] ?? [], 'upcoming' => $panel['birthdaysUpcoming'] ?? []])
@@ -293,7 +295,9 @@
       @endif
     </div>
 
-    @include('school.widgets._students-at-risk', ['items' => $panel['studentsAtRisk'] ?? []])
+    @include('school.widgets._students-at-risk', ['items' => $panel['attendanceAtRisk'] ?? [], 'title' => 'Attendance at risk', 'subtitle' => 'Low attendance this term, an early flag, not a formal report.'])
+
+    @include('school.widgets._students-at-risk', ['items' => $panel['performanceAtRisk'] ?? [], 'title' => 'Performance at risk', 'subtitle' => 'Low average score this term, an early flag, not a formal report.'])
 
     @if(! empty($panel['resultTrend']))
       @php

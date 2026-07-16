@@ -85,6 +85,36 @@ class ResultService
     }
 
     /**
+     * One student's own overall average percentage for a term, same
+     * per-subject-sum-then-normalize approach as termAveragePercentage()
+     * above (never a raw average across individual component rows, see
+     * that method's docblock for why that reads meaninglessly low). Used
+     * by the "students at risk" performance check, which previously used
+     * a raw `Score::avg('score')` per student and would have had exactly
+     * the same bug this method's sibling was fixed for.
+     */
+    public function studentAveragePercentage(int $studentId, int $termId): ?float
+    {
+        $totalPossible = AssessmentComponent::totalPossible();
+        if ($totalPossible <= 0) {
+            return null;
+        }
+
+        $subjectTotals = Score::where('student_id', $studentId)
+            ->where('term_id', $termId)
+            ->select('subject_id', DB::raw('SUM(score) as subject_total'))
+            ->groupBy('subject_id')
+            ->get()
+            ->pluck('subject_total');
+
+        if ($subjectTotals->isEmpty()) {
+            return null;
+        }
+
+        return round(((float) $subjectTotals->avg()) / $totalPossible * 100, 1);
+    }
+
+    /**
      * A class broadsheet for one term: every student's total per subject,
      * their overall total and average, and their position in the class.
      *

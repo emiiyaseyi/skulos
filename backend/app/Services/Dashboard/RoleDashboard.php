@@ -156,7 +156,8 @@ class RoleDashboard
                 ])->all(),
                 'pendingReviewsMore' => max(0, $pendingReviews->count() - 6),
                 'resultTrend' => $this->resultTrend(),
-                'studentsAtRisk' => $this->studentsAtRisk($students, $term),
+                'attendanceAtRisk' => $this->attendanceAtRisk($students, $term),
+                'performanceAtRisk' => $this->performanceAtRisk($students, $term),
             ],
         ];
     }
@@ -223,23 +224,43 @@ class RoleDashboard
     }
 
     /**
-     * Students At Risk (Dashboard Design Cross-Check, rule-based): flags
-     * an active student whose current term attendance rate or raw average
-     * score falls below `config('skulos.at_risk_thresholds')`. A student
-     * with no attendance marks or no scores yet this term is not flagged
-     * on that signal (nothing to be "below" yet), matching the standing
+     * The school's own configured at-risk thresholds (user directive
+     * 2026-07-16: "add it to what admin can configure threshold for under
+     * settings"). `config('skulos.at_risk_thresholds')` is only ever the
+     * seed default now, per the project's "nothing hardcoded" rule (the
+     * same DB-backed-not-config-read pattern as grading_scales/comment
+     * bank): a school's own tenant `Setting` wins once it exists, edited
+     * from AtRiskThresholdController.
+     *
+     * @return array{attendance_pct: int, score_pct: int}
+     */
+    protected function atRiskThresholds(): array
+    {
+        return \App\Models\Tenant\Setting::grab('at_risk_thresholds', config('skulos.at_risk_thresholds', ['attendance_pct' => 75, 'score_pct' => 40]));
+    }
+
+    /**
+     * Students At Risk used to be one combined list flagging either a low
+     * attendance rate or a low average score with both reasons folded into
+     * one line (Dashboard Design Cross-Check, rule-based). Split into two
+     * separate cards (user directive 2026-07-16, screenshot of the
+     * combined widget: "the 'Students at risk'... section should be
+     * divided into two cards, one for attendance and one for Performance
+     * (based on scores from assessments scored enter)"), this one is the
+     * attendance half. A student with no attendance marks yet this term is
+     * not flagged (nothing to be "below" yet), matching the standing
      * no-dummy-data rule rather than treating missing data as a 0%.
      *
      * @param \Illuminate\Support\Collection<int, Student> $students
      * @return list<array{name: string, class: ?string, reason: string}>
      */
-    protected function studentsAtRisk($students, ?Term $term, int $limit = 8): array
+    protected function attendanceAtRisk($students, ?Term $term, int $limit = 8): array
     {
         if (! $term || ! $term->starts_on) {
             return [];
         }
 
-        $thresholds = config('skulos.at_risk_thresholds', ['attendance_pct' => 75, 'score_pct' => 40]);
+        $threshold = $this->atRiskThresholds()['attendance_pct'];
         $end = min($term->ends_on ?? now(), now());
 
         $attendanceByStudent = Attendance::where('person_type', Attendance::PERSON_STUDENT)
@@ -249,35 +270,73 @@ class RoleDashboard
             ->get()
             ->groupBy('person_id');
 
-        $averageByStudent = \App\Models\Tenant\Score::where('term_id', $term->id)
-            ->selectRaw('student_id, avg(score) as avg_score')
-            ->groupBy('student_id')
-            ->pluck('avg_score', 'student_id');
-
         $atRisk = [];
         foreach ($students as $student) {
-            $reasons = [];
-
             $marks = $attendanceByStudent->get($student->id);
-            if ($marks) {
-                $total = $marks->sum('total');
-                $present = $marks->firstWhere('status', 'present')?->total ?? 0;
-                $rate = $total > 0 ? round(($present / $total) * 100, 1) : null;
-                if ($rate !== null && $rate < $thresholds['attendance_pct']) {
-                    $reasons[] = "Attendance {$rate}%";
-                }
+            if (! $marks) {
+                continue;
             }
-
-            $avg = $averageByStudent[$student->id] ?? null;
-            if ($avg !== null && round((float) $avg, 1) < $thresholds['score_pct']) {
-                $reasons[] = 'Average '.round((float) $avg, 1).'%';
-            }
-
-            if ($reasons) {
+            $total = $marks->sum('total');
+            $present = $marks->firstWhere('status', 'present')?->total ?? 0;
+            $rate = $total > 0 ? round(($present / $total) * 100, 1) : null;
+            if ($rate !== null && $rate < $threshold) {
                 $atRisk[] = [
                     'name' => $student->fullName(),
                     'class' => $student->currentClassArm?->schoolClass?->name,
-                    'reason' => implode(', ', $reasons),
+                    'reason' => "Attendance {$rate}%",
+                ];
+            }
+        }
+
+        return array_slice($atRisk, 0, $limit);
+    }
+
+    /**
+     * The performance half of the same split (see attendanceAtRisk()'s
+     * docblock). Bug found 2026-07-16, the exact same one
+     * ResultService::termAveragePercentage() was fixed for on
+     * 2026-07-15: this used to be `Score::avg('score')` per student, a raw
+     * average across individual ASSESSMENT COMPONENT rows (a CA out of 20
+     * and an Exam out of 60 averaged together as if on the same scale),
+     * not real subject percentages. Fixed to the same per-subject-sum-
+     * then-normalize approach, computed in one bulk grouped query for
+     * every student at once (not a per-student query in the loop, this
+     * list can cover the whole school on the admin panel) rather than
+     * calling ResultService::studentAveragePercentage() once per student.
+     *
+     * @param \Illuminate\Support\Collection<int, Student> $students
+     * @return list<array{name: string, class: ?string, reason: string}>
+     */
+    protected function performanceAtRisk($students, ?Term $term, int $limit = 8): array
+    {
+        if (! $term) {
+            return [];
+        }
+
+        $threshold = $this->atRiskThresholds()['score_pct'];
+        $totalPossible = AssessmentComponent::totalPossible();
+        if ($totalPossible <= 0) {
+            return [];
+        }
+
+        $subjectTotalsByStudent = \App\Models\Tenant\Score::where('term_id', $term->id)
+            ->selectRaw('student_id, subject_id, SUM(score) as subject_total')
+            ->groupBy('student_id', 'subject_id')
+            ->get()
+            ->groupBy('student_id');
+
+        $atRisk = [];
+        foreach ($students as $student) {
+            $totals = $subjectTotalsByStudent->get($student->id);
+            if (! $totals) {
+                continue;
+            }
+            $avgPct = round(((float) $totals->avg('subject_total')) / $totalPossible * 100, 1);
+            if ($avgPct < $threshold) {
+                $atRisk[] = [
+                    'name' => $student->fullName(),
+                    'class' => $student->currentClassArm?->schoolClass?->name,
+                    'reason' => "Average {$avgPct}%",
                 ];
             }
         }
@@ -470,7 +529,8 @@ class RoleDashboard
                 'read_only' => $kind === 'class_assistant',
                 'birthdaysToday' => $this->todaysBirthdays($students),
                 'birthdaysUpcoming' => $this->upcomingBirthdays($students),
-                'studentsAtRisk' => $this->studentsAtRisk($students, $term),
+                'attendanceAtRisk' => $this->attendanceAtRisk($students, $term),
+                'performanceAtRisk' => $this->performanceAtRisk($students, $term),
                 'upcomingExams' => \App\Models\Tenant\CalendarEvent::exams()->upcoming()
                     ->where(fn ($q) => $q->whereNull('class_arm_id')->orWhere('class_arm_id', $classArm->id))
                     ->with('subject')->take(5)->get()
@@ -548,7 +608,8 @@ class RoleDashboard
                 'term' => $term?->name,
                 'birthdaysToday' => $this->todaysBirthdays($taughtStudents),
                 'birthdaysUpcoming' => $this->upcomingBirthdays($taughtStudents),
-                'studentsAtRisk' => $this->studentsAtRisk($taughtStudents, $term),
+                'attendanceAtRisk' => $this->attendanceAtRisk($taughtStudents, $term),
+                'performanceAtRisk' => $this->performanceAtRisk($taughtStudents, $term),
                 'upcomingExams' => \App\Models\Tenant\CalendarEvent::exams()->upcoming()
                     ->where(fn ($q) => $q->whereNull('class_arm_id')->orWhereIn('class_arm_id', $classArmIds))
                     ->with('subject', 'classArm')->take(5)->get()
