@@ -138,6 +138,7 @@
     'student_portal' => ['school.students', 'Student Portal', 'students'],
     'attendance_management' => ['school.attendance.index', 'Attendance', 'attendance'],
     'attendance_dashboard' => ['school.attendance.dashboard', 'Attendance Dashboard', 'results'],
+    'student_performance_dashboard' => ['school.examinations.performance-dashboard', 'Student Performance Dashboard', 'results'],
     // Fully built (NotificationController: categories, search, pin,
     // archive, bulk actions) since 2026-07-12 but never wired into this
     // catalog, so it only ever showed as "Soon" despite already working
@@ -146,6 +147,7 @@
     'in_app_notifications' => ['school.notifications.index', 'Notifications', 'comms'],
     'announcements' => ['school.announcements.index', 'Announcements', 'comms'],
     'parent_broadcast' => ['school.messages.index', 'Messages', 'comms'],
+    'communication_history' => ['school.announcements.history', 'Communication History', 'comms'],
     'school_houses' => ['school.houses.index', 'Houses', 'school'],
     'school_sections' => ['school.academics.index', 'Classes &amp; Subjects', 'academics'],
     'classes_arms' => ['school.academics.index', 'Classes &amp; Subjects', 'academics'],

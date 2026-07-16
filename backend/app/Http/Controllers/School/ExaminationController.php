@@ -16,6 +16,7 @@ use App\Models\Tenant\TeachingAssignment;
 use App\Models\Tenant\Term;
 use App\Services\Bulk\CsvReader;
 use App\Services\Rbac\Rbac;
+use App\Services\Rbac\TeacherScope;
 use App\Services\Results\CommentBank;
 use App\Services\Results\ResultService;
 use Illuminate\Http\Request;
@@ -109,6 +110,77 @@ class ExaminationController extends Controller
             ->unique(fn ($p) => $p['class_arm_id'].':'.$p['subject_id'])
             ->sortBy('order')
             ->values();
+    }
+
+    /**
+     * Student Performance Dashboard (user directive 2026-07-16, "ALL
+     * THERE": build out the remaining Reports & Analytics "Soon" items,
+     * covers the student_performance_dashboard catalog feature). Reuses
+     * ResultService::resultTrend()/classAveragePercentage()/
+     * studentsBelowAverageThreshold(), the exact same real computations
+     * the home dashboard's own "Result performance"/"Performance at
+     * risk" widgets already use, extracted there specifically so this
+     * screen would not duplicate that logic, just show more of it: the
+     * full at-risk list (not capped to a handful) and a per-class
+     * comparison for the current term, mirroring the Attendance
+     * Dashboard's own "by class" list. A scoped teacher role
+     * (TeacherScope) sees their own class arm(s)' average and their own
+     * students' at-risk list, never the school wide "by class"
+     * comparison, the same restriction pattern Attendance Dashboard
+     * already applies.
+     */
+    public function performanceDashboard(Request $request, ResultService $results, TeacherScope $teacherScope): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'examinations.view');
+        $school = $this->school($request);
+        $user = Auth::user();
+        $armIds = $teacherScope->classArmIds($user, $school);
+
+        $term = Term::where('is_current', true)->first();
+        $trend = $results->resultTrend();
+
+        $termAverage = $term
+            ? ($armIds === null
+                ? $results->termAveragePercentage($term->id)
+                : $results->averagePercentageForClassArms($armIds->all(), $term->id))
+            : null;
+
+        $threshold = \App\Models\Tenant\Setting::grab('at_risk_thresholds', config('skulos.at_risk_thresholds', ['attendance_pct' => 75, 'score_pct' => 40]))['score_pct'];
+
+        $students = Student::active()->with('currentClassArm.schoolClass')
+            ->when($armIds !== null, fn ($q) => $q->whereIn('current_class_arm_id', $armIds))
+            ->get();
+        $atRisk = $term ? array_map(fn ($row) => [
+            'name' => $row['name'],
+            'class' => $row['class'],
+            'reason' => "Average {$row['average']}%",
+        ], $results->studentsBelowAverageThreshold($students, $term->id, $threshold)) : [];
+
+        $classRates = collect();
+        if ($armIds === null && $term) {
+            foreach (ClassArm::with('schoolClass.section', 'arm')->get() as $arm) {
+                $average = $results->classAveragePercentage($arm->id, $term->id);
+                if ($average === null) {
+                    continue;
+                }
+                $classRates->push(['label' => $arm->label(), 'average' => $average]);
+            }
+            $classRates = $classRates->sortByDesc('average')->values();
+        }
+
+        return view('school.examinations.performance-dashboard', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'term' => $term,
+            'trend' => $trend,
+            'termAverage' => $termAverage,
+            'atRisk' => $atRisk,
+            'threshold' => $threshold,
+            'classRates' => $classRates,
+            'studentsAssessed' => $term ? Score::where('term_id', $term->id)
+                ->when($armIds !== null, fn ($q) => $q->whereIn('class_arm_id', $armIds))
+                ->distinct('student_id')->count('student_id') : 0,
+        ]);
     }
 
     public function index(Request $request, ResultService $results, CommentBank $commentBank): \Illuminate\View\View

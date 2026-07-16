@@ -7,6 +7,7 @@ use App\Models\Tenant\GradingScale;
 use App\Models\Tenant\Score;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\Subject;
+use App\Models\Tenant\Term;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -246,5 +247,116 @@ class ResultService
         }
 
         return $report;
+    }
+
+    /**
+     * Same normalized per-subject-sum-then-average approach as
+     * termAveragePercentage(), scoped to a set of class arms (Student
+     * Performance Dashboard, 2026-07-16: a scoped teacher role's own
+     * average across whichever arm(s) TeacherScope narrows them to,
+     * one or several).
+     */
+    public function averagePercentageForClassArms(array $classArmIds, int $termId): ?float
+    {
+        $totalPossible = AssessmentComponent::totalPossible();
+        if ($totalPossible <= 0 || $classArmIds === []) {
+            return null;
+        }
+
+        $subjectTotals = Score::whereIn('class_arm_id', $classArmIds)
+            ->where('term_id', $termId)
+            ->select('student_id', 'subject_id', DB::raw('SUM(score) as subject_total'))
+            ->groupBy('student_id', 'subject_id')
+            ->get()
+            ->pluck('subject_total');
+
+        if ($subjectTotals->isEmpty()) {
+            return null;
+        }
+
+        return round(((float) $subjectTotals->avg()) / $totalPossible * 100, 1);
+    }
+
+    /**
+     * Same as averagePercentageForClassArms(), scoped to one class arm
+     * (the "by class" comparison list, mirroring the Attendance
+     * Dashboard's own per-class rate list).
+     */
+    public function classAveragePercentage(int $classArmId, int $termId): ?float
+    {
+        return $this->averagePercentageForClassArms([$classArmId], $termId);
+    }
+
+    /**
+     * The last N terms with any real scores recorded, in real
+     * chronological order (academic session then term sequence, not
+     * creation order), each with the real school wide average across
+     * every score in that term. A term with zero scores yet is skipped
+     * rather than shown as a misleading 0%. Moved here from
+     * RoleDashboard::resultTrend() (2026-07-16, Student Performance
+     * Dashboard) so the same real trend computation is not duplicated
+     * between the home dashboard's own widget and this dedicated screen.
+     *
+     * @return list<array{label: string, average: float}>
+     */
+    public function resultTrend(int $limit = 6): array
+    {
+        $terms = Term::with('session')->get()
+            ->sortBy(fn (Term $t) => sprintf('%05d-%05d', $t->session?->id ?? 0, $t->sequence ?? 0))
+            ->values();
+
+        $trend = [];
+        foreach ($terms as $term) {
+            $average = $this->termAveragePercentage($term->id);
+            if ($average === null) {
+                continue;
+            }
+            $trend[] = ['label' => $term->name, 'average' => $average];
+        }
+
+        return array_slice($trend, -$limit);
+    }
+
+    /**
+     * Every student in the given collection whose own term average falls
+     * below the threshold, worst first. $limit null returns the full
+     * list (Student Performance Dashboard's own screen); RoleDashboard's
+     * dashboard widget still caps this at a handful via $limit.
+     *
+     * @param \Illuminate\Support\Collection<int, Student> $students
+     * @return list<array{name: string, class: ?string, average: float}>
+     */
+    public function studentsBelowAverageThreshold($students, int $termId, float $thresholdPct, ?int $limit = null): array
+    {
+        $totalPossible = AssessmentComponent::totalPossible();
+        if ($totalPossible <= 0) {
+            return [];
+        }
+
+        $subjectTotalsByStudent = Score::where('term_id', $termId)
+            ->selectRaw('student_id, subject_id, SUM(score) as subject_total')
+            ->groupBy('student_id', 'subject_id')
+            ->get()
+            ->groupBy('student_id');
+
+        $atRisk = [];
+        foreach ($students as $student) {
+            $totals = $subjectTotalsByStudent->get($student->id);
+            if (! $totals) {
+                continue;
+            }
+            $avgPct = round(((float) $totals->avg('subject_total')) / $totalPossible * 100, 1);
+            if ($avgPct < $thresholdPct) {
+                $atRisk[] = [
+                    'name' => $student->fullName(),
+                    'class' => $student->currentClassArm?->schoolClass?->name,
+                    'average' => $avgPct,
+                ];
+            }
+        }
+
+        usort($atRisk, fn ($a, $b) => $a['average'] <=> $b['average']);
+
+        return $limit !== null ? array_slice($atRisk, 0, $limit) : $atRisk;
     }
 }

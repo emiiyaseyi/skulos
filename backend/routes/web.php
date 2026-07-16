@@ -303,6 +303,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::prefix('announcements')->name('school.announcements.')->group(function () {
             $announcements = \App\Http\Controllers\School\AnnouncementController::class;
             Route::get('/', [$announcements, 'index'])->name('index');
+            Route::get('/history', [$announcements, 'history'])->name('history');
             Route::get('/create', [$announcements, 'create'])->name('create');
             Route::post('/create', [$announcements, 'store'])->name('store');
         });
@@ -397,6 +398,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::prefix('examinations')->name('school.examinations.')->group(function () {
             $examinations = \App\Http\Controllers\School\ExaminationController::class;
             Route::get('/', [$examinations, 'index'])->name('index');
+            Route::get('/performance-dashboard', [$examinations, 'performanceDashboard'])->name('performance-dashboard');
             Route::post('/scores', [$examinations, 'save'])->name('scores.save');
             Route::get('/scores/bulk-template', [$examinations, 'bulkTemplate'])->name('scores.bulk-template');
             Route::post('/scores/bulk-upload', [$examinations, 'bulkUpload'])->name('scores.bulk-upload');

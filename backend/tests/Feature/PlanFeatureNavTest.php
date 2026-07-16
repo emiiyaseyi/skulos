@@ -478,6 +478,30 @@ class PlanFeatureNavTest extends TestCase
             ->assertDontSee('Soon');
     }
 
+    public function test_student_performance_dashboard_renders_as_a_real_link_not_soon(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['student_performance_dashboard'], 'planperf');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()
+            ->assertSee('Student Performance Dashboard')
+            ->assertDontSee('Soon');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/examinations/performance-dashboard")->assertOk();
+    }
+
+    public function test_communication_history_renders_as_a_real_link_not_soon(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['communication_history'], 'plancommhist');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()
+            ->assertSee('Communication History')
+            ->assertDontSee('Soon');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/announcements/history")->assertOk();
+    }
+
     public function test_the_nav_search_box_also_renders_on_the_platform_admin_portal(): void
     {
         $admin = User::factory()->create();

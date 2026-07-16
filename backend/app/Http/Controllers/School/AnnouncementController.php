@@ -59,6 +59,51 @@ class AnnouncementController extends Controller
         ]);
     }
 
+    /**
+     * Communication History (user directive 2026-07-16, "ALL THERE": build
+     * out the remaining Reports & Analytics/Communication "Soon" items,
+     * covers the communication_history catalog feature). Announcements and
+     * Messages/Broadcasts already share one underlying `Announcement`
+     * table (`type` = announcement or broadcast, see MessageController's
+     * own docblock), each with its own single-type browse screen; this is
+     * the missing unified view across both, one chronological, filterable
+     * ledger of everything this school has sent, each row's real
+     * delivered/read counts via the same `notifications` withCount()
+     * pattern MessageController's own screen already uses, not a second
+     * computation.
+     */
+    public function history(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'communication.view');
+        $school = $this->school($request);
+
+        $type = $request->query('type');
+
+        $items = Announcement::query()
+            // A platform-owner broadcast delivered into this school's
+            // tenant DB (messaging increment 3) is something the school
+            // received, not something it sent, so it stays off this
+            // school's own "what have we sent" ledger, same exclusion
+            // MessageController's screen already applies.
+            ->whereNull('platform_broadcast_id')
+            ->when(in_array($type, [Announcement::TYPE_ANNOUNCEMENT, Announcement::TYPE_BROADCAST], true), fn ($q) => $q->where('type', $type))
+            ->with('section', 'classArm.schoolClass')
+            ->withCount([
+                'notifications as delivered_count',
+                'notifications as read_count' => fn ($q) => $q->whereNotNull('read_at'),
+            ])
+            ->orderByDesc('created_at')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('school.announcements.history', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'items' => $items,
+            'type' => $type,
+        ]);
+    }
+
     public function create(Request $request): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'communication.broadcast');

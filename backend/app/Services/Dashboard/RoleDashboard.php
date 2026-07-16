@@ -333,34 +333,20 @@ class RoleDashboard
         }
 
         $threshold = $this->atRiskThresholds()['score_pct'];
-        $totalPossible = AssessmentComponent::totalPossible();
-        if ($totalPossible <= 0) {
-            return [];
-        }
+        // Delegates to ResultService::studentsBelowAverageThreshold()
+        // (2026-07-16, moved there so the Student Performance Dashboard
+        // screen can share the exact same computation for its own, full
+        // uncapped list), reformatting 'average' back into this widget's
+        // own 'reason' string shape for the shared _students-at-risk
+        // partial and existing callers.
+        $atRisk = app(\App\Services\Results\ResultService::class)
+            ->studentsBelowAverageThreshold($students, $term->id, $threshold, $limit);
 
-        $subjectTotalsByStudent = \App\Models\Tenant\Score::where('term_id', $term->id)
-            ->selectRaw('student_id, subject_id, SUM(score) as subject_total')
-            ->groupBy('student_id', 'subject_id')
-            ->get()
-            ->groupBy('student_id');
-
-        $atRisk = [];
-        foreach ($students as $student) {
-            $totals = $subjectTotalsByStudent->get($student->id);
-            if (! $totals) {
-                continue;
-            }
-            $avgPct = round(((float) $totals->avg('subject_total')) / $totalPossible * 100, 1);
-            if ($avgPct < $threshold) {
-                $atRisk[] = [
-                    'name' => $student->fullName(),
-                    'class' => $student->currentClassArm?->schoolClass?->name,
-                    'reason' => "Average {$avgPct}%",
-                ];
-            }
-        }
-
-        return array_slice($atRisk, 0, $limit);
+        return array_map(fn ($row) => [
+            'name' => $row['name'],
+            'class' => $row['class'],
+            'reason' => "Average {$row['average']}%",
+        ], $atRisk);
     }
 
     /**
@@ -375,21 +361,10 @@ class RoleDashboard
      */
     protected function resultTrend(int $limit = 6): array
     {
-        $terms = Term::with('session')->get()
-            ->sortBy(fn (Term $t) => sprintf('%05d-%05d', $t->session?->id ?? 0, $t->sequence ?? 0))
-            ->values();
-
-        $resultService = app(\App\Services\Results\ResultService::class);
-        $trend = [];
-        foreach ($terms as $term) {
-            $average = $resultService->termAveragePercentage($term->id);
-            if ($average === null) {
-                continue;
-            }
-            $trend[] = ['label' => $term->name, 'average' => $average];
-        }
-
-        return array_slice($trend, -$limit);
+        // Moved to ResultService::resultTrend() (2026-07-16, Student
+        // Performance Dashboard) so this widget and that dedicated
+        // screen share the exact same real trend computation.
+        return app(\App\Services\Results\ResultService::class)->resultTrend($limit);
     }
 
     /**

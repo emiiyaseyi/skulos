@@ -413,4 +413,60 @@ class ExaminationScreenTest extends TestCase
         $this->assertSame(3, Score::where('student_id', $f['bode']->id)->count());
         app(TenantManager::class)->forget();
     }
+
+    /**
+     * Student Performance Dashboard (user directive 2026-07-16, "ALL
+     * THERE": build out the remaining Reports & Analytics "Soon" items).
+     */
+    public function test_admin_sees_term_average_by_class_and_full_at_risk_list(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'perfone');
+        $f = $this->seedAcademics($school);
+        [$first, $second, $exam] = $f['components'];
+
+        app(TenantManager::class)->use($school);
+        // Ada scores well (86%), Bode scores poorly (30/100, below the
+        // default 40% at risk threshold).
+        Score::create(['student_id' => $f['ada']->id, 'subject_id' => $f['subject']->id, 'class_arm_id' => $f['classArm']->id, 'term_id' => $f['term']->id, 'assessment_component_id' => $first->id, 'score' => 18]);
+        Score::create(['student_id' => $f['ada']->id, 'subject_id' => $f['subject']->id, 'class_arm_id' => $f['classArm']->id, 'term_id' => $f['term']->id, 'assessment_component_id' => $second->id, 'score' => 16]);
+        Score::create(['student_id' => $f['ada']->id, 'subject_id' => $f['subject']->id, 'class_arm_id' => $f['classArm']->id, 'term_id' => $f['term']->id, 'assessment_component_id' => $exam->id, 'score' => 52]);
+        Score::create(['student_id' => $f['bode']->id, 'subject_id' => $f['subject']->id, 'class_arm_id' => $f['classArm']->id, 'term_id' => $f['term']->id, 'assessment_component_id' => $first->id, 'score' => 5]);
+        Score::create(['student_id' => $f['bode']->id, 'subject_id' => $f['subject']->id, 'class_arm_id' => $f['classArm']->id, 'term_id' => $f['term']->id, 'assessment_component_id' => $second->id, 'score' => 5]);
+        Score::create(['student_id' => $f['bode']->id, 'subject_id' => $f['subject']->id, 'class_arm_id' => $f['classArm']->id, 'term_id' => $f['term']->id, 'assessment_component_id' => $exam->id, 'score' => 20]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/examinations/performance-dashboard");
+        $response->assertOk()
+            ->assertSee('58%') // school average: (86 + 30) / 2 = 58
+            ->assertSee('JSS 1 A') // by-class comparison
+            ->assertSee('Bode Ade') // flagged, 30% is below the 40% default threshold
+            ->assertDontSee('Ada Obi'); // Ada's 86% average must not be flagged as at risk
+    }
+
+    public function test_a_subject_teacher_only_sees_their_own_scoped_class_average(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'perftwo');
+        $f = $this->seedAcademics($school);
+        $this->attachTeacher($school, $teacher, $f['classArm']->id, $f['subject']->id);
+        [$first, $second, $exam] = $f['components'];
+
+        app(TenantManager::class)->use($school);
+        Score::create(['student_id' => $f['ada']->id, 'subject_id' => $f['subject']->id, 'class_arm_id' => $f['classArm']->id, 'term_id' => $f['term']->id, 'assessment_component_id' => $first->id, 'score' => 20]);
+        Score::create(['student_id' => $f['ada']->id, 'subject_id' => $f['subject']->id, 'class_arm_id' => $f['classArm']->id, 'term_id' => $f['term']->id, 'assessment_component_id' => $second->id, 'score' => 20]);
+        Score::create(['student_id' => $f['ada']->id, 'subject_id' => $f['subject']->id, 'class_arm_id' => $f['classArm']->id, 'term_id' => $f['term']->id, 'assessment_component_id' => $exam->id, 'score' => 60]);
+        app(TenantManager::class)->forget();
+
+        // A scoped teacher never sees the school wide "by class" comparison list.
+        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/examinations/performance-dashboard")
+            ->assertOk()
+            ->assertSee('100%')
+            ->assertDontSee('By class');
+    }
+
+    public function test_a_role_without_examinations_view_cannot_reach_the_performance_dashboard(): void
+    {
+        [$school, $user] = $this->schoolWithMember('security', 'perfthree');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/examinations/performance-dashboard")->assertForbidden();
+    }
 }
