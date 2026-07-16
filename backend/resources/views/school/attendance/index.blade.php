@@ -41,10 +41,7 @@
 @else
   <div class="grid" style="grid-template-columns:repeat(4, 1fr);gap:1rem;margin-bottom:1.25rem">
     @foreach($statuses as $status)
-      <div class="card" style="padding:1rem">
-        <div class="muted" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em">{{ ucfirst($status) }}</div>
-        <div style="font-size:1.6rem;font-weight:700">{{ $summary[$status] ?? 0 }}</div>
-      </div>
+      <div class="card stat" style="padding:1rem"><b>{{ $summary[$status] ?? 0 }}</b><span>{{ ucfirst($status) }}</span></div>
     @endforeach
   </div>
 

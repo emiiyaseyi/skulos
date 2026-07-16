@@ -11,15 +11,9 @@
 </div>
 
 <div class="grid" style="grid-template-columns:repeat(4, 1fr);gap:1rem;margin-bottom:1.25rem">
-  <div class="card" style="padding:1rem">
-    <div class="muted" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em">Today's rate</div>
-    <div style="font-size:1.6rem;font-weight:700">{{ $todayRate !== null ? "{$todayRate}%" : 'N/A' }}</div>
-  </div>
+  <div class="card stat" style="padding:1rem"><b>{{ $todayRate !== null ? "{$todayRate}%" : 'N/A' }}</b><span>Today's rate</span></div>
   @foreach($statuses as $status)
-    <div class="card" style="padding:1rem">
-      <div class="muted" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em">{{ ucfirst($status) }} today</div>
-      <div style="font-size:1.6rem;font-weight:700">{{ $todayCounts[$status] ?? 0 }}</div>
-    </div>
+    <div class="card stat" style="padding:1rem"><b>{{ $todayCounts[$status] ?? 0 }}</b><span>{{ ucfirst($status) }} today</span></div>
   @endforeach
 </div>
 

@@ -15,18 +15,9 @@
 @if($unrestricted)
   @if($summary)
     <div class="grid" style="grid-template-columns:repeat(3, 1fr);gap:1rem;margin-bottom:1.25rem">
-      <div class="card" style="padding:1rem">
-        <div class="muted" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em">Active assignments</div>
-        <div style="font-size:1.6rem;font-weight:700">{{ (int) $summary->total }}</div>
-      </div>
-      <div class="card" style="padding:1rem">
-        <div class="muted" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em">Upcoming</div>
-        <div style="font-size:1.6rem;font-weight:700">{{ (int) $summary->upcoming }}</div>
-      </div>
-      <div class="card" style="padding:1rem">
-        <div class="muted" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em">Overdue</div>
-        <div style="font-size:1.6rem;font-weight:700">{{ (int) $summary->overdue }}</div>
-      </div>
+      <div class="card stat" style="padding:1rem"><b>{{ (int) $summary->total }}</b><span>Active assignments</span></div>
+      <div class="card stat" style="padding:1rem"><b>{{ (int) $summary->upcoming }}</b><span>Upcoming</span></div>
+      <div class="card stat" style="padding:1rem"><b>{{ (int) $summary->overdue }}</b><span>Overdue</span></div>
     </div>
   @endif
 
