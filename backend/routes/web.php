@@ -233,6 +233,21 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/{staffId}/login/toggle-access', [$staff, 'toggleLoginAccess'])->name('login.toggle-access');
         });
 
+        // Staff Portal / Parent Portal (user directive 2026-07-16: browse
+        // Section -> Class -> details, the same shape Student Portal
+        // already uses), own top-level paths so they never collide with
+        // /staff/{staffId} or a future /parents/{id} route.
+        Route::prefix('staff-portal')->name('school.staff.')->group(function () {
+            $staffDirectory = \App\Http\Controllers\School\StaffDirectoryController::class;
+            Route::get('/', [$staffDirectory, 'index'])->name('directory');
+            Route::get('/classes/{classId}', [$staffDirectory, 'showClass'])->name('directory-class');
+        });
+        Route::prefix('parent-portal')->name('school.parents.')->group(function () {
+            $parentDirectory = \App\Http\Controllers\School\ParentDirectoryController::class;
+            Route::get('/', [$parentDirectory, 'index'])->name('directory');
+            Route::get('/classes/{classId}', [$parentDirectory, 'showClass'])->name('directory-class');
+        });
+
         // User & Role Management (user directive 2026-07-15: per-user
         // "extra access" relocated here from the individual staff profile
         // page, plus creating custom roles and reassigning a user's role).

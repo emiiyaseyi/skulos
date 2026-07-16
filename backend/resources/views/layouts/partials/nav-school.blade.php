@@ -93,24 +93,37 @@
   $builtRoutes = [
     // feature key => [routeName, label, icon]
     'dashboard' => ['school.dashboard', 'Dashboard', 'dashboard'],
-    'student_records' => ['school.students', 'Students', 'students'],
+    // "Student Records" and "Student Portal" merged into one nav line
+    // (user directive 2026-07-16: "UNDER ACADEMICS, WE HAVE STUDENT AND
+    // STUDENT PORTAL, MERGE WHAT WE HAVE UNDER STUDENT INTO STUDENT
+    // PORTAL SO THEY ARE ONE"), the exact same merge pattern already used
+    // for Staff/Teacher Portal: both keys share the "Student Portal"
+    // label and the same route, whichever renders first wins, the
+    // dedupe below (no longer bypassed for student_portal, see
+    // $alwaysOwnLine) stops the second from rendering a duplicate.
+    'student_records' => ['school.students', 'Student Portal', 'students'],
     'academic_calendar' => ['school.calendar.index', 'Calendar', 'calendar'],
     // "Teacher Portal" and "Staff Records" are the same screen, seen from
     // two different plan-feature names (user directive 2026-07-15: "STAFF
     // AND TEACHER PORTAL SHOULD BE MERGE INTO ONE AND RENAMED STAFF
     // PORTAL"), so both keys share one label and one route, whichever is
     // processed first in the catalog loop renders it, the dedupe below
-    // stops the second one from rendering a duplicate. "Parent Portal"
-    // and "Student Portal" are not separate screens either, an admin
-    // never "visits" a portal, a portal is what that person sees once
-    // they sign in, which already exists (parent/student login accounts
-    // are created and managed per student, see StudentController::
-    // createGuardianLogin()/createStudentLogin()), pointed at the screen
-    // where that actually happens rather than a redundant standalone page.
-    'staff_records' => ['school.staff.index', 'Staff Portal', 'staff'],
-    'teacher_portal' => ['school.staff.index', 'Staff Portal', 'staff'],
+    // stops the second one from rendering a duplicate. Both now point at
+    // the real Section -> Class -> staff browse screen (user directive
+    // 2026-07-16: "STAFF PORTAL SHOULD BE CATEGORIZED PROPERLY FROM
+    // SECTION, CLASS THEN TO THE STAFF DETAILS AS WE HAVE IT UNDER
+    // STUDENT PORTAL"), the old flat list stays one click away on that
+    // page ("Full staff list"), not lost. "Student Portal" still points
+    // at the Students screen, an admin never "visits" that portal, a
+    // portal is what a student sees once they sign in, which already
+    // exists. "Parent Portal" is its own real browse screen now too (was
+    // wrongly aliased to the same Students route as Student Portal until
+    // 2026-07-16: "WHY IS PARENT PORTAL HAVING SAME LINK AS STUDENT
+    // PORTAL - FIX IT").
+    'staff_records' => ['school.staff.directory', 'Staff Portal', 'staff'],
+    'teacher_portal' => ['school.staff.directory', 'Staff Portal', 'staff'],
     'user_role_management' => ['school.roles.index', 'User & Role Management', 'roles'],
-    'parent_portal' => ['school.students', 'Parent Portal', 'students'],
+    'parent_portal' => ['school.parents.directory', 'Parent Portal', 'students'],
     'student_portal' => ['school.students', 'Student Portal', 'students'],
     'attendance_management' => ['school.attendance.index', 'Attendance', 'attendance'],
     'announcements' => ['school.announcements.index', 'Announcements', 'comms'],
@@ -201,18 +214,18 @@
       $targetLabel = $forceGroup[$featureKey] ?? $category['label'];
       if (isset($builtRoutes[$featureKey])) {
         [$routeName, $label, $icon] = $builtRoutes[$featureKey];
-        // "Parent Portal"/"Student Portal" intentionally render their OWN
-        // line every time, even though they point at an already-linked
-        // screen (Students). The normal same-route dedupe below exists so
-        // e.g. Classes/Subjects/Sections do not repeat three times, but
-        // applying it here made these vanish from the menu entirely
-        // instead of showing as real links (user report 2026-07-15: "I
-        // CANT SEE STUDENT AND PARENT PORTAL UNDER THE MENU SECTION",
-        // right after they'd been fixed to stop showing "Soon" —
-        // deduping them away was a worse regression, not a fix). "Staff
-        // Portal"/"Teacher Portal" deliberately are NOT in this list, per
-        // the merge above they collapse into one line, not two.
-        $alwaysOwnLine = in_array($featureKey, ['parent_portal', 'student_portal'], true);
+        // "Parent Portal" intentionally renders its OWN line every time
+        // (user report 2026-07-15: "I CANT SEE STUDENT AND PARENT PORTAL
+        // UNDER THE MENU SECTION", the normal same-route dedupe below
+        // vanished it entirely instead of showing as a real link, a
+        // worse regression than the "Soon" it replaced). It now points
+        // at its own distinct route (school.parents.directory, since
+        // 2026-07-16) so this bypass is no longer strictly load-bearing
+        // for it either, kept anyway as a harmless no-op safeguard.
+        // "Staff Portal"/"Teacher Portal" and "Student Portal"/"Student
+        // Records" are NOT in this list, per their respective merges
+        // both collapse into one line, not two.
+        $alwaysOwnLine = in_array($featureKey, ['parent_portal'], true);
         if (! $alwaysOwnLine) {
           if (isset($renderedRoutes[$routeName])) {
             continue; // several feature keys can point at the same already built screen
@@ -347,7 +360,19 @@
       unset($groups[$name]);
     }
   }
+  // "Settings" pinned last, always, for whoever has it at all (user
+  // directive 2026-07-16: "I WANT THE WHOLE SETTINGS SECTION TO BE THE
+  // LAST FOR EVERY USER THAT HAVE ACCESS TO IT"), pulled out here too so
+  // it is never accidentally left ahead of a later-appearing category
+  // group (Reports & Analytics, Communication, Finance, School
+  // Operations, ...) the way plain insertion order alone does not
+  // guarantee.
+  $settingsGroup = $groups['Settings'] ?? null;
+  unset($groups['Settings']);
   $groups = $orderedGroups + $groups;
+  if ($settingsGroup !== null) {
+    $groups['Settings'] = $settingsGroup;
+  }
 @endphp
 
 @foreach($groups as $label => $entries)
