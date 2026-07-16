@@ -584,4 +584,21 @@ class ReportCardWorkflowTest extends TestCase
         $this->assertNotNull($reviewForSecondTerm);
         $this->assertNull($reviewForCurrentTerm);
     }
+
+    /**
+     * Regression: adding the term picker above made index() resolve a
+     * term unconditionally, which 404'd the whole page (via
+     * currentTermOrAbort()'s fallback) for a school with no session/term
+     * set up at all yet, caught running the fuller suite after that
+     * change. The browse page itself must always render; only an actual
+     * action (generate, etc.) should require a real term to exist.
+     */
+    public function test_the_index_still_renders_for_a_school_with_no_term_set_up_at_all(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rctwentyeight');
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards")
+            ->assertOk()
+            ->assertSee('No session or term set up yet');
+    }
 }

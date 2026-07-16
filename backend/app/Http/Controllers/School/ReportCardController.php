@@ -180,7 +180,17 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.view');
         $school = $this->school($request);
-        $term = $this->resolveTerm($request);
+        // A school with no session/term set up yet must still see the
+        // (empty) browse page, not a hard 404: resolveTerm() aborts via
+        // currentTermOrAbort() when there is truly nothing to fall back
+        // to, which is correct for every *action* below (you cannot
+        // generate a report card against a term that does not exist) but
+        // wrong for this page, whose whole job is to be reachable before
+        // any of that setup exists (found 2026-07-16 running the fuller
+        // test suite after adding the term picker: a fresh school with no
+        // term at all now 404'd on its own Report Cards landing page).
+        $termId = $request->integer('term_id') ?: null;
+        $term = ($termId ? Term::find($termId) : null) ?? Term::current()->first();
 
         return view('school.report-cards.index', [
             'school' => $school,
