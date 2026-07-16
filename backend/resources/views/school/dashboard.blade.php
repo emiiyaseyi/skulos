@@ -194,7 +194,7 @@
 @php
   $notes = view('school.widgets.notifications', ['feed' => $feed, 'school' => $school])->render();
   $cal = view('school.widgets.calendar', ['upcoming' => $upcoming])->render();
-  $holidays = view('school.widgets.holidays', ['upcomingHolidays' => $upcomingHolidays])->render();
+  $holidays = view('school.widgets.holidays', ['termKeyDates' => $termKeyDates])->render();
 @endphp
 
 <div class="grid cols-3">

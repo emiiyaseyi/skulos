@@ -9,6 +9,7 @@ use App\Models\Tenant\Notification;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\Staff;
 use App\Models\Tenant\CalendarEvent;
+use App\Models\Tenant\Term;
 use App\Services\Dashboard\DashboardPreferences;
 use App\Services\Dashboard\RoleDashboard;
 use App\Services\Rbac\Rbac;
@@ -73,7 +74,19 @@ class SchoolPortalController extends Controller
             'feed' => $feed,
             'role' => $roleDashboard->build(Auth::user(), $school, $feed['unread']),
             'upcoming' => CalendarEvent::upcoming()->limit(5)->get(),
-            'upcomingHolidays' => CalendarEvent::where('category', 'holiday')->upcoming()->limit(5)->get(),
+            // The "Public holidays" card used to just repeat whichever
+            // holidays already happened to appear in "Upcoming on the
+            // calendar" right above it (user report 2026-07-16: "similar
+            // data under both Upcoming on the calendar and Public
+            // holidays, let's retain only Upcoming on the calendar,
+            // another data can be used to replace the Public holidays
+            // card section"). Replaced with a genuinely different lens on
+            // the same calendar: this term's own Beginning/Mid Term
+            // Break/End of Term milestones, past and future both (the
+            // "Upcoming" feed only ever shows what's still ahead), so a
+            // user can see at a glance where the school currently sits
+            // within its own term.
+            'termKeyDates' => $this->termKeyDates(),
             // The dashboard "Announcements" widget was every published
             // Announcement school wide, no per-user state at all, always
             // the same latest 3 for everyone (user report 2026-07-16: "IT
@@ -93,6 +106,53 @@ class SchoolPortalController extends Controller
             'widgets' => $prefs->widgets(),
             'setupComplete' => $setupComplete,
         ]);
+    }
+
+    /**
+     * The current term's own Beginning of Term/Mid Term Break/End of Term
+     * dates, each with a relative status (done, today, or "in N days"), so
+     * the dashboard "Public holidays" slot could be replaced with
+     * something that isn't just a repeat of the calendar widget beside it.
+     *
+     * @return array{term: ?Term, items: array<int, array{title: string, starts_on: ?\Illuminate\Support\Carbon, ends_on: ?\Illuminate\Support\Carbon, status: string}>}
+     */
+    protected function termKeyDates(): array
+    {
+        $term = Term::current()->first();
+        if (! $term) {
+            return ['term' => null, 'items' => []];
+        }
+
+        $events = CalendarEvent::where('is_default', true)
+            ->whereIn('title', ['Beginning of Term', 'Mid Term Break', 'End of Term'])
+            ->get()
+            ->keyBy('title');
+
+        $items = [];
+        foreach (['Beginning of Term', 'Mid Term Break', 'End of Term'] as $title) {
+            $event = $events->get($title);
+            $items[] = [
+                'title' => $title,
+                'starts_on' => $event?->starts_on,
+                'ends_on' => $event?->ends_on,
+                'status' => $this->relativeDateStatus($event?->ends_on ?? $event?->starts_on),
+            ];
+        }
+
+        return ['term' => $term, 'items' => $items];
+    }
+
+    protected function relativeDateStatus(?\Illuminate\Support\Carbon $date): string
+    {
+        if (! $date) {
+            return 'not_set';
+        }
+        $days = now()->startOfDay()->diffInDays($date->copy()->startOfDay(), false);
+        if ($days < 0) {
+            return 'done';
+        }
+
+        return $days === 0 ? 'today' : "in {$days} day".($days === 1 ? '' : 's');
     }
 
     /** Dashboard appearance settings: layout template + widget visibility. */

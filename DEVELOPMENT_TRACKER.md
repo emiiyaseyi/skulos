@@ -1509,6 +1509,15 @@ User directed building the previously-blocked net-new modules and answered a rou
 - QA: new `test_the_index_defaults_to_the_current_term_and_can_switch_between_terms` in `CalendarEventScreenTest.php` (9 tests in the file, all pass) proves the default view shows only the current term's own event (plus the undated one) and that switching `term_id` flips which dated event is visible. Verified directly against the real `greenfield` school via tinker: its current term (Third Term 2025/2026, 4 May to 24 Jul 2026) correctly returns exactly the events that fall inside that window.
 - Not built in this pass: nothing deferred, this was a self contained controller/view change.
 
+### Replace duplicate "Public holidays" dashboard card (2026-07-16)
+- Status: Done
+- Started: 2026-07-16
+- Notes: user report (with screenshot): "similar data under both Upcoming on the calendar and Public holidays, let's retain only Upcoming on the calendar, another data can be used to replace the Public holidays card section". Confirmed real: "Public holidays" was just `CalendarEvent::where('category','holiday')->upcoming()`, a strict subset of "Upcoming on the calendar"'s own `CalendarEvent::upcoming()` feed, so any holiday actually visible in one already showed in the other.
+- Resolution: replaced with "This term's key dates", the current term's own Beginning of Term/Mid Term Break/End of Term dates (already correctly populated by the official Lagos calendar work above), each with a relative status badge (Done/Today/"in N days"/Not set). This is a genuinely different lens, not a repeat: it shows the school's own term milestones regardless of whether they're past or future, which the "Upcoming" feed structurally cannot do (it only ever shows what's still ahead). New `SchoolPortalController::termKeyDates()`/`relativeDateStatus()` compute it; the `dashboard_widgets` config key stayed `'holidays'` (only its `label` changed to "This term's key dates"), so any school's existing on/off preference for that slot carried over untouched, nothing needed migrating.
+- Issues/Bugs found: none new. The rewritten `PublicHolidaysWidgetTest.php` initially failed two of its own new `assertSee()` calls, not because of a real bug but because `assertSee()` HTML escapes its needle by default and the view's heading contains a literal apostrophe rendered unescaped (a plain Blade HTML string, not `{{ }}`), fixed by passing `assertSee($text, false)`.
+- QA: `PublicHolidaysWidgetTest.php` rewritten in place (4 tests: real key dates show with the right status, the empty state when no current term exists, an individual not-yet-dated key date shows "Not set", the widget can still be toggled off from Dashboard look settings). Full related suite re-run together (`PublicHolidaysWidgetTest`, `DashboardAnnouncementTickerTest`, `RoleDashboardTest`, `PlatformFlowTest`, 61 tests) passes with no regressions.
+- Not built in this pass: nothing deferred.
+
 ### Attendance: grey out weekends and holidays (2026-07-16)
 - Status: Done
 - Started: 2026-07-16

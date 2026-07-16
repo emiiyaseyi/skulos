@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\School;
+use App\Models\Tenant\AcademicSession;
 use App\Models\Tenant\CalendarEvent;
+use App\Models\Tenant\Term;
 use App\Models\User;
 use App\Services\Rbac\Rbac;
 use App\Services\Tenancy\TenantManager;
@@ -13,9 +15,15 @@ use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 /**
- * Dashboard Design Cross-Check: "Public Holidays as its own list", separate
- * from the general "Upcoming on the calendar" widget which mixes every
- * category together.
+ * Dashboard "Public holidays" widget (Dashboard Design Cross-Check: "Public
+ * Holidays as its own list") was later found to just repeat whatever
+ * holidays already showed in the "Upcoming on the calendar" widget beside
+ * it (user report 2026-07-16: "similar data under both Upcoming on the
+ * calendar and Public holidays, let's retain only Upcoming on the
+ * calendar, another data can be used to replace the Public holidays card
+ * section"). Replaced with "This term's key dates": the current term's own
+ * Beginning of Term/Mid Term Break/End of Term milestones, a genuinely
+ * different lens (past and future both, not just what's still ahead).
  */
 class PublicHolidaysWidgetTest extends TestCase
 {
@@ -51,63 +59,61 @@ class PublicHolidaysWidgetTest extends TestCase
         return [$school, $user];
     }
 
-    public function test_dashboard_shows_only_holiday_category_events_in_the_holidays_widget(): void
+    protected function extractWidget(string $content): string
+    {
+        $start = strpos($content, "This term's key dates");
+        $this->assertNotFalse($start);
+
+        return substr($content, $start, 1400);
+    }
+
+    public function test_dashboard_shows_the_current_terms_own_key_dates(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'holone');
 
         app(TenantManager::class)->use($school);
-        CalendarEvent::create(['title' => 'Independence Day', 'category' => 'holiday', 'starts_on' => now()->addDays(5), 'all_day' => true]);
-        CalendarEvent::create(['title' => 'PTA Meeting', 'category' => 'meeting', 'starts_on' => now()->addDays(3), 'all_day' => true]);
+        $session = AcademicSession::create(['name' => '2025/2026 Session']);
+        $term = Term::create([
+            'academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1,
+            'starts_on' => now()->subDays(10), 'ends_on' => now()->addDays(20),
+        ]);
+        $term->makeCurrent();
+        CalendarEvent::where('title', 'Beginning of Term')->update(['starts_on' => now()->subDays(10)]);
+        CalendarEvent::where('title', 'End of Term')->update(['starts_on' => now()->addDays(20)]);
         app(TenantManager::class)->forget();
 
         $response = $this->actingAs($owner)->get(route('school.dashboard', ['school' => $school->slug]));
         $response->assertOk();
 
-        $content = $response->getContent();
-        $holidaysStart = strpos($content, 'Public holidays');
-        $this->assertNotFalse($holidaysStart);
-        $holidaysSection = substr($content, $holidaysStart, 400);
-        $this->assertStringContainsString('Independence Day', $holidaysSection);
-        $this->assertStringNotContainsString('PTA Meeting', $holidaysSection);
+        $widget = $this->extractWidget($response->getContent());
+        $this->assertStringContainsString('Beginning of Term', $widget);
+        $this->assertStringContainsString('End of Term', $widget);
+        $this->assertStringContainsString('Mid Term Break', $widget);
+        $this->assertStringContainsString('Done', $widget);
     }
 
-    /**
-     * A freshly provisioned school now seeds real, dated public holidays
-     * by default (2026-07-15: "CHECK THE PUBLIC HOLIDAY CALENDAR... AND
-     * POPULATE"), so the empty state can no longer happen on a normal
-     * provision, that IS the point of that fix. Still verified directly
-     * by clearing every holiday-category date first.
-     */
-    public function test_empty_state_when_no_holidays_are_dated(): void
+    public function test_empty_state_when_no_current_term_is_set(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'holtwo');
 
-        app(TenantManager::class)->use($school);
-        CalendarEvent::where('category', 'holiday')->update(['starts_on' => null]);
-        app(TenantManager::class)->forget();
-
         $this->actingAs($owner)->get(route('school.dashboard', ['school' => $school->slug]))
             ->assertOk()
-            ->assertSee('Public holidays')
-            ->assertSee('No dated holidays yet');
+            ->assertSee("This term's key dates", false)
+            ->assertSee('No current term set yet');
     }
 
-    /** Positive coverage of the actual fix: a freshly provisioned school shows real holidays, not an empty state. */
-    public function test_a_freshly_provisioned_school_shows_real_holidays_by_default(): void
+    public function test_a_key_date_not_yet_set_shows_not_set(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'holfour');
 
-        $response = $this->actingAs($owner)->get(route('school.dashboard', ['school' => $school->slug]));
-        $response->assertOk()->assertSee('Public holidays')->assertDontSee('No dated holidays yet');
-
-        // At least one of the real named holidays should be upcoming or
-        // recently past within the widget's own window; Christmas Day is
-        // always seeded for the current year regardless of when the test
-        // runs, safest single anchor to check for by name.
         app(TenantManager::class)->use($school);
-        $christmas = CalendarEvent::where('title', 'Christmas Day')->whereYear('starts_on', now()->year)->first();
+        $session = AcademicSession::create(['name' => '2025/2026 Session']);
+        Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1])->makeCurrent();
         app(TenantManager::class)->forget();
-        $this->assertNotNull($christmas);
+
+        $response = $this->actingAs($owner)->get(route('school.dashboard', ['school' => $school->slug]));
+        $widget = $this->extractWidget($response->getContent());
+        $this->assertStringContainsString('Not set', $widget);
     }
 
     public function test_widget_can_be_turned_off_from_dashboard_look_settings(): void
@@ -121,6 +127,6 @@ class PublicHolidaysWidgetTest extends TestCase
 
         $this->actingAs($owner)->get(route('school.dashboard', ['school' => $school->slug]))
             ->assertOk()
-            ->assertDontSee('Public holidays');
+            ->assertDontSee("This term's key dates", false);
     }
 }
