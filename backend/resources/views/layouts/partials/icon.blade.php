@@ -31,5 +31,6 @@
   @case('support') {!! $s !!}<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><path d="m5.6 5.6 3.1 3.1M15.3 15.3l3.1 3.1M18.4 5.6l-3.1 3.1M8.7 15.3l-3.1 3.1"/></svg> @break
   @case('chat') {!! $s !!}<path d="M8 10h.01M12 10h.01M16 10h.01"/><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-4 3.5V16H6a2 2 0 0 1-2-2z"/></svg> @break
   @case('roles') {!! $s !!}<path d="M12 2 4.5 5v6c0 5 3.2 8.4 7.5 11 4.3-2.6 7.5-6 7.5-11V5z"/><circle cx="12" cy="10" r="2.3"/><path d="M8.5 15.5c.7-1.6 2-2.3 3.5-2.3s2.8.7 3.5 2.3"/></svg> @break
+  @case('search') {!! $s !!}<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg> @break
   @default {!! $s !!}<circle cx="12" cy="12" r="9"/></svg>
 @endswitch

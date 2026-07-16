@@ -322,7 +322,11 @@ class PlanFeatureNavTest extends TestCase
         }
 
         // Settings must be the very last side-section in the sidebar, not just before these two specifically.
-        $this->assertFalse(strpos($content, 'side-section', $settingsPos + 1), 'no other group may render after Settings');
+        // Matches the actual rendered element (class="side-section"), not a
+        // bare substring: the nav search box's own script legitimately
+        // references .side-section as a CSS selector further down the page,
+        // which a plain "side-section" substring scan would misfire on.
+        $this->assertFalse(strpos($content, 'class="side-section"', $settingsPos + 1), 'no other group may render after Settings');
     }
 
     /**
@@ -435,5 +439,36 @@ class PlanFeatureNavTest extends TestCase
 
         // The link actually goes somewhere real, not a 404/500 behind it.
         $this->actingAs($user)->get("http://{$school->slug}.localhost/notifications")->assertOk();
+    }
+
+    /**
+     * User directive, asked three separate times: "ADD A SEARCH BOX ABOVE
+     * THE MENU BAR WHERE ONE CAN SEARCH FOR MENUS AND FEATURES TO EASILY
+     * LOCATE THE FEATURE/MENU ONE IS LOOKING FOR".
+     */
+    public function test_the_nav_search_box_renders_above_the_menu(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['in_app_notifications', 'school_houses'], 'plannavsearch');
+
+        $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard");
+        $response->assertOk();
+        $content = $response->getContent();
+
+        $searchPos = strpos($content, 'id="navSearchInput"');
+        $navPos = strpos($content, 'class="side-nav"');
+        $this->assertNotFalse($searchPos, 'the nav search input must render');
+        $this->assertNotFalse($navPos);
+        $this->assertLessThan($navPos, $searchPos, 'the search box must render above the menu, not inside or below it');
+        $response->assertSee('Search menus and features');
+    }
+
+    public function test_the_nav_search_box_also_renders_on_the_platform_admin_portal(): void
+    {
+        $admin = User::factory()->create();
+        $admin->forceFill(['is_super_admin' => true])->save();
+
+        $this->actingAs($admin)->get('http://localhost/admin')
+            ->assertOk()
+            ->assertSee('id="navSearchInput"', false);
     }
 }

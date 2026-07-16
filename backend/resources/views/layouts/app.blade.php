@@ -120,6 +120,14 @@ a{color:inherit;text-decoration:none}
 .side-badge{width:34px;height:34px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:800;flex-shrink:0}
 .side-school b{font-size:.9rem;display:block;line-height:1.2}
 .side-school span{font-size:.72rem;color:var(--side-mut)}
+.side-search{position:relative;margin:.1rem 1rem .7rem}
+.side-search input{width:100%;background:var(--side-active);border:1px solid var(--side-line);border-radius:10px;padding:.5rem .7rem .5rem 2.15rem;font-size:.82rem;color:var(--side-ink);font-family:inherit}
+.side-search input::placeholder{color:var(--side-mut)}
+.side-search input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.side-search input::-webkit-search-cancel-button{cursor:pointer}
+.side-search-ic{position:absolute;left:.68rem;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--side-mut);pointer-events:none}
+.side-search-ic svg{width:100%;height:100%}
+.side-search-empty{display:none;padding:.3rem .9rem 1rem;font-size:.78rem;color:var(--side-mut)}
 .side-nav{flex:1;padding:.4rem .7rem 1rem}
 .side-group{font-size:.66rem;text-transform:uppercase;letter-spacing:.09em;color:var(--side-mut);font-weight:800;padding:.9rem .6rem .35rem}
 .side-group-btn{width:100%;background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;text-align:left;font-size:.66rem;text-transform:uppercase;letter-spacing:.09em;color:var(--side-mut);font-weight:800;padding:.9rem .6rem .35rem}
@@ -150,6 +158,7 @@ a{color:inherit;text-decoration:none}
 .shell.collapsed .side-brand{justify-content:center;font-size:1.1rem;padding-inline:0}
 .shell.collapsed .side-brand .brandfull{display:none}
 .shell.collapsed .side-school{justify-content:center;padding-inline:0}
+.shell.collapsed .side-search{display:none}
 .shell.collapsed .side-school div,.shell.collapsed .side-group,.shell.collapsed .side-group-btn,.shell.collapsed .side-link span:not(.ic),.shell.collapsed .side-link .soon,.shell.collapsed .side-foot .who{display:none}
 .shell.collapsed .side-submenu{grid-template-rows:1fr}
 .shell.collapsed .side-nav{padding-inline:.55rem}
@@ -277,6 +286,12 @@ tr:last-child td{border-bottom:none}
       </div>
     @endisset
 
+    <div class="side-search">
+      <span class="side-search-ic">@include('layouts.partials.icon', ['name' => 'search'])</span>
+      <input type="search" id="navSearchInput" placeholder="Search menus and features" aria-label="Search menus and features">
+    </div>
+    <div class="side-search-empty" id="navSearchEmpty">No menus or features match your search.</div>
+
     <nav class="side-nav">
       @include('layouts.partials.nav-'.$portal, ['school' => $school ?? null, 'cur' => $cur])
     </nav>
@@ -400,6 +415,76 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
       try{ localStorage.setItem('skulos-side', shell.classList.contains('collapsed')?'collapsed':'open'); }catch(e){}
     });
   }
+  // Nav search (user directive, asked three times: "ADD A SEARCH BOX
+  // ABOVE THE MENU BAR WHERE ONE CAN SEARCH FOR MENUS AND FEATURES TO
+  // EASILY LOCATE THE FEATURE/MENU ONE IS LOOKING FOR"). Plain client
+  // side text filter over the already rendered nav, no server round
+  // trip, works the same for the school portal's collapsible grouped
+  // menu and the platform admin portal's flat list, since both share
+  // the same clickable nav link markup underneath.
+  (function(){
+    var input = document.getElementById('navSearchInput');
+    var nav = document.querySelector('.side-nav');
+    var empty = document.getElementById('navSearchEmpty');
+    if (!input || !nav) return;
+    var links = Array.prototype.slice.call(nav.querySelectorAll('.side-link'));
+    links.forEach(function(link){
+      var soon = link.querySelector('.soon');
+      var text = link.textContent || '';
+      if (soon) text = text.replace(soon.textContent, '');
+      link.dataset.navLabel = text.trim().toLowerCase();
+    });
+    var sections = Array.prototype.slice.call(nav.querySelectorAll('.side-section'));
+    var dividers = Array.prototype.slice.call(nav.querySelectorAll('.side-group'));
+
+    function reset(){
+      links.forEach(function(l){ l.style.display = ''; });
+      sections.forEach(function(s){ s.style.display = ''; });
+      dividers.forEach(function(d){ d.style.display = ''; });
+      if (empty) empty.style.display = 'none';
+    }
+
+    input.addEventListener('input', function(){
+      var q = input.value.trim().toLowerCase();
+      if (!q) { reset(); return; }
+
+      var anyVisible = false;
+      links.forEach(function(l){
+        var match = l.dataset.navLabel.indexOf(q) !== -1;
+        l.style.display = match ? '' : 'none';
+        if (match) anyVisible = true;
+      });
+
+      // Grouped, collapsible school nav: hide a whole group with no
+      // match, force open one that has any.
+      sections.forEach(function(section){
+        var visible = Array.prototype.slice.call(section.querySelectorAll('.side-link'))
+          .some(function(l){ return l.style.display !== 'none'; });
+        section.style.display = visible ? '' : 'none';
+        if (visible) {
+          var panel = section.querySelector('.side-submenu');
+          if (panel) panel.classList.add('open');
+        }
+      });
+
+      // Flat admin nav: a .side-group divider has no wrapping element,
+      // just sits before its own run of .side-link siblings up to the
+      // next divider, so walk siblings to decide if it has a match.
+      dividers.forEach(function(div, i){
+        var stopAt = dividers[i + 1];
+        var visible = false;
+        var sib = div.nextElementSibling;
+        while (sib && sib !== stopAt) {
+          if (sib.classList.contains('side-link') && sib.style.display !== 'none') { visible = true; break; }
+          sib = sib.nextElementSibling;
+        }
+        div.style.display = visible ? '' : 'none';
+      });
+
+      if (empty) empty.style.display = anyVisible ? 'none' : '';
+    });
+  })();
+
   // Keep the selected nav item in view on every full page load (user
   // request 2026-07-11: clicking a menu item further down the list used
   // to lose your place, since each click is a full server navigation and
@@ -419,32 +504,53 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
       resumeBtn=document.getElementById('idleResumeBtn'),
       logoutBtn=document.getElementById('idleLogoutBtn'),
       logoutForm=document.getElementById('idleLogoutForm');
-  var idleTimer=null, countdownTimer=null, secondsLeft=0, lastActivityAt=Date.now();
+  var countdownTimer=null, lastActivityAt=Date.now(), warningDeadlineAt=null;
 
   function doLogout(){ logoutForm.submit(); }
 
-  function tickCountdown(){
-    secondsLeft--;
+  // The only place that decides idle state, driven entirely by wall
+  // clock timestamps (Date.now()), never by counting how many timer
+  // ticks actually fired. First fix (2026-07-16) only re-checked elapsed
+  // time when the tab regained visibility, which caught the "warning
+  // never even appears while backgrounded" case, but the countdown
+  // itself, once already showing, still relied on setInterval ticking
+  // once per real second to decrement a counter; a backgrounded/
+  // unfocused tab's interval is exactly what browsers throttle or fully
+  // suspend, so the "23" on screen would visibly freeze until the tab
+  // was refocused (user report 2026-07-16, second time: "still does not
+  // work until one come back to the tab... should also work when one
+  // moves away from the tab or to another window"). warningDeadlineAt is
+  // an absolute timestamp anchored to lastActivityAt (idleMs + warnMs
+  // ahead of it), so calling this late, whether from a throttled tick, a
+  // regained-visibility event, or a regained window focus event (a
+  // switch to a different OS application does not reliably fire
+  // visibilitychange in every browser the way switching browser tabs
+  // does, focus/blur covers that gap), always yields the exact correct
+  // remaining seconds, or an immediate logout if the whole warning
+  // window already elapsed unseen.
+  function evaluate(){
+    var now=Date.now();
+    if(warningDeadlineAt===null){
+      if(now-lastActivityAt<idleMs) return;
+      warningDeadlineAt=lastActivityAt+idleMs+warnMs;
+      scrim.classList.add('show');
+    }
+    var secondsLeft=Math.ceil((warningDeadlineAt-now)/1000);
+    if(secondsLeft<=0){
+      clearInterval(countdownTimer);
+      doLogout();
+      return;
+    }
     countEl.textContent=secondsLeft;
-    if(secondsLeft<=0){ clearInterval(countdownTimer); doLogout(); }
-  }
-
-  function showWarning(){
-    secondsLeft=Math.round(warnMs/1000);
-    countEl.textContent=secondsLeft;
-    scrim.classList.add('show');
-    countdownTimer=setInterval(tickCountdown,1000);
   }
 
   function resetIdleTimer(){
     lastActivityAt=Date.now();
-    clearTimeout(idleTimer);
-    idleTimer=setTimeout(showWarning,idleMs);
+    warningDeadlineAt=null;
+    scrim.classList.remove('show');
   }
 
   function resume(){
-    clearInterval(countdownTimer);
-    scrim.classList.remove('show');
     resetIdleTimer();
     fetch('{{ route('session.keep-alive') }}', {
       method:'POST',
@@ -457,33 +563,16 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
 
   ['mousemove','keydown','click','scroll','touchstart'].forEach(function(evt){
     document.addEventListener(evt,function(){
-      if(!scrim.classList.contains('show')) resetIdleTimer();
+      if(warningDeadlineAt===null) lastActivityAt=Date.now();
     },{passive:true});
   });
 
-  // Browsers throttle (or entirely suspend) setTimeout/setInterval in a
-  // background/unfocused tab, so idleTimer/countdownTimer above can stall
-  // for far longer than idleMs/warnMs while the tab isn't visible (user
-  // report 2026-07-16: "the idle timeout does not count when user move
-  // away from the tab. it only works when one is on the tab"). Real
-  // elapsed wall clock time (Date.now(), not a timer callback actually
-  // firing) is checked the moment the tab becomes visible again, so a
-  // session that should have already timed out while backgrounded is
-  // caught immediately instead of silently getting a fresh full idleMs
-  // grace period just because focus returned.
   document.addEventListener('visibilitychange', function(){
-    if(document.visibilityState!=='visible') return;
-    if(scrim.classList.contains('show')) return; // already mid warning, tickCountdown/its own timer handles it
-    var elapsed=Date.now()-lastActivityAt;
-    if(elapsed<idleMs) return;
-    showWarning();
-    var overrunSeconds=Math.round((elapsed-idleMs)/1000);
-    secondsLeft=Math.max(0, Math.round(warnMs/1000)-overrunSeconds);
-    countEl.textContent=secondsLeft;
-    if(secondsLeft<=0){ clearInterval(countdownTimer); doLogout(); }
+    if(document.visibilityState==='visible') evaluate();
   });
+  window.addEventListener('focus', evaluate);
 
-  resetIdleTimer();
+  countdownTimer=setInterval(evaluate,1000);
 })();
 </script>
 @stack('scripts')
