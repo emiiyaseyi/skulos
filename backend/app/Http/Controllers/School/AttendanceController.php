@@ -9,8 +9,10 @@ use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\Staff;
 use App\Models\Tenant\Student;
 use App\Services\Attendance\AttendanceService;
+use App\Services\Bulk\CsvReader;
 use App\Services\Rbac\Rbac;
 use App\Services\Rbac\TeacherScope;
+use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -199,5 +201,176 @@ class AttendanceController extends Controller
 
         return redirect()->route('school.attendance.staff', ['school' => $school->slug, 'date' => $data['date']])
             ->with('status', "Attendance saved for {$marked} staff member(s).");
+    }
+
+    protected function assertScoped(Request $request, School $school, int $classArmId): void
+    {
+        $scopedArmIds = app(TeacherScope::class)->classArmIds(Auth::user(), $school);
+        abort_if($scopedArmIds !== null && ! $scopedArmIds->contains($classArmId), 404);
+    }
+
+    /**
+     * A pre-filled CSV for one class arm over a date range the user picks
+     * (user directive 2026-07-16: "download the class bulk attendance with
+     * all student name and the dates (user will ask for the days they want
+     * to enter)... fill it and upload it back which will then populate all
+     * the attendance record"), same round trip shape as the Results bulk
+     * template: one column per date, existing marks already filled in so
+     * this doubles as an export. Weekends and holidays are left out of the
+     * date columns entirely, not just blocked on upload, reusing
+     * AttendanceService::nonSchoolDatesWithin() rather than a second copy
+     * of that logic.
+     */
+    public function bulkTemplate(Request $request): \Symfony\Component\HttpFoundation\Response
+    {
+        $this->authorizeAction($request, 'attendance.create');
+        $school = $this->school($request);
+
+        $data = $request->validate([
+            'class_arm_id' => ['required', 'exists:tenant.class_arms,id'],
+            'from' => ['required', 'date'],
+            'to' => ['required', 'date', 'after_or_equal:from'],
+        ]);
+
+        $this->assertScoped($request, $school, (int) $data['class_arm_id']);
+
+        $from = Carbon::parse($data['from'])->startOfDay();
+        $to = Carbon::parse($data['to'])->startOfDay();
+        abort_if($from->diffInDays($to) > 92, 422, 'Pick a date range of 92 days or less.');
+
+        $service = app(AttendanceService::class);
+        $nonSchoolDates = $service->nonSchoolDatesWithin($from, $to);
+        $dates = [];
+        for ($d = $from->copy(); $d->lte($to); $d->addDay()) {
+            if (! isset($nonSchoolDates[$d->toDateString()])) {
+                $dates[] = $d->toDateString();
+            }
+        }
+        abort_if(empty($dates), 422, 'Every date in that range is a weekend or holiday, nothing to download.');
+
+        $students = Student::active()->where('current_class_arm_id', $data['class_arm_id'])
+            ->orderBy('first_name')->get();
+
+        $existing = Attendance::students()->where('class_arm_id', $data['class_arm_id'])
+            ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
+            ->get()
+            ->keyBy(fn (Attendance $a) => $a->person_id.':'.$a->date);
+
+        $out = fopen('php://temp', 'r+');
+        fputcsv($out, array_merge(['admission_number', 'name'], $dates));
+        foreach ($students as $student) {
+            $row = [$student->admission_number, $student->fullName()];
+            foreach ($dates as $date) {
+                $row[] = $existing->get($student->id.':'.$date)?->status ?? '';
+            }
+            fputcsv($out, $row);
+        }
+        rewind($out);
+        $csv = (string) stream_get_contents($out);
+
+        $classArm = ClassArm::find($data['class_arm_id']);
+        $filename = 'attendance-'.\Illuminate\Support\Str::slug($classArm?->label() ?? 'class').'-'.$from->toDateString().'-to-'.$to->toDateString().'.csv';
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
+    }
+
+    /**
+     * Re-upload of the template above. A blank cell is skipped, never
+     * treated as absent (same "fill in what changed" convention the
+     * Results bulk upload and Houses' bulk CSV already use), so a
+     * partially filled sheet never wipes a mark no one meant to touch.
+     * Each date column is checked against nonSchoolDayReason() again (not
+     * just relying on the template already excluding them), in case
+     * someone hand edits the header back in.
+     */
+    public function bulkUpload(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'attendance.create');
+        $school = $this->school($request);
+
+        $data = $request->validate([
+            'class_arm_id' => ['required', 'exists:tenant.class_arms,id'],
+            'file' => ['required', 'file', 'mimes:csv,txt', 'max:5120'],
+        ]);
+        $classArmId = (int) $data['class_arm_id'];
+        $this->assertScoped($request, $school, $classArmId);
+
+        $csv = file_get_contents($request->file('file')->getRealPath());
+        try {
+            $rows = app(CsvReader::class)->rows($csv);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        $students = Student::active()->where('current_class_arm_id', $classArmId)->get()->keyBy('admission_number');
+        $service = app(AttendanceService::class);
+        $validStatuses = array_map('strtolower', Attendance::statuses());
+
+        $dateColumns = [];
+        foreach ($rows[0] ?? [] as $column => $value) {
+            if (in_array($column, ['admission_number', 'name'], true)) {
+                continue;
+            }
+            if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $column)) {
+                continue;
+            }
+            $dateColumns[$column] = $service->nonSchoolDayReason($column);
+        }
+
+        $saved = 0;
+        $errors = [];
+        $skippedNonSchoolDay = 0;
+
+        foreach ($rows as $index => $row) {
+            $rowNumber = $index + 2;
+            $admissionNumber = trim((string) ($row['admission_number'] ?? ''));
+            if ($admissionNumber === '') {
+                continue;
+            }
+            $student = $students->get($admissionNumber);
+            if (! $student) {
+                $errors[] = "Row {$rowNumber}: no student with admission number \"{$admissionNumber}\" in this class.";
+
+                continue;
+            }
+
+            foreach ($dateColumns as $date => $nonSchoolReason) {
+                $value = $row[$date] ?? null;
+                if ($value === null || $value === '') {
+                    continue;
+                }
+                if ($nonSchoolReason) {
+                    $skippedNonSchoolDay++;
+
+                    continue;
+                }
+                $status = strtolower(trim($value));
+                if (! in_array($status, $validStatuses, true)) {
+                    $errors[] = "Row {$rowNumber} ({$admissionNumber}), {$date}: \"{$value}\" is not a valid status.";
+
+                    continue;
+                }
+
+                Attendance::updateOrCreate(
+                    ['person_type' => Attendance::PERSON_STUDENT, 'person_id' => $student->id, 'date' => $date],
+                    ['class_arm_id' => $classArmId, 'status' => $status, 'recorded_by_user_id' => Auth::id()]
+                );
+                $saved++;
+            }
+        }
+
+        $message = "{$saved} attendance record(s) saved.";
+        if ($skippedNonSchoolDay > 0) {
+            $message .= " {$skippedNonSchoolDay} cell(s) on a weekend or holiday were skipped.";
+        }
+        if ($errors) {
+            $message .= ' '.count($errors).' issue(s), first: '.$errors[0];
+        }
+
+        return redirect()->route('school.attendance.index', ['school' => $school->slug, 'class_arm_id' => $classArmId])
+            ->with($errors ? 'error' : 'status', $message);
     }
 }

@@ -279,4 +279,104 @@ class AttendanceScreenTest extends TestCase
         $this->actingAs($owner)->get("http://{$school->slug}.localhost/attendance")
             ->assertOk()->assertSee('nonSchoolDates', false);
     }
+
+    /**
+     * User directive 2026-07-16: "MAKE IT POSSIBLE TO DOWNLOAD THE CLASS
+     * BULK ATTENDANCE WITH ALL STUDENT NAME AND THE DATES (USER WILL ASK
+     * FOR THE DAYS THEY WANT TO ENTER) SO THAT IT COMES WITH THE FILE TO
+     * BE DOWNLOADED WHICH THE USER CAN FILL AND UPLOAD BACK WHICH WILL
+     * THEN POPULATE ALL THE ATTENDANCE RECORD". 2026-01-14 is a Wednesday,
+     * 2026-01-19 the following Monday, so this range spans one weekend.
+     */
+    public function test_bulk_template_has_one_column_per_school_day_and_excludes_the_weekend(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'attbulkone');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $arm, 'studentA' => $student] = $this->twoClassesWithStudents();
+        \App\Models\Tenant\Attendance::create(['date' => '2026-01-14', 'person_type' => 'student', 'person_id' => $student->id, 'class_arm_id' => $arm->id, 'status' => 'present']);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/attendance/bulk-template?class_arm_id={$arm->id}&from=2026-01-14&to=2026-01-19");
+        $response->assertOk();
+
+        $csv = $response->getContent();
+        $this->assertStringContainsString('2026-01-14', $csv);
+        $this->assertStringContainsString('2026-01-15', $csv);
+        $this->assertStringContainsString('2026-01-16', $csv);
+        $this->assertStringContainsString('2026-01-19', $csv);
+        $this->assertStringNotContainsString('2026-01-17', $csv, 'Saturday must be excluded');
+        $this->assertStringNotContainsString('2026-01-18', $csv, 'Sunday must be excluded');
+        $this->assertStringContainsString($student->admission_number, $csv);
+        $this->assertStringContainsString('present', $csv, 'the already marked day must be pre-filled');
+    }
+
+    public function test_bulk_upload_populates_attendance_across_the_whole_range(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'attbulktwo');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $arm, 'studentA' => $studentA, 'studentB' => $studentB] = $this->twoClassesWithStudents();
+        app(TenantManager::class)->forget();
+
+        $csv = "admission_number,name,2026-01-14,2026-01-15,2026-01-16\n"
+            ."{$studentA->admission_number},Ada Obi,present,absent,late\n";
+        $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('attendance.csv', $csv);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/attendance/bulk-upload", [
+            'class_arm_id' => $arm->id, 'file' => $file,
+        ])->assertRedirect()->assertSessionHas('status');
+
+        app(TenantManager::class)->use($school);
+        $marks = \App\Models\Tenant\Attendance::where('person_id', $studentA->id)->orderBy('date')->pluck('status', 'date');
+        app(TenantManager::class)->forget();
+
+        $this->assertSame('present', $marks->get('2026-01-14 00:00:00') ?? $marks->get('2026-01-14'));
+        $this->assertSame('absent', $marks->get('2026-01-15 00:00:00') ?? $marks->get('2026-01-15'));
+        $this->assertSame('late', $marks->get('2026-01-16 00:00:00') ?? $marks->get('2026-01-16'));
+    }
+
+    public function test_bulk_upload_skips_blank_cells_and_a_weekend_column_hand_added_back(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'attbulkthree');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $arm, 'studentA' => $student] = $this->twoClassesWithStudents();
+        app(TenantManager::class)->forget();
+
+        // 2026-01-17 is a Saturday, hand added back into the header despite
+        // the download template never including it.
+        $csv = "admission_number,name,2026-01-14,2026-01-17\n"
+            ."{$student->admission_number},Ada Obi,,present\n";
+        $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('attendance.csv', $csv);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/attendance/bulk-upload", [
+            'class_arm_id' => $arm->id, 'file' => $file,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $count = \App\Models\Tenant\Attendance::where('person_id', $student->id)->count();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(0, $count, 'a blank cell and a hand added weekend column must both be skipped');
+    }
+
+    public function test_bulk_template_and_upload_are_scoped_to_the_teachers_own_class(): void
+    {
+        [$school, $teacherUser] = $this->schoolWithMember('class-teacher', 'attbulkfour');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $armA, 'armB' => $armB] = $this->twoClassesWithStudents();
+        $staff = Staff::create(['staff_id' => 'STF/0004', 'first_name' => 'Tee', 'last_name' => 'Cher', 'status' => 'active', 'user_id' => $teacherUser->id]);
+        $armA->update(['class_teacher_staff_id' => $staff->id]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/attendance/bulk-template?class_arm_id={$armB->id}&from=2026-01-14&to=2026-01-16")
+            ->assertNotFound();
+
+        $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('attendance.csv', "admission_number,name,2026-01-14\n");
+        $this->actingAs($teacherUser)->post("http://{$school->slug}.localhost/attendance/bulk-upload", [
+            'class_arm_id' => $armB->id, 'file' => $file,
+        ])->assertNotFound();
+    }
 }

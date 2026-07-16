@@ -90,6 +90,34 @@
       </form>
     @endif
   </div>
+
+  @if($canMark)
+    <div class="card" style="margin-top:1.25rem">
+      <h3 style="margin-bottom:.3rem">Bulk attendance for a date range</h3>
+      <p class="muted" style="font-size:.85rem;margin-bottom:.8rem">Download a spreadsheet with every student and one column per date, fill it in, then upload it back to populate the whole range at once. Weekends and holidays are left out automatically.</p>
+      <form method="GET" action="{{ route('school.attendance.bulk-template', ['school' => $school->slug]) }}" style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:1.2rem">
+        <input type="hidden" name="class_arm_id" value="{{ $selectedArm->id }}" />
+        <div class="field" style="margin:0">
+          <label for="bulk_from">From</label>
+          <input id="bulk_from" name="from" type="date" required max="{{ now()->toDateString() }}" />
+        </div>
+        <div class="field" style="margin:0">
+          <label for="bulk_to">To</label>
+          <input id="bulk_to" name="to" type="date" required max="{{ now()->toDateString() }}" />
+        </div>
+        <button class="btn btn-ghost btn-sm" type="submit">Download template</button>
+      </form>
+      <form method="POST" action="{{ route('school.attendance.bulk-upload', ['school' => $school->slug]) }}" enctype="multipart/form-data" style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap">
+        @csrf
+        <input type="hidden" name="class_arm_id" value="{{ $selectedArm->id }}" />
+        <div class="field" style="margin:0">
+          <label for="bulk_file">Upload filled template</label>
+          <input id="bulk_file" name="file" type="file" accept=".csv,text/csv" required />
+        </div>
+        <button class="btn btn-primary btn-sm" type="submit">Upload</button>
+      </form>
+    </div>
+  @endif
 @endif
 
 <script>

@@ -290,6 +290,8 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             $attendance = \App\Http\Controllers\School\AttendanceController::class;
             Route::get('/', [$attendance, 'index'])->name('index');
             Route::post('/mark', [$attendance, 'markClass'])->name('mark');
+            Route::get('/bulk-template', [$attendance, 'bulkTemplate'])->name('bulk-template');
+            Route::post('/bulk-upload', [$attendance, 'bulkUpload'])->name('bulk-upload');
             Route::get('/staff', [$attendance, 'staffIndex'])->name('staff');
             Route::post('/staff/mark', [$attendance, 'markStaff'])->name('staff.mark');
         });
