@@ -76,9 +76,15 @@ class RoleDashboardTest extends TestCase
 
         $this->assertSame('admin', $data['kind']);
         $labels = array_column($data['figs'], 'l');
-        $figsByLabel = array_column($data['figs'], 'n', 'l');
-        $this->assertContains('Teachers', $labels);
-        $this->assertSame('1', $figsByLabel['Teachers'], 'the school owner (not teacher-scoped) must not be counted as a teacher');
+        // "Teachers" merged into "Staff" (user directive 2026-07-16: "WHY
+        // DO WE HAVE STAFF AND TEACHERS DATA... MERGE INTO ONE AS STAFF").
+        $this->assertContains('Staff', $labels);
+        $this->assertNotContains('Teachers', $labels, 'Teachers must be merged into the Staff card, not shown as its own');
+        // "Awaiting Class" replaced with a clearer, real metric (user
+        // report 2026-07-16: "WHAT IS THE MEANING OF AWAITING CLASS,
+        // CHANGE THE DATA THERE").
+        $this->assertContains('Active Assignments', $labels);
+        $this->assertNotContains('Awaiting Class', $labels);
         $this->assertContains('Classes', $labels);
         $this->assertContains('Houses', $labels, 'admin dashboard must have grown beyond the original 4 figures');
         $this->assertContains('Reports Pending Review', $labels);
@@ -88,6 +94,13 @@ class RoleDashboardTest extends TestCase
         $this->assertArrayHasKey('birthdaysUpcoming', $data['panel']);
         $this->assertContains('Boys', $labels, 'gender must appear in the top figures, not only as a standalone panel');
         $this->assertContains('Girls', $labels);
+
+        // Every figure links somewhere real (user directive 2026-07-16:
+        // "MAKE EACH CARD CLICKABLE THAT IT TAKES ONE TO THE ACTUAL
+        // PAGE").
+        foreach ($data['figs'] as $fig) {
+            $this->assertNotEmpty($fig['href'] ?? null, "figure \"{$fig['l']}\" must have a real href");
+        }
     }
 
     public function test_admin_sees_todays_and_upcoming_birthdays_with_age_and_class(): void
@@ -460,6 +473,44 @@ class RoleDashboardTest extends TestCase
         $this->assertSame('50%', $labels['Attendance Rate']);
         $this->assertSame('1', $labels['Parents']);
         $this->assertSame('1', $labels['Subjects']);
+    }
+
+    /**
+     * User report 2026-07-16, screenshot of a real school's dashboard:
+     * "FIX THE Attendance Rate AND Staff Attendance SHOWING n/A - ADD THE
+     * DATA IF NEEDED". A bare "N/A" the moment nobody has opened the
+     * register yet today gives strictly less information than the real
+     * rate from the last day it actually was marked, so the figure now
+     * falls back up to 7 days back.
+     */
+    public function test_attendance_rate_falls_back_to_the_most_recent_marked_day_when_today_has_nothing(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'rdattendfallback');
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id]);
+        $a = Student::create(['admission_number' => 'FB1', 'first_name' => 'A', 'last_name' => 'One', 'current_class_arm_id' => $arm->id]);
+        // 3 days ago, nothing marked today or yesterday.
+        app(\App\Services\Attendance\AttendanceService::class)->markClass($arm->id, now()->subDays(3), [
+            $a->id => 'present',
+        ]);
+        app(TenantManager::class)->forget();
+
+        $data = app(RoleDashboard::class)->build($admin, $school);
+        $labels = collect($data['figs'])->pluck('n', 'l');
+
+        $this->assertSame('100%', $labels['Attendance Rate'], 'a 3 day old real mark must still surface, not read as N/A');
+    }
+
+    public function test_attendance_rate_is_na_when_nothing_was_ever_marked_at_all(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'rdattendnever');
+
+        $data = app(RoleDashboard::class)->build($admin, $school);
+        $labels = collect($data['figs'])->pluck('n', 'l');
+
+        $this->assertSame('N/A', $labels['Attendance Rate']);
     }
 
     public function test_class_teacher_dashboard_shows_todays_class_attendance(): void

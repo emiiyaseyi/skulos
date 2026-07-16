@@ -58,7 +58,15 @@
   --bg:#FFFFFF; --panel:#FFFFFF; --shell:#FFFFFF; --ink:#1A1613;
   --mut:rgba(26,22,19,.68); --mut-dim:rgba(26,22,19,.58);
   --line:#E4D9BE; --line-deep:#C9B98F; --soft:rgba(26,22,19,.035);
-  --ok:#4A6B3A; --warn:#B5731A; --bad:#B23A2A;
+  /* Was #4A6B3A/#B5731A/#B23A2A, a genuinely muted, low saturation set:
+     the dark mode brightening above fixed unreadable, this is a separate
+     complaint (user report 2026-07-16, after the dark mode fix: "THIS
+     DESIGN ISSUES WAS NOT FIXED", a screenshot of the same pale badge
+     look in light mode) that the light mode badges themselves still read
+     as weak/faded even where they are technically legible, so both
+     themes now use the same vivid, more saturated hue family instead of
+     two different tuned sets. */
+  --ok:#1E9E5A; --warn:#C97A0A; --bad:#D93A2B;
   --side:var(--shell); --side-ink:var(--ink); --side-mut:rgba(26,22,19,.62); --side-line:var(--line); --side-active:#F5EEDC;
   --shadow:0 1px 2px rgba(26,22,19,.07),0 10px 26px -16px rgba(26,22,19,.22);
   --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
@@ -78,7 +86,7 @@
      still reads as ok/warn/bad at a glance, not flattened to one colour. */
   --ok:#52C78A; --warn:#E5A83D; --bad:#E86A5C;
 }}
-:root[data-theme="light"] .school-theme{--bg:#FFFFFF;--panel:#FFFFFF;--shell:#FFFFFF;--ink:#1A1613;--mut:rgba(26,22,19,.68);--mut-dim:rgba(26,22,19,.58);--line:#E4D9BE;--line-deep:#C9B98F;--soft:rgba(26,22,19,.035);--side-mut:rgba(26,22,19,.62);--side-active:#F5EEDC;--shadow:0 1px 2px rgba(26,22,19,.07),0 10px 26px -16px rgba(26,22,19,.22);--ok:#4A6B3A;--warn:#B5731A;--bad:#B23A2A;}
+:root[data-theme="light"] .school-theme{--bg:#FFFFFF;--panel:#FFFFFF;--shell:#FFFFFF;--ink:#1A1613;--mut:rgba(26,22,19,.68);--mut-dim:rgba(26,22,19,.58);--line:#E4D9BE;--line-deep:#C9B98F;--soft:rgba(26,22,19,.035);--side-mut:rgba(26,22,19,.62);--side-active:#F5EEDC;--shadow:0 1px 2px rgba(26,22,19,.07),0 10px 26px -16px rgba(26,22,19,.22);--ok:#1E9E5A;--warn:#C97A0A;--bad:#D93A2B;}
 :root[data-theme="dark"] .school-theme{--bg:#171310;--panel:#211C17;--shell:#171310;--ink:#F0E9D8;--mut:rgba(240,233,216,.68);--mut-dim:rgba(240,233,216,.55);--line:rgba(240,233,216,.10);--line-deep:rgba(240,233,216,.18);--soft:rgba(240,233,216,.04);--side-mut:rgba(240,233,216,.62);--side-active:#211C17;--shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -16px rgba(0,0,0,.6);--ok:#52C78A;--warn:#E5A83D;--bad:#E86A5C;}
 
 /* numbers and headline-weight text set in serif per the lookbook,

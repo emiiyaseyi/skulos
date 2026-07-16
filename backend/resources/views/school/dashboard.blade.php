@@ -5,8 +5,11 @@
 <style>
   /* figure cards, 4 across */
   .figs{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;margin-bottom:1.1rem}
-  .fig b{font-size:1.7rem;font-weight:800;font-variant-numeric:tabular-nums;display:block;line-height:1.1}
-  .fig span{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim)}
+  .fig{position:relative}
+  .fig-link{position:absolute;inset:0;z-index:1;border-radius:inherit}
+  .fig:has(.fig-link):hover{box-shadow:0 2px 10px -2px color-mix(in srgb,var(--fc,var(--accent)) 45%,transparent)}
+  .fig b{font-size:1.7rem;font-weight:800;font-variant-numeric:tabular-nums;display:block;line-height:1.1;color:var(--ink)}
+  .fig span{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
   .fig .fic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;flex-shrink:0}
   .fig .fic svg{width:22px;height:22px}
   /* classic: left accent bar */
@@ -27,23 +30,29 @@
   .school-theme .fig-classic .fic svg{width:1.9rem;height:1.9rem}
   .school-theme .fig b{font-family:var(--font-serif);font-size:1.7rem}
   .school-theme .fig span{font-size:.7rem}
-  /* "let's only have two rows and a button to view more": rows past the
-     first 8 (2 complete rows of 4, the grid rule's own "resolve to
-     complete rows" applied to how many are shown at once) start hidden;
-     the toggle button below reveals the rest without ever leaving a
-     dangling partial row in either state. */
+  /* User directive 2026-07-16: "instead of first two rows, make it one
+     row and the show more button" (was 2 rows of 4 = 8). Rows past the
+     first 4 (1 complete row, the grid rule's own "resolve to complete
+     rows" applied to how many are shown at once) start hidden; the
+     toggle button below reveals the rest without ever leaving a dangling
+     partial row in either state. */
   .school-theme .fig-extra{display:none}
   .school-theme .figs.show-more .fig-extra{display:revert}
   /* erp: solid colour tile */
   .fig-erp{display:flex;align-items:center;gap:1rem;border-radius:var(--radius);padding:1.3rem;color:#fff;background:var(--fc);box-shadow:var(--shadow)}
   .fig-erp span{color:rgba(255,255,255,.85)}
   .fig-erp .fic{background:rgba(255,255,255,.2);color:#fff}
-  /* modern: ringed pill */
+  /* modern: ringed pill. The ring used to be a conic-gradient "progress"
+     arc driven by a fixed, made up --pct value with no real meaning for
+     a raw headcount or list total (user report 2026-07-16, screenshot:
+     "poorly design with many errors"), exactly the kind of fabricated
+     data visual the project's standing "no dummy data" rule forbids.
+     Replaced with a plain tinted circle, still colour coded per card via
+     --fc, no invented progress amount. */
   .fig-modern{display:flex;align-items:center;gap:.7rem;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:.7rem 1.1rem;box-shadow:var(--shadow)}
-  .fig-modern .ring{width:48px;height:48px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;
-    background:conic-gradient(var(--fc) var(--pct,70%), color-mix(in srgb,var(--fc) 15%,transparent) 0)}
-  .fig-modern .ring i{width:36px;height:36px;border-radius:50%;background:var(--panel);display:grid;place-items:center;color:var(--fc)}
-  .fig-modern .ring i svg{width:18px;height:18px}
+  .fig-modern .ring{width:48px;height:48px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:color-mix(in srgb,var(--fc) 16%,transparent)}
+  .fig-modern .ring i{color:var(--fc);display:grid;place-items:center}
+  .fig-modern .ring i svg{width:22px;height:22px}
   /* vibrant: rounded colour-tint tile */
   .fig-vibrant{border-radius:18px;padding:1.3rem;background:color-mix(in srgb,var(--fc) 14%,var(--panel));border:1px solid color-mix(in srgb,var(--fc) 30%,transparent)}
   .fig-vibrant .fic{background:var(--fc);color:#fff;margin-bottom:.7rem}
@@ -93,8 +102,9 @@
 @endphp
 
 @if($layout === 'vibrant' || $layout === 'modern')
-  @if($show('greeting'))
+  @if($show('greeting') || $show('announcements'))
   <div class="banner-row">
+    @if($show('greeting'))
     <div class="banner">
       <span class="bl bl1"></span><span class="bl bl2"></span>
       <div style="position:relative">
@@ -102,7 +112,8 @@
         <p>Welcome to {{ $school->name }}. Here is a snapshot of your school today.</p>
       </div>
     </div>
-    {!! $announcementsCard !!}
+    @endif
+    @if($show('announcements')){!! $announcementsCard !!}@endif
   </div>
   @endif
 @else
@@ -117,7 +128,7 @@
     </div>
   </div>
   @endif
-  {!! $announcementsCard !!}
+  @if($show('announcements')){!! $announcementsCard !!}@endif
 @endif
 
 {{--
@@ -164,30 +175,37 @@
 @if($show('stats') && count($figs))
 <div class="figs" id="figsGrid">
   @foreach($figs as $i => $f)
-    @php $figExtraClass = $i >= 8 ? ' fig-extra' : ''; @endphp
+    @php $figExtraClass = $i >= 4 ? ' fig-extra' : ''; @endphp
+    {{-- Every card links to the real screen it summarises (user
+         directive 2026-07-16: "MAKE EACH CARD CLICKABLE THAT IT TAKES
+         ONE TO THE ACTUAL PAGE"), a full-cover transparent link laid
+         over the card rather than changing the div into an <a> outright,
+         so the existing per-layout markup below stays untouched; a fig
+         with no href (not every role's dashboard sets one yet) simply
+         renders without the overlay, unclickable exactly as before. --}}
     @switch($layout)
       @case('erp')
-        <div class="fig fig-erp{{ $figExtraClass }}" style="--fc:{{ $f['c'] }}"><span class="fic">@include('layouts.partials.icon',['name'=>$f['ic']])</span><span><b>{{ $f['n'] }}</b><span>{{ $f['l'] }}</span></span></div>
+        <div class="fig fig-erp{{ $figExtraClass }}" style="--fc:{{ $f['c'] }}">@if(! empty($f['href']))<a class="fig-link" href="{{ $f['href'] }}" aria-label="{{ strip_tags($f['l']) }}"></a>@endif<span class="fic">@include('layouts.partials.icon',['name'=>$f['ic']])</span><span><b>{{ $f['n'] }}</b><span>{{ $f['l'] }}</span></span></div>
         @break
       @case('modern')
-        <div class="fig fig-modern{{ $figExtraClass }}" style="--fc:{{ $f['c'] }};--pct:{{ $f['pct'] }}"><span class="ring"><i>@include('layouts.partials.icon',['name'=>$f['ic']])</i></span><span><b>{{ $f['n'] }}</b><span>{{ $f['l'] }}</span></span></div>
+        <div class="fig fig-modern{{ $figExtraClass }}" style="--fc:{{ $f['c'] }}">@if(! empty($f['href']))<a class="fig-link" href="{{ $f['href'] }}" aria-label="{{ strip_tags($f['l']) }}"></a>@endif<span class="ring"><i>@include('layouts.partials.icon',['name'=>$f['ic']])</i></span><span><b>{{ $f['n'] }}</b><span>{{ $f['l'] }}</span></span></div>
         @break
       @case('vibrant')
-        <div class="fig fig-vibrant{{ $figExtraClass }}" style="--fc:{{ $f['c'] }}"><span class="fic">@include('layouts.partials.icon',['name'=>$f['ic']])</span><b>{{ $f['n'] }}</b><span>{{ $f['l'] }}</span></div>
+        <div class="fig fig-vibrant{{ $figExtraClass }}" style="--fc:{{ $f['c'] }}">@if(! empty($f['href']))<a class="fig-link" href="{{ $f['href'] }}" aria-label="{{ strip_tags($f['l']) }}"></a>@endif<span class="fic">@include('layouts.partials.icon',['name'=>$f['ic']])</span><b>{{ $f['n'] }}</b><span>{{ $f['l'] }}</span></div>
         @break
       @default
-        <div class="fig fig-classic{{ $figExtraClass }}" style="--fc:{{ $f['c'] }}"><span class="fic">@include('layouts.partials.icon',['name'=>$f['ic']])</span><span><b>{{ $f['n'] }}</b><span>{{ $f['l'] }}</span></span></div>
+        <div class="fig fig-classic{{ $figExtraClass }}" style="--fc:{{ $f['c'] }}">@if(! empty($f['href']))<a class="fig-link" href="{{ $f['href'] }}" aria-label="{{ strip_tags($f['l']) }}"></a>@endif<span class="fic">@include('layouts.partials.icon',['name'=>$f['ic']])</span><span><b>{{ $f['n'] }}</b><span>{{ $f['l'] }}</span></span></div>
     @endswitch
   @endforeach
 </div>
-@if(count($figs) > 8)
+@if(count($figs) > 4)
   <div style="text-align:center;margin:-.3rem 0 1.1rem">
     <button type="button" class="btn btn-ghost btn-sm" id="figsMoreToggle" data-more-label="View more" data-less-label="View less">View more</button>
   </div>
 @endif
 @endif
 
-@if($role['panel'])
+@if($role['panel'] && $show('role_panel'))
   @include('school.widgets.role-panel', ['panel' => $role['panel']])
 @endif
 

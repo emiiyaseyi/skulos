@@ -129,4 +129,55 @@ class PublicHolidaysWidgetTest extends TestCase
             ->assertOk()
             ->assertDontSee("This term's key dates", false);
     }
+
+    /**
+     * User report 2026-07-16: "THERE SHOULD BE MORE ITEMS UNDER THE PANEL
+     * CHECKLIST". Announcements used to be bundled inside the "greeting"
+     * toggle with no way to turn it off on its own, and the whole role
+     * specific panel (Students at risk, Result performance, birthdays,
+     * ...) had no toggle at all.
+     */
+    public function test_the_panels_checklist_now_offers_announcements_and_role_panel_separately(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'holfive');
+
+        $this->actingAs($owner)->get(route('school.dashboard.edit', ['school' => $school->slug]))
+            ->assertOk()
+            ->assertSee('Announcements')
+            ->assertSee('Role specific panel');
+    }
+
+    public function test_announcements_can_be_turned_off_independently_of_the_greeting(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'holsix');
+
+        app(\App\Services\Tenancy\TenantManager::class)->use($school);
+        \App\Models\Tenant\Announcement::create(['title' => 'A real one off notice', 'body' => 'x', 'audience' => 'all', 'published_at' => now()]);
+        app(\App\Services\Tenancy\TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post(route('school.dashboard.update', ['school' => $school->slug]), [
+            'layout' => 'classic',
+            'widgets' => ['greeting' => '1', 'stats' => '1', 'notifications' => '1', 'calendar' => '1', 'holidays' => '1', 'role_panel' => '1'],
+        ]);
+
+        $this->actingAs($owner)->get(route('school.dashboard', ['school' => $school->slug]))
+            ->assertOk()
+            ->assertSee($school->name)
+            ->assertDontSee('A real one off notice');
+    }
+
+    public function test_the_role_panel_can_be_turned_off(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'holseven');
+
+        $this->actingAs($owner)->post(route('school.dashboard.update', ['school' => $school->slug]), [
+            'layout' => 'classic',
+            'widgets' => ['greeting' => '1', 'announcements' => '1', 'stats' => '1', 'notifications' => '1', 'calendar' => '1', 'holidays' => '1'],
+        ]);
+
+        $this->actingAs($owner)->get(route('school.dashboard', ['school' => $school->slug]))
+            ->assertOk()
+            ->assertDontSee('Result performance')
+            ->assertDontSee('Pending review');
+    }
 }

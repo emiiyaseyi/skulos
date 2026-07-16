@@ -122,27 +122,52 @@ class RoleDashboard
         // exact same score HealthService already computes for the
         // Maintenance Center, not a second parallel scoring formula.
         $healthScore = $school ? $this->health->check($school)['score'] : null;
-        $teacherCount = $school ? $this->teacherCount($school) : 0;
+
+        // Every figure links to the real screen it summarises (user
+        // directive 2026-07-16: "MAKE EACH CARD CLICKABLE THAT IT TAKES
+        // ONE TO THE ACTUAL PAGE"). Built once here since every route
+        // needs the school slug; a card with no obviously matching real
+        // screen (Boys/Girls, both just a slice of Students) links to
+        // the same page as its parent metric rather than going nowhere.
+        $href = fn (string $route, array $params = []) => $school
+            ? route($route, array_merge(['school' => $school->slug], $params))
+            : null;
+        $activeAssignments = \App\Models\Tenant\Assignment::whereNull('due_on')
+            ->orWhere('due_on', '>=', now()->toDateString())->count();
 
         return [
             'kind' => 'admin',
             'figs' => [
-                ['n' => number_format($students->count()), 'l' => 'Students', 'ic' => 'students', 'c' => '#0EA5A0', 'pct' => '72%'],
-                ['n' => number_format($boys), 'l' => 'Boys', 'ic' => 'students', 'c' => '#6D4FE0', 'pct' => '55%'],
-                ['n' => number_format($girls), 'l' => 'Girls', 'ic' => 'students', 'c' => '#E14F63', 'pct' => '55%'],
-                ['n' => number_format(Staff::active()->count()), 'l' => 'Staff', 'ic' => 'staff', 'c' => '#6D4FE0', 'pct' => '64%'],
-                ['n' => number_format($teacherCount), 'l' => 'Teachers', 'ic' => 'staff', 'c' => '#0EA5A0', 'pct' => '68%'],
-                ['n' => number_format(SchoolClass::count()), 'l' => 'Classes', 'ic' => 'academics', 'c' => '#E5901C', 'pct' => '80%'],
-                ['n' => number_format(\App\Models\Tenant\House::count()), 'l' => 'Houses', 'ic' => 'school', 'c' => '#0EA5A0', 'pct' => '60%'],
-                ['n' => number_format($uniqueGuardians), 'l' => 'Parents', 'ic' => 'students', 'c' => '#6D4FE0', 'pct' => '60%'],
-                ['n' => number_format(Subject::count()), 'l' => 'Subjects', 'ic' => 'academics', 'c' => '#0EA5A0', 'pct' => '70%'],
-                ['n' => $studentRate !== null ? "{$studentRate}%" : 'N/A', 'l' => 'Attendance Rate', 'ic' => 'students', 'c' => '#12A97B', 'pct' => $studentRate !== null ? "{$studentRate}%" : '0%'],
-                ['n' => $staffRate !== null ? "{$staffRate}%" : 'N/A', 'l' => 'Staff Attendance', 'ic' => 'staff', 'c' => '#12A97B', 'pct' => $staffRate !== null ? "{$staffRate}%" : '0%'],
-                ['n' => number_format($newThisTerm), 'l' => 'New Registrations', 'ic' => 'students', 'c' => '#E5901C', 'pct' => '50%'],
-                ['n' => number_format($unassigned), 'l' => 'Awaiting Class', 'ic' => 'students', 'c' => '#E14F63', 'pct' => '40%'],
-                ['n' => number_format($pendingReviews->count()), 'l' => 'Reports Pending Review', 'ic' => 'results', 'c' => '#E5901C', 'pct' => '50%'],
-                ['n' => $avg !== null ? "{$avg}%" : 'N/A', 'l' => 'Term Average', 'ic' => 'results', 'c' => '#6D4FE0', 'pct' => '65%'],
-                ['n' => $healthScore !== null ? $healthScore : 'N/A', 'l' => 'Health Score', 'ic' => 'health', 'c' => $healthScore === null ? '#E14F63' : ($healthScore >= 80 ? '#12A97B' : ($healthScore >= 50 ? '#E5901C' : '#E14F63')), 'pct' => $healthScore !== null ? "{$healthScore}%" : '0%'],
+                ['n' => number_format($students->count()), 'l' => 'Students', 'ic' => 'students', 'c' => '#0EA5A0', 'href' => $href('school.students')],
+                ['n' => number_format($boys), 'l' => 'Boys', 'ic' => 'students', 'c' => '#6D4FE0', 'href' => $href('school.students')],
+                ['n' => number_format($girls), 'l' => 'Girls', 'ic' => 'students', 'c' => '#E14F63', 'href' => $href('school.students')],
+                // "Staff" and "Teachers" merged into one card (user
+                // directive 2026-07-16: "WHY DO WE HAVE STAFF AND
+                // TEACHERS DATA... MERGE INTO ONE AS STAFF"), the same
+                // merge already applied to their nav/portal links earlier
+                // this session, now applied to this dashboard card set
+                // too.
+                ['n' => number_format(Staff::active()->count()), 'l' => 'Staff', 'ic' => 'staff', 'c' => '#6D4FE0', 'href' => $href('school.staff.directory')],
+                ['n' => number_format(SchoolClass::count()), 'l' => 'Classes', 'ic' => 'academics', 'c' => '#E5901C', 'href' => $href('school.academics.index')],
+                ['n' => number_format(\App\Models\Tenant\House::count()), 'l' => 'Houses', 'ic' => 'school', 'c' => '#0EA5A0', 'href' => $href('school.houses.index')],
+                ['n' => number_format($uniqueGuardians), 'l' => 'Parents', 'ic' => 'students', 'c' => '#6D4FE0', 'href' => $href('school.parents.directory')],
+                ['n' => number_format(Subject::count()), 'l' => 'Subjects', 'ic' => 'academics', 'c' => '#0EA5A0', 'href' => $href('school.academics.index')],
+                ['n' => $studentRate !== null ? "{$studentRate}%" : 'N/A', 'l' => 'Attendance Rate', 'ic' => 'students', 'c' => '#12A97B', 'href' => $href('school.attendance.dashboard')],
+                ['n' => $staffRate !== null ? "{$staffRate}%" : 'N/A', 'l' => 'Staff Attendance', 'ic' => 'staff', 'c' => '#12A97B', 'href' => $href('school.attendance.staff')],
+                ['n' => number_format($newThisTerm), 'l' => 'New Registrations', 'ic' => 'students', 'c' => '#E5901C', 'href' => $href('school.students')],
+                // Replaces "Awaiting Class" (user report 2026-07-16: "WHAT
+                // IS THE MEANING OF AWAITING CLASS, CHANGE THE DATA
+                // THERE" — a niche admin metric, students registered but
+                // not yet placed in a class arm, that read as unclear/not
+                // obviously useful at a glance). Active Assignments is a
+                // real, self-explanatory, immediately useful count
+                // instead: homework/coursework not yet past its due date
+                // (or with no due date at all), ties into the Assignments
+                // feature moved under Academic earlier this session.
+                ['n' => number_format($activeAssignments), 'l' => 'Active Assignments', 'ic' => 'assignments', 'c' => '#E14F63', 'href' => $href('school.assignments.index')],
+                ['n' => number_format($pendingReviews->count()), 'l' => 'Reports Pending Review', 'ic' => 'results', 'c' => '#E5901C', 'href' => $href('school.report-cards.pending-review')],
+                ['n' => $avg !== null ? "{$avg}%" : 'N/A', 'l' => 'Term Average', 'ic' => 'results', 'c' => '#6D4FE0', 'href' => $href('school.report-cards.index')],
+                ['n' => $healthScore !== null ? $healthScore : 'N/A', 'l' => 'Health Score', 'ic' => 'health', 'c' => $healthScore === null ? '#E14F63' : ($healthScore >= 80 ? '#12A97B' : ($healthScore >= 50 ? '#E5901C' : '#E14F63')), 'href' => $href('school.maintenance.index')],
             ],
             'panel' => [
                 'type' => 'admin_overview',
@@ -186,13 +211,27 @@ class RoleDashboard
      * Cross-Check, 2026-07-13: "Attendance Rate, Staff Attendance" was
      * blocked because nothing could mark attendance yet; now that
      * AttendanceController exists, this reads the real register). Null,
-     * not 0%, when nobody has been marked yet today, so an empty register
+     * not 0%, when nobody has ever been marked, so an empty register
      * reads as "not marked yet" rather than "everyone absent" (standing
-     * no-dummy-data rule).
+     * no-dummy-data rule). Falls back to the most recent day within the
+     * last 7 that actually has marks if today has none yet (user report
+     * 2026-07-16, screenshot of a real school's dashboard: "FIX THE
+     * Attendance Rate AND Staff Attendance SHOWING n/A - ADD THE DATA IF
+     * NEEDED"): a bare "N/A" the moment nobody has opened the register
+     * yet today gives strictly less information than the real, only
+     * slightly stale rate from the last day it actually was taken.
      */
     protected function attendanceRate(string $personType): ?float
     {
-        $counts = Attendance::where('person_type', $personType)->forDate(now())
+        $date = Attendance::where('person_type', $personType)
+            ->where('date', '>=', now()->subDays(7)->toDateString())
+            ->orderByDesc('date')
+            ->value('date');
+        if (! $date) {
+            return null;
+        }
+
+        $counts = Attendance::where('person_type', $personType)->forDate($date)
             ->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
 
         $marked = $counts->sum();
@@ -201,26 +240,6 @@ class RoleDashboard
         }
 
         return round((($counts['present'] ?? 0) / $marked) * 100, 1);
-    }
-
-    /**
-     * Teaching staff specifically, not every staff member (Dashboard
-     * Design Cross-Check: Principal wants "Teacher Count" distinct from
-     * the school-wide "Staff" figure). Same role slug set already used
-     * for the Announcements "teachers" audience
-     * (AnnouncementController::resolveRecipients()), kept in sync with it
-     * rather than re-deriving a different definition of "teacher" here.
-     * $school->users() is the platform-side membership pivot (role_id),
-     * the only place a staff member's role actually lives; Staff itself
-     * is a tenant-database record with no role of its own.
-     */
-    protected function teacherCount(School $school): int
-    {
-        $teacherRoleIds = \App\Models\Role::where('school_id', $school->id)
-            ->whereIn('slug', ['teacher', 'class-teacher', 'subject-teacher', 'class-assistant'])
-            ->pluck('id');
-
-        return $school->users()->wherePivot('status', 'active')->whereIn('role_id', $teacherRoleIds)->count();
     }
 
     /**

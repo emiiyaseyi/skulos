@@ -566,6 +566,8 @@ return [
         'announcement' => ['label' => 'Announcement', 'type' => 'system'],
         'broadcast' => ['label' => 'Broadcast', 'type' => 'urgent'],
         'report_card_review' => ['label' => 'Report card review', 'type' => 'academic'],
+        'birthday' => ['label' => 'Birthday', 'type' => 'academic'],
+        'anniversary' => ['label' => 'Work anniversary', 'type' => 'academic'],
     ],
 
     /*
@@ -708,7 +710,16 @@ return [
 
     'dashboard_widgets' => [
         'greeting' => ['label' => 'Welcome greeting', 'default' => true],
+        // Split out of "greeting" (user report 2026-07-16: "THERE SHOULD
+        // BE MORE ITEMS UNDER THE PANEL CHECKLIST"), the announcements
+        // ticker used to be bundled inside the greeting toggle with no
+        // way to turn it off on its own.
+        'announcements' => ['label' => 'Announcements', 'default' => true],
         'stats' => ['label' => 'Key figures', 'default' => true],
+        // The role specific panel (Students at risk, Result performance,
+        // birthdays, upcoming exams/assignments, pending reviews, ...)
+        // had no toggle at all until now, same 2026-07-16 request.
+        'role_panel' => ['label' => 'Role specific panel', 'default' => true],
         'notifications' => ['label' => 'Notifications', 'default' => true],
         'calendar' => ['label' => 'Upcoming calendar', 'default' => true],
         'holidays' => ['label' => "This term's key dates", 'default' => true],
