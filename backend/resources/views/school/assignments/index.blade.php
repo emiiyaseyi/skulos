@@ -12,6 +12,52 @@
   @endif
 </div>
 
+@if($unrestricted)
+  @if($summary)
+    <div class="grid" style="grid-template-columns:repeat(3, 1fr);gap:1rem;margin-bottom:1.25rem">
+      <div class="card" style="padding:1rem">
+        <div class="muted" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em">Active assignments</div>
+        <div style="font-size:1.6rem;font-weight:700">{{ (int) $summary->total }}</div>
+      </div>
+      <div class="card" style="padding:1rem">
+        <div class="muted" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em">Upcoming</div>
+        <div style="font-size:1.6rem;font-weight:700">{{ (int) $summary->upcoming }}</div>
+      </div>
+      <div class="card" style="padding:1rem">
+        <div class="muted" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em">Overdue</div>
+        <div style="font-size:1.6rem;font-weight:700">{{ (int) $summary->overdue }}</div>
+      </div>
+    </div>
+  @endif
+
+  <div class="card" style="margin-bottom:1.25rem">
+    <form method="GET" action="{{ route('school.assignments.index', ['school' => $school->slug]) }}" style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap">
+      <div class="field" style="margin:0">
+        <label for="section_id">Section</label>
+        <select id="section_id" name="section_id" onchange="this.form.requestSubmit()">
+          <option value="">Every section</option>
+          @foreach($sections as $section)
+            <option value="{{ $section->id }}" @selected($selectedSectionId === $section->id)>{{ $section->name }}</option>
+          @endforeach
+        </select>
+      </div>
+      <div class="field" style="margin:0">
+        <label for="class_arm_id">Class</label>
+        <select id="class_arm_id" name="class_arm_id" onchange="this.form.requestSubmit()">
+          <option value="">Every class</option>
+          @foreach($sections as $section)
+            @foreach($section->classes as $class)
+              @foreach($class->arms as $arm)
+                <option value="{{ $arm->id }}" @selected($selectedClassArmId === $arm->id)>{{ $arm->label() }}</option>
+              @endforeach
+            @endforeach
+          @endforeach
+        </select>
+      </div>
+    </form>
+  </div>
+@endif
+
 <div class="card">
   @if($assignments->isEmpty())
     <p class="muted">No assignments yet.</p>
