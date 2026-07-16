@@ -17,6 +17,19 @@
   </div>
 </div>
 
+<div class="card" style="margin-bottom:1.1rem">
+  <form method="GET" action="{{ route('school.report-cards.index', ['school' => $school->slug]) }}">
+    <div class="field" style="margin:0;max-width:22rem">
+      <label for="term_id">Session &amp; term</label>
+      <select id="term_id" name="term_id" onchange="this.form.requestSubmit()">
+        @foreach($terms as $term)
+          <option value="{{ $term->id }}" @selected($selectedTerm->id === $term->id)>{{ $term->session?->name }} &middot; {{ $term->name }}</option>
+        @endforeach
+      </select>
+    </div>
+  </form>
+</div>
+
 @if($sections->isEmpty())
   <div class="card"><p class="muted">No classes yet. Set up your class structure under Classes &amp; Subjects first.</p></div>
 @else
@@ -36,7 +49,7 @@
                   <strong>{{ $class->name }}</strong>
                   @unless($class->is_active)<span class="badge badge-warn" style="margin-left:.4rem">Retired</span>@endunless
                 </td>
-                <td><a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.class-index', ['school' => $school->slug, 'classId' => $class->id]) }}">View report cards</a></td>
+                <td><a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.class-index', ['school' => $school->slug, 'classId' => $class->id, 'term_id' => $selectedTerm->id]) }}">View report cards</a></td>
               </tr>
             @endforeach
           </tbody>

@@ -180,6 +180,7 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.view');
         $school = $this->school($request);
+        $term = $this->resolveTerm($request);
 
         return view('school.report-cards.index', [
             'school' => $school,
@@ -191,6 +192,13 @@ class ReportCardController extends Controller
             // (school.examinations.index) needs to stay reachable from
             // here instead, not disappear.
             'canViewResults' => app(Rbac::class)->check(Auth::user(), $school, 'examinations.view'),
+            // The old standalone Results screen let a teacher pick any
+            // session/term, not just the current one; Report Cards lost
+            // that when the two merged (user report 2026-07-16). Restored
+            // here: every term flows through as ?term_id= from this point
+            // on, to classIndex and every review action.
+            'terms' => Term::with('session')->orderByDesc('starts_on')->get(),
+            'selectedTerm' => $term,
         ]);
     }
 
@@ -203,18 +211,40 @@ class ReportCardController extends Controller
     }
 
     /**
+     * Which term a request is acting on: an explicit `term_id` (the
+     * session/term picker the old standalone Results screen had, that
+     * Report Cards lost when the two were merged into one nav line, user
+     * report 2026-07-16: "there are some features under the previous
+     * result page, that is not under the current report page. such as one
+     * can select a session, term...") if given and real, otherwise the
+     * school's current term, exactly as before this existed. Read via
+     * input() so it works from both a GET query string (browsing) and a
+     * POST body (every review action below, via a hidden field), not just
+     * one or the other.
+     */
+    protected function resolveTerm(Request $request): Term
+    {
+        $termId = $request->input('term_id');
+        if ($termId && $term = Term::find($termId)) {
+            return $term;
+        }
+
+        return $this->currentTermOrAbort();
+    }
+
+    /**
      * One class's students with their report card review status for the
-     * current term (user request 2026-07-11: "from each one can either
-     * view a report card of a student, generate report card, review it,
-     * send it back... or single/bulk assign some class report to a
-     * staff for review").
+     * selected (or current) term (user request 2026-07-11: "from each one
+     * can either view a report card of a student, generate report card,
+     * review it, send it back... or single/bulk assign some class report
+     * to a staff for review").
      */
     public function classIndex(Request $request): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'report_cards.view');
         $school = $this->school($request);
         $class = SchoolClass::with(['section', 'arms'])->findOrFail($request->route('classId'));
-        $term = $this->currentTermOrAbort();
+        $term = $this->resolveTerm($request);
 
         $armIds = $class->arms->pluck('id');
         $students = Student::whereIn('current_class_arm_id', $armIds)->orderBy('last_name')->get();
@@ -261,7 +291,7 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.create');
         $student = Student::with('currentClassArm.schoolClass')->findOrFail($request->route('studentId'));
-        $term = $this->currentTermOrAbort();
+        $term = $this->resolveTerm($request);
 
         $review = ReportCardReview::firstOrCreate(
             ['student_id' => $student->id, 'term_id' => $term->id],
@@ -276,7 +306,7 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.create');
         $class = SchoolClass::with('arms')->findOrFail($request->route('classId'));
-        $term = $this->currentTermOrAbort();
+        $term = $this->resolveTerm($request);
         $armIds = $class->arms->pluck('id');
         $studentIds = Student::whereIn('current_class_arm_id', $armIds)->pluck('id');
 
@@ -310,7 +340,7 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.update');
         $student = Student::findOrFail($request->route('studentId'));
-        $term = $this->currentTermOrAbort();
+        $term = $this->resolveTerm($request);
 
         $data = $request->validate([
             'assigned_to_staff_id' => ['required', 'exists:tenant.staff,id'],
@@ -338,7 +368,7 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.assign_review');
         $student = Student::findOrFail($request->route('studentId'));
-        $term = $this->currentTermOrAbort();
+        $term = $this->resolveTerm($request);
 
         $data = $request->validate(['assigned_to_staff_id' => ['nullable', 'exists:tenant.staff,id']]);
 
@@ -361,7 +391,7 @@ class ReportCardController extends Controller
     public function bulkAssignReview(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'report_cards.assign_review');
-        $term = $this->currentTermOrAbort();
+        $term = $this->resolveTerm($request);
 
         $data = $request->validate([
             'student_ids' => ['required', 'array', 'min:1'],
@@ -395,7 +425,7 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.assign_review');
         $student = Student::findOrFail($request->route('studentId'));
-        $term = $this->currentTermOrAbort();
+        $term = $this->resolveTerm($request);
 
         $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id]);
 
@@ -426,7 +456,7 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.assign_review');
         $student = Student::findOrFail($request->route('studentId'));
-        $term = $this->currentTermOrAbort();
+        $term = $this->resolveTerm($request);
 
         $data = $request->validate([
             'promotion_recommendation' => ['required', Rule::in([
@@ -446,7 +476,7 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.release');
         $student = Student::findOrFail($request->route('studentId'));
-        $term = $this->currentTermOrAbort();
+        $term = $this->resolveTerm($request);
 
         $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id]);
         $review->status = ReportCardReview::STATUS_RELEASED;
@@ -470,7 +500,7 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.release');
         $student = Student::findOrFail($request->route('studentId'));
-        $term = $this->currentTermOrAbort();
+        $term = $this->resolveTerm($request);
 
         $review = ReportCardReview::where('student_id', $student->id)->where('term_id', $term->id)->firstOrFail();
         abort_unless($review->status === ReportCardReview::STATUS_RELEASED, 422, 'Only a released report card can be locked.');
@@ -487,7 +517,7 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.release');
         $student = Student::findOrFail($request->route('studentId'));
-        $term = $this->currentTermOrAbort();
+        $term = $this->resolveTerm($request);
 
         $review = ReportCardReview::where('student_id', $student->id)->where('term_id', $term->id)->firstOrFail();
         abort_unless(

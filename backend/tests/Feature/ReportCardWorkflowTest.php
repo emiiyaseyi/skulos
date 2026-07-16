@@ -543,4 +543,45 @@ class ReportCardWorkflowTest extends TestCase
         $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/archive")
             ->assertStatus(422);
     }
+
+    /**
+     * User report 2026-07-16: "the previous result page features was not
+     * merged with the current report card features" - the old standalone
+     * Results screen let a teacher pick any session/term, Report Cards
+     * lost that when the two merged into one nav line. This proves the
+     * term picker is back, and that switching it actually scopes both the
+     * class list and every review action to the picked term, not always
+     * whatever the current term happens to be.
+     */
+    public function test_a_second_term_can_be_selected_and_browsed_separately(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rctwentyseven');
+        [$classId, $studentId] = $this->seedClassWithStudent($school);
+
+        app(TenantManager::class)->use($school);
+        $session = \App\Models\Tenant\AcademicSession::first();
+        $secondTerm = Term::create(['academic_session_id' => $session->id, 'name' => 'Second Term', 'sequence' => 2, 'is_current' => false]);
+        $secondTermId = $secondTerm->id;
+        $currentTermId = Term::current()->value('id');
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards")
+            ->assertOk()->assertSee('Second Term');
+
+        $this->actingAs($owner)
+            ->get("http://{$school->slug}.localhost/report-cards/classes/{$classId}?term_id={$secondTermId}")
+            ->assertOk()->assertSee('Second Term');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/generate", [
+            'term_id' => $secondTermId,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $reviewForSecondTerm = ReportCardReview::where('student_id', $studentId)->where('term_id', $secondTermId)->first();
+        $reviewForCurrentTerm = ReportCardReview::where('student_id', $studentId)->where('term_id', $currentTermId)->first();
+        app(TenantManager::class)->forget();
+
+        $this->assertNotNull($reviewForSecondTerm);
+        $this->assertNull($reviewForCurrentTerm);
+    }
 }
