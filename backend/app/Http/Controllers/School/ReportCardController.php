@@ -186,6 +186,11 @@ class ReportCardController extends Controller
             'accent' => $school->branding()['color'],
             'sections' => Section::with(['classes' => fn ($q) => $q->orderBy('sequence')])->orderBy('sequence')->get(),
             'canAssign' => app(Rbac::class)->check(Auth::user(), $school, 'report_cards.assign_review'),
+            // "Results" and "Report Cards" merged into one nav line (user
+            // directive 2026-07-15), so the results/score entry screen
+            // (school.examinations.index) needs to stay reachable from
+            // here instead, not disappear.
+            'canViewResults' => app(Rbac::class)->check(Auth::user(), $school, 'examinations.view'),
         ]);
     }
 

@@ -7,6 +7,9 @@
     <p class="subtitle">Browse by section and class to generate, review, and release report cards.</p>
   </div>
   <div class="stack" style="flex-direction:row;gap:.6rem">
+    @if($canViewResults)
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.index', ['school' => $school->slug]) }}">Results</a>
+    @endif
     @if($canAssign)
       <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.pending-review', ['school' => $school->slug]) }}">Pending review</a>
     @endif
