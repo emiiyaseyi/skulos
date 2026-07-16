@@ -108,6 +108,7 @@
     // where that actually happens rather than a redundant standalone page.
     'staff_records' => ['school.staff.index', 'Staff Portal', 'staff'],
     'teacher_portal' => ['school.staff.index', 'Staff Portal', 'staff'],
+    'user_role_management' => ['school.roles.index', 'User & Role Management', 'roles'],
     'parent_portal' => ['school.students', 'Parent Portal', 'students'],
     'student_portal' => ['school.students', 'Student Portal', 'students'],
     'attendance_management' => ['school.attendance.index', 'Attendance', 'attendance'],
@@ -119,7 +120,15 @@
     'subject_management' => ['school.academics.index', 'Classes &amp; Subjects', 'academics'],
     'academic_sessions_terms' => ['school.settings.calendar.edit', 'Sessions &amp; Terms', 'calendar'],
     'continuous_assessment' => ['school.examinations.structure', 'Assessment Structure', 'results'],
-    'result_management' => ['school.examinations.index', 'Results', 'results'],
+    // "Results" and "Report Cards" merged into one nav line (user
+    // directive 2026-07-15), same merge pattern as Staff/Teacher Portal:
+    // both feature keys share one label and route, whichever renders
+    // first wins, the dedupe below stops a duplicate. Unlike that merge,
+    // both sides here have a real, distinct, actively used screen, so the
+    // Results screen (school.examinations.index) stays one click away via
+    // a button on the Report Cards page instead of losing nav access
+    // entirely, see ReportCardController::index()'s $canViewResults.
+    'result_management' => ['school.report-cards.index', 'Report Cards', 'results'],
     'basic_report_cards' => ['school.report-cards.index', 'Report Cards', 'results'],
     'unlimited_grading_systems' => ['school.examinations.grading', 'Grading', 'results'],
     'student_promotion' => ['school.settings.calendar.edit', 'Sessions &amp; Terms', 'calendar'],
@@ -144,6 +153,7 @@
   // they were originally ticked under).
   $forceGroup = [
     'basic_report_cards' => 'Reports & Analytics',
+    'result_management' => 'Reports & Analytics',
     'continuous_assessment' => 'Settings',
     'academic_sessions_terms' => 'Settings',
     'school_branding' => 'Settings',

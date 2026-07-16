@@ -28,6 +28,11 @@ class Role extends Model
         return $this->belongsToMany(Permission::class);
     }
 
+    public function users(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'school_user')->withPivot(['school_id', 'status'])->withTimestamps();
+    }
+
     public function isTemplate(): bool
     {
         return $this->school_id === null;

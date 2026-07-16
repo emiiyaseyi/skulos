@@ -86,29 +86,11 @@
   </div>
 </div>
 
-@if($login)
+@if($login && $canManage)
 <div class="card" style="margin-bottom:1.1rem">
-  <h3 style="margin-bottom:.4rem">Extra access</h3>
-  <p class="muted" style="margin-bottom:.8rem">Beyond their base role, grant this staff member full access to any of these.</p>
-  @if($canManage)
-    <form method="POST" action="{{ route('school.staff.extra-access.update', ['school' => $school->slug, 'staffId' => $staffMember->id]) }}">
-      @csrf
-      <div class="module-grid" style="margin-bottom:.8rem">
-        @foreach($extraAccessModules as $code => $module)
-          <label class="module-check"><input type="checkbox" name="modules[]" value="{{ $code }}" @checked($module['granted']) /> {{ $module['name'] }}</label>
-        @endforeach
-      </div>
-      <button class="btn btn-ghost btn-sm" type="submit">Save extra access</button>
-    </form>
-  @else
-    <ul class="rp-list" style="list-style:none;display:flex;flex-direction:column;gap:.4rem;padding:0">
-      @foreach($extraAccessModules as $code => $module)
-        @if($module['granted'])
-          <li>{{ $module['name'] }}</li>
-        @endif
-      @endforeach
-    </ul>
-  @endif
+  <h3 style="margin-bottom:.4rem">Role &amp; extra access</h3>
+  <p class="muted" style="margin-bottom:.8rem">Managed centrally now, not per staff member.</p>
+  <a class="btn btn-ghost btn-sm" href="{{ route('school.roles.index', ['school' => $school->slug]) }}">Open User &amp; Role Management</a>
 </div>
 @endif
 

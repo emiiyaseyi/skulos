@@ -181,14 +181,6 @@ class StaffController extends Controller
             : null;
 
         $rbac = app(Rbac::class);
-        $extraAccessModules = null;
-        if ($login) {
-            $extraAccessModules = collect(config('skulos.staff_extra_access_modules'))
-                ->mapWithKeys(fn ($code) => [$code => [
-                    'name' => config("skulos.modules.{$code}.name", $code),
-                    'granted' => $rbac->hasModuleOverride($school, $login, $code),
-                ]]);
-        }
 
         return view('school.staff.show', [
             'school' => $school,
@@ -200,40 +192,7 @@ class StaffController extends Controller
             'roles' => $this->assignableRoles(),
             'staffIdentifier' => Setting::grab('staff_identifier', 'email'),
             'canManage' => $rbac->check(Auth::user(), $school, 'staff.update'),
-            'extraAccessModules' => $extraAccessModules,
         ]);
-    }
-
-    /**
-     * Grants or revokes extra, per-person module access beyond this staff
-     * member's base role (user request 2026-07-12), only ever from the
-     * curated real-screen module list, never a raw permission code typed
-     * by the admin.
-     */
-    public function updateExtraAccess(Request $request, Rbac $rbac): \Illuminate\Http\RedirectResponse
-    {
-        $this->authorizeAction($request, 'staff.update');
-        $school = $this->school($request);
-        $staffMember = Staff::findOrFail($request->route('staffId'));
-        abort_unless($staffMember->user_id, 404);
-        $login = \App\Models\User::findOrFail($staffMember->user_id);
-
-        $allowed = config('skulos.staff_extra_access_modules');
-        $data = $request->validate([
-            'modules' => ['sometimes', 'array'],
-            'modules.*' => [Rule::in($allowed)],
-        ]);
-        $granted = $data['modules'] ?? [];
-
-        foreach ($allowed as $moduleCode) {
-            if (in_array($moduleCode, $granted, true)) {
-                $rbac->grantModuleOverride($school, $login, $moduleCode);
-            } else {
-                $rbac->revokeModuleOverride($school, $login, $moduleCode);
-            }
-        }
-
-        return back()->with('status', "{$staffMember->fullName()}'s extra access updated.");
     }
 
     public function create(Request $request): \Illuminate\View\View

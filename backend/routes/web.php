@@ -231,7 +231,18 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/{staffId}/login', [$staff, 'createLogin'])->name('login.create');
             Route::post('/{staffId}/login/reset-password', [$staff, 'resetLoginPassword'])->name('login.reset-password');
             Route::post('/{staffId}/login/toggle-access', [$staff, 'toggleLoginAccess'])->name('login.toggle-access');
-            Route::post('/{staffId}/extra-access', [$staff, 'updateExtraAccess'])->name('extra-access.update');
+        });
+
+        // User & Role Management (user directive 2026-07-15: per-user
+        // "extra access" relocated here from the individual staff profile
+        // page, plus creating custom roles and reassigning a user's role).
+        Route::prefix('roles')->name('school.roles.')->group(function () {
+            $roles = \App\Http\Controllers\School\RoleManagementController::class;
+            Route::get('/', [$roles, 'index'])->name('index');
+            Route::post('/', [$roles, 'storeRole'])->name('store');
+            Route::post('/{roleId}/modules', [$roles, 'addRoleModules'])->name('modules.add');
+            Route::post('/users/{userId}/role', [$roles, 'assignRole'])->name('users.assign');
+            Route::post('/users/{userId}/extra-access', [$roles, 'updateExtraAccess'])->name('users.extra-access');
         });
 
         Route::prefix('houses')->name('school.houses.')->group(function () {

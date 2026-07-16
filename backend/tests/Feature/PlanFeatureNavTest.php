@@ -64,7 +64,10 @@ class PlanFeatureNavTest extends TestCase
 
         $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard");
 
-        $response->assertOk()->assertSee('Houses')->assertSee('Results');
+        // "Results" merged into "Report Cards" (user directive 2026-07-15),
+        // one nav line, not two, see PlanFeatureNavTest::
+        // test_results_and_report_cards_merge_into_one_nav_line below.
+        $response->assertOk()->assertSee('Houses')->assertSee('Report Cards');
     }
 
     public function test_a_feature_not_in_the_plan_is_not_shown_at_all(): void
@@ -96,7 +99,12 @@ class PlanFeatureNavTest extends TestCase
      */
     public function test_the_nav_renders_grouped_collapsible_submenus(): void
     {
-        [$school, $user] = $this->schoolOnPlan(['school_houses', 'result_management'], 'planthree');
+        // "school_houses" and "result_management" both got moved out of
+        // Academic later in this file's own history (Houses to Settings,
+        // Results merged into Report Cards under Reports & Analytics),
+        // so this uses "student_records" instead, which stays under
+        // Academic on its own, unaffected by either of those moves.
+        [$school, $user] = $this->schoolOnPlan(['student_records'], 'planthree');
 
         $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard");
 
@@ -281,6 +289,44 @@ class PlanFeatureNavTest extends TestCase
         $this->assertStringContainsString('Branding', $settingsSlice);
         $this->assertStringContainsString('Campuses', $settingsSlice);
         $this->assertStringContainsString('Houses', $settingsSlice);
+    }
+
+    /**
+     * User directive 2026-07-15: "MERGE INTO ONE NAV LINK" (Results and
+     * Report Cards). Unlike the Staff/Teacher Portal merge, both sides
+     * have a real, distinct, actively used screen, so the Results screen
+     * (school.examinations.index) must stay reachable, not just vanish,
+     * see ReportCardController::index()'s "Results" button.
+     */
+    public function test_results_and_report_cards_merge_into_one_nav_line(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['result_management', 'basic_report_cards'], 'planten');
+
+        $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard");
+        $response->assertOk();
+        $content = $response->getContent();
+
+        $navStart = strpos($content, 'id="sideNav"');
+        $navEnd = strpos($content, '</aside>', $navStart);
+        $this->assertNotFalse($navStart);
+        $nav = substr($content, $navStart, $navEnd - $navStart);
+
+        $this->assertSame(1, substr_count($nav, '>Report Cards<'), 'must render exactly once in the sidebar, not twice');
+        // Scoped to the sidebar nav specifically, not the whole page: a
+        // dashboard quick-action button also happens to say "Results"
+        // (role-panel.blade.php, a shortcut straight to the results entry
+        // screen), which is a separate UI element from the sidebar and
+        // outside this merge's scope, unlike the nav line this asserts is gone.
+        $this->assertStringNotContainsString('>Results<', $nav, 'the standalone "Results" nav line must be gone, merged into Report Cards');
+    }
+
+    public function test_the_report_cards_page_still_links_to_the_results_screen_after_the_merge(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['result_management', 'basic_report_cards'], 'planeleven');
+
+        $response = $this->actingAs($user)->get(route('school.report-cards.index', ['school' => $school->slug]));
+
+        $response->assertOk()->assertSee(route('school.examinations.index', ['school' => $school->slug]), false);
     }
 
     /** The single arrow toggle next to the school name exists on the school portal, not the admin one. */
