@@ -211,10 +211,28 @@ table{width:100%;border-collapse:collapse}
 th,td{text-align:left;padding:.8rem .6rem;border-bottom:1px solid var(--line);font-size:.9rem}
 th{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim);font-weight:800}
 tr:last-child td{border-bottom:none}
-.badge{font-size:.72rem;font-weight:800;padding:.2rem .55rem;border-radius:999px}
+.badge{font-size:.72rem;font-weight:800;padding:.2rem .55rem;border-radius:999px;white-space:nowrap;display:inline-block}
 .badge-ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
 .badge-warn{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
 .badge-bad{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+/* Dark mode: white text on a fuller-strength tinted pill, not the same
+   hue for both text and background (user report, twice: "in dark mode
+   the green text colour is poor", then again "the wrong choice of green
+   text colour in dark mode" after a same-hue brightening pass still
+   wasn't what was wanted). Same-hue-on-tint is the harder contrast case
+   to get right regardless of how bright the hue is; white on a stronger
+   tint is the standard status-chip pattern and reads cleanly against
+   this app's near-black dark backgrounds. Background strength bumped
+   from ~16-18% to 35% to keep the badge visually anchored now that the
+   text itself carries none of the status colour. */
+@media(prefers-color-scheme:dark){
+  .badge-ok{background:color-mix(in srgb,var(--ok) 35%,transparent);color:#fff}
+  .badge-warn{background:color-mix(in srgb,var(--warn) 35%,transparent);color:#fff}
+  .badge-bad{background:color-mix(in srgb,var(--bad) 35%,transparent);color:#fff}
+}
+:root[data-theme="dark"] .badge-ok{background:color-mix(in srgb,var(--ok) 35%,transparent);color:#fff}
+:root[data-theme="dark"] .badge-warn{background:color-mix(in srgb,var(--warn) 35%,transparent);color:#fff}
+:root[data-theme="dark"] .badge-bad{background:color-mix(in srgb,var(--bad) 35%,transparent);color:#fff}
 .flash{padding:.85rem 1.1rem;border-radius:12px;margin-bottom:1.2rem;font-weight:600;font-size:.9rem;border:1px solid}
 .flash-ok{background:color-mix(in srgb,var(--ok) 12%,transparent);border-color:color-mix(in srgb,var(--ok) 40%,transparent);color:var(--ok)}
 .flash-bad{background:color-mix(in srgb,var(--bad) 12%,transparent);border-color:color-mix(in srgb,var(--bad) 40%,transparent);color:var(--bad)}

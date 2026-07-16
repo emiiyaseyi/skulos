@@ -137,6 +137,98 @@ class StudentScreenTest extends TestCase
         );
     }
 
+    /**
+     * Students CSV export (user directive, 2026-07-16 "ALL THERE": build
+     * out the remaining Reports & Analytics "Soon" items — covers
+     * export_to_excel/bulk_export, which had no real screen behind them,
+     * only the import side existed until now).
+     */
+    public function test_export_downloads_a_csv_matching_the_importer_columns(): void
+    {
+        [$school, $user] = $this->schoolWithMember('registrar', 'exportone');
+
+        app(TenantManager::class)->use($school);
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $arm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $class->id, 'arm_id' => null]);
+        $house = \App\Models\Tenant\House::create(['name' => 'Falcon']);
+        Student::create([
+            'admission_number' => 'ADM/001', 'first_name' => 'Ada', 'last_name' => 'Obi',
+            'gender' => 'Female', 'current_class_arm_id' => $arm->id, 'house_id' => $house->id,
+        ]);
+        Student::create(['admission_number' => 'ADM/002', 'first_name' => 'Bode', 'last_name' => 'Ade']);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/students/export.csv");
+        $response->assertOk();
+        $response->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
+
+        $lines = explode("\n", trim($response->getContent()));
+        $this->assertSame(
+            'admission_number,first_name,last_name,other_names,gender,date_of_birth,email,parent_mobile,class,house,state_of_origin,lga,address',
+            $lines[0],
+            'the export header must exactly match the importer\'s own columns, so the file round trips back through import'
+        );
+        // Ordered by last name (Ade before Obi), same as the browse screen.
+        $this->assertStringContainsString('ADM/002,Bode,Ade', $lines[1]);
+        $this->assertStringContainsString('ADM/001,Ada,Obi,,Female,,,,"Primary 1",Falcon', $lines[2]);
+    }
+
+    public function test_export_respects_the_same_search_query_as_the_screen(): void
+    {
+        [$school, $user] = $this->schoolWithMember('registrar', 'exporttwo');
+
+        app(TenantManager::class)->use($school);
+        Student::create(['admission_number' => 'ADM/001', 'first_name' => 'Ada', 'last_name' => 'Obi']);
+        Student::create(['admission_number' => 'ADM/002', 'first_name' => 'Bode', 'last_name' => 'Ade']);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/students/export.csv?q=Ada");
+        $response->assertOk();
+        $this->assertStringContainsString('ADM/001', $response->getContent());
+        $this->assertStringNotContainsString('ADM/002', $response->getContent());
+    }
+
+    public function test_export_requires_the_bulk_permission(): void
+    {
+        // subject-teacher can view students but has no bulk permission.
+        [$school, $user] = $this->schoolWithMember('subject-teacher', 'exportthree');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/students/export.csv")->assertForbidden();
+    }
+
+    /**
+     * class-teacher does not hold students.bulk by default (only
+     * students.view/students.update, see config('skulos.roles')), so this
+     * grants it directly as an extra permission to actually exercise the
+     * TeacherScope narrowing in StudentController::export(), the same
+     * defensive scoping the browse screen and bulk-action already apply,
+     * in case a school ever grants a scoped teacher role bulk access.
+     */
+    public function test_a_class_teachers_export_is_scoped_to_their_own_class(): void
+    {
+        [$school, $teacherUser] = $this->schoolWithMember('class-teacher', 'exportfour');
+        $teacherRole = $teacherUser->roleIn($school);
+        $bulkPermission = \App\Models\Permission::firstOrCreate(['code' => 'students.bulk'], ['label' => 'Bulk import/export students', 'module' => 'students']);
+        $teacherRole->permissions()->attach($bulkPermission->id);
+
+        app(TenantManager::class)->use($school);
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $myArm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $class->id, 'arm_id' => null]);
+        $otherArm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $class->id, 'arm_id' => null]);
+        $staff = \App\Models\Tenant\Staff::create(['staff_id' => 'STF/1', 'first_name' => 'T', 'last_name' => 'Eacher', 'status' => 'active', 'user_id' => $teacherUser->id]);
+        $myArm->update(['class_teacher_staff_id' => $staff->id]);
+        Student::create(['admission_number' => 'MINE/001', 'first_name' => 'Ada', 'last_name' => 'Obi', 'current_class_arm_id' => $myArm->id]);
+        Student::create(['admission_number' => 'OTHER/001', 'first_name' => 'Bode', 'last_name' => 'Ade', 'current_class_arm_id' => $otherArm->id]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/students/export.csv");
+        $response->assertOk();
+        $this->assertStringContainsString('MINE/001', $response->getContent());
+        $this->assertStringNotContainsString('OTHER/001', $response->getContent());
+    }
+
     public function test_admin_can_create_a_student_via_the_single_form(): void
     {
         [$school, $admin] = $this->schoolWithMember('school-owner', 'createone');

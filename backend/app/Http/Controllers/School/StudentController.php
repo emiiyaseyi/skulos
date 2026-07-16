@@ -306,6 +306,71 @@ class StudentController extends Controller
         ]);
     }
 
+    /**
+     * Students CSV export (part of the "ALL THERE" Reports & Analytics
+     * backlog, 2026-07-16: covers the export_to_excel/bulk_export/
+     * student_reports catalog features, none of which had a real screen
+     * behind them, only the import side existed). Reuses
+     * `StudentImporter::columns()` for the header row, so the file this
+     * produces is round-trip safe: edit it and re-upload through the
+     * existing import screen. Streamed as CSV, not a generated .xlsx (no
+     * spreadsheet library is a project dependency, and Excel opens a CSV
+     * natively), consistent with the standing "no dummy/placeholder
+     * data, no unbuilt-feature fakery" rule, a real export instead of a
+     * "Soon" line. Honors the same visibility rules as the browse screen:
+     * a scoped teacher role only ever exports their own class arm(s), and
+     * the same optional search query narrows the export exactly like it
+     * narrows the on-screen list, so "export what I'm looking at" holds.
+     */
+    public function export(Request $request): \Symfony\Component\HttpFoundation\Response
+    {
+        $this->authorizeAction($request, 'students.bulk');
+        $user = Auth::user();
+        $school = $this->school($request);
+        $search = trim((string) $request->query('q'));
+        $scopedArmIds = app(TeacherScope::class)->classArmIds($user, $school);
+
+        $students = Student::query()
+            ->with('currentClassArm.schoolClass', 'currentClassArm.arm', 'house')
+            ->when($scopedArmIds !== null, fn ($q) => $q->whereIn('current_class_arm_id', $scopedArmIds))
+            ->when($search, fn ($q) => $q->where(function ($w) use ($search) {
+                $w->where('admission_number', 'like', "%{$search}%")
+                    ->orWhere('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%");
+            }))
+            ->orderBy('last_name')
+            ->get();
+
+        $columns = (new StudentImporter)->columns();
+        $out = fopen('php://temp', 'r+');
+        fputcsv($out, array_keys($columns));
+        foreach ($students as $student) {
+            fputcsv($out, [
+                $student->admission_number,
+                $student->first_name,
+                $student->last_name,
+                $student->other_names,
+                $student->gender,
+                $student->date_of_birth?->toDateString(),
+                $student->email,
+                $student->parent_mobile,
+                $student->currentClassArm?->label(),
+                $student->house?->name,
+                $student->state_of_origin,
+                $student->lga,
+                $student->address,
+            ]);
+        }
+        rewind($out);
+        $csv = (string) stream_get_contents($out);
+        fclose($out);
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="students-'.$school->slug.'-'.now()->toDateString().'.csv"',
+        ]);
+    }
+
     public function import(Request $request): \Illuminate\View\View|\Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'students.bulk');

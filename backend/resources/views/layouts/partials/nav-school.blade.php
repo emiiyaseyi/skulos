@@ -102,6 +102,17 @@
     // dedupe below (no longer bypassed for student_portal, see
     // $alwaysOwnLine) stops the second from rendering a duplicate.
     'student_records' => ['school.students', 'Student Portal', 'students'],
+    // Both real, but the same real page (user directive 2026-07-16,
+    // "ALL THERE": build out remaining Reports & Analytics "Soon"
+    // items). The actual capability, a CSV export of the visible
+    // student list, is a button on the Students screen itself
+    // (StudentController::export()), not a separate report page, so
+    // whichever of these two keys a plan includes just resolves to the
+    // Students screen the same way "Student Portal" already does,
+    // rather than adding a confusing second nav line whose click would
+    // immediately trigger a file download with no page behind it.
+    'export_to_excel' => ['school.students', 'Student Portal', 'students'],
+    'bulk_export' => ['school.students', 'Student Portal', 'students'],
     'academic_calendar' => ['school.calendar.index', 'Calendar', 'calendar'],
     // "Teacher Portal" and "Staff Records" are the same screen, seen from
     // two different plan-feature names (user directive 2026-07-15: "STAFF

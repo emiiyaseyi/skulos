@@ -15,6 +15,7 @@
     @endif
     @if($canImport)
       <a class="btn btn-ghost btn-sm" href="{{ route('school.students.import', ['school' => $school->slug]) }}">Bulk import</a>
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.students.export', ['school' => $school->slug, 'q' => $search ?: null]) }}">Export CSV</a>
     @endif
   </div>
 </div>

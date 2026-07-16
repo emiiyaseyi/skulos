@@ -36,19 +36,33 @@
      rows" applied to how many are shown at once) start hidden; the
      toggle button below reveals the rest without ever leaving a dangling
      partial row in either state. */
-  .school-theme .fig-extra{display:none}
-  .school-theme .figs.show-more .fig-extra{display:revert}
+  /* `display:none` to hide, then `display:revert` on reveal, used to sit
+     here, but `revert` resets to the browser's own UA-stylesheet default
+     for the element (`block` for a plain <div>), not back to whichever
+     specific display value that card's own layout rule below actually
+     wants (`flex` for erp/modern/classic, implicit block for vibrant).
+     Every card past the first row would silently lose its flex layout
+     the moment "Show more" revealed it, exactly matching a user report
+     (2026-07-16, screenshot comparing the first row against the rest):
+     row one (never .fig-extra) stayed a compact icon-beside-number row,
+     every later row (revealed via .fig-extra, hit the revert bug)
+     stacked icon/number/label vertically like block content instead.
+     Scoping the hide rule to :not(.show-more) instead removes the need
+     to revert anything at all: once .show-more is present this selector
+     simply no longer matches, so the card's own real display rule below
+     is never overridden in the first place. */
+  .school-theme .figs:not(.show-more) .fig-extra{display:none}
   /* erp: solid colour tile */
   .fig-erp{display:flex;align-items:center;gap:1rem;border-radius:var(--radius);padding:1.3rem;color:#fff;background:var(--fc);box-shadow:var(--shadow)}
   .fig-erp span{color:rgba(255,255,255,.85)}
   .fig-erp .fic{background:rgba(255,255,255,.2);color:#fff}
-  /* modern: ringed pill. The ring used to be a conic-gradient "progress"
-     arc driven by a fixed, made up --pct value with no real meaning for
-     a raw headcount or list total (user report 2026-07-16, screenshot:
+  /* modern: ringed pill. The icon ring used to be a partial arc driven by
+     a fixed, made up progress amount with no real meaning for a raw
+     headcount or list total (user report 2026-07-16, screenshot:
      "poorly design with many errors"), exactly the kind of fabricated
      data visual the project's standing "no dummy data" rule forbids.
-     Replaced with a plain tinted circle, still colour coded per card via
-     --fc, no invented progress amount. */
+     Replaced with a plain tinted circle, still colour coded per card,
+     no invented progress amount. */
   .fig-modern{display:flex;align-items:center;gap:.7rem;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:.7rem 1.1rem;box-shadow:var(--shadow)}
   .fig-modern .ring{width:48px;height:48px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:color-mix(in srgb,var(--fc) 16%,transparent)}
   .fig-modern .ring i{color:var(--fc);display:grid;place-items:center}

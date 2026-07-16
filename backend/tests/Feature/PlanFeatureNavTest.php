@@ -462,6 +462,22 @@ class PlanFeatureNavTest extends TestCase
         $response->assertSee('Search menus and features');
     }
 
+    /**
+     * User directive 2026-07-16: "ALL THERE" — build out the remaining
+     * Reports & Analytics "Soon" items. export_to_excel/bulk_export now
+     * have a real screen behind them (StudentController::export()), so
+     * they resolve to the Students screen rather than staying "Soon".
+     */
+    public function test_export_to_excel_and_bulk_export_render_as_a_real_link_not_soon(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['export_to_excel', 'bulk_export'], 'planexport');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()
+            ->assertSee('Student Portal')
+            ->assertDontSee('Soon');
+    }
+
     public function test_the_nav_search_box_also_renders_on_the_platform_admin_portal(): void
     {
         $admin = User::factory()->create();
