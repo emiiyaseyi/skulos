@@ -1562,6 +1562,7 @@ User directed building the previously-blocked net-new modules and answered a rou
 - Issues/Bugs found: none new; this is a direct reversal of a judgement call from the entry above, not a bug.
 - QA: re-ran `PlanFeatureNavTest`/`TeacherNavTest`/`PublicHolidaysWidgetTest`/`RoleDashboardTest` (the suites that render pages using these badges) to confirm no regression, all pass.
 - Not built in this pass: the 20+ files using inline `style="color:var(--ok)"` directly (student/exam/staff status text, not inside a `.badge-*` pill) still render in the brightened-hue colour from the earlier pass, not white, since there is no shared class to hook a dark-mode override onto without touching every file individually; revisit only if a report specifically calls out one of those inline usages as still hard to read.
+- Second follow up: user screenshot of a "Not generated" report card status badge showed its text wrapping onto a second line, distorting the pill from a clean single-line shape into an oval/blob. `.badge` is a bare `<span>` (default `display:inline`) with no `white-space` set, so a container narrower than the label (a table cell here) wraps it exactly like any other inline text. Added `white-space:nowrap;display:inline-block` to the shared `.badge` rule, every badge across the platform now stays a single line and grows horizontally instead, never wrapping regardless of label length or column width.
 
 ### Move Assignments into Academic with per-role visibility rules (2026-07-16)
 - Status: Done
