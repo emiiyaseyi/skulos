@@ -66,50 +66,111 @@ class RoleManagementTest extends TestCase
         $this->assertGreaterThan(1, Role::where('school_id', $school->id)->count());
     }
 
-    public function test_owner_can_create_a_custom_role_by_combining_modules(): void
+    /**
+     * User directive 2026-07-16: "CHECK THE BILLING FEATURES AGAIN WHERE
+     * WE HAVE SO MANY MAIN SECTIONS AND SUB SECTION WITH ALL THE FEATURES
+     * UNDER EACH SECTION... SO ONE CAN SELECT FROM MULTIPLE SECTIONS TO
+     * CREATE A NEW ROLE". A role is now built from individual granular
+     * permissions (one module's real Permission rows = one section), not
+     * a coarse whole-module toggle.
+     */
+    public function test_owner_can_create_a_custom_role_by_combining_individual_permissions_across_sections(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'rmtwo');
         $this->actingAs($owner)->get(route('school.roles.index', ['school' => $school->slug])); // clones templates
 
+        $studentsView = \App\Models\Permission::where('code', 'students.view')->firstOrFail();
+        $commsView = \App\Models\Permission::where('code', 'communication.view')->firstOrFail();
+
         $this->actingAs($owner)->post(route('school.roles.store', ['school' => $school->slug]), [
             'name' => 'Admissions Officer',
-            'modules' => ['students', 'communication'],
+            'permissions' => [$studentsView->id, $commsView->id],
         ])->assertRedirect();
 
         $role = Role::where('school_id', $school->id)->where('name', 'Admissions Officer')->first();
         $this->assertNotNull($role);
-        $this->assertTrue($role->permissions()->where('module', 'students')->exists());
-        $this->assertTrue($role->permissions()->where('module', 'communication')->exists());
-        $this->assertFalse($role->permissions()->where('module', 'examinations')->exists());
+        $this->assertSame(2, $role->permissions()->count());
+        $this->assertTrue($role->permissions()->where('code', 'students.view')->exists());
+        $this->assertTrue($role->permissions()->where('code', 'communication.view')->exists());
+        // Only the ticked permission from the "students" section, not
+        // every one of that module's permissions, matching the granular
+        // (not whole-module) grant this redesign introduced.
+        $this->assertFalse($role->permissions()->where('code', 'students.create')->exists());
     }
 
-    public function test_a_module_not_on_the_curated_list_cannot_be_used_to_create_a_role(): void
+    public function test_a_permission_not_on_the_curated_list_cannot_be_used_to_create_a_role(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'rmthree');
 
         // "finance" has no real screen behind it yet, so it is not on the curated list.
+        $financeView = \App\Models\Permission::where('code', 'finance.view')->firstOrFail();
+
         $this->actingAs($owner)->post(route('school.roles.store', ['school' => $school->slug]), [
             'name' => 'Finance Lead',
-            'modules' => ['finance'],
-        ])->assertSessionHasErrors('modules.0');
+            'permissions' => [$financeView->id],
+        ])->assertSessionHasErrors('permissions.0');
     }
 
-    public function test_adding_modules_to_an_existing_role_is_additive_not_destructive(): void
+    /**
+     * User directive 2026-07-16 supersedes the old additive-only design
+     * for this screen: "ONE SHOULD BE ABLE TO CLICK ON THEM AND SEE WHAT
+     * THEY HAVE ACCESS TO, ADD OR REMOVE". A permission unticked in the
+     * submitted form is now genuinely removed from the role, not just
+     * left alone; anything the role holds outside the curated catalog
+     * (a permission this screen's checklist never offered a box for) is
+     * still preserved either way.
+     */
+    public function test_editing_a_roles_permissions_can_both_add_and_remove(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'rmfour');
         $this->actingAs($owner)->get(route('school.roles.index', ['school' => $school->slug]));
 
         $bursar = Role::where('school_id', $school->id)->where('slug', 'bursar')->firstOrFail();
-        $originalCount = $bursar->permissions()->count(); // bursar starts with students.view/parents.view/analytics.view only
+        $studentsView = \App\Models\Permission::where('code', 'students.view')->firstOrFail(); // bursar starts with this
+        $reportCardsView = \App\Models\Permission::where('code', 'report_cards.view')->firstOrFail();
 
-        $this->actingAs($owner)->post(route('school.roles.modules.add', ['school' => $school->slug, 'roleId' => $bursar->id]), [
-            'modules' => ['report_cards'],
+        $this->assertTrue($bursar->permissions()->where('permissions.id', $studentsView->id)->exists());
+        $this->assertFalse($bursar->permissions()->where('permissions.id', $reportCardsView->id)->exists());
+
+        // Submit a checklist that adds report_cards.view but leaves
+        // students.view unticked: students.view must be removed, not
+        // silently kept the way the old additive design would have.
+        $this->actingAs($owner)->post(route('school.roles.permissions.update', ['school' => $school->slug, 'roleId' => $bursar->id]), [
+            'permissions' => [$reportCardsView->id],
         ])->assertRedirect();
 
         $bursar->refresh();
-        $this->assertGreaterThan($originalCount, $bursar->permissions()->count());
-        $this->assertTrue($bursar->permissions()->where('module', 'students')->exists(), 'the original grant must survive, this action only adds');
-        $this->assertTrue($bursar->permissions()->where('module', 'report_cards')->exists());
+        $this->assertTrue($bursar->permissions()->where('permissions.id', $reportCardsView->id)->exists());
+        $this->assertFalse($bursar->permissions()->where('permissions.id', $studentsView->id)->exists(), 'unticking an existing permission must remove it');
+    }
+
+    /** A permission this role holds from OUTSIDE the curated catalog (never offered as a checkbox) must survive an edit either way. */
+    public function test_editing_a_roles_permissions_never_touches_permissions_outside_the_curated_catalog(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rmfourb');
+        $this->actingAs($owner)->get(route('school.roles.index', ['school' => $school->slug]));
+
+        $bursar = Role::where('school_id', $school->id)->where('slug', 'bursar')->firstOrFail();
+        $financeView = \App\Models\Permission::where('code', 'finance.view')->firstOrFail(); // not on the curated list
+        $bursar->permissions()->attach($financeView->id);
+
+        $this->actingAs($owner)->post(route('school.roles.permissions.update', ['school' => $school->slug, 'roleId' => $bursar->id]), [
+            'permissions' => [],
+        ])->assertRedirect();
+
+        $bursar->refresh();
+        $this->assertTrue($bursar->permissions()->where('permissions.id', $financeView->id)->exists(), 'a permission outside the curated catalog must never be touched by this screen');
+    }
+
+    /** User directive 2026-07-16: "I WANT TO CLICK ON A ROLE AND SEE ALL THE NAME OF USERS UNDER THE ROLE - THIS CAN COME AS POP UP". */
+    public function test_the_index_page_carries_each_roles_member_names_for_the_popup(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rmfourc');
+        [, $bursarUser] = $this->schoolWithMember2($school, 'bursar');
+        $bursarUser->update(['name' => 'Bimbo Bursar']);
+
+        $response = $this->actingAs($owner)->get(route('school.roles.index', ['school' => $school->slug]));
+        $response->assertOk()->assertSee('Bimbo Bursar');
     }
 
     public function test_owner_can_reassign_a_users_role(): void

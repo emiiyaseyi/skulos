@@ -255,7 +255,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             $roles = \App\Http\Controllers\School\RoleManagementController::class;
             Route::get('/', [$roles, 'index'])->name('index');
             Route::post('/', [$roles, 'storeRole'])->name('store');
-            Route::post('/{roleId}/modules', [$roles, 'addRoleModules'])->name('modules.add');
+            Route::post('/{roleId}/permissions', [$roles, 'updateRolePermissions'])->name('permissions.update');
             Route::post('/users/{userId}/role', [$roles, 'assignRole'])->name('users.assign');
             Route::post('/users/{userId}/extra-access', [$roles, 'updateExtraAccess'])->name('users.extra-access');
         });
