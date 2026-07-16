@@ -206,6 +206,59 @@ class CalendarTest extends TestCase
         app(TenantManager::class)->forget();
     }
 
+    /**
+     * User report 2026-07-16 (screenshot of the calendar management
+     * screen): "still cant see date for these under calendar, make sure
+     * that all school has it". "Beginning of Term"/"End of Term"/"Mid Term
+     * Break" are exactly the current term's own resumption/last-teaching-
+     * day/mid-term-break dates, which the same official catalog already
+     * has; a leftover "Public Holiday" placeholder from before the named
+     * holidays existed is deleted outright. The three genuinely school
+     * decided placeholders (Art and Culture Day, Professional Day, Inter
+     * House Sports Day) are left untouched, there is no official date for
+     * these to seed.
+     */
+    public function test_seed_official_term_dates_also_dates_the_term_derived_calendar_placeholders(): void
+    {
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'cal8']));
+        app(TenantManager::class)->use($school);
+
+        // A stale placeholder from before the named holidays existed, as
+        // found on real already-provisioned schools.
+        CalendarEvent::create(['title' => 'Public Holiday', 'category' => 'holiday', 'is_default' => true]);
+
+        $session = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026 Session']);
+        $terms = [];
+        foreach (['First' => 1, 'Second' => 2, 'Third' => 3] as $ordinal => $sequence) {
+            $terms[$sequence] = \App\Models\Tenant\Term::create([
+                'academic_session_id' => $session->id,
+                'name' => "{$ordinal} Term 2025/2026",
+                'sequence' => $sequence,
+            ]);
+        }
+        $terms[3]->makeCurrent();
+        app(TenantManager::class)->forget();
+
+        $this->artisan('skulos:seed-official-term-dates', ['school' => 'cal8'])->assertSuccessful();
+
+        app(TenantManager::class)->use($school);
+        $this->assertFalse(CalendarEvent::where('title', 'Public Holiday')->exists());
+
+        $beginning = CalendarEvent::where('title', 'Beginning of Term')->where('is_default', true)->first();
+        $end = CalendarEvent::where('title', 'End of Term')->where('is_default', true)->first();
+        $midTerm = CalendarEvent::where('title', 'Mid Term Break')->where('is_default', true)->first();
+        $this->assertSame('2026-05-04', $beginning->starts_on->toDateString());
+        $this->assertSame('2026-07-24', $end->starts_on->toDateString());
+        $this->assertSame('2026-06-15', $midTerm->starts_on->toDateString());
+        $this->assertSame('2026-06-19', $midTerm->ends_on->toDateString());
+
+        foreach (['Art and Culture Day', 'Professional Day', 'Inter House Sports Day'] as $title) {
+            $event = CalendarEvent::where('title', $title)->where('is_default', true)->first();
+            $this->assertNull($event->starts_on, "{$title} should stay undated, there is no official source for it");
+        }
+        app(TenantManager::class)->forget();
+    }
+
     public function test_seed_official_term_dates_is_idempotent_and_skips_schools_without_that_session(): void
     {
         $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'cal7']));

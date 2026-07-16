@@ -4,6 +4,8 @@ namespace App\Console\Commands;
 
 use App\Models\School;
 use App\Models\Tenant\AcademicSession;
+use App\Models\Tenant\CalendarEvent;
+use App\Models\Tenant\Term;
 use App\Services\Tenancy\TenantManager;
 use Illuminate\Console\Command;
 
@@ -19,6 +21,21 @@ use Illuminate\Console\Command;
  * config('skulos.official_term_dates'), matched by session name
  * ("2024/2025 Session", "2025/2026 Session"), not a live runtime read.
  * Idempotent: always writes the config's dates, safe to re-run.
+ *
+ * Also cleans up the calendar's own undated default placeholders (user
+ * report 2026-07-16, screenshot of the calendar management screen: "still
+ * cant see date for these under calendar, make sure that all school has
+ * it"): "Beginning of Term"/"End of Term"/"Mid Term Break" are exactly the
+ * school's own current term's resumption/last-teaching-day/mid-term-break
+ * dates, which this same catalog already has, so those three get dated
+ * too. "Public Holiday" is a stale, superseded placeholder (config used to
+ * seed one generic undated "Public Holiday" row before the specific named
+ * holidays existed; already-provisioned schools were never cleaned up
+ * when that config entry was replaced), deleted outright. "Art and
+ * Culture Day"/"Professional Day"/"Inter House Sports Day" are left
+ * alone, deliberately: there is no official date for these, a school
+ * genuinely picks its own, inventing one would violate the project's "no
+ * dummy/placeholder info" rule.
  */
 class SeedOfficialTermDates extends Command
 {
@@ -69,10 +86,45 @@ class SeedOfficialTermDates extends Command
                 }
             }
 
+            $updated += $this->cleanUpCalendarPlaceholders($catalog);
+
             $tenants->forget();
             $this->info("{$school->slug}: {$updated} row(s) updated.");
         }
 
         return self::SUCCESS;
+    }
+
+    protected function cleanUpCalendarPlaceholders(array $catalog): int
+    {
+        $changed = 0;
+
+        $deleted = CalendarEvent::where('is_default', true)
+            ->where('title', 'Public Holiday')
+            ->whereNull('starts_on')
+            ->delete();
+        $changed += $deleted;
+
+        $term = Term::current()->with('session')->first();
+        if (! $term || ! $term->session) {
+            return $changed;
+        }
+        $yearLabel = str_replace(' Session', '', $term->session->name);
+        $termDates = $catalog[$yearLabel]['terms'][$term->sequence] ?? null;
+        if (! $termDates) {
+            return $changed;
+        }
+
+        $changed += CalendarEvent::where('is_default', true)->where('title', 'Beginning of Term')
+            ->whereNull('starts_on')->update(['starts_on' => $termDates['starts_on']]);
+        $changed += CalendarEvent::where('is_default', true)->where('title', 'End of Term')
+            ->whereNull('starts_on')->update(['starts_on' => $termDates['ends_on']]);
+        if (isset($termDates['mid_term_break'])) {
+            $changed += CalendarEvent::where('is_default', true)->where('title', 'Mid Term Break')
+                ->whereNull('starts_on')
+                ->update(['starts_on' => $termDates['mid_term_break'][0], 'ends_on' => $termDates['mid_term_break'][1]]);
+        }
+
+        return $changed;
     }
 }

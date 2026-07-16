@@ -677,17 +677,17 @@ return [
         '2024/2025' => [
             'session' => ['starts_on' => '2024-09-09', 'ends_on' => '2025-07-25'],
             'terms' => [
-                1 => ['name' => 'First Term', 'starts_on' => '2024-09-09', 'ends_on' => '2024-12-13'],
-                2 => ['name' => 'Second Term', 'starts_on' => '2025-01-06', 'ends_on' => '2025-04-11'],
-                3 => ['name' => 'Third Term', 'starts_on' => '2025-04-28', 'ends_on' => '2025-07-25'],
+                1 => ['name' => 'First Term', 'starts_on' => '2024-09-09', 'ends_on' => '2024-12-13', 'mid_term_break' => ['2024-10-28', '2024-11-01']],
+                2 => ['name' => 'Second Term', 'starts_on' => '2025-01-06', 'ends_on' => '2025-04-11', 'mid_term_break' => ['2025-02-17', '2025-02-21']],
+                3 => ['name' => 'Third Term', 'starts_on' => '2025-04-28', 'ends_on' => '2025-07-25', 'mid_term_break' => ['2025-06-09', '2025-06-13']],
             ],
         ],
         '2025/2026' => [
             'session' => ['starts_on' => '2025-09-15', 'ends_on' => '2026-07-24'],
             'terms' => [
-                1 => ['name' => 'First Term', 'starts_on' => '2025-09-15', 'ends_on' => '2025-12-19'],
-                2 => ['name' => 'Second Term', 'starts_on' => '2026-01-12', 'ends_on' => '2026-04-17'],
-                3 => ['name' => 'Third Term', 'starts_on' => '2026-05-04', 'ends_on' => '2026-07-24'],
+                1 => ['name' => 'First Term', 'starts_on' => '2025-09-15', 'ends_on' => '2025-12-19', 'mid_term_break' => ['2025-11-03', '2025-11-07']],
+                2 => ['name' => 'Second Term', 'starts_on' => '2026-01-12', 'ends_on' => '2026-04-17', 'mid_term_break' => ['2026-02-23', '2026-02-27']],
+                3 => ['name' => 'Third Term', 'starts_on' => '2026-05-04', 'ends_on' => '2026-07-24', 'mid_term_break' => ['2026-06-15', '2026-06-19']],
             ],
         ],
     ],
