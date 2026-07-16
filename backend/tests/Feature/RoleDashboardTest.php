@@ -637,7 +637,20 @@ class RoleDashboardTest extends TestCase
      * percentages (40% and 90%) must render at correspondingly different
      * bar heights, not both near 100%.
      */
-    public function test_the_result_performance_chart_bars_scale_against_a_fixed_100_percent_ceiling(): void
+    /**
+     * The chart was a bar chart against a fixed 0-100% ceiling (fixed
+     * 2026-07-16, see the tracker entry for that bug), but the user
+     * reported ("THIS HAS NOT BEEN FIXED", with a screenshot) that six
+     * terms clustered between 81.6% and 84.1% still rendered as visually
+     * flat bars, correctly so, a bar's length is a magnitude encoding, a
+     * ~2.5 point spread out of 100 IS supposed to look nearly flat as a
+     * bar. Rebuilt as an SVG trend line instead, whose vertical position
+     * is relative, not a magnitude encoding, so its axis can legitimately
+     * zoom to the data's own range, the actual fix for tightly clustered
+     * percentages. Two widely different terms (40% and 90%) must land at
+     * very different y-coordinates.
+     */
+    public function test_the_result_performance_trend_line_spreads_widely_different_terms_apart(): void
     {
         [$school, $admin] = $this->schoolWithMember('school-owner', 'rdchartscale');
         app(TenantManager::class)->use($school);
@@ -658,13 +671,53 @@ class RoleDashboardTest extends TestCase
         app(TenantManager::class)->forget();
 
         $response = $this->actingAs($admin)->get(route('school.dashboard', ['school' => $school->slug]));
-        $response->assertOk();
+        $response->assertOk()->assertSee('40%', false)->assertSee('90%', false);
 
-        $response->assertSee('height:40%', false);
-        $response->assertSee('height:90%', false);
-        // The old bug would have rendered 40 scaled against a max of 90
-        // (44%) and 90 scaled against itself (100%), never these two exact values together.
-        $response->assertDontSee('height:44%', false);
+        $chartSvg = $this->extractResultTrendSvg($response->getContent());
+        preg_match_all('/<circle cx="[\d.]+" cy="([\d.]+)"/', $chartSvg, $matches);
+        $this->assertCount(2, $matches[1], 'both data points must render as circles');
+        $this->assertNotEquals($matches[1][0], $matches[1][1], 'a 40% term and a 90% term must land at different y-coordinates');
+        $this->assertGreaterThan(30, abs(((float) $matches[1][0]) - ((float) $matches[1][1])), 'the vertical gap must be substantial for a 50 point real difference');
+    }
+
+    /** A tight cluster of terms must still each get their own distinct, correctly labeled point, not collapse into one. */
+    public function test_the_result_performance_trend_line_still_labels_each_tightly_clustered_term(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'rdchartcluster');
+        app(TenantManager::class)->use($school);
+
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id]);
+        $subject = Subject::create(['name' => 'Mathematics', 'code' => 'MTH']);
+        $student = Student::create(['admission_number' => 'RT4', 'first_name' => 'A', 'last_name' => 'B', 'current_class_arm_id' => $arm->id]);
+        $component = \App\Models\Tenant\AssessmentComponent::create(['name' => 'Exam', 'type' => 'exam', 'max_score' => 100, 'sequence' => 1]);
+
+        $session = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026']);
+        $termOne = \App\Models\Tenant\Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1]);
+        $termTwo = \App\Models\Tenant\Term::create(['academic_session_id' => $session->id, 'name' => 'Second Term', 'sequence' => 2, 'is_current' => true]);
+
+        \App\Models\Tenant\Score::create(['student_id' => $student->id, 'subject_id' => $subject->id, 'class_arm_id' => $arm->id, 'term_id' => $termOne->id, 'assessment_component_id' => $component->id, 'score' => 82]);
+        \App\Models\Tenant\Score::create(['student_id' => $student->id, 'subject_id' => $subject->id, 'class_arm_id' => $arm->id, 'term_id' => $termTwo->id, 'assessment_component_id' => $component->id, 'score' => 84]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($admin)->get(route('school.dashboard', ['school' => $school->slug]));
+        $response->assertOk()->assertSee('82%', false)->assertSee('84%', false);
+
+        $chartSvg = $this->extractResultTrendSvg($response->getContent());
+        preg_match_all('/<circle cx="[\d.]+" cy="([\d.]+)"/', $chartSvg, $matches);
+        $this->assertCount(2, $matches[1]);
+        $this->assertNotEquals($matches[1][0], $matches[1][1], 'even a 2 point real difference must still land at visibly different y-coordinates, the whole point of zooming the axis');
+    }
+
+    /** Scopes the circle-count/y-coordinate assertions to just the trend chart's own SVG, other page icons also use <circle>. */
+    protected function extractResultTrendSvg(string $html): string
+    {
+        $start = strpos($html, 'aria-label="Result performance trend across terms"');
+        $this->assertNotFalse($start, 'the trend chart svg must be present');
+        $end = strpos($html, '</svg>', $start);
+
+        return substr($html, $start, $end - $start);
     }
 
     public function test_students_at_risk_flags_low_attendance_and_low_average_but_not_a_healthy_student(): void

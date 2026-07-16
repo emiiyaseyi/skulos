@@ -296,30 +296,51 @@
     @include('school.widgets._students-at-risk', ['items' => $panel['studentsAtRisk'] ?? []])
 
     @if(! empty($panel['resultTrend']))
+      @php
+        /*
+         * A bar chart forced onto a fixed 0-100% ceiling (the earlier fix
+         * for this widget, 2026-07-16) is mathematically correct, but for
+         * a school whose averages genuinely cluster tightly (e.g. 81.6%
+         * to 84.1% after the same day's score rescale), the bars still
+         * read as visually flat, a real report from the user ("THIS HAS
+         * NOT BEEN FIXED") after seeing exactly that. A bar's LENGTH
+         * encodes magnitude, so truncating its baseline away from zero
+         * would be the actual data-viz malpractice; a trend LINE has no
+         * such rule; its vertical position is relative, not a magnitude
+         * encoding, so zooming the axis to the data's own range is the
+         * correct fix here, not a deceptive one, and it is what actually
+         * makes small real differences between terms visible.
+         */
+        $values = array_column($panel['resultTrend'], 'average');
+        $min = min($values);
+        $max = max($values);
+        $spread = $max - $min;
+        $pad = max(3, $spread * 0.35);
+        $yLow = max(0, $min - $pad);
+        $yHigh = min(100, $max + $pad);
+        $yRange = max(0.01, $yHigh - $yLow);
+        $count = count($values);
+        $chartW = 600;
+        $chartH = 100;
+        $stepX = $count > 1 ? $chartW / ($count - 1) : 0;
+        $points = collect($values)->values()->map(function ($v, $i) use ($stepX, $count, $chartW, $chartH, $yLow, $yRange) {
+          $x = $count > 1 ? $i * $stepX : $chartW / 2;
+          $y = $chartH - (($v - $yLow) / $yRange * $chartH);
+          return ['x' => round($x, 1), 'y' => round($y, 1)];
+        });
+        $polyline = $points->map(fn ($p) => "{$p['x']},{$p['y']}")->implode(' ');
+      @endphp
       <div class="card rp-card">
         <h3 style="margin-bottom:.3rem">Result performance</h3>
         <p class="muted" style="font-size:.8rem;margin-bottom:.8rem">Average score across every term with results recorded so far.</p>
-        {{--
-          Bug found 2026-07-16 (user report, screenshot: six bars all
-          reading 62-64% but rendering at visually the same near-full
-          height): the bar height used to scale against the highest
-          value IN THIS DATASET ($trendMax), not a fixed ceiling, so a
-          tight cluster of similar percentages stretched to fill the
-          whole chart regardless of how good or bad they actually were,
-          making the chart meaningless at a glance. $t['average'] is
-          already a 0-100 percentage (ResultService::termAveragePercentage()),
-          so it is now used directly as the height percentage against a
-          fixed 100% ceiling, matching what the axis actually represents.
-        --}}
-        <div style="display:flex;align-items:flex-end;gap:.8rem;height:120px">
-          @foreach($panel['resultTrend'] as $t)
-            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:.35rem">
-              <span class="muted" style="font-size:.72rem;font-variant-numeric:tabular-nums">{{ $t['average'] }}%</span>
-              <div style="width:100%;background:color-mix(in srgb,var(--accent) 70%,transparent);border-radius:6px 6px 0 0;min-height:3px;height:{{ max(4, min(100, round($t['average']))) }}%"></div>
-              <span class="muted" style="font-size:.72rem;text-align:center">{{ $t['label'] }}</span>
-            </div>
+        <svg viewBox="-8 -22 {{ $chartW + 16 }} {{ $chartH + 46 }}" style="width:100%;height:150px;overflow:visible" role="img" aria-label="Result performance trend across terms">
+          <polyline points="{{ $polyline }}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
+          @foreach($points as $i => $p)
+            <circle cx="{{ $p['x'] }}" cy="{{ $p['y'] }}" r="4" fill="var(--panel)" stroke="var(--accent)" stroke-width="2.5" />
+            <text x="{{ $p['x'] }}" y="{{ $p['y'] - 12 }}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--ink)" font-variant-numeric="tabular-nums">{{ $panel['resultTrend'][$i]['average'] }}%</text>
+            <text x="{{ $p['x'] }}" y="{{ $chartH + 20 }}" text-anchor="middle" font-size="10" fill="var(--mut)">{{ $panel['resultTrend'][$i]['label'] }}</text>
           @endforeach
-        </div>
+        </svg>
       </div>
     @endif
     @break
