@@ -37,3 +37,10 @@ Schedule::command('skulos:optimize-tables')->weeklyOn(1, '03:00')->withoutOverla
 // year rolls over correctly no matter which day the cron happens to catch
 // it on.
 Schedule::command('skulos:seed-calendar-defaults')->monthlyOn(1, '04:00')->withoutOverlapping();
+
+// Birthday & Anniversary Notifications (user directive 2026-07-16, "ALL
+// THERE": build out the remaining Reports & Analytics/Communication
+// "Soon" items). Early morning, before the school day starts; idempotent
+// (checked per person/category/day), safe if the schedule ever fires
+// twice in the same day.
+Schedule::command('skulos:notify-birthdays-anniversaries')->dailyAt('06:00')->withoutOverlapping();
