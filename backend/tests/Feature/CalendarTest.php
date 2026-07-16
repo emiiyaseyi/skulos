@@ -166,4 +166,52 @@ class CalendarTest extends TestCase
         $this->assertTrue(CalendarEvent::where('title', "New Year's Day")->whereYear('starts_on', $farYear)->exists());
         app(TenantManager::class)->forget();
     }
+
+    /**
+     * Real term dates for a real production school (user report 2026-07-16:
+     * "CHECK FOR LAGOS STATE OR OGUN STATE ACADEMIC CALENDAR ... TO
+     * POPULATE THE RESPECTIVE AND ACTIVE TERMS"). A newly created session's
+     * terms start with no dates at all; this command backfills/corrects
+     * them from the official Lagos State calendar in
+     * config('skulos.official_term_dates').
+     */
+    public function test_seed_official_term_dates_fills_in_the_real_calendar_dates(): void
+    {
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'cal6']));
+        app(TenantManager::class)->use($school);
+        $session = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026 Session']);
+        foreach (['First' => 1, 'Second' => 2, 'Third' => 3] as $ordinal => $sequence) {
+            \App\Models\Tenant\Term::create([
+                'academic_session_id' => $session->id,
+                'name' => "{$ordinal} Term 2025/2026",
+                'sequence' => $sequence,
+            ]);
+        }
+        app(TenantManager::class)->forget();
+
+        $this->artisan('skulos:seed-official-term-dates', ['school' => 'cal6'])->assertSuccessful();
+
+        app(TenantManager::class)->use($school);
+        $session->refresh();
+        $this->assertSame('2025-09-15', $session->starts_on->toDateString());
+        $this->assertSame('2026-07-24', $session->ends_on->toDateString());
+
+        $first = $session->terms()->where('sequence', 1)->first();
+        $this->assertSame('2025-09-15', $first->starts_on->toDateString());
+        $this->assertSame('2025-12-19', $first->ends_on->toDateString());
+
+        $third = $session->terms()->where('sequence', 3)->first();
+        $this->assertSame('2026-05-04', $third->starts_on->toDateString());
+        $this->assertSame('2026-07-24', $third->ends_on->toDateString());
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_seed_official_term_dates_is_idempotent_and_skips_schools_without_that_session(): void
+    {
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'cal7']));
+
+        $this->artisan('skulos:seed-official-term-dates', ['school' => 'cal7'])
+            ->expectsOutputToContain('cal7: 0 row(s) updated.')
+            ->assertSuccessful();
+    }
 }

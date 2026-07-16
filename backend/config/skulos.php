@@ -658,6 +658,41 @@ return [
     ],
 
     /*
+    | Official Lagos State Ministry of Basic & Secondary Education (OEQA)
+    | harmonised academic calendar term dates (user request 2026-07-16:
+    | "CHECK FOR LAGOS STATE OR OGUN STATE ACADEMIC CALENDAR FOR THE
+    | SESSION OF 2024/2025 AND 2025/2026 TO POPULATE THE RESPECTIVE AND
+    | ACTIVE TERMS"). Sourced from the approved PDFs published at
+    | oeqalagos.com for each session. `ends_on` is each term's last actual
+    | teaching day (the Friday before vacation begins / the calendar's own
+    | "END OF SESSION" date for the third term), not the vacation start
+    | date. This is a one time seed catalog only, per the project's
+    | "nothing hardcoded" rule: `skulos:seed-official-term-dates` reads it
+    | once to correct/fill real Term and AcademicSession rows in each
+    | school's own database, and every runtime read already goes through
+    | those tables (the existing Calendar screens), never through this
+    | config directly.
+    */
+    'official_term_dates' => [
+        '2024/2025' => [
+            'session' => ['starts_on' => '2024-09-09', 'ends_on' => '2025-07-25'],
+            'terms' => [
+                1 => ['name' => 'First Term', 'starts_on' => '2024-09-09', 'ends_on' => '2024-12-13'],
+                2 => ['name' => 'Second Term', 'starts_on' => '2025-01-06', 'ends_on' => '2025-04-11'],
+                3 => ['name' => 'Third Term', 'starts_on' => '2025-04-28', 'ends_on' => '2025-07-25'],
+            ],
+        ],
+        '2025/2026' => [
+            'session' => ['starts_on' => '2025-09-15', 'ends_on' => '2026-07-24'],
+            'terms' => [
+                1 => ['name' => 'First Term', 'starts_on' => '2025-09-15', 'ends_on' => '2025-12-19'],
+                2 => ['name' => 'Second Term', 'starts_on' => '2026-01-12', 'ends_on' => '2026-04-17'],
+                3 => ['name' => 'Third Term', 'starts_on' => '2026-05-04', 'ends_on' => '2026-07-24'],
+            ],
+        ],
+    ],
+
+    /*
     | Dashboard look. A school picks one layout at setup and can change it in
     | settings; it can also show or hide individual widgets. Both are stored
     | per school in tenant settings (admin editable, nothing hardcoded); the
