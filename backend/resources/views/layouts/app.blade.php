@@ -70,9 +70,16 @@
   --mut:rgba(240,233,216,.68); --mut-dim:rgba(240,233,216,.55);
   --line:rgba(240,233,216,.10); --line-deep:rgba(240,233,216,.18); --soft:rgba(240,233,216,.04);
   --side-mut:rgba(240,233,216,.62); --side-active:#211C17; --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -16px rgba(0,0,0,.6);
+  /* The light-paper --ok/--warn/--bad (#4A6B3A/#B5731A/#B23A2A) read as
+     near-black-on-black here, both as badge/flash text and as the
+     translucent tint of their own pill background (user report
+     2026-07-16, screenshot: "in dark mode the green text colour is
+     poor"). Brightened for this background, same hue family so a badge
+     still reads as ok/warn/bad at a glance, not flattened to one colour. */
+  --ok:#52C78A; --warn:#E5A83D; --bad:#E86A5C;
 }}
-:root[data-theme="light"] .school-theme{--bg:#FFFFFF;--panel:#FFFFFF;--shell:#FFFFFF;--ink:#1A1613;--mut:rgba(26,22,19,.68);--mut-dim:rgba(26,22,19,.58);--line:#E4D9BE;--line-deep:#C9B98F;--soft:rgba(26,22,19,.035);--side-mut:rgba(26,22,19,.62);--side-active:#F5EEDC;--shadow:0 1px 2px rgba(26,22,19,.07),0 10px 26px -16px rgba(26,22,19,.22);}
-:root[data-theme="dark"] .school-theme{--bg:#171310;--panel:#211C17;--shell:#171310;--ink:#F0E9D8;--mut:rgba(240,233,216,.68);--mut-dim:rgba(240,233,216,.55);--line:rgba(240,233,216,.10);--line-deep:rgba(240,233,216,.18);--soft:rgba(240,233,216,.04);--side-mut:rgba(240,233,216,.62);--side-active:#211C17;--shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -16px rgba(0,0,0,.6);}
+:root[data-theme="light"] .school-theme{--bg:#FFFFFF;--panel:#FFFFFF;--shell:#FFFFFF;--ink:#1A1613;--mut:rgba(26,22,19,.68);--mut-dim:rgba(26,22,19,.58);--line:#E4D9BE;--line-deep:#C9B98F;--soft:rgba(26,22,19,.035);--side-mut:rgba(26,22,19,.62);--side-active:#F5EEDC;--shadow:0 1px 2px rgba(26,22,19,.07),0 10px 26px -16px rgba(26,22,19,.22);--ok:#4A6B3A;--warn:#B5731A;--bad:#B23A2A;}
+:root[data-theme="dark"] .school-theme{--bg:#171310;--panel:#211C17;--shell:#171310;--ink:#F0E9D8;--mut:rgba(240,233,216,.68);--mut-dim:rgba(240,233,216,.55);--line:rgba(240,233,216,.10);--line-deep:rgba(240,233,216,.18);--soft:rgba(240,233,216,.04);--side-mut:rgba(240,233,216,.62);--side-active:#211C17;--shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -16px rgba(0,0,0,.6);--ok:#52C78A;--warn:#E5A83D;--bad:#E86A5C;}
 
 /* numbers and headline-weight text set in serif per the lookbook,
    uppercase sans labels stay on the base --font everywhere else */
