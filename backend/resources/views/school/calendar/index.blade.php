@@ -5,12 +5,33 @@
 <div class="page-head">
   <div>
     <h1 class="title">Calendar</h1>
-    <p class="subtitle">Notable days and events for {{ $school->name }}.</p>
+    <p class="subtitle">
+      @if($selectedTerm)
+        {{ $selectedTerm->session?->name }} &middot; {{ $selectedTerm->name }}
+      @else
+        Notable days and events for {{ $school->name }}.
+      @endif
+    </p>
   </div>
   @if($canCreate)
     <a class="btn btn-primary btn-sm" href="{{ route('school.calendar.create', ['school' => $school->slug]) }}">Create event</a>
   @endif
 </div>
+
+@if($termsInSession->isNotEmpty())
+  <div class="card" style="margin-bottom:1.1rem">
+    <form method="GET" action="{{ route('school.calendar.index', ['school' => $school->slug]) }}">
+      <div class="field" style="margin:0;max-width:18rem">
+        <label for="term_id">Term</label>
+        <select id="term_id" name="term_id" onchange="this.form.requestSubmit()">
+          @foreach($termsInSession as $term)
+            <option value="{{ $term->id }}" @selected($selectedTerm->id === $term->id)>{{ $term->name }}</option>
+          @endforeach
+        </select>
+      </div>
+    </form>
+  </div>
+@endif
 
 <div class="card">
   @if($events->isEmpty())

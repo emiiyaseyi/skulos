@@ -188,4 +188,49 @@ class CalendarEventScreenTest extends TestCase
         $this->assertNotNull($event);
         $this->assertNull($event->subject_id, 'subject_id must be discarded for a category other than exam');
     }
+
+    /**
+     * User report 2026-07-16: "calendar should be for the current year
+     * only it should also show the current term too but one can have the
+     * option to switch to another term among the three terms we have".
+     * Defaults to the current term's own window, with a switcher over its
+     * session's three terms, and undated placeholders still show
+     * regardless of which term is selected.
+     */
+    public function test_the_index_defaults_to_the_current_term_and_can_switch_between_terms(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'calseven');
+
+        app(TenantManager::class)->use($school);
+        $session = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026 Session']);
+        $first = \App\Models\Tenant\Term::create([
+            'academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1,
+            'starts_on' => '2025-09-15', 'ends_on' => '2025-12-19',
+        ]);
+        $second = \App\Models\Tenant\Term::create([
+            'academic_session_id' => $session->id, 'name' => 'Second Term', 'sequence' => 2,
+            'starts_on' => '2026-01-12', 'ends_on' => '2026-04-17',
+        ]);
+        $second->makeCurrent();
+
+        CalendarEvent::create(['title' => 'First Term Sports Day', 'category' => 'sports', 'starts_on' => '2025-10-01', 'is_default' => false]);
+        CalendarEvent::create(['title' => 'Second Term Debate', 'category' => 'event', 'starts_on' => '2026-02-10', 'is_default' => false]);
+        CalendarEvent::create(['title' => 'A School Decided Day', 'category' => 'celebration', 'is_default' => false]);
+        app(TenantManager::class)->forget();
+
+        // Defaults to the current term (Second Term): its own event shows,
+        // the other term's event does not, the undated one always shows.
+        $this->actingAs($owner)->get(route('school.calendar.index', ['school' => $school->slug]))
+            ->assertOk()
+            ->assertSee('Second Term Debate')
+            ->assertSee('A School Decided Day')
+            ->assertDontSee('First Term Sports Day');
+
+        // Switching to First Term flips which dated event is visible.
+        $this->actingAs($owner)->get(route('school.calendar.index', ['school' => $school->slug, 'term_id' => $first->id]))
+            ->assertOk()
+            ->assertSee('First Term Sports Day')
+            ->assertSee('A School Decided Day')
+            ->assertDontSee('Second Term Debate');
+    }
 }

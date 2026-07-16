@@ -7,6 +7,7 @@ use App\Models\School;
 use App\Models\Tenant\CalendarEvent;
 use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\Subject;
+use App\Models\Tenant\Term;
 use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -39,16 +40,55 @@ class CalendarEventController extends Controller
         );
     }
 
+    /**
+     * The calendar used to list every event ever added, every year, on one
+     * long page (user report 2026-07-16: "calendar should be for the
+     * current year only it should also show the current term too but one
+     * can have the option to switch to another term among the three terms
+     * we have"). Scoped to one term at a time: the requested `term_id`, or
+     * the school's current term if none given/valid, with a switcher over
+     * that term's own session (its "current year"), not every session the
+     * school has ever had.
+     */
     public function index(Request $request): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'calendar.view');
         $school = $this->school($request);
 
+        $termId = $request->integer('term_id') ?: null;
+        $selectedTerm = ($termId ? Term::with('session')->find($termId) : null)
+            ?? Term::with('session')->current()->first();
+
+        $termsInSession = $selectedTerm
+            ? Term::where('academic_session_id', $selectedTerm->academic_session_id)->orderBy('sequence')->get()
+            : collect();
+
+        $termStart = $selectedTerm?->starts_on?->toDateString();
+        $termEnd = ($selectedTerm?->ends_on ?? $selectedTerm?->starts_on)?->toDateString();
+
+        $events = CalendarEvent::orderBy('starts_on')
+            ->when($termStart && $termEnd, function ($q) use ($termStart, $termEnd) {
+                // Still show undated placeholders too (a school may want
+                // to date them), alongside anything whose own date range
+                // overlaps this term's date range.
+                $q->where(function ($q) use ($termStart, $termEnd) {
+                    $q->whereNull('starts_on')
+                        ->orWhere(function ($overlap) use ($termStart, $termEnd) {
+                            $overlap->where('starts_on', '<=', $termEnd)
+                                ->whereRaw('COALESCE(ends_on, starts_on) >= ?', [$termStart]);
+                        });
+                });
+            })
+            ->paginate(30)
+            ->withQueryString();
+
         return view('school.calendar.index', [
             'school' => $school,
             'accent' => $school->branding()['color'],
-            'events' => CalendarEvent::orderBy('starts_on')->paginate(30),
+            'events' => $events,
             'canCreate' => app(Rbac::class)->check(Auth::user(), $school, 'calendar.create'),
+            'selectedTerm' => $selectedTerm,
+            'termsInSession' => $termsInSession,
         ]);
     }
 
