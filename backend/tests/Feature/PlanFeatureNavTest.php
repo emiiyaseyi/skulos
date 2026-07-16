@@ -219,12 +219,15 @@ class PlanFeatureNavTest extends TestCase
      * a different feature key), which made them vanish from the menu
      * instead of showing as real links, an even more confusing regression
      * (user report 2026-07-15: "I CANT SEE STUDENT AND PARENT PORTAL
-     * UNDER THE MENU SECTION"). "Parent Portal"/"Student Portal" must
-     * render as their OWN line. "Teacher Portal" and "Staff" were later
-     * merged into a single "Staff Portal" line, per a further directive
-     * the same day ("STAFF AND TEACHER PORTAL SHOULD BE MERGE INTO ONE
-     * AND RENAMED STAFF PORTAL"), so it must appear exactly once, not as
-     * two separate entries.
+     * UNDER THE MENU SECTION"). "Parent Portal" renders its own line,
+     * pointing at its own real Section -> Class browse screen since
+     * 2026-07-16. "Teacher Portal"/"Staff Records" merged into a single
+     * "Staff Portal" line (2026-07-15: "STAFF AND TEACHER PORTAL SHOULD
+     * BE MERGE INTO ONE AND RENAMED STAFF PORTAL"), and "Student
+     * Portal"/"Student Records" merged into a single "Student Portal"
+     * line (2026-07-16: "MERGE WHAT WE HAVE UNDER STUDENT INTO STUDENT
+     * PORTAL SO THEY ARE ONE"), each pair must appear exactly once, not
+     * as two separate entries.
      */
     public function test_teacher_parent_student_portal_features_render_as_real_links(): void
     {
@@ -238,11 +241,11 @@ class PlanFeatureNavTest extends TestCase
 
         $response->assertOk()
             ->assertSee('Staff Portal')
-            ->assertSee('Students')
-            ->assertSee('Parent Portal')
             ->assertSee('Student Portal')
+            ->assertSee('Parent Portal')
             ->assertDontSee('Soon');
         $this->assertSame(1, substr_count($content, 'Staff Portal'), 'Staff and Teacher Portal must merge into exactly one line, not render twice');
+        $this->assertSame(1, substr_count($content, 'Student Portal'), 'Student Records and Student Portal must merge into exactly one line, not render twice');
     }
 
     /**
@@ -289,6 +292,37 @@ class PlanFeatureNavTest extends TestCase
         $this->assertStringContainsString('Branding', $settingsSlice);
         $this->assertStringContainsString('Campuses', $settingsSlice);
         $this->assertStringContainsString('Houses', $settingsSlice);
+    }
+
+    /**
+     * User directive 2026-07-16: "I WANT THE WHOLE SETTINGS SECTION TO
+     * BE THE LAST FOR EVERY USER THAT HAVE ACCESS TO IT". Plain
+     * insertion order alone did not guarantee this, "Settings" is built
+     * partway through the nav's own PHP block, and a plan feature that
+     * happens to trigger a category group later in the file (Reports &
+     * Analytics, Communication) could still land after it.
+     */
+    public function test_settings_group_always_renders_last(): void
+    {
+        [$school, $user] = $this->schoolOnPlan([
+            'basic_report_cards', 'announcements', 'school_branding', 'school_houses',
+        ], 'planthirteen');
+
+        $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard");
+        $content = $response->getContent();
+        $response->assertOk();
+
+        $settingsPos = strpos($content, 'data-group="settings"');
+        $this->assertNotFalse($settingsPos);
+
+        foreach (['reports-analytics', 'communication'] as $otherGroup) {
+            $otherPos = strpos($content, "data-group=\"{$otherGroup}\"");
+            $this->assertNotFalse($otherPos, "{$otherGroup} group must render given this plan");
+            $this->assertLessThan($settingsPos, $otherPos, "{$otherGroup} must render before Settings, Settings must always be last");
+        }
+
+        // Settings must be the very last side-section in the sidebar, not just before these two specifically.
+        $this->assertFalse(strpos($content, 'side-section', $settingsPos + 1), 'no other group may render after Settings');
     }
 
     /**

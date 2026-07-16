@@ -74,7 +74,21 @@ class SchoolPortalController extends Controller
             'role' => $roleDashboard->build(Auth::user(), $school, $feed['unread']),
             'upcoming' => CalendarEvent::upcoming()->limit(5)->get(),
             'upcomingHolidays' => CalendarEvent::where('category', 'holiday')->upcoming()->limit(5)->get(),
-            'announcements' => Announcement::where('status', Announcement::STATUS_PUBLISHED)->orderByDesc('published_at')->limit(3)->get(),
+            // The dashboard "Announcements" widget was every published
+            // Announcement school wide, no per-user state at all, always
+            // the same latest 3 for everyone (user report 2026-07-16: "IT
+            // SHOULD NOT BE SHOWING ALL THE ANNOUNCEMENTS... THE USER CAN
+            // DECIDE TO DISMISS IT BUT IT RELOADS WHEN USER LOGIN AGAIN
+            // AND THE USER ONLY SEE NEW ONE"). Reused the exact same
+            // per-user Notification.read_at tracking the broadcast pop-up
+            // already has (increment 1), scoped to category='announcement'
+            // specifically so a quiet Announcement and an acknowledge-
+            // gated Broadcast pop-up never double up on the same
+            // dismissal state; dismissing here posts to the same existing
+            // school.notifications.read route.
+            'announcementNotifications' => Notification::forUser(Auth::id())
+                ->where('category', 'announcement')->whereNull('read_at')
+                ->with('announcement')->latest()->limit(10)->get(),
             'layout' => $prefs->layout(),
             'widgets' => $prefs->widgets(),
             'setupComplete' => $setupComplete,

@@ -89,7 +89,7 @@
 @endunless
 
 @php
-  $announcementsCard = view('school.widgets.announcements', ['announcements' => $announcements])->render();
+  $announcementsCard = view('school.widgets.announcements', ['announcementNotifications' => $announcementNotifications])->render();
 @endphp
 
 @if($layout === 'vibrant' || $layout === 'modern')

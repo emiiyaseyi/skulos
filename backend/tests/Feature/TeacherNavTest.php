@@ -43,8 +43,32 @@ class TeacherNavTest extends TestCase
         parent::tearDown();
     }
 
+    /**
+     * A real default Plan with every feature this file's assertions rely
+     * on (Student Records, Staff Records, Houses), matching how a real
+     * school actually gets features (School::hasFeature() falls back to
+     * Plan::is_default when the school has none of its own). Missing
+     * from here before 2026-07-16, so every "does X show in the nav"
+     * assertion below was actually passing by accident, off unrelated
+     * same-named text elsewhere on the dashboard (a stat-card widget
+     * also happens to say "Students"), not the real nav link at all,
+     * found only once the Student Portal merge changed that label to
+     * something the stat widget does not coincidentally share.
+     */
+    protected function ensureDefaultPlan(): void
+    {
+        if (! \App\Models\Plan::where('is_default', true)->exists()) {
+            \App\Models\Plan::create([
+                'name' => 'Test Default', 'slug' => 'test-default', 'is_default' => true,
+                'price_per_student_per_term' => 500, 'modules' => [],
+                'features' => ['student_records', 'staff_records', 'school_houses'],
+            ]);
+        }
+    }
+
     protected function schoolWithMember(string $roleSlug, string $slug): array
     {
+        $this->ensureDefaultPlan();
         $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => $slug]));
         $user = User::factory()->create();
         $role = $this->rbac->cloneTemplateRole($school, $roleSlug);
@@ -59,7 +83,7 @@ class TeacherNavTest extends TestCase
 
         $response = $this->actingAs($teacher)->get("http://{$school->slug}.localhost/dashboard");
         $response->assertOk()
-            ->assertSee('Students') // students.view is genuinely held
+            ->assertSee('Student Portal') // students.view is genuinely held
             ->assertDontSee('Staff') // no staff.view
             ->assertDontSee('Houses')
             ->assertDontSee('Classes &amp; Subjects', false)
@@ -81,7 +105,7 @@ class TeacherNavTest extends TestCase
 
         $response = $this->actingAs($teacher)->get("http://{$school->slug}.localhost/dashboard");
         $response->assertOk()
-            ->assertSee('Students')
+            ->assertSee('Student Portal')
             ->assertDontSee('Staff')
             ->assertDontSee('Houses')
             ->assertDontSee('Classes &amp; Subjects', false)
@@ -95,7 +119,7 @@ class TeacherNavTest extends TestCase
 
         $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/dashboard");
         $response->assertOk()
-            ->assertSee('Students')
+            ->assertSee('Student Portal')
             ->assertSee('Staff')
             ->assertSee('Houses')
             ->assertSee('Guided Setup')
@@ -109,7 +133,7 @@ class TeacherNavTest extends TestCase
         $this->rbac->grantModuleOverride($school, $teacher, 'students');
 
         $this->actingAs($teacher)->get("http://{$school->slug}.localhost/dashboard")
-            ->assertOk()->assertSee('Students');
+            ->assertOk()->assertSee('Student Portal');
     }
 
     /** Quick Actions on a teacher's own dashboard panel link to real, permission-appropriate screens only (user directive 2026-07-12: dashboards should answer "what must I complete before I leave"). */
