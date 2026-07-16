@@ -411,7 +411,7 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
       resumeBtn=document.getElementById('idleResumeBtn'),
       logoutBtn=document.getElementById('idleLogoutBtn'),
       logoutForm=document.getElementById('idleLogoutForm');
-  var idleTimer=null, countdownTimer=null, secondsLeft=0;
+  var idleTimer=null, countdownTimer=null, secondsLeft=0, lastActivityAt=Date.now();
 
   function doLogout(){ logoutForm.submit(); }
 
@@ -429,6 +429,7 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
   }
 
   function resetIdleTimer(){
+    lastActivityAt=Date.now();
     clearTimeout(idleTimer);
     idleTimer=setTimeout(showWarning,idleMs);
   }
@@ -450,6 +451,28 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
     document.addEventListener(evt,function(){
       if(!scrim.classList.contains('show')) resetIdleTimer();
     },{passive:true});
+  });
+
+  // Browsers throttle (or entirely suspend) setTimeout/setInterval in a
+  // background/unfocused tab, so idleTimer/countdownTimer above can stall
+  // for far longer than idleMs/warnMs while the tab isn't visible (user
+  // report 2026-07-16: "the idle timeout does not count when user move
+  // away from the tab. it only works when one is on the tab"). Real
+  // elapsed wall clock time (Date.now(), not a timer callback actually
+  // firing) is checked the moment the tab becomes visible again, so a
+  // session that should have already timed out while backgrounded is
+  // caught immediately instead of silently getting a fresh full idleMs
+  // grace period just because focus returned.
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState!=='visible') return;
+    if(scrim.classList.contains('show')) return; // already mid warning, tickCountdown/its own timer handles it
+    var elapsed=Date.now()-lastActivityAt;
+    if(elapsed<idleMs) return;
+    showWarning();
+    var overrunSeconds=Math.round((elapsed-idleMs)/1000);
+    secondsLeft=Math.max(0, Math.round(warnMs/1000)-overrunSeconds);
+    countEl.textContent=secondsLeft;
+    if(secondsLeft<=0){ clearInterval(countdownTimer); doLogout(); }
   });
 
   resetIdleTimer();
