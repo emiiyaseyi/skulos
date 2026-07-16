@@ -196,4 +196,87 @@ class AttendanceScreenTest extends TestCase
         $this->actingAs($owner)->get("http://{$school->slug}.localhost/dashboard")
             ->assertSee('href="http://attseven.localhost/attendance"', false);
     }
+
+    /**
+     * User directive 2026-07-16: "GREY OUT WEEKEND (SATURDAY AND SUNDAY)
+     * AND HOLIDAYS FROM THE ATTENDANCE SO THAT IT WAS NOT PICKED".
+     * 2026-01-17 is a Saturday.
+     */
+    public function test_a_weekend_date_cannot_be_marked(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'attweekend');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $arm, 'studentA' => $student] = $this->twoClassesWithStudents();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/attendance/mark", [
+            'class_arm_id' => $arm->id, 'date' => '2026-01-17',
+            'marks' => [$student->id => 'present'],
+        ])->assertRedirect()->assertSessionHas('error');
+
+        app(TenantManager::class)->use($school);
+        $marked = Attendance::students()->forDate('2026-01-17')->exists();
+        app(TenantManager::class)->forget();
+        $this->assertFalse($marked);
+    }
+
+    public function test_a_dated_holiday_cannot_be_marked(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'attholiday');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $arm, 'studentA' => $student] = $this->twoClassesWithStudents();
+        \App\Models\Tenant\CalendarEvent::create([
+            'title' => 'School Founders Day', 'category' => 'holiday', 'starts_on' => '2026-01-15',
+        ]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/attendance/mark", [
+            'class_arm_id' => $arm->id, 'date' => '2026-01-15',
+            'marks' => [$student->id => 'present'],
+        ])->assertRedirect()->assertSessionHas('error');
+    }
+
+    public function test_a_ranged_mid_term_break_cannot_be_marked(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'attbreak');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $arm, 'studentA' => $student] = $this->twoClassesWithStudents();
+        \App\Models\Tenant\CalendarEvent::create([
+            'title' => 'Mid Term Break', 'category' => 'break', 'starts_on' => '2026-01-14', 'ends_on' => '2026-01-16',
+        ]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/attendance/mark", [
+            'class_arm_id' => $arm->id, 'date' => '2026-01-15',
+            'marks' => [$student->id => 'present'],
+        ])->assertRedirect()->assertSessionHas('error');
+    }
+
+    public function test_staff_attendance_also_blocks_a_weekend_date(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'attstaffweekend');
+        app(TenantManager::class)->use($school);
+        $staffMember = Staff::create(['staff_id' => 'STF/0003', 'first_name' => 'Sola', 'last_name' => 'Ade', 'status' => 'active']);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/attendance/staff/mark", [
+            'date' => '2026-01-18', 'marks' => [$staffMember->id => 'present'],
+        ])->assertRedirect()->assertSessionHas('error');
+
+        app(TenantManager::class)->use($school);
+        $marked = Attendance::staff()->forDate('2026-01-18')->exists();
+        app(TenantManager::class)->forget();
+        $this->assertFalse($marked);
+    }
+
+    public function test_the_attendance_screen_ships_the_non_school_dates_to_the_client(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'attclientdates');
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/attendance")
+            ->assertOk()->assertSee('nonSchoolDates', false);
+    }
 }

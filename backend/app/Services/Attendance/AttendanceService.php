@@ -3,6 +3,7 @@
 namespace App\Services\Attendance;
 
 use App\Models\Tenant\Attendance;
+use App\Models\Tenant\CalendarEvent;
 use App\Services\Auditing\Recorder;
 use Illuminate\Support\Carbon;
 use InvalidArgumentException;
@@ -15,6 +16,75 @@ use InvalidArgumentException;
 class AttendanceService
 {
     /**
+     * Why a date is not a normal school day, or null if it is (user
+     * directive 2026-07-16: "GREY OUT WEEKEND (SATURDAY AND SUNDAY) AND
+     * HOLIDAYS FROM THE ATTENDANCE SO THAT IT WAS NOT PICKED"). A ranged
+     * "break" calendar entry (e.g. Mid Term Break) counts as a non school
+     * day too, not just a single dated "holiday" entry, since no class is
+     * actually in session either way.
+     */
+    public function nonSchoolDayReason(string|Carbon $date): ?string
+    {
+        $date = Carbon::parse($date);
+
+        if ($date->isWeekend()) {
+            return $date->format('l');
+        }
+
+        // whereDate(), not where(): the 'date' cast still saves the full
+        // "Y-m-d H:i:s" string (only reads truncate the time), so a raw
+        // string equality check against the plain date never matches.
+        $event = CalendarEvent::whereIn('category', ['holiday', 'break'])
+            ->whereNotNull('starts_on')
+            ->where(function ($q) use ($date) {
+                $q->whereDate('starts_on', $date->toDateString())
+                    ->orWhere(function ($ranged) use ($date) {
+                        $ranged->where('starts_on', '<=', $date->toDateString())
+                            ->where('ends_on', '>=', $date->toDateString());
+                    });
+            })
+            ->first();
+
+        return $event?->title;
+    }
+
+    /**
+     * Every non school date (weekends included) within a range, keyed by
+     * ISO date, for a client side calendar to grey out before it even
+     * submits. Kept to a bounded window by the caller, not the whole
+     * calendar's history.
+     *
+     * @return array<string, string> date => reason
+     */
+    public function nonSchoolDatesWithin(Carbon $from, Carbon $to): array
+    {
+        $dates = [];
+        $events = CalendarEvent::whereIn('category', ['holiday', 'break'])
+            ->whereNotNull('starts_on')
+            ->where('starts_on', '<=', $to->toDateString())
+            ->where(function ($q) use ($from) {
+                $q->where('ends_on', '>=', $from->toDateString())->orWhereNull('ends_on');
+            })
+            ->get();
+
+        foreach ($events as $event) {
+            $start = $event->starts_on->max($from);
+            $end = ($event->ends_on ?: $event->starts_on)->min($to);
+            for ($d = $start->copy(); $d->lte($end); $d->addDay()) {
+                $dates[$d->toDateString()] = $event->title;
+            }
+        }
+
+        for ($d = $from->copy(); $d->lte($to); $d->addDay()) {
+            if ($d->isWeekend()) {
+                $dates[$d->toDateString()] = $d->format('l');
+            }
+        }
+
+        return $dates;
+    }
+
+    /**
      * Mark a whole class register for a date.
      *
      * @param array<int, string> $marks studentId => status
@@ -23,6 +93,9 @@ class AttendanceService
     public function markClass(int $classArmId, string|Carbon $date, array $marks, ?int $recordedByUserId = null): array
     {
         $date = Carbon::parse($date)->toDateString();
+        if ($reason = $this->nonSchoolDayReason($date)) {
+            throw new InvalidArgumentException("Attendance cannot be marked for {$date}: it is a {$reason}.");
+        }
         $valid = Attendance::statuses();
 
         foreach ($marks as $status) {
@@ -67,12 +140,16 @@ class AttendanceService
         if (! in_array($status, Attendance::statuses(), true)) {
             throw new InvalidArgumentException("Invalid attendance status [{$status}].");
         }
+        $dateString = Carbon::parse($date)->toDateString();
+        if ($reason = $this->nonSchoolDayReason($dateString)) {
+            throw new InvalidArgumentException("Attendance cannot be marked for {$dateString}: it is a {$reason}.");
+        }
 
         return Attendance::updateOrCreate(
             [
                 'person_type' => Attendance::PERSON_STAFF,
                 'person_id' => $staffId,
-                'date' => Carbon::parse($date)->toDateString(),
+                'date' => $dateString,
             ],
             ['status' => $status, 'recorded_by_user_id' => $recordedByUserId]
         );

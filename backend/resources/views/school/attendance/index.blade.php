@@ -26,6 +26,7 @@
     <div class="field" style="margin:0">
       <label for="date">Date</label>
       <input id="date" name="date" type="date" value="{{ $date }}" max="{{ now()->toDateString() }}" onchange="this.form.requestSubmit()" />
+      <p id="nonSchoolDateWarning" class="muted" style="color:var(--bad);margin:.35rem 0 0;display:none"></p>
     </div>
   </form>
 </div>
@@ -90,6 +91,35 @@
     @endif
   </div>
 @endif
+
+<script>
+(function () {
+  var nonSchoolDates = @json($nonSchoolDates);
+  var dateInput = document.getElementById('date');
+  var warning = document.getElementById('nonSchoolDateWarning');
+  var saveBtn = document.querySelector('#attendanceForm button[type="submit"]');
+  var markAllBtn = document.querySelector('[onclick^="skulosMarkAll"]');
+
+  function checkDate() {
+    var reason = nonSchoolDates[dateInput.value];
+    if (reason) {
+      warning.textContent = 'No school on this date: ' + reason + '. Attendance cannot be saved.';
+      warning.style.display = 'block';
+      if (saveBtn) saveBtn.disabled = true;
+      if (markAllBtn) markAllBtn.disabled = true;
+    } else {
+      warning.style.display = 'none';
+      if (saveBtn) saveBtn.disabled = false;
+      if (markAllBtn) markAllBtn.disabled = false;
+    }
+  }
+
+  if (dateInput) {
+    dateInput.addEventListener('change', checkDate);
+    checkDate();
+  }
+})();
+</script>
 
 @if($canMark)
 <script>

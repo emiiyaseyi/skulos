@@ -88,6 +88,13 @@ class AttendanceController extends Controller
             $summary = app(AttendanceService::class)->classSummary($selectedArm->id, $date);
         }
 
+        // A bounded window (a year back to a term ahead) around today, so
+        // the client side calendar can grey out weekends and holidays
+        // before a date is even picked, without loading the whole
+        // calendar's history (user directive 2026-07-16: "GREY OUT WEEKEND
+        // ... AND HOLIDAYS FROM THE ATTENDANCE SO THAT IT WAS NOT PICKED").
+        $nonSchoolDates = app(AttendanceService::class)->nonSchoolDatesWithin(now()->subYear(), now()->addMonths(3));
+
         return view('school.attendance.index', [
             'school' => $school,
             'accent' => $school->branding()['color'],
@@ -99,6 +106,7 @@ class AttendanceController extends Controller
             'summary' => $summary,
             'statuses' => Attendance::statuses(),
             'canMark' => $this->canMark($school),
+            'nonSchoolDates' => $nonSchoolDates,
         ]);
     }
 
@@ -126,9 +134,13 @@ class AttendanceController extends Controller
         $validStudentIds = Student::where('current_class_arm_id', $data['class_arm_id'])->pluck('id')->all();
         $marks = collect($data['marks'])->only($validStudentIds)->all();
 
-        $result = app(AttendanceService::class)->markClass(
-            (int) $data['class_arm_id'], $data['date'], $marks, $user->id
-        );
+        try {
+            $result = app(AttendanceService::class)->markClass(
+                (int) $data['class_arm_id'], $data['date'], $marks, $user->id
+            );
+        } catch (\InvalidArgumentException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
 
         return redirect()->route('school.attendance.index', [
             'school' => $school->slug, 'class_arm_id' => $data['class_arm_id'], 'date' => $data['date'],
@@ -144,6 +156,7 @@ class AttendanceController extends Controller
         $date = $request->query('date') ?: now()->toDateString();
         $staff = Staff::active()->orderBy('last_name')->orderBy('first_name')->get();
         $existingMarks = Attendance::staff()->forDate($date)->pluck('status', 'person_id');
+        $nonSchoolDates = app(AttendanceService::class)->nonSchoolDatesWithin(now()->subYear(), now()->addMonths(3));
 
         return view('school.attendance.staff', [
             'school' => $school,
@@ -153,6 +166,7 @@ class AttendanceController extends Controller
             'existingMarks' => $existingMarks,
             'statuses' => Attendance::statuses(),
             'canMark' => $this->canMark($school),
+            'nonSchoolDates' => $nonSchoolDates,
         ]);
     }
 
@@ -168,8 +182,12 @@ class AttendanceController extends Controller
             'marks.*' => ['required', 'string', Rule::in(Attendance::statuses())],
         ]);
 
-        $validStaffIds = Staff::whereIn('id', array_keys($data['marks']))->pluck('id')->all();
         $service = app(AttendanceService::class);
+        if ($reason = $service->nonSchoolDayReason($data['date'])) {
+            return back()->withInput()->with('error', "Attendance cannot be marked for {$data['date']}: it is a {$reason}.");
+        }
+
+        $validStaffIds = Staff::whereIn('id', array_keys($data['marks']))->pluck('id')->all();
         $marked = 0;
         foreach ($data['marks'] as $staffId => $status) {
             if (! in_array((int) $staffId, $validStaffIds, true)) {
