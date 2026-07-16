@@ -7,6 +7,7 @@ use App\Models\School;
 use App\Models\TrialRequest;
 use App\Models\User;
 use App\Services\Tenancy\TenantManager;
+use Database\Seeders\RbacSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Mail;
@@ -30,6 +31,11 @@ class TrialRequestTest extends TestCase
         parent::setUp();
         $this->tenantDir = storage_path('framework/testing/tenants-'.getmypid());
         config(['tenancy.sqlite_path' => $this->tenantDir, 'tenancy.driver' => 'sqlite', 'app.domain' => 'localhost']);
+        // Needed since 2026-07-16: approve() clones the "school-owner"
+        // template role into the new school (fixed from assigning the
+        // shared template row's id directly), which requires that
+        // template to actually exist first.
+        $this->seed(RbacSeeder::class);
     }
 
     protected function tearDown(): void
@@ -121,6 +127,42 @@ class TrialRequestTest extends TestCase
         Mail::assertSent(TrialRequestStatusMail::class, function ($mail) use ($trial) {
             return $mail->hasTo($trial->email) && $mail->trial->is($trial) && ! empty($mail->credentials['password']);
         });
+    }
+
+    /**
+     * Bug found 2026-07-16 (user report: a platform broadcast to "school
+     * owners" reached 0 schools). The new owner's role_id used to point
+     * at the shared TEMPLATE role (school_id null, id=1 for every
+     * school), never cloned into this school first, so anything that
+     * queries by a school-scoped role id (a platform broadcast's
+     * recipient resolution, the school's own admins list) never matched
+     * them at all. 5 of 7 real schools were found affected this way
+     * before the fix, each missing exactly the one owner account created
+     * through this exact code path.
+     */
+    public function test_the_new_owners_role_is_this_schools_own_cloned_role_not_the_shared_template(): void
+    {
+        Mail::fake();
+        $admin = $this->superAdmin();
+        $trial = TrialRequest::create([
+            'school_name' => 'Role Check Academy', 'contact_name' => 'Bola', 'email' => 'bola@rolecheck.test',
+        ]);
+
+        $this->actingAs($admin)->post(route('admin.trial-requests.approve', $trial));
+
+        $trial->refresh();
+        $school = School::find($trial->school_id);
+        $newAdmin = User::where('email', 'bola@rolecheck.test')->first();
+
+        $role = $newAdmin->roleIn($school);
+        $this->assertNotNull($role);
+        $this->assertSame('school-owner', $role->slug);
+        $this->assertSame($school->id, $role->school_id, 'must be this school\'s own cloned role, not the shared template row (school_id null)');
+
+        // Exactly the query PlatformBroadcastService::deliver() runs.
+        $roleIds = \App\Models\Role::where('school_id', $school->id)->whereIn('slug', ['school-owner', 'school-admin'])->pluck('id');
+        $members = $school->users()->wherePivotIn('role_id', $roleIds)->wherePivot('status', 'active')->get();
+        $this->assertTrue($members->contains('id', $newAdmin->id), 'a platform broadcast to school owners must actually find this owner');
     }
 
     public function test_two_trials_with_the_same_school_name_get_distinct_slugs(): void

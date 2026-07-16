@@ -55,7 +55,12 @@ class SchoolAdminManagementTest extends TestCase
     {
         $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => $slug]));
         $owner = User::factory()->create(['email' => "owner@{$slug}.test", 'password' => bcrypt('original-pass')]);
-        $ownerRole = Role::whereNull('school_id')->where('slug', 'school-owner')->first();
+        // Cloned into this school, not the shared template row (2026-07-16
+        // fix, this fixture was modeling the exact bug it should have
+        // been catching): SchoolAdminController::show() now correctly
+        // queries admins by a school-scoped role id, a template-role
+        // member would silently vanish from that list.
+        $ownerRole = app(\App\Services\Rbac\Rbac::class)->cloneTemplateRole($school, 'school-owner');
         $school->users()->attach($owner->id, ['role_id' => $ownerRole->id, 'status' => 'active']);
 
         return [$school, $owner];

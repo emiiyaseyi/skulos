@@ -46,7 +46,7 @@ class BackupRestoreTest extends TestCase
     {
         $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => $slug]));
         $owner = User::factory()->create();
-        $ownerRole = Role::whereNull('school_id')->where('slug', 'school-owner')->first();
+        $ownerRole = app(\App\Services\Rbac\Rbac::class)->cloneTemplateRole($school, 'school-owner');
         $school->users()->attach($owner->id, ['role_id' => $ownerRole->id, 'status' => 'active']);
 
         return [$school, $owner];
@@ -169,7 +169,7 @@ class BackupRestoreTest extends TestCase
     public function test_a_non_admin_member_cannot_manage_backups(): void
     {
         $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'nobackup']));
-        $teacherRole = Role::whereNull('school_id')->where('slug', 'subject-teacher')->first();
+        $teacherRole = app(\App\Services\Rbac\Rbac::class)->cloneTemplateRole($school, 'subject-teacher');
         $teacher = User::factory()->create();
         $school->users()->attach($teacher->id, ['role_id' => $teacherRole->id, 'status' => 'active']);
 

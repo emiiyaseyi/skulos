@@ -80,7 +80,7 @@ class IdleTimeoutSettingsTest extends TestCase
         $admin = $this->superAdmin();
         $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'idleone']));
         $owner = User::factory()->create();
-        $ownerRole = \App\Models\Role::whereNull('school_id')->where('slug', 'school-owner')->first();
+        $ownerRole = app(\App\Services\Rbac\Rbac::class)->cloneTemplateRole($school, 'school-owner');
         $school->users()->attach($owner->id, ['role_id' => $ownerRole->id, 'status' => 'active']);
 
         $this->actingAs($admin)->post(route('admin.settings.idle-timeout.update'), [
@@ -103,7 +103,7 @@ class IdleTimeoutSettingsTest extends TestCase
         $this->seed(RbacSeeder::class);
         $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'idletwo']));
         $owner = User::factory()->create();
-        $ownerRole = \App\Models\Role::whereNull('school_id')->where('slug', 'school-owner')->first();
+        $ownerRole = app(\App\Services\Rbac\Rbac::class)->cloneTemplateRole($school, 'school-owner');
         $school->users()->attach($owner->id, ['role_id' => $ownerRole->id, 'status' => 'active']);
 
         $this->actingAs($owner)->post("http://{$school->slug}.localhost/settings/idle-timeout", [

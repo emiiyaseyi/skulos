@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\School;
 use App\Models\User;
 use App\Services\Tenancy\TenantManager;
+use Database\Seeders\RbacSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
@@ -24,6 +25,12 @@ class PlatformFlowTest extends TestCase
             'tenancy.driver' => 'sqlite',
             'app.domain' => 'localhost',
         ]);
+        // Without this, attachAdmin()'s cloneTemplateRole('school-owner')
+        // throws (no template role exists), silently 500ing school
+        // creation and leaving the admin never actually attached (found
+        // 2026-07-16, same missing fixture seed pattern as several other
+        // test files this session).
+        $this->seed(RbacSeeder::class);
     }
 
     protected function tearDown(): void

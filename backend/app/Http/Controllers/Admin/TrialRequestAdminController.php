@@ -4,10 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Mail\TrialRequestStatusMail;
-use App\Models\Role;
 use App\Models\School;
 use App\Models\TrialRequest;
 use App\Models\User;
+use App\Services\Rbac\Rbac;
 use App\Services\Tenancy\TenantManager;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,7 +47,7 @@ class TrialRequestAdminController extends Controller
         ]);
     }
 
-    public function approve(Request $request, TrialRequest $trialRequest, TenantManager $tenants): RedirectResponse
+    public function approve(Request $request, TrialRequest $trialRequest, TenantManager $tenants, Rbac $rbac): RedirectResponse
     {
         $data = $request->validate(['review_note' => ['nullable', 'string', 'max:2000']]);
 
@@ -68,7 +68,16 @@ class TrialRequestAdminController extends Controller
         $admin->email_verified_at = $admin->email_verified_at ?: now();
         $admin->save();
 
-        $ownerRoleId = Role::whereNull('school_id')->where('slug', 'school-owner')->value('id');
+        // Bug found 2026-07-16 (user report: a platform broadcast to
+        // "school owners" reached 0 schools): this used to assign the
+        // shared TEMPLATE role's id directly (school_id null), never
+        // cloning it into this school first, so anything that queries by
+        // a school-scoped role id (like a platform broadcast's recipient
+        // resolution) never matched this owner at all. Also meant this
+        // school's owner could never actually benefit from customizing
+        // their own "School Owner" role's permissions, since they were
+        // never really pointing at their own school's copy of it.
+        $ownerRoleId = $rbac->cloneTemplateRole($school, 'school-owner')->id;
         $school->users()->syncWithoutDetaching([$admin->id => ['role_id' => $ownerRoleId, 'status' => 'active']]);
 
         $trialRequest->update([

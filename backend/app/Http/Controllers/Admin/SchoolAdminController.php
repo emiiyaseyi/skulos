@@ -8,6 +8,7 @@ use App\Models\Role;
 use App\Models\School;
 use App\Models\User;
 use App\Services\Auditing\Recorder;
+use App\Services\Rbac\Rbac;
 use App\Services\Tenancy\SchoolCloneService;
 use App\Services\Tenancy\TenantManager;
 use Illuminate\Http\RedirectResponse;
@@ -148,7 +149,14 @@ class SchoolAdminController extends Controller
         $admin->must_change_password = true;
         $admin->save();
 
-        $ownerRole = Role::whereNull('school_id')->where('slug', 'school-owner')->value('id');
+        // Bug found 2026-07-16 (user report: a platform broadcast to
+        // "school owners" reached 0 schools): this used to assign the
+        // shared TEMPLATE role's id directly (school_id null), never
+        // cloning it into this school first, so anything that queries by
+        // a school-scoped role id (like a platform broadcast's recipient
+        // resolution, or the admins list on this school's own admin
+        // page) never matched this owner at all.
+        $ownerRole = app(Rbac::class)->cloneTemplateRole($school, 'school-owner')->id;
         $school->users()->syncWithoutDetaching([$admin->id => ['role_id' => $ownerRole, 'status' => 'active']]);
 
         return $admin;
@@ -248,7 +256,12 @@ class SchoolAdminController extends Controller
 
     public function show(School $school): \Illuminate\View\View
     {
-        $ownerRoleId = Role::whereNull('school_id')->where('slug', 'school-owner')->value('id');
+        // school-scoped, not the shared template (2026-07-16 fix): a
+        // school's own cloned "School Owner" role, not id=1 shared by
+        // every school, otherwise this list is wrong in both directions
+        // depending on which bug-era a given owner's account was created
+        // under.
+        $ownerRoleId = Role::where('school_id', $school->id)->where('slug', 'school-owner')->value('id');
 
         $admins = $school->users()
             ->wherePivot('role_id', $ownerRoleId)
@@ -311,7 +324,7 @@ class SchoolAdminController extends Controller
         $admin->email_verified_at = $admin->email_verified_at ?: now();
         $admin->save();
 
-        $ownerRoleId = Role::whereNull('school_id')->where('slug', 'school-owner')->value('id');
+        $ownerRoleId = app(Rbac::class)->cloneTemplateRole($school, 'school-owner')->id;
         $school->users()->syncWithoutDetaching([$admin->id => ['role_id' => $ownerRoleId, 'status' => 'active']]);
 
         return back()->with('status', "{$email} can now sign in as an administrator of {$school->name}.");

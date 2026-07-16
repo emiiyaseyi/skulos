@@ -84,7 +84,7 @@ class MailSettingsTest extends TestCase
         $admin = $this->superAdmin();
         $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'ownmail']));
         $owner = User::factory()->create();
-        $ownerRole = \App\Models\Role::whereNull('school_id')->where('slug', 'school-owner')->first();
+        $ownerRole = app(\App\Services\Rbac\Rbac::class)->cloneTemplateRole($school, 'school-owner');
         $school->users()->attach($owner->id, ['role_id' => $ownerRole->id, 'status' => 'active']);
 
         $this->actingAs($admin)->post(route('admin.settings.mail.update'), ['host' => 'smtp.platform.test']);
