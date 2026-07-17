@@ -19,6 +19,7 @@
 {!! $item('admin.schools.index', 'Schools', 'school') !!}
 {!! $item('admin.trial-requests.index', 'Trial Requests', 'trial', $pendingTrialCount ?? 0) !!}
 {!! $item('admin.billing.index', 'Billing', 'billing') !!}
+{!! $item('admin.subscriptions.index', 'Subscriptions', 'billing', $pendingSubscriptionPayments ?? 0) !!}
 {!! $item('admin.schools.archive-list', 'Archive', 'archive') !!}
 
 <div class="side-group">Settings</div>
@@ -27,3 +28,4 @@
 {!! $item('admin.settings.idle-timeout.edit', 'Idle Timeout', 'clock') !!}
 {!! $item('admin.settings.retention.edit', 'Retention', 'retention') !!}
 {!! $item('admin.settings.support-contact.edit', 'Support Contact', 'support') !!}
+{!! $item('admin.settings.subscription-bank.edit', 'Subscription Bank', 'billing') !!}

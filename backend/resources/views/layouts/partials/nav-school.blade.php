@@ -372,6 +372,17 @@
     ]);
   }
 
+  // Subscription (user request 2026-07-17): visible only to
+  // config('skulos.subscription_visible_role_slugs') (Owner/Principal/
+  // VP/Head Teacher/School Admin), narrower than the general
+  // "! $isRestrictedNav" block above, which still includes Bursar/
+  // Registrar/ICT Officer/etc.
+  if (in_array($scopedRoleSlug, config('skulos.subscription_visible_role_slugs', []), true)) {
+    $groups['Settings'] = array_merge($groups['Settings'] ?? [], [
+      $link('school.subscription.index', 'Subscription', 'billing'),
+    ]);
+  }
+
   // "Guided Setup" itself is a first-run admin task (creating sessions,
   // class structure, houses...), not something a scoped teacher role
   // should be steered toward either.

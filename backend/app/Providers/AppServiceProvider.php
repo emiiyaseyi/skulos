@@ -46,6 +46,7 @@ class AppServiceProvider extends ServiceProvider
         // 2026-07-09: an approved lead went unnoticed) — badge the nav.
         View::composer('layouts.partials.nav-admin', function ($view) {
             $view->with('pendingTrialCount', TrialRequest::pending()->count());
+            $view->with('pendingSubscriptionPayments', \App\Models\SubscriptionPayment::where('status', 'pending')->count());
         });
 
         // Admin configured SMTP (user request 2026-07-09), applied on top

@@ -350,6 +350,20 @@ return [
     ],
 
     /*
+    | Seed default for the bank account a school transfers its SKULOS
+    | subscription payment into (user directive 2026-07-17, real details
+    | given directly). A platform admin can override this from Admin >
+    | Settings > Subscription Bank without a code deploy
+    | (SubscriptionBankService, same PlatformSetting-override pattern as
+    | 'support' above).
+    */
+    'subscription_bank' => [
+        'bank_name' => env('SKULOS_SUBSCRIPTION_BANK_NAME', 'GTBank'),
+        'account_name' => env('SKULOS_SUBSCRIPTION_ACCOUNT_NAME', 'Michael Oluwaseyi Adeniran'),
+        'account_number' => env('SKULOS_SUBSCRIPTION_ACCOUNT_NUMBER', '0036905082'),
+    ],
+
+    /*
     | Permission actions generated for every module: "{module}.{action}".
     | Modules can add extra actions of their own via "extra_permissions".
     */
@@ -575,6 +589,12 @@ return [
         'payment_submitted' => ['label' => 'Payment submitted', 'type' => 'finance'],
         'payment_verified' => ['label' => 'Payment verified', 'type' => 'finance'],
         'payment_rejected' => ['label' => 'Payment rejected', 'type' => 'finance'],
+        'subscription_reminder' => ['label' => 'Subscription reminder', 'type' => 'finance'],
+        'subscription_extended' => ['label' => 'Subscription extended', 'type' => 'finance'],
+        'subscription_locked' => ['label' => 'Subscription overdue', 'type' => 'urgent'],
+        'subscription_reinstated' => ['label' => 'Subscription reinstated', 'type' => 'finance'],
+        'subscription_payment_verified' => ['label' => 'Subscription payment verified', 'type' => 'finance'],
+        'subscription_payment_rejected' => ['label' => 'Subscription payment rejected', 'type' => 'finance'],
     ],
 
     /*
@@ -1236,6 +1256,23 @@ return [
     | incident referenced in PlatformDashboardController).
     */
     'leadership_role_slugs' => ['school-owner', 'principal', 'head-teacher', 'vice-principal'],
+
+    /*
+    | Who sees the subscription countdown/popup and its notifications
+    | (user directive 2026-07-17: "school owners, head teacher, asst
+    | headteacher, principal and vice principal and school admins").
+    | Deliberately its own list, not leadership_role_slugs above: School
+    | Owner and School Administrator are two different real roles (see
+    | RoleDashboard's own dispatch comment), and School Administrator is
+    | explicitly named here even though it is excluded from the
+    | "leadership" dashboard bucket. No separate "Assistant Head
+    | Teacher" role exists in config('skulos.roles'), Vice Principal
+    | already IS that role under its secondary school naming (the same
+    | pairing RoleDashboard's leadership bucket already treats
+    | Principal/Head Teacher and Vice Principal as parallel, not
+    | additional, titles).
+    */
+    'subscription_visible_role_slugs' => ['school-owner', 'principal', 'head-teacher', 'vice-principal', 'school-admin'],
 
     /*
     | Who a platform-owner broadcast reaches within each matched school

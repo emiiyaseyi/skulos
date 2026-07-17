@@ -1,0 +1,178 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\School;
+use App\Models\SubscriptionEvent;
+use App\Models\SubscriptionPayment;
+use App\Services\Billing\SubscriptionBankService;
+use App\Services\Billing\SubscriptionService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+
+/**
+ * Platform subscription billing (user request 2026-07-17): every
+ * school's subscription due date/amount at a glance, the same bank
+ * transfer + evidence + verification flow the Foundation Finance slice
+ * gave schools for their own parents, mirrored here for a school paying
+ * SKULOS itself. Reminder/extension/demand are real, auditable actions
+ * on a school's own next_billing_date/status, never a fabricated
+ * countdown.
+ */
+class SubscriptionController extends Controller
+{
+    public function index(Request $request, SubscriptionService $subs): \Illuminate\View\View
+    {
+        $schools = School::whereNotNull('provisioned_at')->with('plan')->orderBy('name')->get()
+            ->map(function (School $school) use ($subs) {
+                return [
+                    'school' => $school,
+                    'learners' => $subs->activeLearnerCount($school),
+                    'amountDue' => $subs->amountDue($school),
+                    'daysUntilDue' => $subs->daysUntilDue($school),
+                ];
+            });
+
+        return view('admin.subscriptions.index', [
+            'rows' => $schools,
+            'pendingPayments' => SubscriptionPayment::where('status', SubscriptionPayment::STATUS_PENDING)->with('school')->count(),
+        ]);
+    }
+
+    public function show(School $school, SubscriptionService $subs): \Illuminate\View\View
+    {
+        return view('admin.subscriptions.show', [
+            'school' => $school,
+            'learners' => $subs->activeLearnerCount($school),
+            'amountDue' => $subs->amountDue($school),
+            'daysUntilDue' => $subs->daysUntilDue($school),
+            'payments' => SubscriptionPayment::where('school_id', $school->id)->orderByDesc('created_at')->get(),
+            'events' => SubscriptionEvent::where('school_id', $school->id)->with('actionedBy')->orderByDesc('created_at')->take(20)->get(),
+        ]);
+    }
+
+    public function bankEdit(SubscriptionBankService $bank): \Illuminate\View\View
+    {
+        return view('admin.subscriptions.bank', ['settings' => $bank->effective()]);
+    }
+
+    public function bankUpdate(Request $request, SubscriptionBankService $bank): \Illuminate\Http\RedirectResponse
+    {
+        $data = $request->validate([
+            'bank_name' => ['required', 'string', 'max:100'],
+            'account_name' => ['required', 'string', 'max:150'],
+            'account_number' => ['required', 'string', 'max:30'],
+        ]);
+
+        $bank->saveSettings($data);
+
+        return back()->with('status', 'Subscription bank details saved.');
+    }
+
+    public function verify(SubscriptionPayment $payment, SubscriptionService $subs): \Illuminate\Http\RedirectResponse
+    {
+        return $this->decide($payment, SubscriptionPayment::STATUS_VERIFIED, $subs);
+    }
+
+    public function reject(SubscriptionPayment $payment, SubscriptionService $subs): \Illuminate\Http\RedirectResponse
+    {
+        return $this->decide($payment, SubscriptionPayment::STATUS_REJECTED, $subs);
+    }
+
+    protected function decide(SubscriptionPayment $payment, string $status, SubscriptionService $subs): \Illuminate\Http\RedirectResponse
+    {
+        if ($payment->status !== SubscriptionPayment::STATUS_PENDING) {
+            return back()->with('error', 'This payment has already been '.$payment->status.'.');
+        }
+
+        $payment->update([
+            'status' => $status,
+            'verified_by_user_id' => Auth::id(),
+            'verified_at' => now(),
+        ]);
+
+        $verb = $status === SubscriptionPayment::STATUS_VERIFIED ? 'verified' : 'rejected';
+        $category = $status === SubscriptionPayment::STATUS_VERIFIED ? 'subscription_payment_verified' : 'subscription_payment_rejected';
+        $subs->notifySchoolLeadership($payment->school, $category, "Subscription payment {$verb}", 'Your payment of ₦'.number_format((float) $payment->amount, 2)." was {$verb}.");
+
+        return back()->with('status', "Payment marked as {$verb}.");
+    }
+
+    public function remind(School $school, SubscriptionService $subs): \Illuminate\Http\RedirectResponse
+    {
+        $amountDue = $subs->amountDue($school);
+        $subs->notifySchoolLeadership(
+            $school,
+            'subscription_reminder',
+            'Subscription payment reminder',
+            'A reminder from SKULOS: your subscription payment'.($amountDue !== null ? ' of ₦'.number_format($amountDue, 2) : '').' is due'.($school->next_billing_date ? ' on '.$school->next_billing_date->format('d M Y') : '').'.'
+        );
+
+        SubscriptionEvent::create([
+            'school_id' => $school->id, 'type' => SubscriptionEvent::TYPE_REMINDER,
+            'actioned_by_user_id' => Auth::id(),
+        ]);
+
+        return back()->with('status', "Reminder sent to {$school->name}.");
+    }
+
+    public function extend(Request $request, School $school, SubscriptionService $subs): \Illuminate\Http\RedirectResponse
+    {
+        $data = $request->validate(['days' => ['required', 'integer', 'min:1', 'max:365'], 'note' => ['nullable', 'string', 'max:500']]);
+
+        $base = $school->next_billing_date && $school->next_billing_date->isFuture() ? $school->next_billing_date : now();
+        $newDate = $base->copy()->addDays($data['days']);
+        $school->update(['next_billing_date' => $newDate]);
+
+        SubscriptionEvent::create([
+            'school_id' => $school->id, 'type' => SubscriptionEvent::TYPE_EXTENSION,
+            'note' => $data['note'] ?? null, 'extended_to' => $newDate, 'actioned_by_user_id' => Auth::id(),
+        ]);
+
+        $subs->notifySchoolLeadership($school, 'subscription_extended', 'Subscription extended', "Your subscription due date has been moved to {$newDate->format('d M Y')}.".($data['note'] ?? '' ? ' Note: '.$data['note'] : ''));
+
+        return back()->with('status', "{$school->name}'s subscription extended to {$newDate->format('d M Y')}.");
+    }
+
+    /**
+     * Full lockout (user directive 2026-07-17: "demand payment should
+     * also flag/restrict the school... full lockout until resolved").
+     * Reuses the existing School::STATUS_SUSPENDED + ResolveTenant 403,
+     * tagged with suspension_reason so that 403 can actually explain why
+     * and what to do, distinct from the pre-existing, unrelated manual
+     * "Suspend" action.
+     */
+    public function demand(Request $request, School $school, SubscriptionService $subs): \Illuminate\Http\RedirectResponse
+    {
+        $data = $request->validate(['note' => ['nullable', 'string', 'max:500']]);
+
+        $school->update(['status' => School::STATUS_SUSPENDED, 'suspension_reason' => School::SUSPENSION_REASON_BILLING]);
+
+        SubscriptionEvent::create([
+            'school_id' => $school->id, 'type' => SubscriptionEvent::TYPE_DEMAND,
+            'note' => $data['note'] ?? null, 'actioned_by_user_id' => Auth::id(),
+        ]);
+
+        $subs->notifySchoolLeadership($school, 'subscription_locked', 'Access locked: subscription overdue', 'SKULOS access for your school has been locked due to an overdue subscription payment. Please contact SKULOS to resolve this.'.($data['note'] ?? '' ? ' '.$data['note'] : ''));
+
+        return back()->with('status', "{$school->name} has been locked out pending payment.");
+    }
+
+    public function reinstate(School $school, SubscriptionService $subs): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless($school->suspension_reason === School::SUSPENSION_REASON_BILLING, 404);
+
+        $school->update(['status' => School::STATUS_ACTIVE, 'suspension_reason' => null]);
+
+        SubscriptionEvent::create([
+            'school_id' => $school->id, 'type' => SubscriptionEvent::TYPE_REINSTATED,
+            'actioned_by_user_id' => Auth::id(),
+        ]);
+
+        $subs->notifySchoolLeadership($school, 'subscription_reinstated', 'Access restored', 'SKULOS access for your school has been restored.');
+
+        return back()->with('status', "{$school->name}'s access has been restored.");
+    }
+}

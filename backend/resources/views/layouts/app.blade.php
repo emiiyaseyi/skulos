@@ -288,6 +288,25 @@ tr:last-child td{border-bottom:none}
   $link = function($routeName, $params, $label, $icon, $active=false, $soon=false) {
     return compact('routeName','params','label','icon','active','soon');
   };
+  // Subscription countdown popup (user request 2026-07-17: "pops up on
+  // the final 21 days to the due date daily"), only for the 5 named
+  // school-side roles, computed once here since every school portal
+  // page shares this layout. Client side (localStorage) decides whether
+  // it has already been shown today, this only ever supplies the real
+  // data; a day it should not show at all (no due date, outside the
+  // window, wrong role) renders nothing, never a fake countdown.
+  $subscriptionPopup = null;
+  if ($portal === 'school' && isset($school) && auth()->user()
+      && in_array(optional(auth()->user()->roleIn($school))->slug, config('skulos.subscription_visible_role_slugs', []), true)) {
+    $subs = app(\App\Services\Billing\SubscriptionService::class);
+    if ($subs->isWithinReminderWindow($school)) {
+      $subscriptionPopup = [
+        'daysUntilDue' => $subs->daysUntilDue($school),
+        'amountDue' => $subs->amountDue($school),
+        'dueDate' => $school->next_billing_date?->format('d M Y'),
+      ];
+    }
+  }
 @endphp
 <div class="shell{{ $portal === 'school' ? ' school-theme' : '' }}" id="shell">
   <aside class="side" id="sideNav">
@@ -392,6 +411,7 @@ tr:last-child td{border-bottom:none}
 @if(($portal ?? null) === 'school' && isset($school) && $school && auth()->check())
   @include('layouts.partials.broadcast-popup', ['school' => $school])
   @include('layouts.partials.messaging-widget', ['school' => $school])
+  @include('layouts.partials.subscription-popup', ['school' => $school, 'subscriptionPopup' => $subscriptionPopup])
 @endif
 
 {{-- Idle session security timeout (user request 2026-07-09, made admin

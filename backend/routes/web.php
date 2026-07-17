@@ -102,6 +102,23 @@ Route::domain($appDomain)->group(function () {
             Route::get('/', [$supportContact, 'edit'])->name('edit');
             Route::post('/', [$supportContact, 'update'])->name('update');
         });
+        Route::prefix('settings/subscription-bank')->name('settings.subscription-bank.')->group(function () {
+            $subscriptionBank = \App\Http\Controllers\Admin\SubscriptionController::class;
+            Route::get('/', [$subscriptionBank, 'bankEdit'])->name('edit');
+            Route::post('/', [$subscriptionBank, 'bankUpdate'])->name('update');
+        });
+
+        Route::prefix('subscriptions')->name('subscriptions.')->group(function () {
+            $subscriptions = \App\Http\Controllers\Admin\SubscriptionController::class;
+            Route::get('/', [$subscriptions, 'index'])->name('index');
+            Route::get('/{school}', [$subscriptions, 'show'])->name('show');
+            Route::post('/{school}/remind', [$subscriptions, 'remind'])->name('remind');
+            Route::post('/{school}/extend', [$subscriptions, 'extend'])->name('extend');
+            Route::post('/{school}/demand', [$subscriptions, 'demand'])->name('demand');
+            Route::post('/{school}/reinstate', [$subscriptions, 'reinstate'])->name('reinstate');
+            Route::post('/payments/{payment}/verify', [$subscriptions, 'verify'])->name('payments.verify');
+            Route::post('/payments/{payment}/reject', [$subscriptions, 'reject'])->name('payments.reject');
+        });
 
         Route::prefix('billing')->name('billing.')->group(function () {
             $billing = \App\Http\Controllers\Admin\BillingController::class;
@@ -439,6 +456,14 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/payments/{paymentId}', [$payments, 'show'])->name('payments.show');
             Route::post('/payments/{paymentId}/verify', [$payments, 'verify'])->name('payments.verify');
             Route::post('/payments/{paymentId}/reject', [$payments, 'reject'])->name('payments.reject');
+        });
+
+        // A school's own SKULOS subscription (2026-07-17): due date, real
+        // amount owed, bank transfer payment submission.
+        Route::prefix('subscription')->name('school.subscription.')->group(function () {
+            $subscription = \App\Http\Controllers\School\SubscriptionController::class;
+            Route::get('/', [$subscription, 'index'])->name('index');
+            Route::post('/', [$subscription, 'store'])->name('store');
         });
 
         // Campuses.

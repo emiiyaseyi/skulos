@@ -25,6 +25,9 @@ class School extends Model
     public const STATUS_SUSPENDED = 'suspended';
     public const STATUS_ARCHIVED = 'archived';
 
+    /** Distinguishes a subscription-driven lockout (SubscriptionController::demand()) from the pre-existing, unrelated manual "Suspend" action, so ResolveTenant's 403 message can actually explain why. */
+    public const SUSPENSION_REASON_BILLING = 'billing';
+
     protected $fillable = [
         'name',
         'slug',
@@ -39,6 +42,7 @@ class School extends Model
         'login_layout',
         'login_box_side',
         'status',
+        'suspension_reason',
         'settings',
         'backup_frequency',
         'backup_time',
