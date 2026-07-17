@@ -31,8 +31,12 @@
           <tr>
             <td><strong>{{ $school->name }}</strong></td>
             <td class="muted">{{ $school->plan?->name ?? 'No plan' }}</td>
-            <td>{{ number_format($row['learners']) }}</td>
-            <td>{{ $row['amountDue'] !== null ? '₦'.number_format($row['amountDue'], 2) : 'N/A' }}</td>
+            @if($row['unavailable'])
+              <td colspan="2"><span class="badge badge-warn">Temporarily unavailable</span></td>
+            @else
+              <td>{{ number_format($row['learners']) }}</td>
+              <td>{{ $row['amountDue'] !== null ? '₦'.number_format($row['amountDue'], 2) : 'N/A' }}</td>
+            @endif
             <td class="muted" style="white-space:nowrap">
               {{ $school->next_billing_date?->format('d M Y') ?? 'Not set' }}
               @if($days !== null)
@@ -40,11 +44,16 @@
               @endif
             </td>
             <td>
-              @if($school->status === 'suspended' && $school->suspension_reason === 'billing')
-                <span class="badge badge-bad">Locked (billing)</span>
-              @else
-                <span class="badge badge-ok">{{ ucfirst($school->status) }}</span>
-              @endif
+              @php
+                $statusClass = match(true) {
+                  $school->status === 'suspended' && $school->suspension_reason === 'billing' => 'badge-bad',
+                  $school->status === 'suspended' => 'badge-bad',
+                  $school->status === 'active' => 'badge-ok',
+                  default => 'badge-warn',
+                };
+                $statusLabel = $school->status === 'suspended' && $school->suspension_reason === 'billing' ? 'Locked (billing)' : ucfirst($school->status);
+              @endphp
+              <span class="badge {{ $statusClass }}">{{ $statusLabel }}</span>
             </td>
             <td><a class="btn btn-ghost btn-sm" href="{{ route('admin.subscriptions.show', ['school' => $school->id]) }}">Manage</a></td>
           </tr>
@@ -52,6 +61,7 @@
       </tbody>
     </table>
     </div>
+    <div style="margin-top:.8rem">{{ $rows->links() }}</div>
   @endif
 </div>
 @endsection

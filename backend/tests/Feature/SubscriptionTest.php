@@ -130,6 +130,50 @@ class SubscriptionTest extends TestCase
             ->assertSee('₦500.00'); // 1 learner * 500
     }
 
+    /**
+     * Audit finding H-2 (2026-07-17): the admin subscriptions index looped
+     * every provisioned school into its tenant DB with no per-school
+     * try/catch, so one missing/corrupt tenant database 500'd the whole
+     * page, hiding every other school's billing data too.
+     */
+    public function test_a_missing_tenant_database_does_not_break_the_whole_admin_list(): void
+    {
+        [$healthySchool, ] = $this->schoolWithOwner('subbroken', ['price_per_student_per_term' => 500]);
+        app(TenantManager::class)->use($healthySchool);
+        Student::create(['admission_number' => 'Z1', 'first_name' => 'A', 'last_name' => 'B']);
+        app(TenantManager::class)->forget();
+
+        [$brokenSchool, ] = $this->schoolWithOwner('subbroken2');
+        File::delete($this->tenantDir.DIRECTORY_SEPARATOR.$brokenSchool->database.'.sqlite');
+
+        $admin = $this->superAdmin();
+        $response = $this->actingAs($admin)->get('http://localhost/admin/subscriptions');
+
+        $response->assertOk()
+            ->assertSee($healthySchool->name)
+            ->assertSee('₦500.00')
+            ->assertSee($brokenSchool->name)
+            ->assertSee('Temporarily unavailable');
+    }
+
+    /** Audit finding H-7 (2026-07-17): a school suspended for a reason other than billing must not render a misleading green "ok" badge. */
+    public function test_a_manually_suspended_school_shows_a_bad_badge_not_ok(): void
+    {
+        [$school, ] = $this->schoolWithOwner('subsuspended');
+        $school->update(['status' => School::STATUS_SUSPENDED, 'suspension_reason' => null]);
+
+        $admin = $this->superAdmin();
+        $response = $this->actingAs($admin)->get('http://localhost/admin/subscriptions');
+
+        $response->assertOk();
+        $body = $response->getContent();
+        $tableStart = strpos($body, '<tbody>');
+        $rowStart = strpos($body, $school->name, $tableStart);
+        $rowSlice = substr($body, $rowStart, 600);
+        $this->assertStringContainsString('badge-bad', $rowSlice);
+        $this->assertStringNotContainsString('badge-ok', $rowSlice);
+    }
+
     public function test_admin_can_verify_a_payment_and_the_school_is_notified(): void
     {
         [$school, $owner] = $this->schoolWithOwner('subfive');

@@ -44,6 +44,25 @@ class SubscriptionService
         return $this->activeLearnerCount($school) * (float) $plan->price_per_student_per_term;
     }
 
+    /**
+     * learners + amountDue + daysUntilDue in a single tenant-DB connection
+     * switch, for callers (the admin subscriptions list/show pages) that
+     * would otherwise call activeLearnerCount() once directly and again
+     * indirectly via amountDue(), doubling the tenant-connection churn per
+     * school on every page load (audit finding, 2026-07-17).
+     */
+    public function billingSnapshot(School $school): array
+    {
+        $learners = $this->activeLearnerCount($school);
+        $plan = $this->plan($school);
+
+        return [
+            'learners' => $learners,
+            'amountDue' => $plan ? $learners * (float) $plan->price_per_student_per_term : null,
+            'daysUntilDue' => $this->daysUntilDue($school),
+        ];
+    }
+
     /** Whole days until next_billing_date, negative once overdue, null if no due date is set at all. */
     public function daysUntilDue(School $school): ?int
     {

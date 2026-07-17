@@ -23,17 +23,35 @@ use Illuminate\Support\Facades\Storage;
  */
 class SubscriptionController extends Controller
 {
+    /**
+     * Every provisioned school's tenant database is briefly connected to
+     * here to read its live learner count. Previously a single missing or
+     * corrupt tenant DB threw uncaught, 500ing this page for every school,
+     * not just the affected one, and the query had no pagination so this
+     * scaled linearly with the number of schools on the platform (audit
+     * finding H-2, 2026-07-17). Each school's snapshot is now isolated: a
+     * failure is logged and shown as "unavailable" for that row only.
+     */
     public function index(Request $request, SubscriptionService $subs): \Illuminate\View\View
     {
-        $schools = School::whereNotNull('provisioned_at')->with('plan')->orderBy('name')->get()
-            ->map(function (School $school) use ($subs) {
-                return [
-                    'school' => $school,
-                    'learners' => $subs->activeLearnerCount($school),
-                    'amountDue' => $subs->amountDue($school),
-                    'daysUntilDue' => $subs->daysUntilDue($school),
-                ];
-            });
+        $schools = School::whereNotNull('provisioned_at')->with('plan')->orderBy('name')->paginate(25);
+
+        $schools->through(function (School $school) use ($subs) {
+            try {
+                $snapshot = $subs->billingSnapshot($school);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error("Subscription billing snapshot failed for school {$school->slug}: ".$e->getMessage());
+                $snapshot = ['learners' => null, 'amountDue' => null, 'daysUntilDue' => null];
+            }
+
+            return [
+                'school' => $school,
+                'learners' => $snapshot['learners'],
+                'amountDue' => $snapshot['amountDue'],
+                'daysUntilDue' => $snapshot['daysUntilDue'],
+                'unavailable' => $snapshot['learners'] === null,
+            ];
+        });
 
         return view('admin.subscriptions.index', [
             'rows' => $schools,
@@ -43,11 +61,18 @@ class SubscriptionController extends Controller
 
     public function show(School $school, SubscriptionService $subs): \Illuminate\View\View
     {
+        try {
+            $snapshot = $subs->billingSnapshot($school);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Subscription billing snapshot failed for school {$school->slug}: ".$e->getMessage());
+            $snapshot = ['learners' => null, 'amountDue' => null, 'daysUntilDue' => null];
+        }
+
         return view('admin.subscriptions.show', [
             'school' => $school,
-            'learners' => $subs->activeLearnerCount($school),
-            'amountDue' => $subs->amountDue($school),
-            'daysUntilDue' => $subs->daysUntilDue($school),
+            'learners' => $snapshot['learners'],
+            'amountDue' => $snapshot['amountDue'],
+            'daysUntilDue' => $snapshot['daysUntilDue'],
             'payments' => SubscriptionPayment::where('school_id', $school->id)->orderByDesc('created_at')->get(),
             'events' => SubscriptionEvent::where('school_id', $school->id)->with('actionedBy')->orderByDesc('created_at')->take(20)->get(),
         ]);
