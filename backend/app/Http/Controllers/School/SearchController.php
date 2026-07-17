@@ -7,7 +7,9 @@ use App\Models\School;
 use App\Models\Tenant\Staff;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\StudentGuardian;
+use App\Services\Rbac\FamilyScope;
 use App\Services\Rbac\Rbac;
+use App\Services\Rbac\TeacherScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -39,6 +41,15 @@ class SearchController extends Controller
         $canViewStudents = $rbac->check($user, $school, 'students.view');
         $canViewStaff = $rbac->check($user, $school, 'staff.view');
 
+        // A class/subject teacher or a parent/student holds students.view
+        // but must only ever be able to search up their own scope, the
+        // same restriction StudentController::show()/index() already
+        // enforce (audit finding M-1, 2026-07-17: this screen let a class
+        // teacher search up any student, and their guardians' contact
+        // details, school wide).
+        $scopedArmIds = app(TeacherScope::class)->classArmIds($user, $school);
+        $familyStudentIds = app(FamilyScope::class)->studentIds($user, $school);
+
         $students = collect();
         $staff = collect();
         $guardians = collect();
@@ -46,6 +57,8 @@ class SearchController extends Controller
         if (mb_strlen($q) >= 2) {
             if ($canViewStudents) {
                 $students = Student::query()
+                    ->when($scopedArmIds !== null, fn ($qb) => $qb->whereIn('current_class_arm_id', $scopedArmIds))
+                    ->when($familyStudentIds !== null, fn ($qb) => $qb->whereIn('id', $familyStudentIds))
                     ->where(function ($w) use ($q) {
                         $w->where('admission_number', 'like', "%{$q}%")
                             ->orWhere('first_name', 'like', "%{$q}%")
@@ -55,12 +68,15 @@ class SearchController extends Controller
 
                 $guardians = StudentGuardian::query()
                     ->with('student')
+                    ->whereHas('student', function ($sw) use ($scopedArmIds, $familyStudentIds) {
+                        $sw->when($scopedArmIds !== null, fn ($qb) => $qb->whereIn('current_class_arm_id', $scopedArmIds))
+                            ->when($familyStudentIds !== null, fn ($qb) => $qb->whereIn('id', $familyStudentIds));
+                    })
                     ->where(function ($w) use ($q) {
                         $w->where('name', 'like', "%{$q}%")
                             ->orWhere('email', 'like', "%{$q}%")
                             ->orWhere('phone', 'like', "%{$q}%");
                     })
-                    ->whereHas('student')
                     ->limit(8)->get();
             }
 

@@ -237,8 +237,30 @@ class ReportCardWorkflowTest extends TestCase
         [$school, $teacher] = $this->schoolWithMember('class-teacher', 'rceight');
         [$classId, $studentId] = $this->seedClassWithStudent($school);
 
+        // TeacherScope keys off a real Staff row assigned to the class arm
+        // as class_teacher_staff_id, not just the "class-teacher" RBAC
+        // role, so a class teacher must actually be assigned to this class
+        // to be in scope for it (audit finding M-1, 2026-07-17: report
+        // card actions gained the same TeacherScope check
+        // StudentController::show() already had).
+        app(TenantManager::class)->use($school);
+        $staff = Staff::create(['staff_id' => 'T1', 'first_name' => 'Tobi', 'last_name' => 'Teacher', 'user_id' => $teacher->id]);
+        ClassArm::where('school_class_id', $classId)->update(['class_teacher_staff_id' => $staff->id]);
+        app(TenantManager::class)->forget();
+
         $this->actingAs($teacher)->get("http://{$school->slug}.localhost/report-cards/classes/{$classId}")->assertOk();
         $this->actingAs($teacher)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/generate")->assertRedirect();
+    }
+
+    public function test_a_class_teacher_outside_the_class_cannot_generate_or_view(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('class-teacher', 'rcnineteen');
+        [$classId, $studentId] = $this->seedClassWithStudent($school);
+
+        // No Staff row links this teacher to the class arm at all, so they
+        // are scoped to nothing (audit finding M-1, 2026-07-17).
+        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/report-cards/classes/{$classId}")->assertNotFound();
+        $this->actingAs($teacher)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/generate")->assertNotFound();
     }
 
     public function test_a_subject_teacher_without_report_card_access_is_forbidden(): void

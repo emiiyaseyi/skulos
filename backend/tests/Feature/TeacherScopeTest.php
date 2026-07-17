@@ -223,6 +223,45 @@ class TeacherScopeTest extends TestCase
             ->assertOk()->assertSee('Mr Obi');
     }
 
+    /**
+     * Audit finding H-1 (2026-07-17): a class teacher held students.update
+     * but every single-record mutation/login-provisioning action loaded
+     * the target by raw id with no scope check at all, so a class teacher
+     * of one arm could edit, re-guardian, or mint a login for a student in
+     * a DIFFERENT class purely by crafting the id in the URL/form. All of
+     * these must now 404 the same way GET /students/{studentB} already did.
+     */
+    public function test_a_class_teacher_cannot_mutate_a_student_outside_their_scope(): void
+    {
+        [$school, $teacherUser] = $this->schoolWithMember('class-teacher', 'scopenine');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $armA, 'studentB' => $studentB] = $this->twoClassesWithStudents();
+        $staff = Staff::create(['staff_id' => 'STF/0008', 'first_name' => 'Tee', 'last_name' => 'Cher', 'position' => 'Class Teacher', 'status' => 'active', 'user_id' => $teacherUser->id]);
+        $armA->update(['class_teacher_staff_id' => $staff->id]);
+        $guardian = $studentB->guardians()->create(['name' => 'Mrs Ade', 'relationship' => 'Mother', 'email' => 'mrsade@example.com', 'is_primary' => true]);
+        $guardianId = $guardian->id;
+        $studentBId = $studentB->id;
+        app(TenantManager::class)->forget();
+
+        $base = "http://{$school->slug}.localhost";
+
+        $this->actingAs($teacherUser)->get("{$base}/students/{$studentBId}/edit")->assertNotFound();
+        $this->actingAs($teacherUser)->post("{$base}/students/{$studentBId}/edit", ['first_name' => 'Hacked', 'last_name' => 'Name', 'admission_number' => 'B/001'])->assertNotFound();
+        $this->actingAs($teacherUser)->post("{$base}/students/{$studentBId}/guardians", ['name' => 'Injected Guardian', 'email' => 'injected@example.com'])->assertNotFound();
+        $this->actingAs($teacherUser)->post("{$base}/students/guardians/{$guardianId}/edit", ['name' => 'Renamed', 'email' => 'mrsade@example.com'])->assertNotFound();
+        $this->actingAs($teacherUser)->delete("{$base}/students/guardians/{$guardianId}")->assertNotFound();
+        $this->actingAs($teacherUser)->post("{$base}/students/guardians/{$guardianId}/login", ['email' => 'attacker@example.com'])->assertNotFound();
+        $this->actingAs($teacherUser)->post("{$base}/students/{$studentBId}/login", ['email' => 'attacker2@example.com'])->assertNotFound();
+
+        // Confirm none of it actually took effect.
+        app(TenantManager::class)->use($school);
+        $this->assertSame('Bode', Student::find($studentBId)->first_name);
+        $this->assertSame('Mrs Ade', \App\Models\Tenant\StudentGuardian::find($guardianId)->name);
+        $this->assertNull(\App\Models\Tenant\StudentGuardian::find($guardianId)->guardian_user_id);
+        app(TenantManager::class)->forget();
+    }
+
     /** A class teacher holds students.update, but a bulk action must still be silently limited to their own scoped students, an id for another class is never acted on. */
     public function test_a_class_teachers_bulk_action_never_touches_a_student_outside_their_scope(): void
     {

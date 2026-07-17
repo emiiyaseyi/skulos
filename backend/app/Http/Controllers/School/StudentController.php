@@ -20,6 +20,7 @@ use App\Services\Bulk\Importer;
 use App\Services\Bulk\Importers\StudentImporter;
 use App\Services\Rbac\FamilyScope;
 use App\Services\Rbac\Rbac;
+use App\Services\Rbac\StudentAccessGuard;
 use App\Services\Rbac\TeacherScope;
 use App\Services\Results\ResultService;
 use Illuminate\Http\Request;
@@ -416,19 +417,10 @@ class StudentController extends Controller
             ->findOrFail($request->route('studentId'));
 
         // A class/subject teacher opening a student outside their own
-        // classes gets a 404, not a 403, per the standing "never leak
-        // that a resource exists" convention.
-        $scopedArmIds = app(TeacherScope::class)->classArmIds($user, $school);
-        if ($scopedArmIds !== null) {
-            abort_unless($student->current_class_arm_id && $scopedArmIds->contains($student->current_class_arm_id), 404);
-        }
-
-        // Same 404 (not 403) treatment for a parent/student opening a
-        // record outside their own family (user request 2026-07-13).
-        $familyStudentIds = app(FamilyScope::class)->studentIds($user, $school);
-        if ($familyStudentIds !== null) {
-            abort_unless($familyStudentIds->contains($student->id), 404);
-        }
+        // classes, or a parent/student opening a record outside their own
+        // family, gets a 404, not a 403, per the standing "never leak that
+        // a resource exists" convention.
+        app(StudentAccessGuard::class)->assertVisible($user, $school, $student);
 
         $term = Term::current()->first();
         $report = $term ? app(ResultService::class)->studentReport($student->id, $term->id, GradingScale::default()) : [];
@@ -502,6 +494,7 @@ class StudentController extends Controller
         $this->authorizeAction($request, 'students.update');
         $school = $this->school($request);
         $student = Student::findOrFail($request->route('studentId'));
+        app(StudentAccessGuard::class)->assertVisible(Auth::user(), $school, $student);
 
         return view('school.students.form', [
             'school' => $school,
@@ -518,6 +511,7 @@ class StudentController extends Controller
         $this->authorizeAction($request, 'students.update');
         $school = $this->school($request);
         $student = Student::findOrFail($request->route('studentId'));
+        app(StudentAccessGuard::class)->assertVisible(Auth::user(), $school, $student);
         $data = $request->validate($this->studentValidationRules($student));
 
         $student->update($data);
@@ -536,7 +530,9 @@ class StudentController extends Controller
     public function storeGuardian(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'students.update');
+        $school = $this->school($request);
         $student = Student::findOrFail($request->route('studentId'));
+        app(StudentAccessGuard::class)->assertVisible(Auth::user(), $school, $student);
 
         $identifier = Setting::grab('parent_identifier', 'email');
         $data = $request->validate([
@@ -563,7 +559,9 @@ class StudentController extends Controller
     public function updateGuardian(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'students.update');
-        $guardian = StudentGuardian::findOrFail($request->route('guardianId'));
+        $school = $this->school($request);
+        $guardian = StudentGuardian::with('student')->findOrFail($request->route('guardianId'));
+        app(StudentAccessGuard::class)->assertVisible(Auth::user(), $school, $guardian->student);
 
         $identifier = Setting::grab('parent_identifier', 'email');
         $data = $request->validate([
@@ -588,7 +586,9 @@ class StudentController extends Controller
     public function destroyGuardian(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'students.update');
-        $guardian = StudentGuardian::findOrFail($request->route('guardianId'));
+        $school = $this->school($request);
+        $guardian = StudentGuardian::with('student')->findOrFail($request->route('guardianId'));
+        app(StudentAccessGuard::class)->assertVisible(Auth::user(), $school, $guardian->student);
         $name = $guardian->name;
         $guardian->delete();
 
@@ -607,7 +607,8 @@ class StudentController extends Controller
     {
         $this->authorizeAction($request, 'students.update');
         $school = $this->school($request);
-        $guardian = StudentGuardian::findOrFail($request->route('guardianId'));
+        $guardian = StudentGuardian::with('student')->findOrFail($request->route('guardianId'));
+        app(StudentAccessGuard::class)->assertVisible(Auth::user(), $school, $guardian->student);
 
         $data = $request->validate(['email' => ['required', 'email', 'max:150']]);
 
@@ -621,7 +622,8 @@ class StudentController extends Controller
     {
         $this->authorizeAction($request, 'students.update');
         $school = $this->school($request);
-        $guardian = StudentGuardian::findOrFail($request->route('guardianId'));
+        $guardian = StudentGuardian::with('student')->findOrFail($request->route('guardianId'));
+        app(StudentAccessGuard::class)->assertVisible(Auth::user(), $school, $guardian->student);
         abort_unless($guardian->guardian_user_id, 404);
 
         $accounts->resetPassword($school, User::findOrFail($guardian->guardian_user_id));
@@ -633,7 +635,8 @@ class StudentController extends Controller
     {
         $this->authorizeAction($request, 'students.update');
         $school = $this->school($request);
-        $guardian = StudentGuardian::findOrFail($request->route('guardianId'));
+        $guardian = StudentGuardian::with('student')->findOrFail($request->route('guardianId'));
+        app(StudentAccessGuard::class)->assertVisible(Auth::user(), $school, $guardian->student);
         abort_unless($guardian->guardian_user_id, 404);
 
         $user = User::findOrFail($guardian->guardian_user_id);
@@ -665,6 +668,7 @@ class StudentController extends Controller
         $this->authorizeAction($request, 'students.update');
         $school = $this->school($request);
         $student = Student::findOrFail($request->route('studentId'));
+        app(StudentAccessGuard::class)->assertVisible(Auth::user(), $school, $student);
 
         $data = $request->validate(['email' => ['required', 'email', 'max:150']]);
 
@@ -679,6 +683,7 @@ class StudentController extends Controller
         $this->authorizeAction($request, 'students.update');
         $school = $this->school($request);
         $student = Student::findOrFail($request->route('studentId'));
+        app(StudentAccessGuard::class)->assertVisible(Auth::user(), $school, $student);
         abort_unless($student->user_id, 404);
 
         $accounts->resetPassword($school, User::findOrFail($student->user_id));
@@ -691,6 +696,7 @@ class StudentController extends Controller
         $this->authorizeAction($request, 'students.update');
         $school = $this->school($request);
         $student = Student::findOrFail($request->route('studentId'));
+        app(StudentAccessGuard::class)->assertVisible(Auth::user(), $school, $student);
         abort_unless($student->user_id, 404);
 
         $user = User::findOrFail($student->user_id);

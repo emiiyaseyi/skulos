@@ -12,6 +12,8 @@ use App\Models\Tenant\Staff;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\Term;
 use App\Services\Rbac\Rbac;
+use App\Services\Rbac\StudentAccessGuard;
+use App\Services\Rbac\TeacherScope;
 use App\Services\ReportCards\ReportCardPreferences;
 use App\Services\ReportCards\ReportCardService;
 use Illuminate\Http\Request;
@@ -57,6 +59,19 @@ class ReportCardController extends Controller
             403,
             'You do not have permission for this.'
         );
+    }
+
+    /**
+     * A class/subject teacher holds report_cards.view/create/update but was
+     * never scope checked on report card actions the way
+     * StudentController::show() checks students (audit finding M-1,
+     * 2026-07-17): they could view/generate/send back a report card for any
+     * student school wide, not just their own class. 404, never 403, same
+     * convention as StudentAccessGuard.
+     */
+    protected function assertStudentVisible(Request $request, Student $student): void
+    {
+        app(StudentAccessGuard::class)->assertVisible(Auth::user(), $this->school($request), $student);
     }
 
     public function edit(Request $request, ReportCardPreferences $prefs): \Illuminate\View\View
@@ -158,6 +173,7 @@ class ReportCardController extends Controller
         $this->authorizeAction($request, 'report_cards.view');
         $school = $this->school($request);
         $student = Student::findOrFail($request->route('studentId'));
+        $this->assertStudentVisible($request, $student);
         $term = Term::findOrFail($request->route('termId'));
 
         return view('school.report-cards.render', [
@@ -257,6 +273,15 @@ class ReportCardController extends Controller
         $term = $this->resolveTerm($request);
 
         $armIds = $class->arms->pluck('id');
+
+        // A class/subject teacher opening a class outside their own scope
+        // gets a 404, matching every other scoped student/report-card view
+        // (audit finding M-1, 2026-07-17).
+        $scopedArmIds = app(TeacherScope::class)->classArmIds(Auth::user(), $school);
+        if ($scopedArmIds !== null) {
+            abort_unless($armIds->intersect($scopedArmIds)->isNotEmpty(), 404);
+        }
+
         $students = Student::whereIn('current_class_arm_id', $armIds)->orderBy('last_name')->get();
         $reviews = ReportCardReview::whereIn('student_id', $students->pluck('id'))
             ->where('term_id', $term->id)
@@ -301,6 +326,7 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.create');
         $student = Student::with('currentClassArm.schoolClass')->findOrFail($request->route('studentId'));
+        $this->assertStudentVisible($request, $student);
         $term = $this->resolveTerm($request);
 
         $review = ReportCardReview::firstOrCreate(
@@ -350,6 +376,7 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.update');
         $student = Student::findOrFail($request->route('studentId'));
+        $this->assertStudentVisible($request, $student);
         $term = $this->resolveTerm($request);
 
         $data = $request->validate([
@@ -378,6 +405,7 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.assign_review');
         $student = Student::findOrFail($request->route('studentId'));
+        $this->assertStudentVisible($request, $student);
         $term = $this->resolveTerm($request);
 
         $data = $request->validate(['assigned_to_staff_id' => ['nullable', 'exists:tenant.staff,id']]);
@@ -401,6 +429,7 @@ class ReportCardController extends Controller
     public function bulkAssignReview(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'report_cards.assign_review');
+        $school = $this->school($request);
         $term = $this->resolveTerm($request);
 
         $data = $request->validate([
@@ -409,8 +438,16 @@ class ReportCardController extends Controller
             'assigned_to_staff_id' => ['required', 'exists:tenant.staff,id'],
         ]);
 
+        // A scoped teacher's id list is narrowed to their own classes, an
+        // id crafted for another class is silently dropped rather than
+        // acted on, matching StudentController::bulkAction()'s convention.
+        $scopedArmIds = app(TeacherScope::class)->classArmIds(Auth::user(), $school);
+        $studentIds = $scopedArmIds !== null
+            ? Student::whereIn('id', $data['student_ids'])->whereIn('current_class_arm_id', $scopedArmIds)->pluck('id')
+            : collect($data['student_ids']);
+
         $count = 0;
-        foreach ($data['student_ids'] as $studentId) {
+        foreach ($studentIds as $studentId) {
             $review = ReportCardReview::firstOrNew(['student_id' => $studentId, 'term_id' => $term->id]);
             if (! $review->exists) {
                 $review->status = ReportCardReview::STATUS_PENDING_REVIEW;
@@ -435,6 +472,7 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.assign_review');
         $student = Student::findOrFail($request->route('studentId'));
+        $this->assertStudentVisible($request, $student);
         $term = $this->resolveTerm($request);
 
         $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id]);
@@ -466,6 +504,7 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.assign_review');
         $student = Student::findOrFail($request->route('studentId'));
+        $this->assertStudentVisible($request, $student);
         $term = $this->resolveTerm($request);
 
         $data = $request->validate([
@@ -486,6 +525,7 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.release');
         $student = Student::findOrFail($request->route('studentId'));
+        $this->assertStudentVisible($request, $student);
         $term = $this->resolveTerm($request);
 
         $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id]);
@@ -510,6 +550,7 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.release');
         $student = Student::findOrFail($request->route('studentId'));
+        $this->assertStudentVisible($request, $student);
         $term = $this->resolveTerm($request);
 
         $review = ReportCardReview::where('student_id', $student->id)->where('term_id', $term->id)->firstOrFail();
@@ -527,6 +568,7 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.release');
         $student = Student::findOrFail($request->route('studentId'));
+        $this->assertStudentVisible($request, $student);
         $term = $this->resolveTerm($request);
 
         $review = ReportCardReview::where('student_id', $student->id)->where('term_id', $term->id)->firstOrFail();
@@ -580,6 +622,7 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.assign_review');
         $student = Student::findOrFail($request->route('studentId'));
+        $this->assertStudentVisible($request, $student);
         $term = $this->currentTermOrAbort();
 
         $review = ReportCardReview::where('student_id', $student->id)->where('term_id', $term->id)->firstOrFail();
