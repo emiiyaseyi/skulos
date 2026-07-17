@@ -44,11 +44,11 @@ class PlanFeatureNavTest extends TestCase
         parent::tearDown();
     }
 
-    protected function schoolOnPlan(array $features, string $slug): array
+    protected function schoolOnPlan(array $features, string $slug, array $modules = []): array
     {
         $plan = Plan::create([
             'name' => 'Test Plan '.$slug, 'slug' => 'plan-'.$slug,
-            'price_per_student_per_term' => 500, 'modules' => [], 'features' => $features,
+            'price_per_student_per_term' => 500, 'modules' => $modules, 'features' => $features,
         ]);
         $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => $slug, 'plan_id' => $plan->id]));
         $user = User::factory()->create();
@@ -500,6 +500,24 @@ class PlanFeatureNavTest extends TestCase
             ->assertDontSee('Soon');
 
         $this->actingAs($user)->get("http://{$school->slug}.localhost/announcements/history")->assertOk();
+    }
+
+    public function test_basic_fee_records_and_bank_transfer_payment_render_as_real_links_not_soon(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(
+            ['basic_fee_records', 'bank_transfer_payment_option', 'payment_evidence_upload', 'payment_verification'],
+            'planfinance',
+            ['finance'],
+        );
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()
+            ->assertSee('Fee Records')
+            ->assertSee('Payments')
+            ->assertDontSee('Soon');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/finance/fee-items")->assertOk();
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/finance/payments")->assertOk();
     }
 
     public function test_the_nav_search_box_also_renders_on_the_platform_admin_portal(): void

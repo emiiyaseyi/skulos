@@ -113,6 +113,27 @@ class Rbac
             return $hit->state;
         }
 
+        // No explicit module_states override anywhere (the common case:
+        // module_states rows are only ever written when a platform admin
+        // visits Billing and explicitly assigns/changes a school's plan,
+        // BillingController::assignPlan()). Without this, a school that
+        // has never been through that one specific admin action, which is
+        // every school provisioned via the self-service trial flow, and
+        // every factory-created test school, would have zero
+        // module_states rows and every non-core module would silently
+        // read as disabled regardless of what its plan actually promises
+        // (found 2026-07-17 building the Foundation Finance slice, the
+        // first non-core module with a real permission-gated screen
+        // behind it; every prior non-core module, Library/Hostel/etc.,
+        // is still "Soon" everywhere, so this gap never mattered before).
+        // Falls back to the school's plan the same way
+        // School::hasFeature() already does, not a second, inconsistent
+        // fallback rule.
+        $plan = $school->plan ?? \App\Models\Plan::where('is_default', true)->first();
+        if (in_array($moduleCode, $plan?->modules ?? [], true)) {
+            return Module::STATE_ENABLED;
+        }
+
         return $module->defaultState();
     }
 

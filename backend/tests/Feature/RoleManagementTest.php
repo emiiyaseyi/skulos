@@ -102,12 +102,16 @@ class RoleManagementTest extends TestCase
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'rmthree');
 
-        // "finance" has no real screen behind it yet, so it is not on the curated list.
-        $financeView = \App\Models\Permission::where('code', 'finance.view')->firstOrFail();
+        // "library" has no real screen behind it yet, so it is not on the
+        // curated list (this test used "finance" until 2026-07-17, when the
+        // Foundation Finance slice gave it a real screen and moved it onto
+        // config('skulos.staff_extra_access_modules'), the exact catalog
+        // this test is about).
+        $libraryView = \App\Models\Permission::where('code', 'library.view')->firstOrFail();
 
         $this->actingAs($owner)->post(route('school.roles.store', ['school' => $school->slug]), [
-            'name' => 'Finance Lead',
-            'permissions' => [$financeView->id],
+            'name' => 'Library Lead',
+            'permissions' => [$libraryView->id],
         ])->assertSessionHasErrors('permissions.0');
     }
 
@@ -151,15 +155,21 @@ class RoleManagementTest extends TestCase
         $this->actingAs($owner)->get(route('school.roles.index', ['school' => $school->slug]));
 
         $bursar = Role::where('school_id', $school->id)->where('slug', 'bursar')->firstOrFail();
-        $financeView = \App\Models\Permission::where('code', 'finance.view')->firstOrFail(); // not on the curated list
-        $bursar->permissions()->attach($financeView->id);
+        // library.view: genuinely outside both the curated catalog checkbox
+        // list AND bursar's own template grants (unlike finance.view, which
+        // this test originally used until 2026-07-17, when Bursar's own
+        // template grants were extended to include finance.* for the
+        // Foundation Finance slice, making finance.view a real grant for
+        // this role rather than an "outside the catalog" example).
+        $libraryView = \App\Models\Permission::where('code', 'library.view')->firstOrFail();
+        $bursar->permissions()->attach($libraryView->id);
 
         $this->actingAs($owner)->post(route('school.roles.permissions.update', ['school' => $school->slug, 'roleId' => $bursar->id]), [
             'permissions' => [],
         ])->assertRedirect();
 
         $bursar->refresh();
-        $this->assertTrue($bursar->permissions()->where('permissions.id', $financeView->id)->exists(), 'a permission outside the curated catalog must never be touched by this screen');
+        $this->assertTrue($bursar->permissions()->where('permissions.id', $libraryView->id)->exists(), 'a permission outside the curated catalog must never be touched by this screen');
     }
 
     /** User directive 2026-07-16: "I WANT TO CLICK ON A ROLE AND SEE ALL THE NAME OF USERS UNDER THE ROLE - THIS CAN COME AS POP UP". */

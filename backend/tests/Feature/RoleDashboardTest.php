@@ -406,16 +406,18 @@ class RoleDashboardTest extends TestCase
     }
 
     /**
-     * Bursar/Accountant, Librarian, Nurse, Hostel Master, and Transport
-     * Officer all have some real overlapping data (students, and for
-     * Bursar/Accountant, guardians too) even though their own module is
-     * not built yet (user direction 2026-07-12: "update for all roles in
-     * the DASHBOARD DESIGN doc... as we build more data, the ones left
-     * will show on the necessary user dashboards").
+     * Librarian, Nurse, Hostel Master, and Transport Officer all have some
+     * real overlapping data (students) even though their own module is not
+     * built yet (user direction 2026-07-12: "update for all roles in the
+     * DASHBOARD DESIGN doc... as we build more data, the ones left will
+     * show on the necessary user dashboards"). Bursar/Accountant moved off
+     * this peopleOnly() placeholder onto a real financeOverview() 2026-07-17
+     * (Foundation Finance slice), covered separately in FinanceTest.php's
+     * own dashboard assertion, not this loop.
      */
     public function test_roles_with_partial_real_data_see_student_counts_not_a_blank_state(): void
     {
-        foreach (['bursar' => true, 'accountant' => true, 'librarian' => false, 'nurse' => false, 'hostel-master' => false, 'transport-officer' => false] as $slug => $expectGuardians) {
+        foreach (['librarian' => false, 'nurse' => false, 'hostel-master' => false, 'transport-officer' => false] as $slug => $expectGuardians) {
             [$school, $user] = $this->schoolWithMember($slug, 'rdpo'.crc32($slug));
             app(TenantManager::class)->use($school);
             Student::create(['admission_number' => 'S-'.$slug, 'first_name' => 'A', 'last_name' => 'B']);

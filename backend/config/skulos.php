@@ -42,6 +42,10 @@ return [
         // the full module catalog (see the comment on this key's own
         // definition below for why).
         'assignments',
+        // Added 2026-07-17: Foundation Finance slice gave 'finance' a real
+        // screen behind it (FeeItemController/PaymentController), same
+        // reasoning as 'assignments' above.
+        'finance',
     ],
 
     'modules' => [
@@ -568,6 +572,9 @@ return [
         'report_card_review' => ['label' => 'Report card review', 'type' => 'academic'],
         'birthday' => ['label' => 'Birthday', 'type' => 'academic'],
         'anniversary' => ['label' => 'Work anniversary', 'type' => 'academic'],
+        'payment_submitted' => ['label' => 'Payment submitted', 'type' => 'finance'],
+        'payment_verified' => ['label' => 'Payment verified', 'type' => 'finance'],
+        'payment_rejected' => ['label' => 'Payment rejected', 'type' => 'finance'],
     ],
 
     /*
@@ -1132,6 +1139,19 @@ return [
     'permission_actions' => ['view', 'create', 'update', 'delete', 'export', 'bulk'],
 
     /*
+    | Per file type upload size limits, in kilobytes (Dbase recommendation
+    | standing rule: "bake these limits into config, admin adjustable, not
+    | hardcoded, when the first upload feature is built"). Payment evidence
+    | (Foundation Finance slice, 2026-07-17) is the first real upload
+    | feature in the product, so this is the first entry; add a new key
+    | here rather than a magic number in a validation rule whenever a
+    | future upload feature (student/staff photos, documents) lands.
+    */
+    'upload_limits' => [
+        'payment_evidence_kb' => 3072,
+    ],
+
+    /*
     | Roles restricted to only their own assigned classes/students rather
     | than the whole school (user directive 2026-07-12, live QA on the
     | subject-teacher role: "should only see the class assigned to him...
@@ -1266,7 +1286,7 @@ return [
             'examinations.*', 'report_cards.*', 'students.view', 'academics.view', 'analytics.view',
         ]],
         'bursar' => ['name' => 'Bursar', 'grants' => [
-            'students.view', 'parents.view', 'analytics.view',
+            'students.view', 'parents.view', 'analytics.view', 'finance.*',
         ]],
         'ict-officer' => ['name' => 'ICT Officer', 'grants' => [
             'students.*', 'staff.*', 'parents.*', 'academics.*', 'school_info.*',
@@ -1296,16 +1316,18 @@ return [
         'librarian' => ['name' => 'Librarian', 'grants' => ['library.*', 'students.view', 'staff.view']],
         'nurse' => ['name' => 'Nurse', 'grants' => ['medical.*', 'students.view']],
         'store-keeper' => ['name' => 'Store Keeper', 'grants' => ['inventory.*']],
-        'accountant' => ['name' => 'Accountant', 'grants' => ['students.view', 'parents.view', 'analytics.view']],
+        'accountant' => ['name' => 'Accountant', 'grants' => ['students.view', 'parents.view', 'analytics.view', 'finance.*']],
         'class-assistant' => ['name' => 'Class Assistant', 'grants' => [
             'students.view', 'attendance.view', 'attendance.create',
             'timetable.view', 'assignments.view', 'calendar.view', 'communication.view',
         ]],
         'parent' => ['name' => 'Parent', 'grants' => [
             'calendar.view', 'communication.view', 'timetable.view', 'assignments.view', 'students.view',
+            'finance.view', 'finance.create',
         ]],
         'student' => ['name' => 'Student', 'grants' => [
             'calendar.view', 'communication.view', 'timetable.view', 'assignments.view', 'students.view',
+            'finance.view', 'finance.create',
         ]],
         'security' => ['name' => 'Security', 'grants' => []],
         'hostel-master' => ['name' => 'Hostel Master', 'grants' => ['hostel.*', 'students.view']],

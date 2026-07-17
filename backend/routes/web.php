@@ -421,6 +421,26 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::delete('/grading/bands/{bandId}', [$grading, 'destroyBand'])->name('grading.bands.destroy');
         });
 
+        // Foundation Finance slice (2026-07-17): Bank Transfer Payment
+        // Option, Payment Evidence Upload, Payment Verification, Basic
+        // Fee Records.
+        Route::prefix('finance')->name('school.finance.')->group(function () {
+            $feeItems = \App\Http\Controllers\School\FeeItemController::class;
+            Route::get('/fee-items', [$feeItems, 'index'])->name('fee-items.index');
+            Route::post('/fee-items', [$feeItems, 'store'])->name('fee-items.store');
+            Route::post('/fee-items/{feeItemId}', [$feeItems, 'update'])->name('fee-items.update');
+            Route::post('/fee-items/{feeItemId}/toggle-active', [$feeItems, 'toggleActive'])->name('fee-items.toggle-active');
+            Route::delete('/fee-items/{feeItemId}', [$feeItems, 'destroy'])->name('fee-items.destroy');
+
+            $payments = \App\Http\Controllers\School\PaymentController::class;
+            Route::get('/payments', [$payments, 'index'])->name('payments.index');
+            Route::get('/payments/create', [$payments, 'create'])->name('payments.create');
+            Route::post('/payments', [$payments, 'store'])->name('payments.store');
+            Route::get('/payments/{paymentId}', [$payments, 'show'])->name('payments.show');
+            Route::post('/payments/{paymentId}/verify', [$payments, 'verify'])->name('payments.verify');
+            Route::post('/payments/{paymentId}/reject', [$payments, 'reject'])->name('payments.reject');
+        });
+
         // Campuses.
         Route::get('/campuses', [\App\Http\Controllers\School\CampusController::class, 'index'])->name('school.campuses');
         Route::post('/campuses', [\App\Http\Controllers\School\CampusController::class, 'store'])->name('school.campuses.store');

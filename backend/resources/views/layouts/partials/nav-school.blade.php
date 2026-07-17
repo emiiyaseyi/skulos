@@ -168,6 +168,16 @@
     'student_promotion' => ['school.settings.calendar.edit', 'Sessions &amp; Terms', 'calendar'],
     'school_profile' => ['school.campuses', 'Campuses', 'school'],
     'school_branding' => ['school.branding.edit', 'Branding', 'palette'],
+    // Foundation Finance slice (2026-07-17): bank_transfer_payment_option/
+    // payment_evidence_upload/payment_verification are all the same real
+    // capability (submit or verify a bank transfer payment with evidence),
+    // one screen, the same merge pattern already used for export_to_excel/
+    // bulk_export above. basic_fee_records is the separate fee catalog
+    // setup screen.
+    'bank_transfer_payment_option' => ['school.finance.payments.index', 'Payments', 'billing'],
+    'payment_evidence_upload' => ['school.finance.payments.index', 'Payments', 'billing'],
+    'payment_verification' => ['school.finance.payments.index', 'Payments', 'billing'],
+    'basic_fee_records' => ['school.finance.fee-items.index', 'Fee Records', 'billing'],
   ];
 
   // The report card browse/review page lives under Academic in the plan

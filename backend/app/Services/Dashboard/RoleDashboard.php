@@ -59,17 +59,18 @@ class RoleDashboard
             $slug === 'ict-officer' => $this->ictOfficer($school),
             $slug === 'parent' => $this->parent($user),
             $slug === 'student' => $this->student($user),
-            // These roles' real modules (Finance, Library, Medical, Hostel,
-            // Transport) are not built yet, on any plan, so their dashboard
-            // shows whatever real data does overlap with their own
-            // permission grants (never fabricated module figures) plus a
-            // clear note of what is still coming (user direction
-            // 2026-07-12: "update for all roles in the DASHBOARD DESIGN
-            // doc... as we build more data, the ones left will show on the
-            // necessary user dashboards" — i.e. this grows in place as
-            // Finance/Library/Medical/Hostel/Transport get built, rather
-            // than staying a permanent placeholder).
-            in_array($slug, ['bursar', 'accountant'], true) => $this->peopleOnly('finance', true),
+            // These roles' real modules (Library, Medical, Hostel, Transport)
+            // are not built yet, on any plan, so their dashboard shows
+            // whatever real data does overlap with their own permission
+            // grants (never fabricated module figures) plus a clear note of
+            // what is still coming (user direction 2026-07-12: "update for
+            // all roles in the DASHBOARD DESIGN doc... as we build more
+            // data, the ones left will show on the necessary user
+            // dashboards" — i.e. this grows in place as each module gets
+            // built, rather than staying a permanent placeholder). Bursar/
+            // Accountant moved off this pattern 2026-07-17 once the
+            // Foundation Finance slice gave them something real to see.
+            in_array($slug, ['bursar', 'accountant'], true) => $this->financeOverview(),
             $slug === 'librarian' => $this->peopleOnly('library', false),
             $slug === 'nurse' => $this->peopleOnly('medical', false),
             $slug === 'hostel-master' => $this->peopleOnly('hostel', false),
@@ -807,6 +808,36 @@ class RoleDashboard
             'panel' => [
                 'type' => 'people_only',
                 'module' => $moduleLabels[$moduleKey] ?? ucfirst($moduleKey),
+            ],
+        ];
+    }
+
+    /**
+     * Bursar/Accountant (Foundation Finance slice, 2026-07-17): real
+     * figures now that Finance has something behind it, not the
+     * peopleOnly() placeholder. Verified This Term is a real collected
+     * total (sum of Payment rows verified within the current term's
+     * dates), never a fabricated revenue number.
+     */
+    protected function financeOverview(): array
+    {
+        $pendingCount = \App\Models\Tenant\Payment::pending()->count();
+        $term = Term::current()->first();
+        $verifiedTotal = $term
+            ? \App\Models\Tenant\Payment::where('status', \App\Models\Tenant\Payment::STATUS_VERIFIED)
+                ->whereBetween('verified_at', [$term->starts_on ?? $term->created_at, $term->ends_on ?? now()])
+                ->sum('amount')
+            : 0;
+
+        return [
+            'kind' => 'finance_overview',
+            'figs' => [
+                ['n' => number_format($pendingCount), 'l' => 'Pending Payments', 'ic' => 'billing', 'c' => '#E5901C'],
+                ['n' => '₦'.number_format((float) $verifiedTotal, 2), 'l' => 'Verified This Term', 'ic' => 'billing', 'c' => '#12A97B'],
+            ],
+            'panel' => [
+                'type' => 'finance_overview',
+                'pendingCount' => $pendingCount,
             ],
         ];
     }

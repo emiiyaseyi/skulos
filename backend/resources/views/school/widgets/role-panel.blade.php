@@ -233,6 +233,17 @@
     </div>
     @break
 
+  @case('finance_overview')
+    <div class="card rp-card">
+      @if($panel['pendingCount'] > 0)
+        <p class="muted">{{ $panel['pendingCount'] }} payment(s) awaiting verification.</p>
+        <a class="btn btn-primary btn-sm" style="margin-top:.6rem" href="{{ route('school.finance.payments.index', ['school' => $school->slug, 'status' => 'pending']) }}">Review pending payments</a>
+      @else
+        <p class="muted">No payments awaiting verification right now.</p>
+      @endif
+    </div>
+    @break
+
   @case('people_only')
     <div class="card rp-card">
       <p class="muted">{{ $panel['module'] }} is not built into SKULOS yet, so this dashboard shows what is already real: the people you will eventually manage through it. More figures will appear here as {{ $panel['module'] }} is built.</p>

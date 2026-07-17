@@ -80,12 +80,24 @@ class PlanSeeder extends Seeder
         $plans = [
             [
                 'name' => 'Foundation', 'slug' => 'foundation', 'price' => 500,
-                'modules' => [], 'features' => $foundationFeatures,
+                // 'finance' module toggled on here (2026-07-17), not because
+                // the full deferred Finance module is in scope, but because
+                // the Foundation Finance slice's own catalog features
+                // (bank_transfer_payment_option/payment_evidence_upload/
+                // payment_verification/basic_fee_records, see the plan
+                // feature list below) live behind finance.* permissions,
+                // and Rbac::check() auto-denies any module.* permission
+                // whose module defaults to disabled (every non-core module
+                // does). Without this, a Foundation school would see the
+                // nav link (hasFeature() says yes) but 403 the moment they
+                // click it (moduleState() says no), a real conflict caught
+                // before writing any Finance code.
+                'modules' => ['finance'], 'features' => $foundationFeatures,
                 'default' => true, 'purchasable' => true, 'order' => 1,
             ],
             [
                 'name' => 'Advance', 'slug' => 'advance', 'price' => 800,
-                'modules' => ['admissions'], 'features' => $advanceFeatures,
+                'modules' => ['admissions', 'finance'], 'features' => $advanceFeatures,
                 'default' => false, 'purchasable' => true, 'order' => 2,
             ],
             [
