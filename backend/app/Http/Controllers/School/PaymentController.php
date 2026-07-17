@@ -174,6 +174,16 @@ class PaymentController extends Controller
         return $this->decide($request, Payment::STATUS_REJECTED);
     }
 
+    /**
+     * The read-then-write shape this replaced let two staff acting on the
+     * same payment within the same window both pass the "still pending"
+     * check and both write, double-notifying the submitting guardian and
+     * leaving the payment's final status a race (audit finding C-2,
+     * 2026-07-17). The update itself is now the atomic guard: only a row
+     * that is still pending at the moment of the UPDATE can transition, and
+     * only the request whose UPDATE actually changed a row proceeds to
+     * notify.
+     */
     protected function decide(Request $request, string $status): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'finance.update');
@@ -181,18 +191,22 @@ class PaymentController extends Controller
         $user = Auth::user();
         $payment = Payment::with('student')->findOrFail($request->route('paymentId'));
 
-        if ($payment->status !== Payment::STATUS_PENDING) {
-            return back()->with('error', 'This payment has already been '.$payment->status.'.');
-        }
-
         $data = $request->validate(['notes' => ['nullable', 'string', 'max:500']]);
 
-        $payment->update([
-            'status' => $status,
-            'verified_by_user_id' => $user->id,
-            'verified_at' => now(),
-            'notes' => $data['notes'] ?? null,
-        ]);
+        $updated = Payment::where('id', $payment->id)
+            ->where('status', Payment::STATUS_PENDING)
+            ->update([
+                'status' => $status,
+                'verified_by_user_id' => $user->id,
+                'verified_at' => now(),
+                'notes' => $data['notes'] ?? null,
+            ]);
+
+        if ($updated === 0) {
+            return back()->with('error', 'This payment has already been processed.');
+        }
+
+        $payment->refresh();
 
         $verb = $status === Payment::STATUS_VERIFIED ? 'verified' : 'rejected';
         $category = $status === Payment::STATUS_VERIFIED ? 'payment_verified' : 'payment_rejected';

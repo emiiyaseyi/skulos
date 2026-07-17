@@ -81,17 +81,31 @@ class SubscriptionController extends Controller
         return $this->decide($payment, SubscriptionPayment::STATUS_REJECTED, $subs);
     }
 
+    /**
+     * The read-then-write shape this replaced let two admins acting on the
+     * same payment within the same window both pass the "still pending"
+     * check and both write, double-firing notifySchoolLeadership() and
+     * leaving the payment's final status a race (audit finding C-1,
+     * 2026-07-17). The update itself is now the atomic guard: only a row
+     * that is still pending at the moment of the UPDATE can transition, and
+     * only the request whose UPDATE actually changed a row proceeds to
+     * notify.
+     */
     protected function decide(SubscriptionPayment $payment, string $status, SubscriptionService $subs): \Illuminate\Http\RedirectResponse
     {
-        if ($payment->status !== SubscriptionPayment::STATUS_PENDING) {
-            return back()->with('error', 'This payment has already been '.$payment->status.'.');
+        $updated = SubscriptionPayment::where('id', $payment->id)
+            ->where('status', SubscriptionPayment::STATUS_PENDING)
+            ->update([
+                'status' => $status,
+                'verified_by_user_id' => Auth::id(),
+                'verified_at' => now(),
+            ]);
+
+        if ($updated === 0) {
+            return back()->with('error', 'This payment has already been processed.');
         }
 
-        $payment->update([
-            'status' => $status,
-            'verified_by_user_id' => Auth::id(),
-            'verified_at' => now(),
-        ]);
+        $payment->refresh();
 
         $verb = $status === SubscriptionPayment::STATUS_VERIFIED ? 'verified' : 'rejected';
         $category = $status === SubscriptionPayment::STATUS_VERIFIED ? 'subscription_payment_verified' : 'subscription_payment_rejected';
