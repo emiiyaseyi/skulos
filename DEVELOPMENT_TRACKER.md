@@ -2194,7 +2194,7 @@ Distinct from the product itself: the public-facing marketing site (landing page
 >
 > **Launch scope:** only Foundation and Advance need to be sellable at launch. Professional and Enterprise are documented in full below for completeness and marketing display (shown "Coming soon" on the public pricing page, not purchasable), but nothing under them blocks launch.
 >
-> Status tags used below: **BUILT** (working end to end in the product UI), **PARTIAL** (model/service exists but no usable screen, or a screen exists but a supporting piece like account provisioning is missing), **NOT BUILT** (nothing exists). Audited directly against the codebase 2026-07-10.
+> Status tags used below: **BUILT** (working end to end in the product UI), **PARTIAL** (model/service exists but no usable screen, or a screen exists but a supporting piece is missing), **NOT BUILT** (nothing exists). First audited 2026-07-10; **re-audited 2026-07-17** after this session's build run (Attendance UI, Announcements UI, Birthday/Anniversary Notifications, Parent/Student account provisioning, the Foundation Finance slice, Communication History, Student Performance Dashboard, Attendance Dashboard, School Profile all shipped since the original pass — the 2026-07-10 snapshot below was badly stale in several places, most notably marking Finance entirely unbuilt and School Profile built when the reverse was closer to true by 2026-07-17).
 
 ### SKULOS FOUNDATION — launch blocking
 
@@ -2206,44 +2206,44 @@ Distinct from the product itself: the public-facing marketing site (landing page
 - [x] Subject Management — BUILT
 - [x] School Houses — BUILT
 - [x] Academic Sessions & Terms — BUILT
-- [ ] Attendance Management — PARTIAL: `Attendance` model and `AttendanceService` exist and are unit tested, but no controller/route/view lets a school actually mark or view attendance yet
+- [x] Attendance Management — BUILT (`AttendanceController`: mark class/staff, bulk template, weekend/holiday blocking)
 - [x] Continuous Assessment — BUILT
 - [x] Result Management — BUILT
 - [x] Basic Report Cards — BUILT
-- [x] Student Promotion — BUILT 2026-07-11 as part of the End of Term workflow (see Build Log): automatic, threshold-based, runs when the last term of a session ends. `Enrollment::STATUS_PROMOTED` itself is still unused (promotion is expressed via `Student.current_class_arm_id` changing, not an `Enrollment` status write), worth reconciling later if `Enrollment` history is meant to be the authoritative promotion record.
+- [x] Student Promotion — BUILT 2026-07-11 as part of the End of Term workflow: automatic, threshold-based, runs when the last term of a session ends. `Enrollment::STATUS_PROMOTED` itself is still unused (promotion is expressed via `Student.current_class_arm_id` changing, not an `Enrollment` status write), worth reconciling later if `Enrollment` history is meant to be the authoritative promotion record.
 - [x] Academic Calendar — BUILT
 
 **Administration**
 - [x] User & Role Management — BUILT
-- [ ] Parent Portal — PARTIAL: `RoleDashboard::parent()` renders a real dashboard once a parent account exists and is linked via `StudentGuardian`, but there is no screen to create/invite a parent account in the first place
-- [ ] Student Portal — PARTIAL: same gap as Parent Portal, dashboard exists, no account provisioning flow
+- [x] Parent Portal — BUILT: `StudentController::createGuardianLogin()` provisions the account (`AccountProvisioningService`), `RoleDashboard::parent()` is the dashboard once linked
+- [x] Student Portal — BUILT: `StudentController::createStudentLogin()`, same pattern
 - [x] Teacher Portal — BUILT
-- [x] School Profile — BUILT
+- [x] School Profile — BUILT 2026-07-17 (`SchoolPortalController::editProfile()`/`updateProfile()`, `school.settings-profile.blade.php`): motto/email/phone/address. Previously marked built in error, the only screens that actually existed were Branding (visual only: logo/colour/login page) and Campuses (physical locations), neither edits the school's own institutional contact details.
 - [x] School Branding — BUILT
 - [x] Dashboard — BUILT
 
 **Communication**
 - [x] In-App Notifications — BUILT
-- [ ] Announcements — PARTIAL: `Announcement` model, `CommunicationService`, `AnnouncementMail` all exist and are unit tested, but nothing in the UI lets an admin write and send one (nav literally shows "Soon")
-- [ ] Birthday & Anniversary Notifications — NOT BUILT: no code references birthdays or anniversaries anywhere
+- [x] Announcements — BUILT (`AnnouncementController`, compose + browse + read receipts)
+- [x] Birthday & Anniversary Notifications — BUILT 2026-07-16 (`skulos:notify-birthdays-anniversaries`, daily scheduled command)
 
 **Finance** (a deliberately minimal slice, not the full deferred Finance module from section 5b)
-- [ ] Bank Transfer Payment Option — NOT BUILT
-- [ ] Payment Evidence Upload — NOT BUILT
-- [ ] Payment Verification — NOT BUILT
-- [ ] Basic Fee Records — NOT BUILT
+- [x] Bank Transfer Payment Option — BUILT 2026-07-17
+- [x] Payment Evidence Upload — BUILT 2026-07-17 (image → WebP, PDF stored as-is)
+- [x] Payment Verification — BUILT 2026-07-17 (`PaymentController::verify()`/`reject()`)
+- [x] Basic Fee Records — BUILT 2026-07-17 (`FeeItemController`)
 
 **Reports & Analytics**
-- [ ] Student Reports — PARTIAL: bulk export framework exists, no dedicated "student report" view
-- [ ] Attendance Reports — NOT BUILT (blocked on Attendance Management itself being wired up first)
-- [ ] Basic Analytics Dashboard — PARTIAL: the school home dashboard shows about 4 KPI tiles (student/staff/class counts, term average), not a dedicated analytics page
-- [x] Export to PDF — BUILT
-- [x] Export to Excel — BUILT (CSV, per the project's bulk-template convention; confirm this satisfies "Excel" or add native .xlsx if the user wants a literal Excel file)
+- [ ] Student Reports — PARTIAL, still the one genuine gap in this pass: bulk export (CSV) and the student profile page (`StudentController::show()`, already shows guardians + current term academic report) both exist, but there is no single dedicated "printable/exportable student report" view distinct from those two. Reasonable next candidate, see "What to build next" note below the Build Log.
+- [x] Attendance Reports — BUILT 2026-07-16 as the Attendance Dashboard (14-day trend, per-class comparison for admins)
+- [x] Basic Analytics Dashboard — reasonably satisfied by the combination of the home dashboard's own figures plus the dedicated Attendance Dashboard and Student Performance Dashboard, rather than a fourth generic analytics page (explicit scope decision, tracker 2026-07-16)
+- [x] Export to PDF — BUILT (report cards render live on demand)
+- [x] Export to Excel — BUILT (CSV; Students export added 2026-07-16, satisfies the bulk-template convention already used platform wide)
 - [x] Bulk Import — BUILT
 - [x] Bulk Export — BUILT
 
 **Support**
-- [ ] Knowledge Base — NOT BUILT
+- [ ] Knowledge Base — NOT BUILT. **Ambiguous, needs a decision, not a guess**: the Foundation checklist above lists it as launch blocking, but `nav-school.blade.php`'s own code comment explicitly excludes the entire "support" catalog category from ever becoming a nav link ("Standard Support, Priority Email Support, Knowledge Base... are service commitments, not screens a user navigates to"). These two statements contradict each other and were never reconciled. Ask before building: does "Knowledge Base" mean a real in-app help/FAQ screen (a genuine, buildable page), or is it meant as a support-process commitment (a help desk relationship, not code) the way Standard Support/Staff Onboarding already are treated?
 - [ ] Staff Onboarding & Training — process/content item, not code; needs materials and a checklist, tracked here so it isn't forgotten before launch
 - [ ] Standard Support — process item: needs a defined support inbox/SLA, not a software feature by itself
 
@@ -2262,31 +2262,42 @@ Distinct from the product itself: the public-facing marketing site (landing page
 - [ ] Advanced Report Cards — NOT BUILT beyond the current 4 fixed templates
 - [x] Unlimited Grading Systems — BUILT: grading scales are already unlimited and per-school
 - [ ] Custom Report Card Designer — NOT BUILT: only a picker between 4 fixed templates (classic/modern/formal/compact) plus a fields-visibility toggle exists; no freeform/drag-and-drop designer
-- [ ] Class Position & Ranking — PARTIAL: `ResultService::classBroadsheet` already computes position and averages and surfaces them on the student dashboard; needs confirming/extending onto the actual report card and a class-wide broadsheet view
+- [ ] Class Position & Ranking — PARTIAL: `ResultService::classBroadsheet` already computes position and averages and surfaces them on the student dashboard; still needs confirming/extending onto the actual report card and a class-wide broadsheet view
 
 **Communication**
 - [x] In-App Notifications — BUILT
 - [ ] Email Notifications — PARTIAL: SMTP/mail infrastructure is built and used for password resets and trial status, but not wired to Announcements
-- [ ] Parent Broadcast — NOT BUILT (depends on Announcements UI, above)
-- [ ] Communication History — NOT BUILT: `CommunicationLog` model exists, no browsing UI
+- [x] Parent Broadcast — BUILT (Messages, `MessageController`, messaging increment 1-4, 2026-07-15)
+- [x] Communication History — BUILT 2026-07-16 (`AnnouncementController::history()`, unified ledger across Announcements/Messages)
 
 **Finance**
-- [ ] Bank Transfer Payment Option — NOT BUILT (see Foundation)
-- [ ] Payment Evidence Upload — NOT BUILT
-- [ ] Payment Verification — NOT BUILT
-- [ ] Installment Payment Plans — NOT BUILT
+- [x] Bank Transfer Payment Option — BUILT (see Foundation)
+- [x] Payment Evidence Upload — BUILT (see Foundation)
+- [x] Payment Verification — BUILT (see Foundation)
+- [ ] Installment Payment Plans — NOT BUILT. **This is the actual, still-genuinely-open "next tier" Finance item** now that the Foundation slice is done — splitting a fee into scheduled partial payments rather than one lump submission.
 
 **Reports & Analytics**
 - [ ] Custom Report Builder — NOT BUILT
-- [ ] Basic Analytics Dashboard — PARTIAL (see Foundation)
-- [ ] Student Performance Dashboard — NOT BUILT as a standalone page
-- [ ] Attendance Dashboard — NOT BUILT
+- [x] Basic Analytics Dashboard — see Foundation
+- [x] Student Performance Dashboard — BUILT 2026-07-16 (`ExaminationController::performanceDashboard()`)
+- [x] Attendance Dashboard — BUILT 2026-07-16
 - [ ] Academic Insights — NOT BUILT
 
 **Support**
 - [ ] Staff Onboarding & Training — process item (see Foundation)
 - [ ] Priority Email Support — process/ops item, needs a defined SLA and a way to flag Advance-tier schools for priority handling
 - [ ] Implementation Assistance — process/ops item: an onboarding service, not code
+
+### What's actually left to build (2026-07-17 status, in rough priority order)
+
+1. **Knowledge Base scope decision** (see the ambiguity flagged above) — quick to resolve, blocks nothing else.
+2. **Student Reports** — the one remaining Foundation gap, small-to-medium scope, a dedicated printable/exportable per-student summary distinct from the existing profile page and CSV bulk export.
+3. **Installment Payment Plans** (Advance Finance) — natural extension of the Foundation Finance slice just shipped, same submit-and-verify pattern, scheduled across several partial payments instead of one.
+4. **Email Notifications wired to Announcements** (Advance Communication) — SMTP infrastructure already exists and is used elsewhere, this is "just" wiring, not a new subsystem.
+5. **Class Position & Ranking** on the actual report card / a class-wide broadsheet view — the computation already exists, needs a real screen.
+6. **Timetable Management** — genuinely net new, no model/controller/view exists at all, a bigger build.
+7. **Admissions module** — genuinely net new, the whole deferred module (5 features), a materially bigger build than anything above.
+8. **Custom Report Card Designer / Custom Report Builder / Academic Insights / Teacher Workload / Advanced Report Cards** — all genuinely net new, each its own scoped decision before starting.
 
 ### SKULOS PROFESSIONAL — documented, not launch blocking
 

@@ -367,6 +367,8 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         });
         Route::get('/settings/branding', [SchoolPortalController::class, 'editBranding'])->name('school.branding.edit');
         Route::post('/settings/branding', [SchoolPortalController::class, 'updateBranding'])->name('school.branding.update');
+        Route::get('/settings/profile', [SchoolPortalController::class, 'editProfile'])->name('school.settings.profile.edit');
+        Route::post('/settings/profile', [SchoolPortalController::class, 'updateProfile'])->name('school.settings.profile.update');
         Route::get('/settings/dashboard', [SchoolPortalController::class, 'editDashboard'])->name('school.dashboard.edit');
         Route::post('/settings/dashboard', [SchoolPortalController::class, 'updateDashboard'])->name('school.dashboard.update');
         Route::get('/settings/landing-pages', [\App\Http\Controllers\School\LandingPageController::class, 'edit'])->name('school.settings.landing-pages.edit');

@@ -296,7 +296,7 @@ tr:last-child td{border-bottom:none}
   // data; a day it should not show at all (no due date, outside the
   // window, wrong role) renders nothing, never a fake countdown.
   $subscriptionPopup = null;
-  if ($portal === 'school' && isset($school) && auth()->user()
+  if ($portal === 'school' && isset($school) && auth()->user() && $cur !== 'school.subscription.index'
       && in_array(optional(auth()->user()->roleIn($school))->slug, config('skulos.subscription_visible_role_slugs', []), true)) {
     $subs = app(\App\Services\Billing\SubscriptionService::class);
     if ($subs->isWithinReminderWindow($school)) {

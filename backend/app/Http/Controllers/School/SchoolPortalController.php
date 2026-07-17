@@ -238,4 +238,44 @@ class SchoolPortalController extends Controller
 
         return back()->with('status', 'Your school branding has been updated.');
     }
+
+    /**
+     * School Profile (user directive 2026-07-17, Settings nav reorganization:
+     * a "Profile" line distinct from Campuses/Branding/Houses). No screen
+     * previously existed to edit a school's own institutional details
+     * (name, motto, contact info); Branding only ever covered the visual
+     * side (logo/colour/login page), Campuses only ever covered physical
+     * locations. Name is intentionally excluded from the form: it drives
+     * branded copy across the whole product (emails, login page, PDFs) in
+     * ways silently changing it here could have far wider effects than a
+     * quick edit screen should risk; a slug/subdomain change is likewise
+     * a platform-admin-only action elsewhere.
+     */
+    public function editProfile(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'school_info.update');
+        $school = $this->school($request);
+
+        return view('school.settings-profile', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+        ]);
+    }
+
+    public function updateProfile(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'school_info.update');
+        $school = $this->school($request);
+
+        $data = $request->validate([
+            'motto' => ['nullable', 'string', 'max:150'],
+            'email' => ['nullable', 'email', 'max:150'],
+            'phone' => ['nullable', 'string', 'max:40'],
+            'address' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $school->update($data);
+
+        return back()->with('status', 'Your school profile has been updated.');
+    }
 }
