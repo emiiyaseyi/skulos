@@ -49,10 +49,17 @@
     if (localStorage.getItem(key)) return;
   } catch(e) {}
   scrim.classList.add('show');
-  dismissBtn?.addEventListener('click', function(){
+  function dismiss(){
     scrim.classList.remove('show');
     try { localStorage.setItem(key, '1'); } catch(e) {}
-  });
+    closeFocus?.();
+  }
+  // Focus trap + Escape-to-dismiss (audit finding H-6, 2026-07-17): this
+  // popup appears unprompted on page load, so a keyboard/screen-reader
+  // user's focus previously stayed on the hidden page behind it with no
+  // way to reach or dismiss it without a mouse.
+  var closeFocus = window.SkulosDialog?.open(scrim, {autofocus: dismissBtn, onEscape: dismiss});
+  dismissBtn?.addEventListener('click', dismiss);
 })();
 </script>
 @endif

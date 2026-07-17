@@ -35,14 +35,23 @@
   --shadow:0 1px 2px rgba(15,23,35,.06),0 8px 24px -14px rgba(15,23,35,.18);
   --font:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   --radius:14px;
+  /* The accent hue used AS foreground text/icon colour on a light surface
+     (a stat card icon, a wordmark letter), not as a fill. var(--accent)
+     alone isn't guaranteed readable there the same way it isn't as a
+     background fill without --accent-ink: a school that picks a pale
+     brand colour makes this text unreadable (audit finding, 2026-07-17).
+     Darkened toward black in light mode, lightened toward white in dark
+     mode, so it always has real contrast against its surface regardless
+     of how light or dark the chosen accent itself is. */
+  --accent-text: color-mix(in srgb, var(--accent) 62%, black);
 }
 @media (prefers-color-scheme:dark){:root{
   --bg:#070C14; --panel:#0E1B2B; --ink:#F3F5F8; --mut:rgba(243,245,248,.62); --mut-dim:rgba(243,245,248,.40);
   --line:rgba(243,245,248,.10); --soft:rgba(243,245,248,.04); --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -16px rgba(0,0,0,.6);
-  --side:#0A1420;
+  --side:#0A1420; --accent-text: color-mix(in srgb, var(--accent) 70%, white);
 }}
-:root[data-theme="light"]{--bg:#EEF1F6;--panel:#FFFFFF;--ink:#0B1420;--mut:rgba(11,20,32,.60);--mut-dim:rgba(11,20,32,.42);--line:rgba(11,20,32,.10);--soft:rgba(11,20,32,.035);--shadow:0 1px 2px rgba(15,23,35,.06),0 8px 24px -14px rgba(15,23,35,.18);--side:#0C1826;}
-:root[data-theme="dark"]{--bg:#070C14;--panel:#0E1B2B;--ink:#F3F5F8;--mut:rgba(243,245,248,.62);--mut-dim:rgba(243,245,248,.40);--line:rgba(243,245,248,.10);--soft:rgba(243,245,248,.04);--shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -16px rgba(0,0,0,.6);--side:#0A1420;}
+:root[data-theme="light"]{--bg:#EEF1F6;--panel:#FFFFFF;--ink:#0B1420;--mut:rgba(11,20,32,.60);--mut-dim:rgba(11,20,32,.42);--line:rgba(11,20,32,.10);--soft:rgba(11,20,32,.035);--shadow:0 1px 2px rgba(15,23,35,.06),0 8px 24px -14px rgba(15,23,35,.18);--side:#0C1826;--accent-text: color-mix(in srgb, var(--accent) 62%, black);}
+:root[data-theme="dark"]{--bg:#070C14;--panel:#0E1B2B;--ink:#F3F5F8;--mut:rgba(243,245,248,.62);--mut-dim:rgba(243,245,248,.40);--line:rgba(243,245,248,.10);--soft:rgba(243,245,248,.04);--shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -16px rgba(0,0,0,.6);--side:#0A1420;--accent-text: color-mix(in srgb, var(--accent) 70%, white);}
 
 /* ---- School Administration theme (Design Lookbook v4, applied 2026-07-14) ----
    Scoped to .shell.school-theme (portal=school only), never touches the
@@ -106,6 +115,13 @@
 .school-theme .side-link.active{color:var(--ink)}
 .school-theme .side-link.active .ic{color:inherit}
 .school-theme .btn-ghost{background:var(--panel);border-color:var(--line-deep)}
+/* Unlike the platform admin portal, this theme's sidebar (--side) is
+   light paper, not dark navy, so the plain var(--accent) used as text
+   there (fine on admin's dark sidebar) needs the same darkened treatment
+   --accent-text gives it everywhere else on a light surface (audit
+   finding, 2026-07-17). Scoped to .school-theme only so admin's already-
+   readable dark-sidebar accent text is untouched. */
+.school-theme .side-brand em,.school-theme .side-link.active .ic{color:var(--accent-text)}
 
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:var(--font);background:var(--bg);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
@@ -174,7 +190,7 @@ a{color:inherit;text-decoration:none}
 .appbar h2{font-size:1rem;font-weight:800}
 .appbar .crumb{font-size:.78rem;color:var(--mut-dim)}
 .appbar-spacer{flex:1}
-.iconbtn{width:2.3rem;height:2.3rem;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;display:inline-grid;place-items:center;position:relative}
+.iconbtn{width:2.75rem;height:2.75rem;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;display:inline-grid;place-items:center;position:relative}
 .iconbtn:hover{background:var(--soft)}
 .iconbtn .badge-dot{position:absolute;top:6px;right:7px;width:8px;height:8px;border-radius:50%;background:var(--bad);border:2px solid var(--panel)}
 .menu-toggle{display:none}
@@ -190,7 +206,7 @@ h1.title{font-size:1.55rem;font-weight:800;letter-spacing:-.01em}
 .card h3{font-size:1rem;font-weight:800;margin-bottom:.2rem}
 .card p{color:var(--mut);font-size:.9rem}
 .stat-card{display:flex;align-items:center;gap:1rem}
-.stat-ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent);flex-shrink:0}
+.stat-ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent-text);flex-shrink:0}
 .stat-ic svg{width:22px;height:22px}
 .stat b{font-size:1.6rem;font-weight:800;font-variant-numeric:tabular-nums;display:block;line-height:1.1}
 .stat span{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim)}
@@ -205,16 +221,22 @@ input:focus,textarea:focus,select:focus{outline:2px solid color-mix(in srgb,var(
 .btn-primary:hover{transform:translateY(-1px);box-shadow:0 10px 22px -10px color-mix(in srgb,var(--accent) 70%,transparent)}
 .btn-ghost{background:transparent;color:var(--ink);border-color:var(--line)}
 .btn-ghost:hover{background:var(--soft)}
-.btn-sm{padding:.4rem .8rem;font-size:.82rem;border-radius:8px}
+.btn-sm{padding:.4rem .8rem;font-size:.82rem;border-radius:8px;min-height:2.75rem}
 .btn-block{width:100%}
 table{width:100%;border-collapse:collapse}
 th,td{text-align:left;padding:.8rem .6rem;border-bottom:1px solid var(--line);font-size:.9rem}
 th{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim);font-weight:800}
 tr:last-child td{border-bottom:none}
 .badge{font-size:.72rem;font-weight:800;padding:.2rem .55rem;border-radius:999px;white-space:nowrap;display:inline-block}
-.badge-ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
-.badge-warn{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
-.badge-bad{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+/* Same-hue-on-pale-tint text fails WCAG AA in light mode (~2.7-3.7:1
+   against the ~4.5:1 a chip this small needs), the "faded badge" user
+   report was fixed for dark mode only, not light (audit finding,
+   2026-07-17). Darkened toward black for guaranteed contrast against the
+   pale tint background; the dark-mode override below (white on a
+   stronger tint) is unaffected. */
+.badge-ok{background:color-mix(in srgb,var(--ok) 18%,transparent);color:color-mix(in srgb,var(--ok) 55%,black)}
+.badge-warn{background:color-mix(in srgb,var(--warn) 18%,transparent);color:color-mix(in srgb,var(--warn) 55%,black)}
+.badge-bad{background:color-mix(in srgb,var(--bad) 18%,transparent);color:color-mix(in srgb,var(--bad) 55%,black)}
 /* Dark mode: white text on a fuller-strength tinted pill, not the same
    hue for both text and background (user report, twice: "in dark mode
    the green text colour is poor", then again "the wrong choice of green
@@ -234,8 +256,16 @@ tr:last-child td{border-bottom:none}
 :root[data-theme="dark"] .badge-warn{background:color-mix(in srgb,var(--warn) 35%,transparent);color:#fff}
 :root[data-theme="dark"] .badge-bad{background:color-mix(in srgb,var(--bad) 35%,transparent);color:#fff}
 .flash{padding:.85rem 1.1rem;border-radius:12px;margin-bottom:1.2rem;font-weight:600;font-size:.9rem;border:1px solid}
-.flash-ok{background:color-mix(in srgb,var(--ok) 12%,transparent);border-color:color-mix(in srgb,var(--ok) 40%,transparent);color:var(--ok)}
-.flash-bad{background:color-mix(in srgb,var(--bad) 12%,transparent);border-color:color-mix(in srgb,var(--bad) 40%,transparent);color:var(--bad)}
+/* Same fix as .badge above: darkened text for guaranteed contrast in
+   light mode (audit finding, 2026-07-17), this is the payment
+   submission confirmation/error text, the most important feedback on
+   the Finance screens. Dark mode explicitly kept on the plain, already
+   bright var(--ok)/var(--bad) it always used, unaffected by this. */
+.flash-ok{background:color-mix(in srgb,var(--ok) 12%,transparent);border-color:color-mix(in srgb,var(--ok) 40%,transparent);color:color-mix(in srgb,var(--ok) 55%,black)}
+.flash-bad{background:color-mix(in srgb,var(--bad) 12%,transparent);border-color:color-mix(in srgb,var(--bad) 40%,transparent);color:color-mix(in srgb,var(--bad) 55%,black)}
+@media(prefers-color-scheme:dark){.flash-ok{color:var(--ok)}.flash-bad{color:var(--bad)}}
+:root[data-theme="dark"] .flash-ok{color:var(--ok)}
+:root[data-theme="dark"] .flash-bad{color:var(--bad)}
 .idle-scrim{position:fixed;inset:0;background:rgba(8,12,20,.6);z-index:200;display:none;place-items:center;padding:1.25rem}
 .idle-scrim.show{display:grid}
 .idle-card{width:100%;max-width:22rem;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:1.8rem;box-shadow:var(--shadow);text-align:center}
@@ -262,7 +292,7 @@ tr:last-child td{border-bottom:none}
 .auth-shell{min-height:100vh;display:grid;place-items:center;padding:2rem 1.25rem}
 .auth-card{width:100%;max-width:26rem;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:2rem;box-shadow:var(--shadow)}
 .auth-logo{width:56px;height:56px;border-radius:14px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:800;font-size:1.4rem;margin-bottom:1rem}
-.brand{font-weight:800;font-size:1.35rem;letter-spacing:-.01em}.brand em{font-style:normal;color:var(--accent)}
+.brand{font-weight:800;font-size:1.35rem;letter-spacing:-.01em}.brand em{font-style:normal;color:var(--accent-text)}
 
 @media(max-width:1000px){
   .shell{grid-template-columns:1fr}
@@ -310,7 +340,7 @@ tr:last-child td{border-bottom:none}
 @endphp
 <div class="shell{{ $portal === 'school' ? ' school-theme' : '' }}" id="shell">
   <aside class="side" id="sideNav">
-    <div class="side-brand"><span class="brandfull">SK<em>U</em>LOS</span><span class="brandshort">S<em style="color:var(--accent)"></em></span></div>
+    <div class="side-brand"><span class="brandfull">SK<em>U</em>LOS</span><span class="brandshort">S<em style="color:var(--accent-text)"></em></span></div>
     @isset($school)
       <div class="side-school">
         @if($portal === 'school')
@@ -390,10 +420,10 @@ tr:last-child td{border-bottom:none}
       <form method="POST" action="{{ url('/logout') }}">@csrf<button class="btn btn-ghost btn-sm">Sign out</button></form>
     </header>
     <div class="content">
-      @if(session('status'))<div class="flash flash-ok">{{ session('status') }}</div>@endif
-      @if(session('error'))<div class="flash flash-bad">{{ session('error') }}</div>@endif
+      @if(session('status'))<div class="flash flash-ok" role="status" aria-live="polite">{{ session('status') }}</div>@endif
+      @if(session('error'))<div class="flash flash-bad" role="alert">{{ session('error') }}</div>@endif
       @if($errors->any())
-        <div class="flash flash-bad">
+        <div class="flash flash-bad" role="alert">
           @foreach($errors->all() as $message)
             <div>{{ $message }}</div>
           @endforeach
@@ -408,6 +438,48 @@ tr:last-child td{border-bottom:none}
      tenant user), surface any unacknowledged broadcast as a modal the user
      acknowledges. Guarded so it never runs on the admin portal or bare
      pages, where there is no tenant Notification table. --}}
+<script>
+/**
+ * Shared focus management for the three modal-like overlays (broadcast
+ * pop-up, subscription pop-up, idle-timeout warning): each declared
+ * role="alertdialog" aria-modal="true" but never actually moved focus
+ * into itself, trapped Tab, or offered Escape, so a keyboard/screen-
+ * reader user's focus and Tab order stayed on the visually-hidden page
+ * behind the scrim (audit finding H-6/M-8, 2026-07-17). Defined here,
+ * before any popup partial is included below, so every popup's own
+ * inline script can call it immediately without waiting for
+ * DOMContentLoaded.
+ */
+window.SkulosDialog = {
+  open: function(scrim, opts) {
+    opts = opts || {};
+    var previouslyFocused = document.activeElement;
+    var focusableSelector = 'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
+    function focusables() {
+      return Array.prototype.slice.call(scrim.querySelectorAll(focusableSelector))
+        .filter(function(el){ return el.offsetParent !== null; });
+    }
+    var initial = (opts.autofocus && typeof opts.autofocus.focus === 'function') ? opts.autofocus : focusables()[0];
+    initial?.focus();
+
+    function onKeydown(e) {
+      if (e.key === 'Escape') { if (opts.onEscape) opts.onEscape(); return; }
+      if (e.key !== 'Tab') return;
+      var list = focusables();
+      if (!list.length) return;
+      var first = list[0], last = list[list.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+    scrim.addEventListener('keydown', onKeydown);
+
+    return function close() {
+      scrim.removeEventListener('keydown', onKeydown);
+      if (previouslyFocused && typeof previouslyFocused.focus === 'function') previouslyFocused.focus();
+    };
+  }
+};
+</script>
 @if(($portal ?? null) === 'school' && isset($school) && $school && auth()->check())
   @include('layouts.partials.broadcast-popup', ['school' => $school])
   @include('layouts.partials.messaging-widget', ['school' => $school])
@@ -544,6 +616,21 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
       logoutForm=document.getElementById('idleLogoutForm');
   var countdownTimer=null, lastActivityAt=Date.now(), warningDeadlineAt=null;
 
+  // Each tab previously tracked activity purely in memory, so a user
+  // actively working in one tab still got force-logged-out by a
+  // different, idle background tab's independent timer (audit finding
+  // H-3, 2026-07-17: the server session is shared, but nothing told a
+  // stale tab that a different tab had just proven the user is present).
+  // Broadcast every activity/resume timestamp via localStorage, which
+  // fires a 'storage' event in every OTHER tab (never the one that wrote
+  // it), so any tab's activity resets every tab's countdown.
+  var ACTIVITY_KEY='skulos-last-activity';
+  function broadcastActivity(ts){ try{ localStorage.setItem(ACTIVITY_KEY, String(ts)); }catch(e){} }
+  try{
+    var storedActivity=parseInt(localStorage.getItem(ACTIVITY_KEY)||'0',10);
+    if(isFinite(storedActivity) && storedActivity>lastActivityAt) lastActivityAt=storedActivity;
+  }catch(e){}
+
   function doLogout(){ logoutForm.submit(); }
 
   // The only place that decides idle state, driven entirely by wall
@@ -566,12 +653,15 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
   // does, focus/blur covers that gap), always yields the exact correct
   // remaining seconds, or an immediate logout if the whole warning
   // window already elapsed unseen.
+  var closeDialogFocus=null;
+
   function evaluate(){
     var now=Date.now();
     if(warningDeadlineAt===null){
       if(now-lastActivityAt<idleMs) return;
       warningDeadlineAt=lastActivityAt+idleMs+warnMs;
       scrim.classList.add('show');
+      closeDialogFocus=window.SkulosDialog?.open(scrim, {autofocus: resumeBtn, onEscape: resume});
     }
     var secondsLeft=Math.ceil((warningDeadlineAt-now)/1000);
     if(secondsLeft<=0){
@@ -586,10 +676,13 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
     lastActivityAt=Date.now();
     warningDeadlineAt=null;
     scrim.classList.remove('show');
+    closeDialogFocus?.();
+    closeDialogFocus=null;
   }
 
   function resume(){
     resetIdleTimer();
+    broadcastActivity(lastActivityAt);
     fetch('{{ route('session.keep-alive') }}', {
       method:'POST',
       headers:{'X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]')?.content||'','Accept':'application/json'}
@@ -601,8 +694,23 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
 
   ['mousemove','keydown','click','scroll','touchstart'].forEach(function(evt){
     document.addEventListener(evt,function(){
-      if(warningDeadlineAt===null) lastActivityAt=Date.now();
+      if(warningDeadlineAt===null){
+        lastActivityAt=Date.now();
+        broadcastActivity(lastActivityAt);
+      }
     },{passive:true});
+  });
+
+  // Fires in every OTHER tab when one tab writes ACTIVITY_KEY. A newer
+  // timestamp than this tab already knows about means real activity just
+  // happened somewhere else, so this tab is not actually idle: adopt it,
+  // and if this tab's own warning was already showing, cancel it.
+  window.addEventListener('storage', function(e){
+    if(e.key!==ACTIVITY_KEY || !e.newValue) return;
+    var ts=parseInt(e.newValue,10);
+    if(!isFinite(ts) || ts<=lastActivityAt) return;
+    lastActivityAt=ts;
+    if(warningDeadlineAt!==null) resetIdleTimer();
   });
 
   document.addEventListener('visibilitychange', function(){

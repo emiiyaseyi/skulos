@@ -187,26 +187,41 @@ class PaymentController extends Controller
     protected function decide(Request $request, string $status): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'finance.update');
-        $school = $this->school($request);
-        $user = Auth::user();
         $payment = Payment::with('student')->findOrFail($request->route('paymentId'));
 
         $data = $request->validate(['notes' => ['nullable', 'string', 'max:500']]);
 
+        $applied = $this->applyDecision($payment, $status, $data['notes'] ?? null);
+
+        if (! $applied) {
+            return back()->with('error', 'This payment has already been processed.');
+        }
+
+        $verb = $status === Payment::STATUS_VERIFIED ? 'verified' : 'rejected';
+
+        return back()->with('status', "Payment marked as {$verb}.");
+    }
+
+    /**
+     * The atomic status-transition guard (audit finding C-2, 2026-07-17)
+     * plus the resulting notification, shared by the single-record
+     * decide() above and bulkAction() below so both apply the exact same
+     * race-safe logic rather than two copies drifting apart.
+     */
+    protected function applyDecision(Payment $payment, string $status, ?string $notes): bool
+    {
         $updated = Payment::where('id', $payment->id)
             ->where('status', Payment::STATUS_PENDING)
             ->update([
                 'status' => $status,
-                'verified_by_user_id' => $user->id,
+                'verified_by_user_id' => Auth::id(),
                 'verified_at' => now(),
-                'notes' => $data['notes'] ?? null,
+                'notes' => $notes,
             ]);
 
         if ($updated === 0) {
-            return back()->with('error', 'This payment has already been processed.');
+            return false;
         }
-
-        $payment->refresh();
 
         $verb = $status === Payment::STATUS_VERIFIED ? 'verified' : 'rejected';
         $category = $status === Payment::STATUS_VERIFIED ? 'payment_verified' : 'payment_rejected';
@@ -215,10 +230,33 @@ class PaymentController extends Controller
             'category' => $category,
             'type' => Notification::typeFor($category),
             'title' => "Payment {$verb}",
-            'body' => "{$payment->student->fullName()}'s payment of ₦".number_format((float) $payment->amount, 2)." was {$verb}.".($data['notes'] ?? '' ? ' Note: '.$data['notes'] : ''),
+            'body' => "{$payment->student->fullName()}'s payment of ₦".number_format((float) $payment->amount, 2)." was {$verb}.".($notes ? ' Note: '.$notes : ''),
         ]);
 
-        return back()->with('status', "Payment marked as {$verb}.");
+        return true;
+    }
+
+    /** Bulk verify/reject for ticked pending payments, matching the standing bulk-actions convention every list screen follows (audit finding M-12, 2026-07-17). */
+    public function bulkAction(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'finance.update');
+        $data = $request->validate([
+            'payment_ids' => ['required', 'array', 'min:1'],
+            'payment_ids.*' => ['exists:tenant.payments,id'],
+            'action' => ['required', 'in:verify,reject'],
+        ]);
+        $status = $data['action'] === 'verify' ? Payment::STATUS_VERIFIED : Payment::STATUS_REJECTED;
+
+        $count = 0;
+        foreach (Payment::with('student')->whereIn('id', $data['payment_ids'])->get() as $payment) {
+            if ($this->applyDecision($payment, $status, null)) {
+                $count++;
+            }
+        }
+
+        $verb = $status === Payment::STATUS_VERIFIED ? 'verified' : 'rejected';
+
+        return back()->with('status', "{$count} payment(s) marked as {$verb}.");
     }
 
     protected function notifyFinanceStaff(School $school, Payment $payment, string $category, string $title, string $body): void

@@ -9,10 +9,10 @@
   </div>
 </div>
 
-<div class="grid" style="grid-template-columns:repeat(3, 1fr);gap:1rem;margin-bottom:1.25rem">
-  <div class="card stat" style="padding:1rem"><b>{{ $school->plan?->name ?? 'No plan' }}</b><span>Current plan</span></div>
-  <div class="card stat" style="padding:1rem"><b>{{ number_format($learners) }}</b><span>Active learners</span></div>
-  <div class="card stat" style="padding:1rem"><b>{{ $amountDue !== null ? '₦'.number_format($amountDue, 2) : 'N/A' }}</b><span>Amount due</span></div>
+<div class="grid cols-3" style="gap:1rem;margin-bottom:1.25rem">
+  <div class="card stat-card" style="padding:1rem"><b>{{ $school->plan?->name ?? 'No plan' }}</b><span>Current plan</span></div>
+  <div class="card stat-card" style="padding:1rem"><b>{{ number_format($learners) }}</b><span>Active learners</span></div>
+  <div class="card stat-card" style="padding:1rem"><b>{{ $amountDue !== null ? '₦'.number_format($amountDue, 2) : 'N/A' }}</b><span>Amount due</span></div>
 </div>
 
 <div class="card" style="margin-bottom:1.25rem">
@@ -36,7 +36,7 @@
     <p><strong>Account name:</strong> {{ $bank['account_name'] }}</p>
     <p><strong>Account number:</strong> {{ $bank['account_number'] }}</p>
 
-    <form method="POST" action="{{ route('school.subscription.store', ['school' => $school->slug]) }}" enctype="multipart/form-data" style="margin-top:1.2rem">
+    <form method="POST" action="{{ route('school.subscription.store', ['school' => $school->slug]) }}" enctype="multipart/form-data" style="margin-top:1.2rem" id="subPaymentForm">
       @csrf
       <div class="field">
         <label for="amount">Amount paid (₦)</label>
@@ -56,8 +56,20 @@
         <label for="evidence">Evidence of payment</label>
         <input id="evidence" name="evidence" type="file" accept="image/png,image/jpeg,image/webp,.pdf" required />
       </div>
-      <button class="btn btn-primary btn-sm" type="submit">Submit for verification</button>
+      <button class="btn btn-primary btn-sm" type="submit" id="subPaymentSubmit">Submit for verification</button>
     </form>
+    <script>
+      {{-- A multi-MB evidence upload on a slow connection previously gave
+           no feedback at all, so it looked frozen (audit finding M-13,
+           2026-07-17). --}}
+      document.getElementById('subPaymentForm')?.addEventListener('submit', function(){
+        var btn = document.getElementById('subPaymentSubmit');
+        if (!btn) return;
+        btn.disabled = true;
+        btn.setAttribute('aria-busy', 'true');
+        btn.textContent = 'Uploading...';
+      });
+    </script>
   </div>
 
   <div class="card">

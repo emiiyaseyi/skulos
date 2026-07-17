@@ -447,6 +447,9 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             $feeItems = \App\Http\Controllers\School\FeeItemController::class;
             Route::get('/fee-items', [$feeItems, 'index'])->name('fee-items.index');
             Route::post('/fee-items', [$feeItems, 'store'])->name('fee-items.store');
+            // Registered before the {feeItemId} wildcard route below, which
+            // would otherwise greedily match "bulk-action" as an id.
+            Route::post('/fee-items/bulk-action', [$feeItems, 'bulkAction'])->name('fee-items.bulk-action');
             Route::post('/fee-items/{feeItemId}', [$feeItems, 'update'])->name('fee-items.update');
             Route::post('/fee-items/{feeItemId}/toggle-active', [$feeItems, 'toggleActive'])->name('fee-items.toggle-active');
             Route::delete('/fee-items/{feeItemId}', [$feeItems, 'destroy'])->name('fee-items.destroy');
@@ -455,6 +458,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/payments', [$payments, 'index'])->name('payments.index');
             Route::get('/payments/create', [$payments, 'create'])->name('payments.create');
             Route::post('/payments', [$payments, 'store'])->name('payments.store');
+            Route::post('/payments/bulk-action', [$payments, 'bulkAction'])->name('payments.bulk-action');
             Route::get('/payments/{paymentId}', [$payments, 'show'])->name('payments.show');
             Route::post('/payments/{paymentId}/verify', [$payments, 'verify'])->name('payments.verify');
             Route::post('/payments/{paymentId}/reject', [$payments, 'reject'])->name('payments.reject');

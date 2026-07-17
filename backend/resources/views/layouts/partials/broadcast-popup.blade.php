@@ -21,22 +21,35 @@
   $bcImageUrl = $pendingBroadcast?->announcement?->imageUrl();
 @endphp
 @if($pendingBroadcast)
-<div class="bc-scrim" role="alertdialog" aria-modal="true" aria-labelledby="bcTitle">
+<div class="bc-scrim" id="bcScrim" role="alertdialog" aria-modal="true" aria-labelledby="bcTitle">
   <div class="bc-card">
     <div class="bc-head">
       <span class="bc-tag">Broadcast</span>
       <h3 id="bcTitle">{{ $pendingBroadcast->title }}</h3>
     </div>
     @if($bcImageUrl)
-      <img src="{{ $bcImageUrl }}" alt="" class="bc-image" />
+      <img src="{{ $bcImageUrl }}" alt="{{ $pendingBroadcast->title }}" class="bc-image" />
     @endif
     <div class="bc-body">{!! $pendingBroadcast->body !!}</div>
-    <form method="POST" action="{{ route('school.notifications.read', ['school' => $school->slug, 'id' => $pendingBroadcast->id]) }}">
+    <form method="POST" action="{{ route('school.notifications.read', ['school' => $school->slug, 'id' => $pendingBroadcast->id]) }}" id="bcAckForm">
       @csrf
-      <button class="btn btn-primary btn-block" type="submit">Acknowledge and close</button>
+      <button class="btn btn-primary btn-block" type="submit" id="bcAckBtn">Acknowledge and close</button>
     </form>
   </div>
 </div>
+<script>
+(function(){
+  var scrim = document.getElementById('bcScrim');
+  var ackBtn = document.getElementById('bcAckBtn');
+  if (!scrim) return;
+  // Focus trap only, deliberately no Escape-to-dismiss (audit finding
+  // H-6, 2026-07-17): acknowledging this broadcast is mandatory, so
+  // Escape must not be a way to skip past it, but a keyboard/screen-
+  // reader user still needs their focus actually moved into the dialog
+  // and kept there, which this never did before.
+  window.SkulosDialog?.open(scrim, {autofocus: ackBtn});
+})();
+</script>
 <style>
   .bc-scrim{position:fixed;inset:0;background:rgba(8,12,20,.6);z-index:210;display:grid;place-items:center;padding:1.25rem}
   .bc-card{width:100%;max-width:32rem;max-height:85vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:1.6rem 1.7rem;box-shadow:var(--shadow)}

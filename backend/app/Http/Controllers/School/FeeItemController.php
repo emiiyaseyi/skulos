@@ -107,4 +107,34 @@ class FeeItemController extends Controller
 
         return back()->with('status', "\"{$name}\" removed from the fee catalog.");
     }
+
+    /** Bulk retire/reactivate/delete for ticked fee items, matching the standing bulk-actions convention every list screen follows (audit finding M-12, 2026-07-17). */
+    public function bulkAction(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $data = $request->validate([
+            'fee_item_ids' => ['required', 'array', 'min:1'],
+            'fee_item_ids.*' => ['exists:tenant.fee_items,id'],
+            'action' => ['required', 'in:activate,retire,delete'],
+        ]);
+
+        if ($data['action'] === 'delete') {
+            $this->authorizeAction($request, 'finance.delete');
+            $items = FeeItem::whereIn('id', $data['fee_item_ids'])->withCount('payments')->get();
+            $deletable = $items->where('payments_count', 0);
+            $skipped = $items->count() - $deletable->count();
+            FeeItem::whereIn('id', $deletable->pluck('id'))->delete();
+
+            $message = "{$deletable->count()} fee item(s) removed.";
+            if ($skipped > 0) {
+                $message .= " {$skipped} skipped (has payments recorded against it).";
+            }
+
+            return back()->with('status', $message);
+        }
+
+        $this->authorizeAction($request, 'finance.update');
+        $count = FeeItem::whereIn('id', $data['fee_item_ids'])->update(['is_active' => $data['action'] === 'activate']);
+
+        return back()->with('status', "{$count} fee item(s) updated.");
+    }
 }

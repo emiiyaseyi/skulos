@@ -14,7 +14,7 @@
   @if($students->isEmpty())
     <p class="muted">No student on record to submit a payment for.</p>
   @else
-    <form method="POST" action="{{ route('school.finance.payments.store', ['school' => $school->slug]) }}" enctype="multipart/form-data">
+    <form method="POST" action="{{ route('school.finance.payments.store', ['school' => $school->slug]) }}" enctype="multipart/form-data" id="paymentForm">
       @csrf
       <div class="field">
         <label for="student_id">Student</label>
@@ -58,8 +58,20 @@
         <p class="hint">A screenshot or photo of your transfer receipt, or a PDF bank statement.</p>
       </div>
 
-      <button class="btn btn-primary btn-sm" type="submit">Submit for verification</button>
+      <button class="btn btn-primary btn-sm" type="submit" id="paymentSubmit">Submit for verification</button>
     </form>
+    <script>
+      {{-- A multi-MB evidence upload on a slow connection previously gave
+           no feedback at all, so it looked frozen (audit finding M-13,
+           2026-07-17). --}}
+      document.getElementById('paymentForm')?.addEventListener('submit', function(){
+        var btn = document.getElementById('paymentSubmit');
+        if (!btn) return;
+        btn.disabled = true;
+        btn.setAttribute('aria-busy', 'true');
+        btn.textContent = 'Uploading...';
+      });
+    </script>
   @endif
 </div>
 @endsection

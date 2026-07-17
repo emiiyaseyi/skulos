@@ -63,7 +63,7 @@
   .lp-floaters .fl{position:absolute;width:44px;height:44px;border-radius:13px;background:rgba(255,255,255,.14);
     display:grid;place-items:center;color:#fff;animation:lp-float 6s ease-in-out infinite;backdrop-filter:blur(2px)}
   .lp-floaters .fl svg{width:20px;height:20px}
-  .lp-centered .lp-floaters .fl,.lp-cover .lp-floaters .fl{background:color-mix(in srgb, var(--accent) 16%, var(--panel));color:var(--accent);border:1px solid var(--line)}
+  .lp-centered .lp-floaters .fl,.lp-cover .lp-floaters .fl{background:color-mix(in srgb, var(--accent) 16%, var(--panel));color:var(--accent-text);border:1px solid var(--line)}
   @keyframes lp-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
   @media(max-width:820px){.lp-floaters{display:none}}
 </style>

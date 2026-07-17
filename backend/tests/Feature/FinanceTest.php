@@ -343,4 +343,81 @@ class FinanceTest extends TestCase
             ->assertSee('1') // one pending
             ->assertSee('₦30,000.00'); // verified this term
     }
+
+    /** Bulk retire/reactivate/delete for fee items (audit finding M-12, 2026-07-17), matching the standing bulk-actions convention. */
+    public function test_a_bursar_can_bulk_retire_and_reactivate_fee_items(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'fineleven');
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $itemOne = FeeItem::create(['name' => 'Tuition', 'amount' => 1000, 'term_id' => $term->id]);
+        $itemTwo = FeeItem::create(['name' => 'PTA Levy', 'amount' => 500, 'term_id' => $term->id]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items/bulk-action", [
+            'fee_item_ids' => [$itemOne->id, $itemTwo->id], 'action' => 'retire',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertFalse($itemOne->fresh()->is_active);
+        $this->assertFalse($itemTwo->fresh()->is_active);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items/bulk-action", [
+            'fee_item_ids' => [$itemOne->id], 'action' => 'activate',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertTrue($itemOne->fresh()->is_active);
+        $this->assertFalse($itemTwo->fresh()->is_active);
+        app(TenantManager::class)->forget();
+    }
+
+    /** A fee item with payments recorded against it is skipped by bulk delete, not force-removed, matching the single-record destroy() guard. */
+    public function test_bulk_delete_skips_a_fee_item_with_payments_recorded(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'fintwelve');
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $clean = FeeItem::create(['name' => 'Excursion', 'amount' => 2000, 'term_id' => $term->id]);
+        $withPayments = FeeItem::create(['name' => 'Tuition', 'amount' => 50000, 'term_id' => $term->id]);
+        $student = Student::create(['admission_number' => 'F10', 'first_name' => 'Bulk', 'last_name' => 'Test']);
+        Payment::create(['student_id' => $student->id, 'fee_item_id' => $withPayments->id, 'amount' => 50000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_VERIFIED, 'submitted_by_user_id' => $bursar->id]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items/bulk-action", [
+            'fee_item_ids' => [$clean->id, $withPayments->id], 'action' => 'delete',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertNull(FeeItem::find($clean->id));
+        $this->assertNotNull(FeeItem::find($withPayments->id));
+        app(TenantManager::class)->forget();
+    }
+
+    /** Bulk verify/reject for pending payments (audit finding M-12, 2026-07-17), reusing the same atomic guard applyDecision() gives the single-record actions. */
+    public function test_a_bursar_can_bulk_verify_pending_payments(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finthirteen');
+
+        app(TenantManager::class)->use($school);
+        $studentOne = Student::create(['admission_number' => 'F11', 'first_name' => 'Bulk', 'last_name' => 'One']);
+        $studentTwo = Student::create(['admission_number' => 'F12', 'first_name' => 'Bulk', 'last_name' => 'Two']);
+        $paymentOne = Payment::create(['student_id' => $studentOne->id, 'amount' => 1000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_PENDING, 'submitted_by_user_id' => $bursar->id]);
+        $paymentTwo = Payment::create(['student_id' => $studentTwo->id, 'amount' => 2000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_PENDING, 'submitted_by_user_id' => $bursar->id]);
+        $alreadyVerified = Payment::create(['student_id' => $studentOne->id, 'amount' => 3000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_VERIFIED, 'submitted_by_user_id' => $bursar->id, 'verified_by_user_id' => $bursar->id, 'verified_at' => now()]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/payments/bulk-action", [
+            'payment_ids' => [$paymentOne->id, $paymentTwo->id, $alreadyVerified->id], 'action' => 'verify',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame(Payment::STATUS_VERIFIED, $paymentOne->fresh()->status);
+        $this->assertSame(Payment::STATUS_VERIFIED, $paymentTwo->fresh()->status);
+        $this->assertSame(2, Notification::where('category', 'payment_verified')->count());
+        app(TenantManager::class)->forget();
+    }
 }

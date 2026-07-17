@@ -43,12 +43,20 @@
   @if($feeItems->isEmpty())
     <p class="muted">No fee items yet.</p>
   @else
+    @if($canManage)
+      <form id="bulkFeeItemsForm" method="POST" action="{{ route('school.finance.fee-items.bulk-action', ['school' => $school->slug]) }}"></form>
+    @endif
     <div style="overflow-x:auto">
     <table>
-      <thead><tr><th>Name</th><th>Term</th><th>Amount</th><th>Status</th>@if($canManage)<th></th>@endif</tr></thead>
+      <thead><tr>
+        @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="fee-item-select-all" aria-label="Select all fee items" /></th>@endif
+        <th>Name</th><th>Term</th><th>Amount</th><th>Status</th>@if($canManage)<th></th>@endif</tr></thead>
       <tbody>
         @foreach($feeItems as $item)
           <tr>
+            @if($canManage)
+              <td><input type="checkbox" form="bulkFeeItemsForm" class="fee-item-row-check" name="fee_item_ids[]" value="{{ $item->id }}" aria-label="Select {{ $item->name }}" /></td>
+            @endif
             <td><strong>{{ $item->name }}</strong></td>
             <td class="muted">{{ $item->term?->name }}</td>
             <td>₦{{ number_format((float) $item->amount, 2) }}</td>
@@ -71,6 +79,28 @@
       </tbody>
     </table>
     </div>
+
+    @if($canManage)
+      <div class="row-between" style="margin-top:.8rem;flex-wrap:wrap;gap:.6rem">
+        <span class="muted" style="font-size:.85rem">Tick any number of fee items above, then choose an action.</span>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <button form="bulkFeeItemsForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="activate">Reactivate</button>
+          <button form="bulkFeeItemsForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="retire">Retire</button>
+          <button form="bulkFeeItemsForm" class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit" name="action" value="delete" onclick="return confirm('Remove the selected fee items? Any with payments recorded against them will be skipped.')">Delete selected</button>
+        </div>
+      </div>
+      <script>
+        (function(){
+          var all = document.getElementById('fee-item-select-all');
+          var boxes = document.querySelectorAll('.fee-item-row-check');
+          all?.addEventListener('change', function(){ boxes.forEach(function(cb){ cb.checked = all.checked; }); });
+          document.getElementById('bulkFeeItemsForm')?.addEventListener('submit', function(e){
+            var anyChecked = Array.prototype.some.call(boxes, function(cb){ return cb.checked; });
+            if (! anyChecked) { e.preventDefault(); alert('Tick at least one fee item first.'); }
+          });
+        })();
+      </script>
+    @endif
   @endif
 </div>
 @endsection
