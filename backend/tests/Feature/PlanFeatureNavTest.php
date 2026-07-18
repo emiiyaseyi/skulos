@@ -588,6 +588,27 @@ class PlanFeatureNavTest extends TestCase
             ->assertOk()->assertSee('Enter Scores')->assertDontSee('Grading');
     }
 
+    /**
+     * User directive 2026-07-18: "add a submenu for term broadsheets
+     * too". 'student_reports' (a Foundation feature, previously its own
+     * Reports & Analytics line) nests under the same Academic >
+     * Examinations subgroup as Enter Scores and Grading, in that fixed
+     * order regardless of which plan_feature_catalog category each came
+     * from.
+     */
+    public function test_term_broadsheets_nests_under_academic_examinations_in_order(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['student_reports', 'unlimited_grading_systems'], 'planbroadsheet');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()
+            ->assertSeeInOrder(['Examinations', 'Enter Scores', 'Term Broadsheets', 'Grading'])
+            ->assertDontSee('Student Reports')
+            ->assertDontSee('Soon');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/reports/students")->assertOk();
+    }
+
     public function test_the_nav_search_box_also_renders_on_the_platform_admin_portal(): void
     {
         $admin = User::factory()->create();

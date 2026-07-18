@@ -210,7 +210,10 @@
     // Foundation gap closed 2026-07-18 (StudentReportsController): a real
     // class-wide broadsheet, distinct from result_management/
     // basic_report_cards above (a single student's own document).
-    'student_reports' => ['school.reports.students.index', 'Student Reports', 'results'],
+    // Nested under Academic > Examinations alongside Enter Scores/Grading
+    // (user directive 2026-07-18: "add a submenu for term broadsheets
+    // too"), not its own top-level Reports & Analytics line any more.
+    'student_reports' => ['school.reports.students.index', 'Term Broadsheets', 'results'],
     'unlimited_grading_systems' => ['school.examinations.grading', 'Grading', 'results'],
     // Already fully built, just never wired into this catalog (2026-07-18):
     // ReportCardService::forStudent() already computes both overall
@@ -281,6 +284,10 @@
     // in depending on plan tier.
     'class_position_ranking' => 'Reports & Analytics',
     'advanced_report_cards' => 'Reports & Analytics',
+    // Nested under Academic > Examinations instead of its previous
+    // Reports & Analytics category placement (user directive 2026-07-18:
+    // "add a submenu for term broadsheets too").
+    'student_reports' => 'Academic',
     // Same reasoning: points at school.settings.communication.edit, the
     // same route the unconditional Settings > Communication > Notifications
     // link below already renders (that block does not dedup against
@@ -396,14 +403,17 @@
         $entry = $soonLink($featureLabel, 'settings');
       }
       // Settings items land in one of the 7 nested sub-groups instead of
-      // a flat Settings list (see $settingsSubgroups above); Grading lands
-      // in the new Academic > Examinations subgroup instead of a flat
-      // Academic entry (see $academicSubgroups above); everything else
-      // keeps the existing flat single-level group behaviour.
+      // a flat Settings list (see $settingsSubgroups above); Grading and
+      // Term Broadsheets land in the new Academic > Examinations subgroup
+      // instead of a flat entry (see $academicSubgroups above); everything
+      // else keeps the existing flat single-level group behaviour.
       if ($targetLabel === 'Settings' && isset($forceSubgroup[$featureKey])) {
         $settingsSubgroups[$forceSubgroup[$featureKey]][] = $entry;
-      } elseif ($featureKey === 'unlimited_grading_systems') {
-        $academicSubgroups['Examinations'][] = $entry;
+      } elseif (in_array($featureKey, ['unlimited_grading_systems', 'student_reports'], true)) {
+        // Keyed, not appended, so the fixed display order below (Enter
+        // Scores, Term Broadsheets, Grading) never depends on which
+        // plan_feature_catalog category happens to iterate first.
+        $academicSubgroups['Examinations'][$featureKey === 'unlimited_grading_systems' ? 'grading' : 'term_broadsheets'] = $entry;
       } else {
         $groups[$targetLabel][] = $entry;
       }
@@ -440,7 +450,7 @@
   // teacher needs this for.
   if ($navRbac->check($navUser, $school, 'examinations.view') && ! isset($renderedRoutes['school.examinations.index'])) {
     $renderedRoutes['school.examinations.index'] = true;
-    array_unshift($academicSubgroups['Examinations'], $link('school.examinations.index', 'Enter Scores', 'results'));
+    $academicSubgroups['Examinations']['enter_scores'] = $link('school.examinations.index', 'Enter Scores', 'results');
   }
 
   // "Report settings" (template and field choices for the report card
@@ -610,7 +620,12 @@
   // controller Settings' own sub-groups already use (fully generic, not
   // scoped to Settings specifically), pushed into the otherwise-flat
   // Academic group rather than making the whole group nested.
-  $examEntries = array_filter($academicSubgroups['Examinations']);
+  $examEntries = [];
+  foreach (['enter_scores', 'term_broadsheets', 'grading'] as $examKey) {
+    if (isset($academicSubgroups['Examinations'][$examKey])) {
+      $examEntries[] = $academicSubgroups['Examinations'][$examKey];
+    }
+  }
   if (count($examEntries)) {
     $examHasActive = collect($examEntries)->contains(fn ($e) => $e['active']);
     $examHtml = '<div class="side-subsection">'
