@@ -40,21 +40,25 @@
       @csrf
       <div class="field">
         <label for="amount">Amount paid (₦)</label>
-        <input id="amount" name="amount" type="number" step="0.01" min="0.01" required value="{{ old('amount', $amountDue) }}" />
+        <input id="amount" name="amount" type="number" step="0.01" min="0.01" required value="{{ old('amount', $amountDue) }}" aria-invalid="@error('amount') true @else false @enderror" @error('amount') aria-describedby="amount-error" @enderror />
+        @error('amount')<p class="err" id="amount-error">{{ $message }}</p>@enderror
       </div>
       <div class="grid cols-2" style="gap:1rem">
         <div class="field">
           <label for="bank_name">Your bank (optional)</label>
           <input id="bank_name" name="bank_name" maxlength="120" value="{{ old('bank_name') }}" />
+          @error('bank_name')<p class="err">{{ $message }}</p>@enderror
         </div>
         <div class="field">
           <label for="reference">Transaction reference (optional)</label>
           <input id="reference" name="reference" maxlength="120" value="{{ old('reference') }}" />
+          @error('reference')<p class="err">{{ $message }}</p>@enderror
         </div>
       </div>
       <div class="field">
         <label for="evidence">Evidence of payment</label>
-        <input id="evidence" name="evidence" type="file" accept="image/png,image/jpeg,image/webp,.pdf" required />
+        <input id="evidence" name="evidence" type="file" accept="image/png,image/jpeg,image/webp,.pdf" required aria-invalid="@error('evidence') true @else false @enderror" @error('evidence') aria-describedby="evidence-error" @enderror />
+        @error('evidence')<p class="err" id="evidence-error">{{ $message }}</p>@enderror
       </div>
       <button class="btn btn-primary btn-sm" type="submit" id="subPaymentSubmit">Submit for verification</button>
     </form>

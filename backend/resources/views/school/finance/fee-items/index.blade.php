@@ -18,21 +18,24 @@
       <div class="grid cols-2" style="gap:1rem">
         <div class="field">
           <label for="name">Name</label>
-          <input id="name" name="name" required maxlength="120" placeholder="e.g. Tuition" value="{{ old('name') }}" />
+          <input id="name" name="name" required maxlength="120" placeholder="e.g. Tuition" value="{{ old('name') }}" aria-invalid="@error('name') true @else false @enderror" @error('name') aria-describedby="name-error" @enderror />
+          @error('name')<p class="err" id="name-error">{{ $message }}</p>@enderror
         </div>
         <div class="field">
           <label for="amount">Amount (₦)</label>
-          <input id="amount" name="amount" type="number" step="0.01" min="0" required value="{{ old('amount') }}" />
+          <input id="amount" name="amount" type="number" step="0.01" min="0" required value="{{ old('amount') }}" aria-invalid="@error('amount') true @else false @enderror" @error('amount') aria-describedby="amount-error" @enderror />
+          @error('amount')<p class="err" id="amount-error">{{ $message }}</p>@enderror
         </div>
       </div>
       <div class="field">
         <label for="term_id">Term</label>
-        <select id="term_id" name="term_id" required>
+        <select id="term_id" name="term_id" required aria-invalid="@error('term_id') true @else false @enderror" @error('term_id') aria-describedby="term_id-error" @enderror>
           <option value="">Select a term</option>
           @foreach($terms as $term)
             <option value="{{ $term->id }}" @selected(old('term_id') == $term->id)>{{ $term->name }} ({{ $term->session?->name }})</option>
           @endforeach
         </select>
+        @error('term_id')<p class="err" id="term_id-error">{{ $message }}</p>@enderror
       </div>
       <button class="btn btn-primary btn-sm" type="submit">Add fee item</button>
     </form>
