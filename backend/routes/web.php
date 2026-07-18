@@ -551,6 +551,13 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/export', [$studentReports, 'export'])->name('export');
         });
 
+        // Custom Report Builder (Advance plan feature 'custom_report_builder', 2026-07-18).
+        Route::prefix('reports/builder')->name('school.reports.builder.')->group(function () {
+            $reportBuilder = \App\Http\Controllers\School\ReportBuilderController::class;
+            Route::get('/', [$reportBuilder, 'index'])->name('index');
+            Route::get('/export', [$reportBuilder, 'export'])->name('export');
+        });
+
         // Backup and restore.
         Route::prefix('backups')->name('school.backups.')->group(function () {
             $backups = \App\Http\Controllers\School\BackupController::class;

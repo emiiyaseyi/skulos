@@ -609,6 +609,18 @@ class PlanFeatureNavTest extends TestCase
         $this->actingAs($user)->get("http://{$school->slug}.localhost/reports/students")->assertOk();
     }
 
+    public function test_custom_report_builder_renders_as_a_real_link_not_soon(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['custom_report_builder'], 'planbuilder');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()
+            ->assertSee('Report Builder')
+            ->assertDontSee('Soon');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/reports/builder")->assertOk();
+    }
+
     public function test_the_nav_search_box_also_renders_on_the_platform_admin_portal(): void
     {
         $admin = User::factory()->create();

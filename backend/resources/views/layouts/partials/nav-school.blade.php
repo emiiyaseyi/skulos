@@ -256,6 +256,7 @@
     // once a school turns "Allow this fee to be paid in installments" on
     // for it), not a separate screen.
     'installment_payment_plans' => ['school.finance.fee-items.index', 'Fee Records', 'billing'],
+    'custom_report_builder' => ['school.reports.builder.index', 'Report Builder', 'results'],
   ];
 
   // The report card browse/review page lives under Academic in the plan

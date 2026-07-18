@@ -1179,6 +1179,54 @@ return [
     ],
 
     /*
+    | Custom Report Builder (Advance plan feature 'custom_report_builder',
+    | built 2026-07-18): which data sources and columns an admin can pick
+    | from to assemble their own report, scoped down from the full
+    | "drag-and-drop custom report creation across all modules" ambition
+    | in the docx to a real, buildable "pick a source, pick columns, pick
+    | filters, preview, export CSV" first cut. A fixed code-level catalog
+    | (not a school-editable table, unlike report_card_fields): these are
+    | real column definitions tied to real model attributes/relations, not
+    | something a school customizes further, the "admin editable" part of
+    | this feature is which columns/filters they pick per report, not the
+    | catalog of what is available to pick from.
+    */
+    'report_builder_sources' => [
+        'students' => [
+            'label' => 'Students',
+            'permission' => 'students.view',
+            'columns' => [
+                'admission_number' => 'Admission Number',
+                'first_name' => 'First Name',
+                'last_name' => 'Last Name',
+                'gender' => 'Gender',
+                'date_of_birth' => 'Date of Birth',
+                'email' => 'Email',
+                'phone' => 'Phone',
+                'class' => 'Class',
+                'house' => 'House',
+                'status' => 'Status',
+                'admitted_on' => 'Admission Date',
+            ],
+        ],
+        'staff' => [
+            'label' => 'Staff',
+            'permission' => 'staff.view',
+            'columns' => [
+                'staff_id' => 'Staff ID',
+                'first_name' => 'First Name',
+                'last_name' => 'Last Name',
+                'gender' => 'Gender',
+                'position' => 'Position',
+                'email' => 'Email',
+                'phone' => 'Phone',
+                'employed_on' => 'Employment Date',
+                'status' => 'Status',
+            ],
+        ],
+    ],
+
+    /*
     | Seed default for the behavioural/psychomotor trait catalog, copied
     | verbatim from the user-supplied real report card ("HEYDAY PRIVATE
     | SCHOOL"). Only ever a seed: App\Services\Results\BehaviouralTraitCatalog
