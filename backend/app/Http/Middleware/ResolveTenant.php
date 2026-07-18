@@ -49,9 +49,11 @@ class ResolveTenant
         }
 
         if ($school->status === School::STATUS_SUSPENDED) {
-            abort(403, $school->suspension_reason === School::SUSPENSION_REASON_BILLING
-                ? 'This school\'s SKULOS subscription is overdue. Please contact your school administrator to arrange payment.'
-                : 'This school is currently suspended. Please contact your administrator.');
+            abort(403, match ($school->suspension_reason) {
+                School::SUSPENSION_REASON_BILLING => 'This school\'s SKULOS subscription is overdue. Please contact your school administrator to arrange payment.',
+                School::SUSPENSION_REASON_LICENSE_EXPIRED => 'This school\'s SKULOS license could not be verified and the grace period has expired. Please contact SKULOS to restore access.',
+                default => 'This school is currently suspended. Please contact your administrator.',
+            });
         }
         if ($school->status !== School::STATUS_ACTIVE) {
             abort(403, 'This school is not currently available.');

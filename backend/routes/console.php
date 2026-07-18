@@ -44,3 +44,8 @@ Schedule::command('skulos:seed-calendar-defaults')->monthlyOn(1, '04:00')->witho
 // (checked per person/category/day), safe if the schedule ever fires
 // twice in the same day.
 Schedule::command('skulos:notify-birthdays-anniversaries')->dailyAt('06:00')->withoutOverlapping();
+
+// Self-hosted license check-in (user request 2026-07-18). Safe to run on
+// every deployment, including the main platform's own: the command
+// itself no-ops unless config('skulos.self_hosted') is true.
+Schedule::command('license:check')->hourly()->withoutOverlapping();

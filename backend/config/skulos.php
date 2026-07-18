@@ -1422,6 +1422,26 @@ return [
     'subscription_visible_role_slugs' => ['school-owner', 'principal', 'head-teacher', 'vice-principal', 'school-admin'],
 
     /*
+    | Self-hosted licensing (user request 2026-07-18): whether THIS
+    | deployment is a school's own self-hosted copy of the codebase,
+    | rather than a tenant on the main SKULOS platform. Set only via
+    | env on a self-hosted install's own server, never toggled at
+    | runtime, since it decides whether App\Console\Commands\
+    | CheckSelfHostedLicense actually does anything (see
+    | App\Services\Licensing\LicenseService::checkSelfHosted()).
+    | `endpoint` is the main platform's public license-verify API
+    | (App\Http\Controllers\LicenseVerifyController); `grace_days` is
+    | how long a failed/unreachable check-in is tolerated with a
+    | warning banner (Layouts\app.blade.php) before full lockout via
+    | School::SUSPENSION_REASON_LICENSE_EXPIRED.
+    */
+    'self_hosted' => env('SKULOS_SELF_HOSTED', false),
+    'self_hosted_license' => [
+        'endpoint' => env('SKULOS_LICENSE_ENDPOINT', 'https://skulos.app/api/license/verify'),
+        'grace_days' => (int) env('SKULOS_LICENSE_GRACE_DAYS', 14),
+    ],
+
+    /*
     | Who a platform-owner broadcast reaches within each matched school
     | (messaging increment 3, 2026-07-15, user directive: "THE PLATFORM
     | OWNER CAN SEND BROADCAST OR MESSAGE TO ALL SCHOOLS OWNSERS, ADMIN OR

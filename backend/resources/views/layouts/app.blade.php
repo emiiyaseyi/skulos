@@ -359,6 +359,16 @@ tr:last-child td{border-bottom:none}
       ];
     }
   }
+  // Self-hosted license grace-period banner (user request 2026-07-18):
+  // shown for the whole school while a failed/unreachable check-in's
+  // grace period is still running, so the school gets a disclosed
+  // warning before App\Services\Licensing\LicenseService locks the
+  // portal out entirely. Only ever true on an actual self-hosted
+  // deployment (config('skulos.self_hosted')), never on the main
+  // platform.
+  $licenseGraceDaysLeft = (config('skulos.self_hosted') && $portal === 'school' && isset($school) && $school->license_grace_started_at)
+    ? app(\App\Services\Licensing\LicenseService::class)->graceDaysRemaining($school)
+    : null;
 @endphp
 <div class="shell{{ $portal === 'school' ? ' school-theme' : '' }}" id="shell">
   <aside class="side" id="sideNav">
@@ -411,6 +421,11 @@ tr:last-child td{border-bottom:none}
           @csrf
           <button class="btn btn-sm" type="submit">End and return to my account</button>
         </form>
+      </div>
+    @endif
+    @if($licenseGraceDaysLeft !== null)
+      <div class="impersonate-bar" style="background:var(--bad);color:#fff">
+        <span>Your SKULOS license could not be verified. Access will lock in {{ $licenseGraceDaysLeft }} day{{ $licenseGraceDaysLeft === 1 ? '' : 's' }} unless this is resolved. Contact SKULOS to fix this.</span>
       </div>
     @endif
     <header class="appbar">

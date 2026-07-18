@@ -27,11 +27,11 @@
       @if($source)
         <div class="field">
           <label>Columns</label>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:.4rem">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(12.5rem,1fr));gap:.5rem .75rem">
             @foreach($sources[$source]['columns'] as $key => $label)
-              <label style="display:flex;align-items:center;gap:.4rem;font-weight:400">
-                <input type="checkbox" name="columns[]" value="{{ $key }}" @checked(in_array($key, $selectedColumns, true)) />
-                {{ $label }}
+              <label style="display:flex;align-items:flex-start;gap:.5rem;font-weight:400">
+                <input type="checkbox" name="columns[]" value="{{ $key }}" @checked(in_array($key, $selectedColumns, true)) style="flex-shrink:0;margin-top:.2rem" />
+                <span>{{ $label }}</span>
               </label>
             @endforeach
           </div>

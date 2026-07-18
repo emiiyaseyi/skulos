@@ -259,6 +259,39 @@ class SchoolAdminController extends Controller
         return back()->with('status', "{$school->name} is active again. Its users can sign in.");
     }
 
+    /**
+     * Self-hosted licensing (user request 2026-07-18): mark a school as
+     * running its own copy of the codebase and issue its license key,
+     * the value entered into that installation's own license settings
+     * so it can call home. See App\Services\Licensing\LicenseService.
+     */
+    public function enableSelfHosted(School $school, \App\Services\Licensing\LicenseService $licenses, Recorder $recorder): RedirectResponse
+    {
+        $licenses->issueFor($school);
+        $recorder->record('school.license.enabled', $school, [], ['is_self_hosted' => true]);
+
+        return back()->with('status', "Self-hosted licensing enabled for {$school->name}. Its license key is shown below, enter it into that installation's own license settings.");
+    }
+
+    /** Invalidate the current key and issue a new one, e.g. after a suspected leak. */
+    public function regenerateLicense(School $school, \App\Services\Licensing\LicenseService $licenses, Recorder $recorder): RedirectResponse
+    {
+        abort_unless($school->is_self_hosted, 404);
+        $licenses->regenerate($school);
+        $recorder->record('school.license.regenerated', $school);
+
+        return back()->with('status', "A new license key has been issued for {$school->name}. The old key no longer works.");
+    }
+
+    /** Stop treating a school as self-hosted; its next check-in fails and its own grace period then takes over. */
+    public function revokeSelfHosted(School $school, \App\Services\Licensing\LicenseService $licenses, Recorder $recorder): RedirectResponse
+    {
+        $licenses->revoke($school);
+        $recorder->record('school.license.revoked', $school);
+
+        return back()->with('status', "Self-hosted licensing revoked for {$school->name}.");
+    }
+
     /** Remove a school (soft delete): hidden from the platform, recoverable. */
     public function destroy(School $school): RedirectResponse
     {

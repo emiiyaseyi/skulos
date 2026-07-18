@@ -31,6 +31,9 @@ class School extends Model
     /** A school whose tenant database provisioned but whose owner account failed to attach afterwards (SchoolAdminController::store()/cloneSchool()), left suspended rather than silently active with no owner (audit finding L-2, 2026-07-17). */
     public const SUSPENSION_REASON_PROVISIONING_FAILED = 'provisioning_failed';
 
+    /** A self-hosted deployment's license grace period lapsed without a successful check-in — see App\Services\Licensing\LicenseService. */
+    public const SUSPENSION_REASON_LICENSE_EXPIRED = 'license_expired';
+
     protected $fillable = [
         'name',
         'slug',
@@ -53,6 +56,11 @@ class School extends Model
         'backup_time',
         'plan_id',
         'next_billing_date',
+        'is_self_hosted',
+        'license_key',
+        'license_issued_at',
+        'license_last_verified_at',
+        'license_grace_started_at',
     ];
 
     /**
@@ -83,6 +91,10 @@ class School extends Model
             'settings' => 'array',
             'provisioned_at' => 'datetime',
             'next_billing_date' => 'date',
+            'is_self_hosted' => 'boolean',
+            'license_issued_at' => 'datetime',
+            'license_last_verified_at' => 'datetime',
+            'license_grace_started_at' => 'datetime',
         ];
     }
 

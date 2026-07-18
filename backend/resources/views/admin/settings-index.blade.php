@@ -33,5 +33,9 @@
     <h3 style="margin-bottom:.3rem">Marketing Pages</h3>
     <p class="muted">Edit the public marketing site's HTML directly.</p>
   </a>
+  <a class="card" href="{{ route('admin.settings.self-hosted-license.edit') }}" style="text-decoration:none;color:inherit;display:block">
+    <h3 style="margin-bottom:.3rem">Self-Hosted License</h3>
+    <p class="muted">Only for a self-hosted installation: the license key it checks in with, and its current status.</p>
+  </a>
 </div>
 @endsection

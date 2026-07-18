@@ -124,6 +124,47 @@
   </form>
 </div>
 
+<div class="card" style="max-width:32rem;margin-top:1.25rem" id="license">
+  <h3 style="margin-bottom:.4rem">Self-hosted license</h3>
+  <p class="muted" style="margin-bottom:.8rem">For a school running its own copy of SKULOS on its own server. That installation calls home on a schedule to verify its license; if it cannot, a warning shows there, then a grace period, then full lockout, all disclosed to the school.</p>
+  @if($school->is_self_hosted)
+    <table style="margin-bottom:1rem">
+      <tbody>
+        <tr><th>License key</th><td><code>{{ $school->license_key }}</code></td></tr>
+        <tr><th>Issued</th><td>{{ $school->license_issued_at?->toDayDateTimeString() ?: 'Not set' }}</td></tr>
+        <tr><th>Last check-in</th><td>{{ $school->license_last_verified_at?->toDayDateTimeString() ?: 'Never checked in yet' }}</td></tr>
+        <tr>
+          <th>Status</th>
+          <td>
+            @if($school->license_grace_started_at)
+              <span class="badge badge-warn">In grace period</span>
+            @elseif($school->suspension_reason === \App\Models\School::SUSPENSION_REASON_LICENSE_EXPIRED)
+              <span class="badge badge-bad">Locked out</span>
+            @else
+              <span class="badge badge-ok">Verified</span>
+            @endif
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+      <form method="POST" action="{{ route('admin.schools.license.regenerate', $school) }}" onsubmit="return confirm('The current key will stop working immediately. Continue?')">
+        @csrf
+        <button class="btn btn-ghost btn-sm" type="submit">Regenerate key</button>
+      </form>
+      <form method="POST" action="{{ route('admin.schools.license.revoke', $school) }}" onsubmit="return confirm('This school will fail its next check-in and its own grace period will begin. Continue?')">
+        @csrf
+        <button class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit">Revoke self-hosting</button>
+      </form>
+    </div>
+  @else
+    <form method="POST" action="{{ route('admin.schools.license.enable', $school) }}">
+      @csrf
+      <button class="btn btn-primary btn-sm" type="submit">Enable self-hosted licensing</button>
+    </form>
+  @endif
+</div>
+
 <div class="card" style="margin-top:1.25rem">
   <div class="row-between" style="margin-bottom:.8rem">
     <h3>Backups</h3>

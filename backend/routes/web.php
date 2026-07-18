@@ -45,6 +45,14 @@ Route::domain($appDomain)->group(function () {
     Route::post('/trial', [\App\Http\Controllers\TrialRequestController::class, 'store'])->name('trial.store');
     Route::get('/trial/thanks', [\App\Http\Controllers\TrialRequestController::class, 'thanks'])->name('trial.thanks');
 
+    // Self-hosted license check-in (user request 2026-07-18): called by a
+    // school's own self-hosted deployment, never by a browser. No auth,
+    // the license key itself is the credential; throttled since it is
+    // unauthenticated.
+    Route::post('/api/license/verify', [\App\Http\Controllers\LicenseVerifyController::class, 'verify'])
+        ->middleware('throttle:30,1')
+        ->name('license.verify');
+
     Route::middleware(['auth', 'super_admin'])->prefix('admin')->name('admin.')->group(function () {
         Route::get('/', [\App\Http\Controllers\Admin\PlatformDashboardController::class, 'index'])->name('dashboard');
         Route::get('/trial-requests', [\App\Http\Controllers\Admin\TrialRequestAdminController::class, 'index'])->name('trial-requests.index');
@@ -73,6 +81,9 @@ Route::domain($appDomain)->group(function () {
         Route::get('/schools/{school}/overview', [SchoolAdminController::class, 'overview'])->name('schools.overview');
         Route::post('/schools/{school}/billing-date', [SchoolAdminController::class, 'updateBillingDate'])->name('schools.billing-date');
         Route::post('/schools/{school}/clone', [SchoolAdminController::class, 'cloneSchool'])->name('schools.clone');
+        Route::post('/schools/{school}/license/enable', [SchoolAdminController::class, 'enableSelfHosted'])->name('schools.license.enable');
+        Route::post('/schools/{school}/license/regenerate', [SchoolAdminController::class, 'regenerateLicense'])->name('schools.license.regenerate');
+        Route::post('/schools/{school}/license/revoke', [SchoolAdminController::class, 'revokeSelfHosted'])->name('schools.license.revoke');
         Route::post('/schools/{school}/admins', [SchoolAdminController::class, 'storeAdmin'])->name('schools.admins.store');
         Route::post('/schools/{school}/admins/{user}/reset-password', [SchoolAdminController::class, 'resetAdminPassword'])->name('schools.admins.reset-password');
         Route::post('/schools/{school}/admins/{user}/toggle-access', [SchoolAdminController::class, 'toggleAdminAccess'])->name('schools.admins.toggle-access');
@@ -119,6 +130,11 @@ Route::domain($appDomain)->group(function () {
             $subscriptionBank = \App\Http\Controllers\Admin\SubscriptionController::class;
             Route::get('/', [$subscriptionBank, 'bankEdit'])->name('edit');
             Route::post('/', [$subscriptionBank, 'bankUpdate'])->name('update');
+        });
+        Route::prefix('settings/self-hosted-license')->name('settings.self-hosted-license.')->group(function () {
+            $license = \App\Http\Controllers\Admin\LicenseSettingsController::class;
+            Route::get('/', [$license, 'edit'])->name('edit');
+            Route::post('/', [$license, 'update'])->name('update');
         });
 
         Route::prefix('subscriptions')->name('subscriptions.')->group(function () {

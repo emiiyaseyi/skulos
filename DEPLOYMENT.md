@@ -81,6 +81,39 @@ Local dev uses SQLite as a stand in for MySQL. Production uses MySQL per the con
 - Redis and Meilisearch are optional locally; wire them in production for queues, cache, and search.
 - Add `php artisan schedule:run` to cPanel's cron every minute (`* * * * * php /path/to/artisan schedule:run >> /dev/null 2>&1`), or nothing scheduled (backups, etc) will ever fire. Confirm with `php artisan schedule:list` after setup.
 
+### Self-hosted deployment: one school running its own copy on its own cPanel account
+
+This is a different scenario from the "Backend on cPanel" section above. That section is SKULOS's own production hosting, one Laravel install serving every school as a subdomain tenant. This section is for a single school that pays to run its own dedicated copy of the app on its own cPanel account, its own MySQL, its own domain, with no other school sharing that server. The app enforces this arrangement with a disclosed license check (`App\Services\Licensing\LicenseService`): the school's install calls the main SKULOS platform on a schedule to confirm the subscription is current; if it cannot, a warning banner shows, then after a grace period the install locks itself out until it can verify again. This is not hidden from the school, it is a normal part of what they are told they are getting.
+
+**What to copy.** Only `backend/` needs to go to the school's server, the `site/` marketing pages and repo root docs are not part of a school's install. Either:
+- `git clone` the repo on the school's server (if the host gives shell/git access) and work from `backend/`, or
+- zip `backend/` locally (exclude `vendor/`, `node_modules/`, `.env`, and `storage/framework/*` cache files) and upload/extract it through cPanel File Manager, then run Composer on the server afterward.
+
+**What the school's cPanel account needs.**
+- PHP 8.2 or newer, with the extensions Laravel 12 needs (the usual cPanel PHP Extensions screen: curl, fileinfo, mbstring, openssl, pdo_mysql, tokenizer, xml, ctype, bcmath).
+- A MySQL database and a MySQL user with full privileges on it (Laravel needs `CREATE`/`ALTER`, it does not need `CREATE DATABASE` here since this install only ever has the one school, unlike the platform's own multi-tenant hosting).
+- SSH/Terminal access or a "Setup Node.js/PHP App"-style Composer runner. If neither is available, `composer install` has to be run somewhere with the same PHP version and the resulting `vendor/` folder uploaded instead.
+- Cron access, to run the Laravel scheduler.
+
+**Steps.**
+1. Create the MySQL database and user in cPanel, note the database name, username, and password.
+2. In cPanel's domain/subdomain settings, point the school's chosen domain (or a subdomain of it) at `backend/public` as the document root, not at `backend/` itself.
+3. Copy `backend/.env.example` to `backend/.env` and fill in for that school specifically:
+   - `APP_ENV=production`, `APP_URL` set to the school's real domain.
+   - `APP_DOMAIN` set to the same domain (this is what `Route::domain('{school}.'.$domain)` matches against, see `routes/web.php`), and the one school this install serves needs a `slug` whose subdomain resolves there, following the same `{slug}.{APP_DOMAIN}` pattern the platform itself uses.
+   - `DB_CONNECTION=mysql` and the database name/username/password from step 1.
+   - `SKULOS_SELF_HOSTED=true`. Without this, the license check never runs at all and the install behaves as if it were never self-hosted, App\Services\Licensing\LicenseService::checkSelfHosted() no-ops on this flag.
+   - `SKULOS_LICENSE_ENDPOINT` left at its default (the real SKULOS platform's `/api/license/verify`) unless told otherwise.
+   - `SKULOS_LICENSE_GRACE_DAYS` only if a different grace window than the 14-day default was agreed with the school.
+4. Run `php artisan key:generate`, then `composer install --no-dev --optimize-autoloader` (or upload a pre-built `vendor/` if Composer cannot run on the host), then `php artisan migrate --force` and `php artisan db:seed --force` (seeds the RBAC catalog, same as any other install).
+5. Create the school itself: sign in to this fresh install's own `/admin` (the same super admin flow any new SKULOS install has) and create the one school through the normal "Schools" screen, exactly as it would be done on the main platform, or run `php artisan school:provision "The School's Name"` from the console. Either way this school now lives entirely inside this install's own database, nothing is copied over from elsewhere.
+6. Add `php artisan schedule:run` to cPanel's cron, once a minute, the same line as the general cPanel section above. This is what actually fires `license:check` on its hourly schedule, along with backups and every other scheduled job. Skipping this means the license check silently never runs, which is worse than a strict lockout, it just quietly never verifies.
+7. On the **main SKULOS platform** (not this new install), open that school's record under Schools, and use the new "Self-hosted license" card to enable self-hosted licensing for it. This generates a license key.
+8. Back on **this new self-hosted install**, sign in to its own `/admin`, go to Settings, Self-Hosted License, and paste in the key generated in step 7. Save.
+9. Confirm it is working: `php artisan license:check` run by hand should complete without error, and the settings page should show a real "Last check-in" time and a "Verified" status once the scheduled hourly run has fired at least once.
+
+From this point on, the school's install checks in on its own. If the subscription lapses on the platform side (the same suspend/demand actions already used for platform-hosted billing), this install's next check-in fails, a warning banner appears there with a day count, and if it is not resolved before the grace period runs out the install locks itself out with a plain explanation, until the platform side reinstates it and a check-in succeeds again.
+
 ### Linking a created school to a subdomain in cPanel (planning, 2026-07-10, not yet executed)
 
 The app already assumes each school lives at `{slug}.{APP_DOMAIN}` (`Route::domain('{school}.'.$domain)` in `routes/web.php`, `School::portalUrl()`). Locally this "just works" with no setup because `*.localhost` resolves to the dev machine automatically. In production, a real subdomain needs real DNS and (for HTTPS) a certificate that covers it, neither of which `TenantManager::provision()` touches today (it only creates the tenant database). Two ways to close that gap, in order of preference:
