@@ -41,7 +41,15 @@ class PlanSeeder extends Seeder
         ];
 
         $advanceFeatures = array_merge($foundationFeatures, [
-            'online_admissions', 'admission_workflow', 'applicant_tracking', 'admission_letters', 'online_document_upload',
+            // Admissions (online_admissions/admission_workflow/
+            // applicant_tracking/admission_letters/online_document_upload)
+            // deliberately excluded (user directive 2026-07-18: "SUSPEND"
+            // building it, after initially confirming it should be built
+            // now): keeping it out of Advance's feature list is what
+            // actually stops it from showing at all (the nav's own
+            // standing rule is "a feature not included is not shown at
+            // all", never a "Soon" placeholder for something with no
+            // screen). Add back in once the module is actually built.
             'timetable_management', 'teacher_workload', 'advanced_report_cards', 'unlimited_grading_systems',
             'custom_report_card_designer', 'class_position_ranking',
             'email_notifications', 'parent_broadcast', 'communication_history',
@@ -97,7 +105,10 @@ class PlanSeeder extends Seeder
             ],
             [
                 'name' => 'Advance', 'slug' => 'advance', 'price' => 800,
-                'modules' => ['admissions', 'finance'], 'features' => $advanceFeatures,
+                // 'admissions' module toggle removed alongside the feature
+                // keys above (2026-07-18, suspended pending the module
+                // actually being built).
+                'modules' => ['finance'], 'features' => $advanceFeatures,
                 'default' => false, 'purchasable' => true, 'order' => 2,
             ],
             [
