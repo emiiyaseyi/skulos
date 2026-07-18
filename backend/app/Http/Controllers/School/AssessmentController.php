@@ -5,7 +5,10 @@ namespace App\Http\Controllers\School;
 use App\Http\Controllers\Controller;
 use App\Models\School;
 use App\Models\Tenant\AssessmentComponent;
+use App\Models\Tenant\AssessmentWindow;
+use App\Models\Tenant\AssessmentWindowExtension;
 use App\Models\Tenant\Score;
+use App\Models\Tenant\Term;
 use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -49,6 +52,17 @@ class AssessmentController extends Controller
 
         $components = AssessmentComponent::orderBy('sequence')->get();
 
+        // Score entry windows (user request 2026-07-18): a window is per
+        // (component, term) since the same component recurs every term,
+        // so this screen needs its own term picker, same shape as Report
+        // Cards/Student Reports.
+        $terms = Term::with('session')->orderByDesc('starts_on')->get();
+        $termId = $request->integer('term_id') ?: null;
+        $term = ($termId ? Term::find($termId) : null) ?? Term::current()->first();
+        $windowsByComponent = $term
+            ? AssessmentWindow::where('term_id', $term->id)->get()->keyBy('assessment_component_id')
+            : collect();
+
         return view('school.examinations.structure', [
             'school' => $school,
             'accent' => $school->branding()['color'],
@@ -56,6 +70,10 @@ class AssessmentController extends Controller
             'examComponents' => $components->where('type', AssessmentComponent::TYPE_EXAM)->values(),
             'totalPossible' => AssessmentComponent::totalPossible(),
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'examinations.approve_results'),
+            'terms' => $terms,
+            'term' => $term,
+            'windowsByComponent' => $windowsByComponent,
+            'pendingExtensionCount' => AssessmentWindowExtension::pending()->count(),
         ]);
     }
 

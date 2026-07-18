@@ -17,6 +17,7 @@ use App\Models\Tenant\Term;
 use App\Services\Bulk\CsvReader;
 use App\Services\Rbac\Rbac;
 use App\Services\Rbac\TeacherScope;
+use App\Services\Results\AssessmentWindowService;
 use App\Services\Results\CommentBank;
 use App\Services\Results\ResultService;
 use Illuminate\Http\Request;
@@ -183,7 +184,7 @@ class ExaminationController extends Controller
         ]);
     }
 
-    public function index(Request $request, ResultService $results, CommentBank $commentBank): \Illuminate\View\View
+    public function index(Request $request, ResultService $results, CommentBank $commentBank, AssessmentWindowService $windows): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'examinations.view');
         $school = $this->school($request);
@@ -204,6 +205,7 @@ class ExaminationController extends Controller
         $summaries = [];
         $remarks = collect();
         $suggestions = [];
+        $componentOpen = [];
 
         if ($selectedPair && $termId) {
             $students = Student::active()
@@ -211,6 +213,19 @@ class ExaminationController extends Controller
                 ->orderBy('first_name')
                 ->get();
             $components = AssessmentComponent::orderBy('sequence')->get();
+
+            // Assessment score-entry windows (user request 2026-07-18): a
+            // blanket-access role (the one that also bypasses allowedPairs()'
+            // "which class/subject" restriction) is never window-restricted.
+            $term = Term::find($termId);
+            if ($term) {
+                $blanket = $this->hasBlanketAccess($request);
+                $staff = Staff::where('user_id', Auth::id())->first();
+                foreach ($components as $component) {
+                    $componentOpen[$component->id] = $blanket || $windows->isOpenFor($component, $term, $staff);
+                }
+            }
+
             $existingScores = Score::where('class_arm_id', $classArmId)
                 ->where('subject_id', $subjectId)
                 ->where('term_id', $termId)
@@ -249,10 +264,11 @@ class ExaminationController extends Controller
             'suggestions' => $suggestions,
             'subjectsInThisClass' => $subjectsInThisClass,
             'canSave' => app(Rbac::class)->check(Auth::user(), $school, 'examinations.create'),
+            'componentOpen' => $componentOpen,
         ]);
     }
 
-    public function save(Request $request): \Illuminate\Http\RedirectResponse
+    public function save(Request $request, AssessmentWindowService $windows): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'examinations.create');
         $school = $this->school($request);
@@ -282,9 +298,25 @@ class ExaminationController extends Controller
             ->pluck('student_id')
             ->all();
 
+        // Assessment score-entry windows (user request 2026-07-18): a role
+        // with blanket access (the same one that bypasses allowedPairs()'s
+        // "which class/subject" restriction) is never window-restricted,
+        // since they are the ones who set the window in the first place.
+        // Checked once per component, not per student row.
+        $blanket = $this->hasBlanketAccess($request);
+        $staff = Staff::where('user_id', Auth::id())->first();
+        $componentOpen = [];
+        if (! $blanket) {
+            foreach ($components as $component) {
+                $componentOpen[$component->id] = $windows->isOpenFor($component, $term, $staff);
+            }
+        }
+
         $toSave = [];
         $errors = [];
         $lockedSkipped = 0;
+        $windowSkipped = 0;
+        $windowClosedComponents = [];
 
         foreach ($request->input('scores', []) as $studentId => $componentScores) {
             if (! in_array((int) $studentId, $studentIds, true)) {
@@ -301,6 +333,12 @@ class ExaminationController extends Controller
                 }
                 $component = $components->get((int) $componentId);
                 if (! $component) {
+                    continue;
+                }
+                if (! $blanket && ! ($componentOpen[$component->id] ?? true)) {
+                    $windowSkipped++;
+                    $windowClosedComponents[$component->name] = true;
+
                     continue;
                 }
                 if (! is_numeric($value) || $value < 0 || $value > (float) $component->max_score) {
@@ -335,6 +373,9 @@ class ExaminationController extends Controller
         }
 
         $message = count($toSave).' score'.(count($toSave) === 1 ? '' : 's').' saved.';
+        if ($windowSkipped > 0) {
+            $message .= " {$windowSkipped} score(s) skipped, the entry window is closed for ".implode(', ', array_keys($windowClosedComponents)).'. Request an extension from this screen if you still need to enter these.';
+        }
         if ($lockedSkipped > 0) {
             $message .= " {$lockedSkipped} student(s) skipped because their report card is locked for editing, send it back for correction first.";
         }

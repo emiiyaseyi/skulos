@@ -8,10 +8,28 @@
     <p class="subtitle">The Test / Continuous Assessment and Examination components every subject is scored against. Currently sums to {{ rtrim(rtrim(number_format($totalPossible, 2), '0'), '.') }} marks in total.</p>
   </div>
   <div class="stack" style="flex-direction:row;gap:.6rem">
+    @if($canManage)
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.window-extensions.index', ['school' => $school->slug]) }}">Extension requests @if($pendingExtensionCount)<span class="badge badge-warn">{{ $pendingExtensionCount }}</span>@endif</a>
+    @endif
     <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.grading', ['school' => $school->slug]) }}">Grading</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.index', ['school' => $school->slug]) }}">Back to Results</a>
   </div>
 </div>
+
+@if($canManage)
+  <div class="card" style="margin-bottom:1.1rem;max-width:24rem">
+    <form method="GET" action="{{ route('school.examinations.structure', ['school' => $school->slug]) }}">
+      <div class="field" style="margin:0">
+        <label for="term_id">Score entry windows for term</label>
+        <select id="term_id" name="term_id" onchange="this.form.requestSubmit()">
+          @foreach($terms as $t)
+            <option value="{{ $t->id }}" @selected($term && $term->id === $t->id)>{{ $t->name }} ({{ $t->session?->name }})</option>
+          @endforeach
+        </select>
+      </div>
+    </form>
+  </div>
+@endif
 
 @if($canManage && $caComponents->isEmpty() && $examComponents->isEmpty())
   <div class="card" style="margin-bottom:1.1rem">
@@ -32,12 +50,23 @@
     @else
       <div style="overflow-x:auto">
       <table>
-        <thead><tr><th>Name</th><th>Out of</th>@if($canManage)<th></th>@endif</tr></thead>
+        <thead><tr><th>Name</th><th>Out of</th>@if($canManage && $term)<th>Entry window</th>@endif @if($canManage)<th></th>@endif</tr></thead>
         <tbody>
           @foreach($caComponents as $component)
+            @php $window = $windowsByComponent->get($component->id); @endphp
             <tr>
               <td><strong>{{ $component->name }}</strong></td>
               <td class="muted">{{ rtrim(rtrim(number_format($component->max_score, 2), '0'), '.') }}</td>
+              @if($canManage && $term)
+                <td class="muted" style="font-size:.8rem">
+                  @if($window && ($window->opens_at || $window->closes_at))
+                    {{ $window->opens_at?->format('d M, g:ia') ?? 'Any time' }} &rarr; {{ $window->closes_at?->format('d M, g:ia') ?? 'No close' }}
+                  @else
+                    Always open
+                  @endif
+                  <button class="btn btn-ghost btn-sm" type="button" onclick="document.getElementById('window-{{ $component->id }}').classList.toggle('show')" style="margin-left:.3rem">Edit</button>
+                </td>
+              @endif
               @if($canManage)
                 <td style="white-space:nowrap">
                   <button class="btn btn-ghost btn-sm" type="button" onclick="document.getElementById('edit-{{ $component->id }}').classList.toggle('show')">Edit</button>
@@ -50,12 +79,33 @@
             </tr>
             @if($canManage)
             <tr id="edit-{{ $component->id }}" class="component-edit-row">
-              <td colspan="3">
+              <td colspan="4">
                 <form method="POST" action="{{ route('school.examinations.structure.update', ['school' => $school->slug, 'componentId' => $component->id]) }}" style="display:flex;gap:.5rem;padding:.6rem 0">
                   @csrf
                   <input name="name" value="{{ $component->name }}" required style="flex:1" />
                   <input name="max_score" type="number" step="0.01" min="0.01" value="{{ $component->max_score }}" required style="max-width:8rem" />
                   <button class="btn btn-primary btn-sm" type="submit">Save</button>
+                </form>
+              </td>
+            </tr>
+            @endif
+            @if($canManage && $term)
+            <tr id="window-{{ $component->id }}" class="component-edit-row">
+              <td colspan="4">
+                <form method="POST" action="{{ route('school.examinations.structure.windows.update', ['school' => $school->slug]) }}" style="display:flex;gap:.5rem;padding:.6rem 0;flex-wrap:wrap;align-items:flex-end">
+                  @csrf
+                  <input type="hidden" name="assessment_component_id" value="{{ $component->id }}" />
+                  <input type="hidden" name="term_id" value="{{ $term->id }}" />
+                  <div class="field" style="margin:0">
+                    <label style="font-size:.72rem">Opens</label>
+                    <input type="datetime-local" name="opens_at" value="{{ $window?->opens_at?->format('Y-m-d\TH:i') }}" />
+                  </div>
+                  <div class="field" style="margin:0">
+                    <label style="font-size:.72rem">Closes</label>
+                    <input type="datetime-local" name="closes_at" value="{{ $window?->closes_at?->format('Y-m-d\TH:i') }}" />
+                  </div>
+                  <button class="btn btn-primary btn-sm" type="submit">Save window</button>
+                  <span class="muted" style="font-size:.75rem">Leave both blank for always open.</span>
                 </form>
               </td>
             </tr>
@@ -84,12 +134,23 @@
     @else
       <div style="overflow-x:auto">
       <table>
-        <thead><tr><th>Name</th><th>Out of</th>@if($canManage)<th></th>@endif</tr></thead>
+        <thead><tr><th>Name</th><th>Out of</th>@if($canManage && $term)<th>Entry window</th>@endif @if($canManage)<th></th>@endif</tr></thead>
         <tbody>
           @foreach($examComponents as $component)
+            @php $window = $windowsByComponent->get($component->id); @endphp
             <tr>
               <td><strong>{{ $component->name }}</strong></td>
               <td class="muted">{{ rtrim(rtrim(number_format($component->max_score, 2), '0'), '.') }}</td>
+              @if($canManage && $term)
+                <td class="muted" style="font-size:.8rem">
+                  @if($window && ($window->opens_at || $window->closes_at))
+                    {{ $window->opens_at?->format('d M, g:ia') ?? 'Any time' }} &rarr; {{ $window->closes_at?->format('d M, g:ia') ?? 'No close' }}
+                  @else
+                    Always open
+                  @endif
+                  <button class="btn btn-ghost btn-sm" type="button" onclick="document.getElementById('window-{{ $component->id }}').classList.toggle('show')" style="margin-left:.3rem">Edit</button>
+                </td>
+              @endif
               @if($canManage)
                 <td style="white-space:nowrap">
                   <button class="btn btn-ghost btn-sm" type="button" onclick="document.getElementById('edit-{{ $component->id }}').classList.toggle('show')">Edit</button>
@@ -102,12 +163,33 @@
             </tr>
             @if($canManage)
             <tr id="edit-{{ $component->id }}" class="component-edit-row">
-              <td colspan="3">
+              <td colspan="4">
                 <form method="POST" action="{{ route('school.examinations.structure.update', ['school' => $school->slug, 'componentId' => $component->id]) }}" style="display:flex;gap:.5rem;padding:.6rem 0">
                   @csrf
                   <input name="name" value="{{ $component->name }}" required style="flex:1" />
                   <input name="max_score" type="number" step="0.01" min="0.01" value="{{ $component->max_score }}" required style="max-width:8rem" />
                   <button class="btn btn-primary btn-sm" type="submit">Save</button>
+                </form>
+              </td>
+            </tr>
+            @endif
+            @if($canManage && $term)
+            <tr id="window-{{ $component->id }}" class="component-edit-row">
+              <td colspan="4">
+                <form method="POST" action="{{ route('school.examinations.structure.windows.update', ['school' => $school->slug]) }}" style="display:flex;gap:.5rem;padding:.6rem 0;flex-wrap:wrap;align-items:flex-end">
+                  @csrf
+                  <input type="hidden" name="assessment_component_id" value="{{ $component->id }}" />
+                  <input type="hidden" name="term_id" value="{{ $term->id }}" />
+                  <div class="field" style="margin:0">
+                    <label style="font-size:.72rem">Opens</label>
+                    <input type="datetime-local" name="opens_at" value="{{ $window?->opens_at?->format('Y-m-d\TH:i') }}" />
+                  </div>
+                  <div class="field" style="margin:0">
+                    <label style="font-size:.72rem">Closes</label>
+                    <input type="datetime-local" name="closes_at" value="{{ $window?->closes_at?->format('Y-m-d\TH:i') }}" />
+                  </div>
+                  <button class="btn btn-primary btn-sm" type="submit">Save window</button>
+                  <span class="muted" style="font-size:.75rem">Leave both blank for always open.</span>
                 </form>
               </td>
             </tr>

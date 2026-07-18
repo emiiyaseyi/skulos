@@ -430,8 +430,20 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/structure', [$assessment, 'index'])->name('structure');
             Route::post('/structure/apply-defaults', [$assessment, 'applyDefaults'])->name('structure.apply-defaults');
             Route::post('/structure', [$assessment, 'store'])->name('structure.store');
+
+            // Registered before the {componentId} wildcard route below,
+            // which would otherwise greedily match "windows" as an id (the
+            // same route-ordering gotcha documented in CLAUDE.md).
+            $windows = \App\Http\Controllers\School\AssessmentWindowController::class;
+            Route::post('/structure/windows', [$windows, 'updateWindow'])->name('structure.windows.update');
+
             Route::post('/structure/{componentId}', [$assessment, 'update'])->name('structure.update');
             Route::delete('/structure/{componentId}', [$assessment, 'destroy'])->name('structure.destroy');
+            Route::post('/window-extensions', [$windows, 'store'])->name('window-extensions.store');
+            Route::get('/window-extensions', [$windows, 'index'])->name('window-extensions.index');
+            Route::post('/window-extensions/bulk-action', [$windows, 'bulkAction'])->name('window-extensions.bulk-action');
+            Route::post('/window-extensions/{extensionId}/approve', [$windows, 'approve'])->name('window-extensions.approve');
+            Route::post('/window-extensions/{extensionId}/reject', [$windows, 'reject'])->name('window-extensions.reject');
 
             $grading = \App\Http\Controllers\School\GradingController::class;
             Route::get('/grading', [$grading, 'index'])->name('grading');

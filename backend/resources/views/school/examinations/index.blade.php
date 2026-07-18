@@ -9,6 +9,8 @@
   .scores-total{ font-weight:800; }
   .scores-table textarea{ width:14rem; min-height:3.4rem; font-size:.82rem; text-align:left; }
   .remark-suggested{ color:var(--mut); }
+  .ext-request-box{ display:none; }
+  .ext-request-box.show{ display:block; }
 </style>
 @endpush
 
@@ -90,19 +92,51 @@
     </div>
   @endif
 
+  @foreach($components as $component)
+    @unless($componentOpen[$component->id] ?? true)
+      <div id="ext-{{ $component->id }}" class="ext-request-box card" style="margin-bottom:1rem;background:var(--bg)">
+        <form method="POST" action="{{ route('school.examinations.window-extensions.store', ['school' => $school->slug]) }}">
+          @csrf
+          <input type="hidden" name="assessment_component_id" value="{{ $component->id }}" />
+          <input type="hidden" name="term_id" value="{{ $termId }}" />
+          <p class="muted" style="margin-bottom:.5rem">Request more time to enter {{ $component->name }} scores for this class and subject.</p>
+          <div class="field">
+            <label for="reason-{{ $component->id }}">Reason</label>
+            <textarea id="reason-{{ $component->id }}" name="reason" rows="2" required></textarea>
+          </div>
+          <div class="field">
+            <label for="close-{{ $component->id }}">When should the window close for you</label>
+            <input id="close-{{ $component->id }}" type="datetime-local" name="requested_close_at" required />
+          </div>
+          <button class="btn btn-primary btn-sm" type="submit">Send request</button>
+        </form>
+      </div>
+    @endunless
+  @endforeach
+
   <div class="card">
     <form method="POST" action="{{ route('school.examinations.scores.save', ['school' => $school->slug]) }}">
       @csrf
       <input type="hidden" name="term_id" value="{{ $termId }}" />
       <input type="hidden" name="class_arm_id" value="{{ $classArmId }}" />
       <input type="hidden" name="subject_id" value="{{ $subjectId }}" />
+
       <div style="overflow-x:auto">
       <table class="scores-table">
         <thead>
           <tr>
             <th>Student</th>
             @foreach($components as $component)
-              <th>{{ $component->name }}<div class="muted" style="font-weight:500;font-size:.72rem">out of {{ rtrim(rtrim(number_format($component->max_score, 2), '0'), '.') }}</div></th>
+              @php $open = $componentOpen[$component->id] ?? true; @endphp
+              <th>
+                {{ $component->name }}<div class="muted" style="font-weight:500;font-size:.72rem">out of {{ rtrim(rtrim(number_format($component->max_score, 2), '0'), '.') }}</div>
+                @unless($open)
+                  <div style="margin-top:.3rem">
+                    <span class="badge badge-bad">Closed</span>
+                    <button class="btn btn-ghost btn-sm" type="button" style="font-size:.68rem;padding:.15rem .4rem" onclick="document.getElementById('ext-{{ $component->id }}').classList.toggle('show')">Request extension</button>
+                  </div>
+                @endunless
+              </th>
             @endforeach
             <th>Total</th>
             <th>Grade</th>
@@ -118,11 +152,14 @@
             <tr>
               <td><strong>{{ $student->fullName() }}</strong><div class="muted" style="font-size:.78rem">{{ $student->admission_number }}</div></td>
               @foreach($components as $component)
+                @php $open = $componentOpen[$component->id] ?? true; @endphp
                 <td>
-                  @if($canSave)
+                  @if($canSave && $open)
                     <input type="number" step="0.01" min="0" max="{{ $component->max_score }}"
                       name="scores[{{ $student->id }}][{{ $component->id }}]"
                       value="{{ old('scores.'.$student->id.'.'.$component->id, $existing->get($component->id)?->score) }}" />
+                  @elseif($canSave && ! $open)
+                    <input type="number" step="0.01" min="0" max="{{ $component->max_score }}" value="{{ $existing->get($component->id)?->score }}" disabled title="Entry window closed" />
                   @else
                     {{ $existing->get($component->id)?->score ?? 'Not entered' }}
                   @endif
