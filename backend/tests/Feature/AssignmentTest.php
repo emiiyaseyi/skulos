@@ -278,6 +278,70 @@ class AssignmentTest extends TestCase
             ->assertOk()->assertSee('Active assignments')->assertSee('Overdue')->assertSee('Upcoming');
     }
 
+    /**
+     * User report 2026-07-18: a plain "Teacher" role account (distinct
+     * from "Subject Teacher"/"Class Teacher") was seeing every subject in
+     * the school under Assignments, since only those two specific role
+     * slugs were ever scoped here. Proves the generic "teacher" role now
+     * gets the exact same subject-only narrowing a subject teacher gets.
+     */
+    public function test_a_plain_teacher_role_only_sees_their_own_subjects_assignments_in_a_shared_class(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('teacher', 'asgten2');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Secondary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS 2', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => Arm::create(['name' => 'A'])->id]);
+        $mySubject = Subject::create(['name' => 'Basic Science', 'code' => 'BSC']);
+        $otherSubject = Subject::create(['name' => 'Basic Technology', 'code' => 'BTC']);
+        $staff = Staff::create(['staff_id' => 'STF/10', 'first_name' => 'S', 'last_name' => 'T', 'user_id' => $teacher->id]);
+        TeachingAssignment::create(['staff_id' => $staff->id, 'subject_id' => $mySubject->id, 'class_arm_id' => $arm->id]);
+        Assignment::create(['title' => 'Science homework', 'subject_id' => $mySubject->id, 'class_arm_id' => $arm->id]);
+        Assignment::create(['title' => 'Tech homework', 'subject_id' => $otherSubject->id, 'class_arm_id' => $arm->id]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacher)->get(route('school.assignments.index', ['school' => $school->slug]))
+            ->assertOk()->assertSee('Science homework')->assertDontSee('Tech homework');
+
+        $this->actingAs($teacher)->post(route('school.assignments.store', ['school' => $school->slug]), [
+            'title' => 'Not mine', 'subject_id' => $otherSubject->id, 'class_arm_id' => $arm->id,
+        ])->assertForbidden();
+    }
+
+    /**
+     * The same "teacher" role account, but also the class teacher for one
+     * of their arms: every subject in THAT arm stays unrestricted, exactly
+     * like the "Class Teacher" role already gets, while a different arm
+     * they only hold a TeachingAssignment for stays subject-narrowed.
+     */
+    public function test_a_plain_teacher_who_is_also_a_class_teacher_sees_every_subject_for_their_own_class_only(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('teacher', 'asgeleven');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Secondary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS 3', 'sequence' => 1]);
+        $ownArm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => Arm::create(['name' => 'A'])->id]);
+        $otherArm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => Arm::create(['name' => 'B'])->id]);
+        $subjectA = Subject::create(['name' => 'Maths', 'code' => 'MTH']);
+        $subjectB = Subject::create(['name' => 'English', 'code' => 'ENG']);
+        $staff = Staff::create(['staff_id' => 'STF/11', 'first_name' => 'C', 'last_name' => 'T', 'user_id' => $teacher->id]);
+        $ownArm->update(['class_teacher_staff_id' => $staff->id]);
+        TeachingAssignment::create(['staff_id' => $staff->id, 'subject_id' => $subjectA->id, 'class_arm_id' => $otherArm->id]);
+        Assignment::create(['title' => 'Own class Maths', 'subject_id' => $subjectA->id, 'class_arm_id' => $ownArm->id]);
+        Assignment::create(['title' => 'Own class English', 'subject_id' => $subjectB->id, 'class_arm_id' => $ownArm->id]);
+        Assignment::create(['title' => 'Other class Maths', 'subject_id' => $subjectA->id, 'class_arm_id' => $otherArm->id]);
+        Assignment::create(['title' => 'Other class English', 'subject_id' => $subjectB->id, 'class_arm_id' => $otherArm->id]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacher)->get(route('school.assignments.index', ['school' => $school->slug]))
+            ->assertOk()
+            ->assertSee('Own class Maths')->assertSee('Own class English') // their own class, every subject
+            ->assertSee('Other class Maths') // taught there, allowed
+            ->assertDontSee('Other class English'); // not their subject there, not their class
+    }
+
     /** User directive 2026-07-16: "ASSIGNMENT MENU SHOULD BE MOVED TO ACADEMIC SECTION". */
     public function test_assignments_appears_under_academic_in_the_nav(): void
     {

@@ -556,6 +556,38 @@ class PlanFeatureNavTest extends TestCase
         $this->actingAs($user)->get("http://{$school->slug}.localhost/report-cards/traits")->assertOk();
     }
 
+    /**
+     * User report 2026-07-18: "the examination page is missing as a menu
+     * which should be under academics where teachers can enter scores, it
+     * should have the grade page as a sub menu under it, use the setting
+     * approach we use to achieve the above". "Enter Scores" is core,
+     * plan-independent functionality (same "Report settings" treatment);
+     * "Grading" only appears once the Advance-tier 'unlimited_grading_
+     * systems' feature is on the plan, nested under the same Examinations
+     * sub-group rather than as its own flat Academic entry.
+     */
+    public function test_examinations_appears_under_academic_with_grading_nested_when_the_plan_includes_it(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['student_records', 'unlimited_grading_systems'], 'planexam');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()
+            ->assertSeeInOrder(['Academic', 'Examinations', 'Enter Scores', 'Grading'])
+            ->assertSee('data-subgroup="academic-examinations"', false)
+            ->assertDontSee('Soon');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/examinations")->assertOk();
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/examinations/grading")->assertOk();
+    }
+
+    public function test_enter_scores_shows_even_without_the_unlimited_grading_systems_feature(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['student_records'], 'planexamtwo');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()->assertSee('Enter Scores')->assertDontSee('Grading');
+    }
+
     public function test_the_nav_search_box_also_renders_on_the_platform_admin_portal(): void
     {
         $admin = User::factory()->create();

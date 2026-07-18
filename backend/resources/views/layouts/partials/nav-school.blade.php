@@ -321,6 +321,17 @@
     'Security' => [], 'System' => [], 'Analytics' => [],
   ];
 
+  // Academic > Examinations (user directive 2026-07-18: "the examination
+  // page is missing as a menu which should be under academics where
+  // teachers can enter scores, it should have the grade page as a sub
+  // menu under it, use the setting approach we use to achieve the
+  // above"). Same nested-subsection shape as Settings above, but Academic
+  // otherwise stays a flat list, so this one subgroup is rendered
+  // separately and pushed in as a single pre-built entry right before
+  // final assembly, rather than making the whole Academic group nested
+  // the way Settings is.
+  $academicSubgroups = ['Examinations' => []];
+
   // Dashboard stays pinned in Main regardless of which catalog category
   // it belongs to, it is the app's home page, not really a "feature" in
   // the marketing sense, worth keeping prominent rather than buried
@@ -379,10 +390,14 @@
         $entry = $soonLink($featureLabel, 'settings');
       }
       // Settings items land in one of the 7 nested sub-groups instead of
-      // a flat Settings list (see $settingsSubgroups above), everything
-      // else keeps the existing flat single-level group behaviour.
+      // a flat Settings list (see $settingsSubgroups above); Grading lands
+      // in the new Academic > Examinations subgroup instead of a flat
+      // Academic entry (see $academicSubgroups above); everything else
+      // keeps the existing flat single-level group behaviour.
       if ($targetLabel === 'Settings' && isset($forceSubgroup[$featureKey])) {
         $settingsSubgroups[$forceSubgroup[$featureKey]][] = $entry;
+      } elseif ($featureKey === 'unlimited_grading_systems') {
+        $academicSubgroups['Examinations'][] = $entry;
       } else {
         $groups[$targetLabel][] = $entry;
       }
@@ -406,6 +421,20 @@
   if ($navRbac->check($navUser, $school, 'assignments.view') && ! isset($renderedRoutes['school.assignments.index'])) {
     $renderedRoutes['school.assignments.index'] = true;
     $groups['Academic'][] = $link('school.assignments.index', 'Assignments', 'assignments');
+  }
+
+  // "Enter Scores" (school.examinations.index), the real score-entry
+  // screen teachers use, was previously only reachable one click away via
+  // a button on the Report Cards page (2026-07-15's Results/Report Cards
+  // merge), never its own nav item (user report 2026-07-18: "the
+  // examination page is missing as a menu"). Not gated by any plan
+  // feature, same "core functionality every plan gets" treatment as
+  // "Report settings"; available to scoped teacher roles too, unlike
+  // Grading below, since entering scores is exactly what a class/subject
+  // teacher needs this for.
+  if ($navRbac->check($navUser, $school, 'examinations.view') && ! isset($renderedRoutes['school.examinations.index'])) {
+    $renderedRoutes['school.examinations.index'] = true;
+    array_unshift($academicSubgroups['Examinations'], $link('school.examinations.index', 'Enter Scores', 'results'));
   }
 
   // "Report settings" (template and field choices for the report card
@@ -567,6 +596,24 @@
   // unrestricted staff role (owner/admin send broadcasts, not this).
   if ($isTeacherScoped || $scopedRoleSlug === 'parent') {
     $groups['Main'][] = $link('school.chat.index', 'Chat', 'chat');
+  }
+
+  // Build the Academic > Examinations nested subsection (see
+  // $academicSubgroups above) into one pre-rendered flat entry, the same
+  // .side-subsection/.side-subgroup-btn/.side-subsubmenu markup and JS
+  // controller Settings' own sub-groups already use (fully generic, not
+  // scoped to Settings specifically), pushed into the otherwise-flat
+  // Academic group rather than making the whole group nested.
+  $examEntries = array_filter($academicSubgroups['Examinations']);
+  if (count($examEntries)) {
+    $examHasActive = collect($examEntries)->contains(fn ($e) => $e['active']);
+    $examHtml = '<div class="side-subsection">'
+      .'<button type="button" class="side-subgroup-btn" aria-expanded="'.($examHasActive ? 'true' : 'false').'" data-subgroup="academic-examinations">'
+      .'<span>Examinations</span>'.$chev.'</button>'
+      .'<div class="side-subsubmenu'.($examHasActive ? ' open' : '').'" data-subgroup-panel="academic-examinations"><div>'
+      .collect($examEntries)->pluck('html')->implode('')
+      .'</div></div></div>';
+    $groups['Academic'][] = ['active' => $examHasActive, 'html' => $examHtml];
   }
 
   // Explicit group order (user directive 2026-07-15: "I WANT TO MOVE THE

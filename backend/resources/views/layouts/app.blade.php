@@ -201,6 +201,7 @@ a{color:inherit;text-decoration:none}
 h1.title{font-size:1.55rem;font-weight:800;letter-spacing:-.01em}
 .subtitle{color:var(--mut);font-size:.92rem;margin-top:.2rem}
 .grid{display:grid;gap:1.1rem}
+.grid > *{min-width:0}
 .cols-2{grid-template-columns:repeat(2,1fr)}.cols-3{grid-template-columns:repeat(3,1fr)}.cols-4{grid-template-columns:repeat(4,1fr)}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:1.4rem;box-shadow:var(--shadow)}
 .card h3{font-size:1rem;font-weight:800;margin-bottom:.2rem}
@@ -282,11 +283,13 @@ tr:last-child td{border-bottom:none}
 .subject-disclosure summary::-webkit-details-marker{display:none}
 .subject-disclosure summary::before{content:'\25B8';display:inline-block;width:1rem;color:var(--mut);transition:transform .12s ease}
 .subject-disclosure[open] summary::before{transform:rotate(90deg)}
-.notif{display:flex;gap:.75rem;padding:.8rem 0;border-bottom:1px solid var(--line)}
+.notif{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .75rem;padding:.8rem 0;border-bottom:1px solid var(--line)}
 .notif:last-child{border-bottom:none}
 .notif .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:.45rem;flex-shrink:0}
 .notif .dot.read{background:var(--mut-dim)}
 .notif b{font-size:.9rem}.notif small{color:var(--mut-dim)}
+.notif > div{min-width:0;overflow-wrap:break-word}
+.notif > .badge{flex-shrink:0;margin-left:auto}
 
 /* ---- auth/bare pages ---- */
 .auth-shell{min-height:100vh;display:grid;place-items:center;padding:2rem 1.25rem}

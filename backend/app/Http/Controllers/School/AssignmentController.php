@@ -43,36 +43,64 @@ class AssignmentController extends Controller
     }
 
     /**
-     * A subject teacher's (class_arm_id, subject_id) pairs from their real
-     * TeachingAssignment rows, or null if this user is not specifically a
-     * subject-teacher (nothing further to narrow beyond the class arm
-     * scope TeacherScope already applies).
+     * Every class arm this user is the class teacher or assistant class
+     * teacher of: they see and post assignments for every subject there,
+     * not just ones they hold a TeachingAssignment for (user directive
+     * 2026-07-16, restated 2026-07-18: "a class teacher can see all the
+     * details of the assignment for her class"). Keyed off the real
+     * ClassArm link, not an RBAC role slug, so this is correct whether the
+     * user's role happens to be named "Class Teacher", "Teacher", or
+     * anything else.
      */
-    protected function subjectTeacherPairs(School $school): ?\Illuminate\Support\Collection
+    protected function classTeacherArmIds(School $school): \Illuminate\Support\Collection
     {
-        $user = Auth::user();
-        $role = $user->roleIn($school);
-        if (! $role || $role->slug !== 'subject-teacher') {
-            return null;
-        }
-        if (app(Rbac::class)->hasModuleOverride($school, $user, 'students')) {
-            return null;
-        }
-        $staff = Staff::where('user_id', $user->id)->first();
+        $staff = Staff::where('user_id', Auth::id())->first();
 
         return $staff
-            ? TeachingAssignment::where('staff_id', $staff->id)->get(['class_arm_id', 'subject_id'])
+            ? ClassArm::where('class_teacher_staff_id', $staff->id)->orWhere('assistant_teacher_staff_id', $staff->id)->pluck('id')
             : collect();
     }
 
     /**
+     * A scoped teacher's (class_arm_id, subject_id) pairs from their real
+     * TeachingAssignment rows, excluding any arm they are already the
+     * class/assistant teacher of (classTeacherArmIds() above already
+     * covers those unrestricted), or null if this user is not scoped at
+     * all (an unrestricted admin-type role, or a scoped role explicitly
+     * lifted via Staff Extra Access).
+     *
+     * Deliberately keyed off TeacherScope::isScoped() rather than a
+     * specific RBAC role slug (user report 2026-07-18: a plain "Teacher"
+     * role account was seeing every subject in the school under
+     * Assignments, since only the "Subject Teacher" role slug specifically
+     * was ever narrowed here) — the real TeachingAssignment/
+     * class_teacher_staff_id data is authoritative, not which named role a
+     * school happened to assign the account.
+     */
+    protected function subjectTeacherPairs(School $school): ?\Illuminate\Support\Collection
+    {
+        $user = Auth::user();
+        if (! app(TeacherScope::class)->isScoped($user, $school)) {
+            return null;
+        }
+        $staff = Staff::where('user_id', $user->id)->first();
+        if (! $staff) {
+            return collect();
+        }
+        $classTeacherArmIds = $this->classTeacherArmIds($school);
+
+        return TeachingAssignment::where('staff_id', $staff->id)
+            ->when($classTeacherArmIds->isNotEmpty(), fn ($q) => $q->whereNotIn('class_arm_id', $classTeacherArmIds))
+            ->get(['class_arm_id', 'subject_id']);
+    }
+
+    /**
      * A class teacher sees every subject's assignments across their whole
-     * class (TeacherScope's class-arm-wide scope already covers this
-     * unchanged); a subject teacher only sees their own subject's, not
-     * every subject taught in that class arm by someone else (user
-     * directive 2026-07-16: "CLASS TEACHER CAN SEE ALL THE ASSIGNMENT FOR
-     * THE CLASS, ACROSS ALL SUBJECTS WHILE OTHER USERS CAN ONLY SEE THE
-     * ONW FOR THEM").
+     * class; a subject teacher (whatever their role is actually called)
+     * only sees their own subject's, not every subject taught in that
+     * class arm by someone else (user directive 2026-07-16: "CLASS TEACHER
+     * CAN SEE ALL THE ASSIGNMENT FOR THE CLASS, ACROSS ALL SUBJECTS WHILE
+     * OTHER USERS CAN ONLY SEE THE ONW FOR THEM").
      */
     protected function applySubjectScope(\Illuminate\Database\Eloquent\Builder $query, School $school): void
     {
@@ -80,12 +108,16 @@ class AssignmentController extends Controller
         if ($pairs === null) {
             return;
         }
-        if ($pairs->isEmpty()) {
+        $classTeacherArmIds = $this->classTeacherArmIds($school);
+        if ($pairs->isEmpty() && $classTeacherArmIds->isEmpty()) {
             $query->whereRaw('1 = 0');
 
             return;
         }
-        $query->where(function ($q) use ($pairs) {
+        $query->where(function ($q) use ($pairs, $classTeacherArmIds) {
+            if ($classTeacherArmIds->isNotEmpty()) {
+                $q->orWhereIn('class_arm_id', $classTeacherArmIds);
+            }
             foreach ($pairs as $pair) {
                 $q->orWhere(fn ($q2) => $q2->where('class_arm_id', $pair->class_arm_id)->where('subject_id', $pair->subject_id));
             }
@@ -161,9 +193,10 @@ class AssignmentController extends Controller
         // Narrowed to the subjects a subject teacher actually teaches
         // (somewhere), so the form does not offer a combination store()
         // would then reject; a class teacher/assistant/admin still sees
-        // every subject the school offers.
+        // every subject the school offers, since they are free to post
+        // any subject for their own class.
         $pairs = $this->subjectTeacherPairs($school);
-        $subjects = $pairs === null
+        $subjects = ($pairs === null || $this->classTeacherArmIds($school)->isNotEmpty())
             ? Subject::orderBy('name')->get()
             : Subject::whereIn('id', $pairs->pluck('subject_id')->unique())->orderBy('name')->get();
 
@@ -197,9 +230,13 @@ class AssignmentController extends Controller
         // A subject teacher may only post for a subject they actually
         // teach in that class arm, not any subject just because someone
         // else teaches it in the same class (same "respective access
-        // rights" rule as viewing, see applySubjectScope()'s docblock).
+        // rights" rule as viewing, see applySubjectScope()'s docblock); a
+        // class/assistant class teacher may post any subject for their own
+        // class arm.
         $pairs = $this->subjectTeacherPairs($school);
-        if ($pairs !== null && ! $pairs->contains(fn ($p) => $p->class_arm_id === (int) $data['class_arm_id'] && $p->subject_id === (int) $data['subject_id'])) {
+        if ($pairs !== null
+            && ! $this->classTeacherArmIds($school)->contains((int) $data['class_arm_id'])
+            && ! $pairs->contains(fn ($p) => $p->class_arm_id === (int) $data['class_arm_id'] && $p->subject_id === (int) $data['subject_id'])) {
             abort(403, 'You do not teach this subject in this class.');
         }
 

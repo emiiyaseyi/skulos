@@ -104,4 +104,28 @@ class NotificationDispatchTest extends TestCase
             \App\Models\AuditLog::on('tenant')->where('action', 'announcement.dispatched')->exists()
         );
     }
+
+    /**
+     * A rich-text announcement's HTML body (the composer's real output,
+     * e.g. centered/bold/underlined text) must never appear as literal
+     * markup in the in-app notification feed (user report 2026-07-18, a
+     * notification literally showing "<div style=...>"). The email still
+     * gets the real HTML, only the plain-text notification preview is
+     * stripped.
+     */
+    public function test_a_rich_text_announcement_body_is_stripped_to_plain_text_for_the_in_app_notification(): void
+    {
+        Mail::fake();
+        $html = '<div style="text-align:center"><span><b><u>MNM,N,NM,</u></b></span></div><div style="text-align:center"><span><b><u>Second line</u></b></span></div>';
+        $announcement = Announcement::create(['title' => 'Rich', 'body' => $html, 'audience' => 'all']);
+
+        app(NotificationService::class)->dispatchAnnouncement($announcement, $this->recipients());
+
+        $notification = Notification::first();
+        $this->assertSame('MNM,N,NM, Second line', $notification->body);
+        $this->assertStringNotContainsString('<', $notification->body);
+
+        // The announcement's own stored body, and what goes out by email, stay real HTML.
+        $this->assertSame($html, $announcement->fresh()->body);
+    }
 }

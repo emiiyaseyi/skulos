@@ -1268,8 +1268,18 @@ return [
     | ("can they at all") one. A scoped role that is explicitly granted
     | the "students" module via Staff Extra Access is lifted back to
     | unrestricted, that override always wins.
+    |
+    | 'teacher' (the plain "Teacher" role, distinct from "Class Teacher"/
+    | "Subject Teacher") added 2026-07-18: a real school's teaching staff
+    | most naturally end up on this generic role rather than the two more
+    | specific ones, and were seeing every class/subject in the school
+    | under Assignments as a result, since this list previously only
+    | covered the two named roles a 2026-07-12 report happened to call
+    | out. Scoped the same way: their own class (class_teacher_staff_id/
+    | assistant_teacher_staff_id) plus whatever they hold a
+    | TeachingAssignment for.
     */
-    'teacher_scoped_roles' => ['class-teacher', 'subject-teacher', 'class-assistant'],
+    'teacher_scoped_roles' => ['class-teacher', 'subject-teacher', 'class-assistant', 'teacher'],
 
     /*
     | Parent and student are restricted to their own family's data only

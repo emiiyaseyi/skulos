@@ -75,13 +75,28 @@ class NotificationService
         // stays in the quieter notifications list, no pop-up.
         $category = $announcement->type === Announcement::TYPE_BROADCAST ? 'broadcast' : 'announcement';
 
+        // The notification feed (this widget and the Notification Center
+        // list) is a plain-text preview, not a rich-content renderer, so it
+        // always echoes body through plain {{ }} text, never {!! !!}. An
+        // announcement/broadcast composed with the rich-text editor stores
+        // real HTML in Announcement::body (needed as-is for the email
+        // render and is deliberately never sanitized there, see
+        // App\Http\Controllers\School\AnnouncementController); reusing
+        // that HTML verbatim as a Notification's own body showed the raw
+        // markup as visible text instead of rendering it (user report
+        // 2026-07-18, a notification literally showing "<div style=...>").
+        // Stripped to plain text here, once, at the point a Notification
+        // is created from an Announcement, rather than in every view that
+        // reads Notification::body.
+        $plainBody = $this->plainTextPreview($announcement->body);
+
         foreach ($recipients as $r) {
             // Everyone gets an in-app notification.
             Notification::create([
                 'user_id' => $r['user_id'],
                 'audience' => $r['audience'] ?? null,
                 'title' => $announcement->title,
-                'body' => $announcement->body,
+                'body' => $plainBody,
                 'category' => $category,
                 'type' => Notification::typeFor($category),
                 'announcement_id' => $announcement->id,
@@ -110,5 +125,24 @@ class NotificationService
         );
 
         return ['in_app' => $inApp, 'email_sent' => $email['sent'], 'email_failed' => $email['failed']];
+    }
+
+    /**
+     * Converts rich-text HTML (the announcement composer's output) to a
+     * flat, readable plain-text preview: block-level boundaries become a
+     * space first (so "</div><div>" does not mash two words together),
+     * then every tag is stripped, then repeated whitespace collapses to
+     * one space.
+     */
+    public function plainTextPreview(?string $html): ?string
+    {
+        if ($html === null || $html === '') {
+            return $html;
+        }
+
+        $spaced = preg_replace('/<\/(div|p|li|h[1-6]|tr)>|<br\s*\/?>/i', ' ', $html);
+        $text = trim(preg_replace('/\s+/', ' ', strip_tags($spaced)));
+
+        return $text === '' ? null : $text;
     }
 }
