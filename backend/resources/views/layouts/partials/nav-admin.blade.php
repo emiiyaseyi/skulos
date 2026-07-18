@@ -26,6 +26,7 @@
 {!! $item('admin.broadcast.create', 'Broadcast', 'chat') !!}
 {!! $item('admin.audit-log.index', 'Audit Log', 'search') !!}
 {!! $item('admin.team.index', 'Platform Team', 'roles') !!}
+{!! $item('admin.marketing-pages.index', 'Marketing Pages', 'pages') !!}
 
 <div class="side-group">Settings</div>
 {!! $item('admin.settings.index', 'Platform Settings', 'settings') !!}

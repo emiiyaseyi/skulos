@@ -58,6 +58,13 @@ Route::domain($appDomain)->group(function () {
         Route::get('/team', [\App\Http\Controllers\Admin\PlatformTeamController::class, 'index'])->name('team.index');
         Route::post('/team', [\App\Http\Controllers\Admin\PlatformTeamController::class, 'store'])->name('team.store');
         Route::post('/team/{user}/revoke', [\App\Http\Controllers\Admin\PlatformTeamController::class, 'revoke'])->name('team.revoke');
+
+        Route::prefix('marketing-pages')->name('marketing-pages.')->group(function () {
+            $marketingPages = \App\Http\Controllers\Admin\MarketingPageController::class;
+            Route::get('/', [$marketingPages, 'index'])->name('index');
+            Route::get('/{page}', [$marketingPages, 'edit'])->name('edit');
+            Route::post('/{page}', [$marketingPages, 'update'])->name('update');
+        });
         Route::get('/schools', [SchoolAdminController::class, 'schools'])->name('schools.index');
         Route::post('/schools', [SchoolAdminController::class, 'store'])->name('schools.store');
         Route::get('/schools/archive', [SchoolAdminController::class, 'trashed'])->name('schools.archive-list');

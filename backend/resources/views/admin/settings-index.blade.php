@@ -29,5 +29,9 @@
     <h3 style="margin-bottom:.3rem">Subscription Bank</h3>
     <p class="muted">The bank account schools transfer their subscription payment to.</p>
   </a>
+  <a class="card" href="{{ route('admin.marketing-pages.index') }}" style="text-decoration:none;color:inherit;display:block">
+    <h3 style="margin-bottom:.3rem">Marketing Pages</h3>
+    <p class="muted">Edit the public marketing site's HTML directly.</p>
+  </a>
 </div>
 @endsection

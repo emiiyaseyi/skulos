@@ -70,6 +70,7 @@
     <a class="btn btn-ghost btn-sm" href="{{ route('admin.modules.index') }}">Manage modules</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('admin.backups.index') }}">View backups</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('admin.team.index') }}">Manage platform team</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('admin.marketing-pages.index') }}">Edit marketing pages</a>
   </div>
 
   {{-- Dashboard Design Cross-Check, 2026-07-13: "Clone School / Suspend
