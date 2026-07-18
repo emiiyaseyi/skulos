@@ -118,6 +118,7 @@ Route::domain($appDomain)->group(function () {
             Route::post('/{school}/reinstate', [$subscriptions, 'reinstate'])->name('reinstate');
             Route::post('/payments/{payment}/verify', [$subscriptions, 'verify'])->name('payments.verify');
             Route::post('/payments/{payment}/reject', [$subscriptions, 'reject'])->name('payments.reject');
+            Route::get('/payments/{payment}/evidence', [$subscriptions, 'evidence'])->name('payments.evidence');
         });
 
         Route::prefix('billing')->name('billing.')->group(function () {
@@ -462,6 +463,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/payments/{paymentId}', [$payments, 'show'])->name('payments.show');
             Route::post('/payments/{paymentId}/verify', [$payments, 'verify'])->name('payments.verify');
             Route::post('/payments/{paymentId}/reject', [$payments, 'reject'])->name('payments.reject');
+            Route::get('/payments/{paymentId}/evidence', [$payments, 'evidence'])->name('payments.evidence');
         });
 
         // A school's own SKULOS subscription (2026-07-17): due date, real
@@ -470,6 +472,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             $subscription = \App\Http\Controllers\School\SubscriptionController::class;
             Route::get('/', [$subscription, 'index'])->name('index');
             Route::post('/', [$subscription, 'store'])->name('store');
+            Route::get('/payments/{paymentId}/evidence', [$subscription, 'evidence'])->name('evidence');
         });
 
         // Campuses.

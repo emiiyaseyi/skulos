@@ -96,6 +96,18 @@ class SubscriptionController extends Controller
         return back()->with('status', 'Subscription bank details saved.');
     }
 
+    /**
+     * Streams evidence from the private 'local' disk (audit finding M-2,
+     * 2026-07-17); already super_admin-gated by the enclosing route
+     * group's middleware.
+     */
+    public function evidence(SubscriptionPayment $payment): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        abort_unless($payment->evidence_path, 404);
+
+        return Storage::disk('local')->response($payment->evidence_path);
+    }
+
     public function verify(SubscriptionPayment $payment, SubscriptionService $subs): \Illuminate\Http\RedirectResponse
     {
         return $this->decide($payment, SubscriptionPayment::STATUS_VERIFIED, $subs);

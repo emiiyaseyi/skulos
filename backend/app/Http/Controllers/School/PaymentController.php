@@ -120,10 +120,15 @@ class PaymentController extends Controller
             abort(404);
         }
 
+        // Financial evidence never goes on the public disk (audit finding
+        // M-2, 2026-07-17): a bank receipt/proof-of-payment is served only
+        // through the authenticated evidence() action below, which re-runs
+        // the same finance.view + FamilyScope check every other action on
+        // this controller already enforces.
         $file = $request->file('evidence');
         $evidencePath = $file->getClientOriginalExtension() === 'pdf'
-            ? $file->storeAs("payments/{$school->slug}", Str::random(24).'.pdf', 'public')
-            : $images->toWebp($file, "payments/{$school->slug}");
+            ? $file->storeAs("payments/{$school->slug}", Str::random(24).'.pdf', 'local')
+            : $images->toWebp($file, "payments/{$school->slug}", disk: 'local');
 
         $payment = Payment::create([
             'student_id' => $data['student_id'],
@@ -162,6 +167,29 @@ class PaymentController extends Controller
             'payment' => $payment,
             'canVerify' => app(Rbac::class)->check($user, $school, 'finance.update'),
         ]);
+    }
+
+    /**
+     * Streams evidence from the private 'local' disk rather than a bare
+     * public URL, re-checking finance.view + FamilyScope on every request
+     * (audit finding M-2, 2026-07-17): financial evidence was previously
+     * served straight from the public disk, reachable by anyone with the
+     * URL, entirely outside this app's RBAC/family scoping.
+     */
+    public function evidence(Request $request): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $this->authorizeAction($request, 'finance.view');
+        $school = $this->school($request);
+        $user = Auth::user();
+        $familyStudentIds = app(FamilyScope::class)->studentIds($user, $school);
+
+        $payment = Payment::findOrFail($request->route('paymentId'));
+        if ($familyStudentIds !== null && ! $familyStudentIds->contains($payment->student_id)) {
+            abort(404);
+        }
+        abort_unless($payment->evidence_path, 404);
+
+        return Storage::disk('local')->response($payment->evidence_path);
     }
 
     public function verify(Request $request): \Illuminate\Http\RedirectResponse

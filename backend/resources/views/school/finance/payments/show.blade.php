@@ -15,8 +15,8 @@
     <h3 style="margin-bottom:.6rem">Details</h3>
     <p><strong>Amount:</strong> ₦{{ number_format((float) $payment->amount, 2) }}</p>
     <p><strong>Method:</strong> Bank transfer</p>
-    <p><strong>Bank:</strong> {{ $payment->bank_name ?: '—' }}</p>
-    <p><strong>Reference:</strong> {{ $payment->reference ?: '—' }}</p>
+    <p><strong>Bank:</strong> {{ $payment->bank_name ?: 'Not provided' }}</p>
+    <p><strong>Reference:</strong> {{ $payment->reference ?: 'Not provided' }}</p>
     <p><strong>Submitted:</strong> {{ $payment->created_at->format('d M Y, g:ia') }}</p>
     <p>
       <strong>Status:</strong>
@@ -45,12 +45,13 @@
 
   <div class="card">
     <h3 style="margin-bottom:.6rem">Evidence</h3>
-    @if($payment->evidenceUrl())
+    @if($payment->evidence_path)
+      @php $evidenceUrl = route('school.finance.payments.evidence', ['school' => $school->slug, 'paymentId' => $payment->id]); @endphp
       @if(str_ends_with($payment->evidence_path, '.pdf'))
-        <a class="btn btn-ghost btn-sm" href="{{ $payment->evidenceUrl() }}" target="_blank" rel="noopener">Open PDF evidence</a>
+        <a class="btn btn-ghost btn-sm" href="{{ $evidenceUrl }}" target="_blank" rel="noopener">Open PDF evidence</a>
       @else
-        <a href="{{ $payment->evidenceUrl() }}" target="_blank" rel="noopener">
-          <img src="{{ $payment->evidenceUrl() }}" alt="Payment evidence" style="max-width:100%;border-radius:10px;border:1px solid var(--line)" />
+        <a href="{{ $evidenceUrl }}" target="_blank" rel="noopener">
+          <img src="{{ $evidenceUrl }}" alt="Payment evidence" style="max-width:100%;border-radius:10px;border:1px solid var(--line)" />
         </a>
       @endif
     @else

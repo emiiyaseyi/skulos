@@ -45,11 +45,6 @@ class Payment extends Model
         return $this->belongsTo(FeeItem::class);
     }
 
-    public function evidenceUrl(): ?string
-    {
-        return $this->evidence_path ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->evidence_path) : null;
-    }
-
     public function scopePending($query)
     {
         return $query->where('status', self::STATUS_PENDING);

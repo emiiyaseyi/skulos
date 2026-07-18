@@ -26,8 +26,12 @@ class ImageProcessingService
      *   attached to a broadcast does not need to stay at full camera
      *   resolution to be useful)
      * @param int $quality WebP quality, 0-100
+     * @param string $disk defaults to 'public' (a broadcast/logo/chat
+     *   image is meant to be widely viewable); financial evidence uploads
+     *   pass 'local' instead so the file is never reachable by a bare
+     *   unauthenticated URL (audit finding M-2, 2026-07-17)
      */
-    public function toWebp(UploadedFile $file, string $directory, int $maxDimension = 1600, int $quality = 78): string
+    public function toWebp(UploadedFile $file, string $directory, int $maxDimension = 1600, int $quality = 78, string $disk = 'public'): string
     {
         [$width, $height, $type] = getimagesize($file->getRealPath());
 
@@ -62,7 +66,7 @@ class ImageProcessingService
         imagedestroy($canvas);
 
         $filename = $directory.'/'.Str::random(24).'.webp';
-        Storage::disk('public')->put($filename, file_get_contents($tmpPath));
+        Storage::disk($disk)->put($filename, file_get_contents($tmpPath));
         @unlink($tmpPath);
 
         return $filename;

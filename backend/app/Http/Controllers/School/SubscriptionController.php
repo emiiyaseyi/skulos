@@ -11,6 +11,7 @@ use App\Services\Billing\SubscriptionService;
 use App\Services\Media\ImageProcessingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -64,10 +65,13 @@ class SubscriptionController extends Controller
             'evidence' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:'.config('skulos.upload_limits.payment_evidence_kb')],
         ]);
 
+        // Financial evidence never goes on the public disk (audit finding
+        // M-2, 2026-07-17): served only through the authenticated
+        // evidence() action below.
         $file = $request->file('evidence');
         $evidencePath = $file->getClientOriginalExtension() === 'pdf'
-            ? $file->storeAs('subscription-payments/'.$school->slug, Str::random(24).'.pdf', 'public')
-            : $images->toWebp($file, 'subscription-payments/'.$school->slug);
+            ? $file->storeAs('subscription-payments/'.$school->slug, Str::random(24).'.pdf', 'local')
+            : $images->toWebp($file, 'subscription-payments/'.$school->slug, disk: 'local');
 
         SubscriptionPayment::create([
             'school_id' => $school->id,
@@ -81,5 +85,19 @@ class SubscriptionController extends Controller
 
         return redirect()->route('school.subscription.index', ['school' => $school->slug])
             ->with('status', 'Payment submitted. SKULOS will verify it shortly.');
+    }
+
+    /**
+     * Streams evidence from the private 'local' disk, scoped to this
+     * school's own payments only (audit finding M-2, 2026-07-17).
+     */
+    public function evidence(Request $request): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $this->authorizeAction($request);
+        $school = $this->school($request);
+        $payment = SubscriptionPayment::where('school_id', $school->id)->findOrFail($request->route('paymentId'));
+        abort_unless($payment->evidence_path, 404);
+
+        return Storage::disk('local')->response($payment->evidence_path);
     }
 }

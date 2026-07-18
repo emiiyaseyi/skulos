@@ -10,7 +10,7 @@
   <div class="flash flash-bad" style="margin-bottom:1.1rem">This school is locked out for an overdue subscription.</div>
 @endif
 
-<div class="grid" style="grid-template-columns:repeat(3, 1fr);gap:1rem;margin-bottom:1.25rem">
+<div class="grid cols-3" style="gap:1rem;margin-bottom:1.25rem">
   <div class="card stat" style="padding:1rem"><b>{{ number_format($learners) }}</b><span>Active learners</span></div>
   <div class="card stat" style="padding:1rem"><b>{{ $amountDue !== null ? '₦'.number_format($amountDue, 2) : 'N/A' }}</b><span>Amount due</span></div>
   <div class="card stat" style="padding:1rem"><b>{{ $school->next_billing_date?->format('d M Y') ?? 'Not set' }}</b><span>Due date</span></div>
@@ -55,7 +55,7 @@
     @else
       <ul class="rp-list">
         @foreach($events as $event)
-          <li><span><strong>{{ ucfirst($event->type) }}</strong> <span class="muted">by {{ $event->actionedBy?->name ?? 'System' }}{{ $event->note ? ' — '.$event->note : '' }}</span></span><span class="muted">{{ $event->created_at->format('d M Y') }}</span></li>
+          <li><span><strong>{{ ucfirst($event->type) }}</strong> <span class="muted">by {{ $event->actionedBy?->name ?? 'System' }}{{ $event->note ? '. '.$event->note : '' }}</span></span><span class="muted">{{ $event->created_at->format('d M Y') }}</span></li>
         @endforeach
       </ul>
     @endif
@@ -77,8 +77,8 @@
             <td>₦{{ number_format((float) $payment->amount, 2) }}</td>
             <td><span class="badge {{ $payment->status === 'verified' ? 'badge-ok' : ($payment->status === 'rejected' ? 'badge-bad' : 'badge-warn') }}">{{ ucfirst($payment->status) }}</span></td>
             <td style="white-space:nowrap">
-              @if($payment->evidenceUrl())
-                <a class="btn btn-ghost btn-sm" href="{{ $payment->evidenceUrl() }}" target="_blank" rel="noopener">Evidence</a>
+              @if($payment->evidence_path)
+                <a class="btn btn-ghost btn-sm" href="{{ route('admin.subscriptions.payments.evidence', ['payment' => $payment->id]) }}" target="_blank" rel="noopener">Evidence</a>
               @endif
               @if($payment->status === 'pending')
                 <form method="POST" action="{{ route('admin.subscriptions.payments.verify', ['payment' => $payment->id]) }}" style="display:inline">

@@ -45,9 +45,4 @@ class SubscriptionPayment extends Model
     {
         return $this->belongsTo(User::class, 'verified_by_user_id');
     }
-
-    public function evidenceUrl(): ?string
-    {
-        return $this->evidence_path ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->evidence_path) : null;
-    }
 }

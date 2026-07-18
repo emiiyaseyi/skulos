@@ -40,7 +40,7 @@ class SubscriptionTest extends TestCase
         config(['tenancy.sqlite_path' => $this->tenantDir, 'tenancy.driver' => 'sqlite', 'app.domain' => 'localhost']);
         $this->seed(RbacSeeder::class);
         $this->rbac = app(Rbac::class);
-        Storage::fake('public');
+        Storage::fake('local'); // evidence now lives on the private disk, audit finding M-2, 2026-07-17
     }
 
     protected function tearDown(): void
@@ -114,6 +114,37 @@ class SubscriptionTest extends TestCase
         $this->assertSame(SubscriptionPayment::STATUS_PENDING, $payment->status);
         $this->assertSame($owner->id, $payment->submitted_by_user_id);
         $this->assertStringEndsWith('.webp', $payment->evidence_path);
+        Storage::disk('local')->assertExists($payment->evidence_path);
+    }
+
+    /**
+     * Audit finding M-2 (2026-07-17): evidence used to be stored on the
+     * public disk and served via a bare, unauthenticated URL. It now
+     * lives on the private disk and is only reachable through this
+     * authenticated route, scoped to the submitting school.
+     */
+    public function test_subscription_evidence_is_not_reachable_by_a_different_school_or_an_unauthenticated_request(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('subevidence');
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/subscription", [
+            'amount' => 25000,
+            'evidence' => UploadedFile::fake()->image('proof.jpg', 800, 600),
+        ])->assertRedirect();
+        $payment = SubscriptionPayment::first();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/subscription/payments/{$payment->id}/evidence")
+            ->assertOk();
+
+        [$otherSchool, $otherOwner] = $this->schoolWithOwner('subevidencetwo');
+        $this->actingAs($otherOwner)->get("http://{$otherSchool->slug}.localhost/subscription/payments/{$payment->id}/evidence")
+            ->assertNotFound();
+
+        // actingAs() keeps the test client "logged in" for every request
+        // after it, so the guard has to be explicitly reset to actually
+        // exercise the unauthenticated path.
+        $this->app['auth']->forgetGuards();
+        $this->get("http://{$school->slug}.localhost/subscription/payments/{$payment->id}/evidence")
+            ->assertRedirect(); // unauthenticated, bounced to login
     }
 
     public function test_a_platform_admin_sees_every_schools_real_amount_due(): void

@@ -42,7 +42,7 @@ class FinanceTest extends TestCase
         config(['tenancy.sqlite_path' => $this->tenantDir, 'tenancy.driver' => 'sqlite', 'app.domain' => 'localhost']);
         $this->seed(RbacSeeder::class);
         $this->rbac = app(Rbac::class);
-        Storage::fake('public');
+        Storage::fake('local'); // evidence now lives on the private disk, audit finding M-2, 2026-07-17
     }
 
     protected function tearDown(): void
@@ -186,7 +186,41 @@ class FinanceTest extends TestCase
         $this->assertSame(Payment::STATUS_PENDING, $payment->status);
         $this->assertSame($parent->id, $payment->submitted_by_user_id);
         $this->assertStringEndsWith('.webp', $payment->evidence_path); // converted, not stored raw
-        Storage::disk('public')->assertExists($payment->evidence_path);
+        Storage::disk('local')->assertExists($payment->evidence_path);
+
+        $this->actingAs($parent)->get("http://{$school->slug}.localhost/finance/payments/{$payment->id}/evidence")
+            ->assertOk();
+    }
+
+    /**
+     * Audit finding M-2 (2026-07-17): evidence used to be stored on the
+     * public disk and served via a bare, unauthenticated URL. It now lives
+     * on the private disk and is only reachable through this authenticated,
+     * family-scoped route.
+     */
+    public function test_payment_evidence_is_not_reachable_by_a_different_family_or_an_unauthenticated_request(): void
+    {
+        [$school, $parentOne] = $this->schoolWithMember('parent', 'finfourteen');
+        $parentTwo = User::factory()->create();
+        $role = $this->rbac->cloneTemplateRole($school, 'parent');
+        $school->users()->attach($parentTwo->id, ['role_id' => $role->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        $student = Student::create(['admission_number' => 'F13', 'first_name' => 'Evi', 'last_name' => 'Dence']);
+        StudentGuardian::create(['student_id' => $student->id, 'name' => 'P1', 'relationship' => 'Mother', 'guardian_user_id' => $parentOne->id, 'is_primary' => true]);
+        $payment = Payment::create(['student_id' => $student->id, 'amount' => 1000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_PENDING, 'submitted_by_user_id' => $parentOne->id, 'evidence_path' => 'payments/'.$school->slug.'/fake.webp']);
+        Storage::disk('local')->put($payment->evidence_path, 'fake-image-bytes');
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($parentTwo)->get("http://{$school->slug}.localhost/finance/payments/{$payment->id}/evidence")
+            ->assertNotFound();
+
+        // actingAs() keeps the test client "logged in" for every request
+        // after it, so the guard has to be explicitly reset to actually
+        // exercise the unauthenticated path.
+        $this->app['auth']->forgetGuards();
+        $this->get("http://{$school->slug}.localhost/finance/payments/{$payment->id}/evidence")
+            ->assertRedirect(); // unauthenticated, bounced to login
     }
 
     public function test_pdf_evidence_is_stored_as_is_not_converted(): void
@@ -211,7 +245,7 @@ class FinanceTest extends TestCase
         app(TenantManager::class)->forget();
 
         $this->assertStringEndsWith('.pdf', $payment->evidence_path);
-        Storage::disk('public')->assertExists($payment->evidence_path);
+        Storage::disk('local')->assertExists($payment->evidence_path);
     }
 
     public function test_a_parent_cannot_submit_a_payment_for_another_guardians_child(): void
