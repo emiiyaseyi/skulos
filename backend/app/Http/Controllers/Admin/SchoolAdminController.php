@@ -127,10 +127,26 @@ class SchoolAdminController extends Controller
 
         $tenants->provision($school);
 
-        // Create (or reuse) the school administrator account and attach it as
-        // this school's owner. This is who signs in on the subdomain to run
-        // setup, not the platform super admin.
-        $this->attachAdmin($school, $data['admin_name'], $data['admin_email'], $data['admin_password']);
+        // provision() already marks the school active/reachable at its
+        // subdomain the moment it returns. If attaching the owner fails
+        // afterwards, the school would otherwise be left silently active
+        // with no owner able to sign in and run setup — a real gap found
+        // by audit (finding L-2, 2026-07-17). Caught here and suspended
+        // rather than left in that half-finished state.
+        try {
+            // Create (or reuse) the school administrator account and attach
+            // it as this school's owner. This is who signs in on the
+            // subdomain to run setup, not the platform super admin.
+            $this->attachAdmin($school, $data['admin_name'], $data['admin_email'], $data['admin_password']);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Provisioning {$school->slug} succeeded but attaching its owner failed: ".$e->getMessage());
+            $school->forceFill([
+                'status' => School::STATUS_SUSPENDED,
+                'suspension_reason' => School::SUSPENSION_REASON_PROVISIONING_FAILED,
+            ])->save();
+
+            return back()->with('error', "{$school->name}'s tenant database was created, but attaching the administrator account failed. The school has been suspended pending manual review rather than left reachable with no owner. Try creating the owner again from the school's Admins page, then reinstate it.")->withInput();
+        }
 
         return redirect()->route('admin.schools.index')->with('status',
             "{$school->name} is ready. The administrator (".Str::lower($data['admin_email']).") can now sign in at {$school->slug}.".config('app.domain')." to finish setup.");
@@ -196,8 +212,24 @@ class SchoolAdminController extends Controller
 
         $clone = School::create(['name' => $data['name'], 'slug' => $slug, 'email' => $data['admin_email']]);
         $tenants->provision($clone);
-        $this->attachAdmin($clone, $data['admin_name'], $data['admin_email'], $data['admin_password']);
-        $cloner->clone($school, $clone);
+
+        // Same partial-failure exposure as store() above (audit finding
+        // L-2, 2026-07-17): the clone is already active/reachable the
+        // moment provision() returns, so a failure attaching its owner or
+        // copying the source school's structure would otherwise leave it
+        // silently active and half-finished.
+        try {
+            $this->attachAdmin($clone, $data['admin_name'], $data['admin_email'], $data['admin_password']);
+            $cloner->clone($school, $clone);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Cloning {$school->slug} into {$clone->slug} failed after provisioning: ".$e->getMessage());
+            $clone->forceFill([
+                'status' => School::STATUS_SUSPENDED,
+                'suspension_reason' => School::SUSPENSION_REASON_PROVISIONING_FAILED,
+            ])->save();
+
+            return back()->with('error', "{$clone->name}'s tenant database was created, but finishing the clone failed. The school has been suspended pending manual review.")->withInput();
+        }
 
         return redirect()->route('admin.schools.index')->with('status',
             "{$clone->name} has been created as a clone of {$school->name}'s setup. Student, staff, and parent records were not copied.");

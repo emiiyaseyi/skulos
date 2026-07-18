@@ -28,6 +28,9 @@ class School extends Model
     /** Distinguishes a subscription-driven lockout (SubscriptionController::demand()) from the pre-existing, unrelated manual "Suspend" action, so ResolveTenant's 403 message can actually explain why. */
     public const SUSPENSION_REASON_BILLING = 'billing';
 
+    /** A school whose tenant database provisioned but whose owner account failed to attach afterwards (SchoolAdminController::store()/cloneSchool()), left suspended rather than silently active with no owner (audit finding L-2, 2026-07-17). */
+    public const SUSPENSION_REASON_PROVISIONING_FAILED = 'provisioning_failed';
+
     protected $fillable = [
         'name',
         'slug',

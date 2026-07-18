@@ -95,6 +95,35 @@ class SchoolAdminManagementTest extends TestCase
         $this->assertTrue($school->isProvisioned());
     }
 
+    /**
+     * Audit finding L-2 (2026-07-17): provision() already marks a school
+     * active/reachable at its subdomain the moment it returns, before
+     * attachAdmin() runs. Simulates that second step failing (here, by
+     * removing the 'school-owner' template role attachAdmin() clones
+     * from, so Rbac::cloneTemplateRole()'s firstOrFail() throws) and
+     * proves the school is suspended rather than left silently active
+     * with no owner able to sign in.
+     */
+    public function test_a_school_is_suspended_not_left_ownerless_if_attaching_the_admin_fails(): void
+    {
+        $platformAdmin = $this->superAdmin();
+        Role::whereNull('school_id')->where('slug', 'school-owner')->delete();
+
+        $this->actingAs($platformAdmin)->post(route('admin.schools.store'), [
+            'name' => 'Broken Provision', 'slug' => 'brokenprov',
+            'admin_name' => 'School Admin', 'admin_email' => 'admin@brokenprov.test', 'admin_password' => 'password123',
+        ])->assertRedirect();
+
+        $school = School::where('slug', 'brokenprov')->firstOrFail();
+        $this->assertTrue($school->isProvisioned()); // the tenant DB itself was created fine
+        $this->assertSame(School::STATUS_SUSPENDED, $school->status);
+        $this->assertSame(School::SUSPENSION_REASON_PROVISIONING_FAILED, $school->suspension_reason);
+        // The User row itself was created before the failing step
+        // (Rbac::cloneTemplateRole()), but never attached to the school
+        // with a role, so nobody can sign in and reach it.
+        $this->assertSame(0, $school->users()->count());
+    }
+
     /** Same normalization must apply when no slug is typed at all, deriving one from the name. */
     public function test_creating_a_school_without_a_slug_derives_a_lowercase_one(): void
     {
