@@ -12,6 +12,7 @@ use App\Models\Tenant\CalendarEvent;
 use App\Models\Tenant\Term;
 use App\Services\Dashboard\DashboardPreferences;
 use App\Services\Dashboard\RoleDashboard;
+use App\Services\Media\ImageProcessingService;
 use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -209,7 +210,7 @@ class SchoolPortalController extends Controller
         ]);
     }
 
-    public function updateBranding(Request $request): \Illuminate\Http\RedirectResponse
+    public function updateBranding(Request $request, ImageProcessingService $images): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'school_info.update');
         $school = $this->school($request);
@@ -221,11 +222,24 @@ class SchoolPortalController extends Controller
             'login_layout' => ['nullable', Rule::in(array_keys(config('skulos.login_layouts')))],
             'login_box_side' => ['nullable', Rule::in(['left', 'right'])],
             'logo' => ['nullable', 'image', 'max:2048'],
+            // The school-wide default stamp/signature every report card
+            // falls back to when a class teacher never uploaded their own
+            // (user request 2026-07-18: "uploaded for all the school's
+            // sections and classes but each class teacher can decide to
+            // change it").
+            'stamp' => ['nullable', 'image', 'max:2048'],
+            'signature' => ['nullable', 'image', 'max:2048'],
         ]);
 
         if ($request->hasFile('logo')) {
             $path = $request->file('logo')->store("schools/{$school->id}", 'public');
             $school->logo_path = $path;
+        }
+        if ($request->hasFile('stamp')) {
+            $school->stamp_path = $images->toWebp($request->file('stamp'), "schools/{$school->id}", maxDimension: 500);
+        }
+        if ($request->hasFile('signature')) {
+            $school->signature_path = $images->toWebp($request->file('signature'), "schools/{$school->id}", maxDimension: 500);
         }
 
         $school->fill([

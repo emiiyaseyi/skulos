@@ -96,8 +96,16 @@ class DashboardPreferencesTest extends TestCase
     {
         app(DashboardPreferences::class)->setWidgets(['stats' => true, 'notifications' => false, 'calendar' => true, 'greeting' => true]);
 
+        // A bare ">Notifications<" text check is no longer specific enough
+        // (found 2026-07-18): the sidebar nav's own, unrelated "Notifications"
+        // link (the in-app notification center, App\Http\Controllers\School\
+        // NotificationController) renders the same text on every dashboard
+        // page it's enabled for, which the default plan's feature list now
+        // includes. The notifications *widget* (this dashboard's own recent-
+        // activity card, a completely different thing) carries its own
+        // data-widget marker instead, so this only checks the widget itself.
         $this->actingAs($this->member)->get('http://dash.localhost/dashboard')
             ->assertOk()
-            ->assertDontSee('>Notifications<', false);
+            ->assertDontSee('data-widget="dashboard-notifications-feed"', false);
     }
 }

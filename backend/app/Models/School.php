@@ -39,6 +39,8 @@ class School extends Model
         'phone',
         'address',
         'logo_path',
+        'stamp_path',
+        'signature_path',
         'brand_color',
         'welcome_headline',
         'welcome_message',

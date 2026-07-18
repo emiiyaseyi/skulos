@@ -1,4 +1,4 @@
-<div class="card">
+<div class="card" data-widget="dashboard-notifications-feed">
   <div class="row-between" style="margin-bottom:.6rem">
     <h3>Notifications</h3>
     <div style="display:flex;align-items:center;gap:.5rem">

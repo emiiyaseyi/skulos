@@ -219,6 +219,15 @@
     // template) from ResultService::classBroadsheet()/subjectStats(); the
     // toggle for both lives on the existing Report settings screen.
     'class_position_ranking' => ['school.report-cards.edit', 'Report settings', 'results'],
+    // Advance tier plan feature 'advanced_report_cards' wired 2026-07-18
+    // to the behavioural/psychomotor traits catalog: a real, distinct
+    // capability Foundation's plain "basic_report_cards" does not have
+    // (Templates 5 and 6, physical stats, stamp/signature are all reached
+    // from the same Report settings screen every plan already gets, but
+    // the traits catalog itself, and the class teacher entry screen that
+    // depends on it, only make sense once behavioural/psychomotor rating
+    // is actually a feature the school pays for).
+    'advanced_report_cards' => ['school.report-cards.traits.index', 'Behavioural Traits', 'results'],
     'student_promotion' => ['school.settings.calendar.edit', 'Sessions &amp; Terms', 'calendar'],
     // Repointed from school.campuses (2026-07-18): a real, dedicated
     // School Profile screen now exists (SchoolPortalController::
@@ -265,6 +274,7 @@
     // or the two would fight over which group "Report settings" appears
     // in depending on plan tier.
     'class_position_ranking' => 'Reports & Analytics',
+    'advanced_report_cards' => 'Reports & Analytics',
     // Same reasoning: points at school.settings.communication.edit, the
     // same route the unconditional Settings > Communication > Notifications
     // link below already renders (that block does not dedup against

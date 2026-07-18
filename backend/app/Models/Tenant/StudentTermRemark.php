@@ -18,6 +18,7 @@ class StudentTermRemark extends Model
 
     protected $fillable = [
         'student_id', 'term_id', 'class_teacher_remark', 'principal_remark', 'next_term_begins_on',
+        'height', 'weight', 'club',
     ];
 
     protected function casts(): array

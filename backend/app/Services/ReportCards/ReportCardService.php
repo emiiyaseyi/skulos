@@ -3,13 +3,17 @@
 namespace App\Services\ReportCards;
 
 use App\Models\Tenant\Attendance;
+use App\Models\Tenant\BehaviouralTrait;
 use App\Models\Tenant\GradingScale;
 use App\Models\Tenant\Staff;
 use App\Models\Tenant\Student;
+use App\Models\Tenant\StudentBehaviouralRating;
+use App\Models\Tenant\StudentSubjectComment;
 use App\Models\Tenant\StudentTermRemark;
 use App\Models\Tenant\Subject;
 use App\Models\Tenant\Term;
 use App\Services\Results\ResultService;
+use App\Services\Tenancy\TenantManager;
 
 /**
  * Builds the data a report card view needs, whatever template/fields the
@@ -21,7 +25,7 @@ use App\Services\Results\ResultService;
  */
 class ReportCardService
 {
-    public function __construct(protected ResultService $results)
+    public function __construct(protected ResultService $results, protected TenantManager $tenants)
     {
     }
 
@@ -108,6 +112,33 @@ class ReportCardService
 
         $remark = StudentTermRemark::where('student_id', $student->id)->where('term_id', $term->id)->first();
 
+        // Behavioural/psychomotor traits + physical stats + a per-subject
+        // free-text comment (comments-only template mode), all entered by
+        // the class teacher (ReportCardController::classEntry(), built
+        // 2026-07-18 from 2 real report card templates supplied as
+        // reference). Every trait always appears, even one this student
+        // was never rated on ("Not yet entered"), so a school notices a
+        // gap rather than a silently missing row.
+        $traitRatings = StudentBehaviouralRating::where('student_id', $student->id)->where('term_id', $term->id)
+            ->pluck('value', 'behavioural_trait_id');
+        $traits = BehaviouralTrait::active()->orderBy('sequence')->get()->map(fn (BehaviouralTrait $t) => [
+            'name' => $t->name,
+            'type' => $t->type,
+            'value' => $traitRatings[$t->id] ?? null,
+        ]);
+
+        $subjectComments = StudentSubjectComment::where('student_id', $student->id)->where('term_id', $term->id)
+            ->with('subject')->get()
+            ->mapWithKeys(fn (StudentSubjectComment $c) => [$c->subject?->name ?? (string) $c->subject_id => $c->comment]);
+
+        // Per-class-arm stamp/signature, falling back to the school-wide
+        // default when the class teacher never uploaded their own (user
+        // request 2026-07-18: "uploaded for all the school's sections and
+        // classes but each class teacher can decide to change it").
+        $school = $this->tenants->current();
+        $stampPath = $classArm?->stamp_path ?: $school?->stamp_path;
+        $signaturePath = $classArm?->signature_path ?: $school?->signature_path;
+
         return [
             'identity' => [
                 'name' => $student->fullName(),
@@ -123,6 +154,7 @@ class ReportCardService
             ],
             'term' => ['name' => $term->name, 'session' => $term->session?->name],
             'subjects' => $subjectRows,
+            'subject_comments' => $subjectComments,
             'attendance' => $attendance,
             'overall' => [
                 'total' => $overallTotal,
@@ -135,6 +167,16 @@ class ReportCardService
                 'principal' => $remark?->principal_remark,
                 'next_term_begins_on' => $remark?->next_term_begins_on?->format('d M Y'),
             ],
+            'physical' => [
+                'height' => $remark?->height,
+                'weight' => $remark?->weight,
+                'club' => $remark?->club,
+                'total_school_days' => $term->total_school_days,
+                'times_absent' => $attendance['total'] - $attendance['present'],
+            ],
+            'traits' => $traits,
+            'stamp_url' => $stampPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($stampPath) : null,
+            'signature_url' => $signaturePath ? \Illuminate\Support\Facades\Storage::disk('public')->url($signaturePath) : null,
         ];
     }
 
@@ -165,6 +207,24 @@ class ReportCardService
                 'principal' => 'Impressive result. Well done.',
                 'next_term_begins_on' => '08 Sep 2026',
             ],
+            'subject_comments' => [
+                'Mathematics' => 'Ada shows strong number sense and works confidently with little guidance.',
+                'English Studies' => 'Reads with good expression. Should practice writing longer sentences.',
+            ],
+            'physical' => [
+                'height' => '148cm', 'weight' => '38kg', 'club' => 'Debate Club',
+                'total_school_days' => 62, 'times_absent' => 4,
+            ],
+            'traits' => [
+                ['name' => 'Punctuality', 'type' => 'remark', 'value' => 'Excellent'],
+                ['name' => 'Neatness', 'type' => 'remark', 'value' => 'Very Good'],
+                ['name' => 'Honesty', 'type' => 'remark', 'value' => 'Excellent'],
+                ['name' => 'Cooperation', 'type' => 'remark', 'value' => 'Good'],
+                ['name' => 'Handling of Tools', 'type' => 'score', 'value' => 4],
+                ['name' => 'Sports', 'type' => 'score', 'value' => 5],
+            ],
+            'stamp_url' => null,
+            'signature_url' => null,
         ];
     }
 }

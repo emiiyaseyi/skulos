@@ -18,7 +18,7 @@ class ClassArm extends Model
 
     protected $connection = 'tenant';
 
-    protected $fillable = ['school_class_id', 'arm_id', 'class_teacher_staff_id', 'assistant_teacher_staff_id', 'capacity'];
+    protected $fillable = ['school_class_id', 'arm_id', 'class_teacher_staff_id', 'assistant_teacher_staff_id', 'capacity', 'stamp_path', 'signature_path'];
 
     protected function casts(): array
     {

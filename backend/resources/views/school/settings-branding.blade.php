@@ -89,6 +89,26 @@
       </div>
 
       <div class="field">
+        <label for="stamp">School stamp</label>
+        @if($school->stamp_path)
+          <img src="{{ \Illuminate\Support\Facades\Storage::url($school->stamp_path) }}" alt="Current school stamp" style="height:48px;display:block;margin-bottom:.4rem" />
+        @endif
+        <input id="stamp" name="stamp" type="file" accept="image/*" />
+        <div class="hint">Shown on report cards that turn on "School stamp and signature". Used school wide unless a class teacher uploads their own. Up to 2 MB.</div>
+        @error('stamp')<div class="err">{{ $message }}</div>@enderror
+      </div>
+
+      <div class="field">
+        <label for="signature">Signature</label>
+        @if($school->signature_path)
+          <img src="{{ \Illuminate\Support\Facades\Storage::url($school->signature_path) }}" alt="Current signature" style="height:48px;display:block;margin-bottom:.4rem" />
+        @endif
+        <input id="signature" name="signature" type="file" accept="image/*" />
+        <div class="hint">Used the same way as the school stamp. A class teacher can still upload their own from their Class Teacher Entry screen.</div>
+        @error('signature')<div class="err">{{ $message }}</div>@enderror
+      </div>
+
+      <div class="field">
         <label>Login page design</label>
         <div class="hint" style="margin-bottom:.6rem">How your school's sign in page is arranged. <a href="{{ route('school.login', ['school'=>$school->slug]) }}" target="_blank" rel="noopener">Preview it</a></div>
         <div class="login-picker">

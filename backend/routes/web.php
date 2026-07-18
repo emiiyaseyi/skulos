@@ -486,6 +486,8 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/', [$reportCards, 'index'])->name('index');
             Route::get('/settings', [$reportCards, 'edit'])->name('edit');
             Route::post('/settings', [$reportCards, 'update'])->name('update');
+            Route::get('/settings/layout', [$reportCards, 'editLayout'])->name('layout.edit');
+            Route::post('/settings/layout', [$reportCards, 'updateLayout'])->name('layout.update');
             Route::post('/review-stage', [$reportCards, 'updateReviewStage'])->name('review-stage');
             Route::post('/review-chain', [$reportCards, 'updateReviewChain'])->name('review-chain');
             Route::get('/preview/{template?}', [$reportCards, 'preview'])->name('preview');
@@ -494,6 +496,10 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/classes/{classId}/generate', [$reportCards, 'generateClass'])->name('class.generate');
             Route::post('/classes/{classId}/bulk-assign', [$reportCards, 'bulkAssignReview'])->name('class.bulk-assign');
             Route::post('/classes/{classId}/default-reviewer', [$reportCards, 'updateDefaultReviewer'])->name('class.default-reviewer');
+            Route::get('/classes/{classId}/entry', [$reportCards, 'classEntry'])->name('class.entry');
+            Route::post('/classes/{classId}/entry', [$reportCards, 'classEntryUpdate'])->name('class.entry.update');
+            Route::post('/arms/{armId}/stamp-signature', [$reportCards, 'updateArmStampSignature'])->name('arm.stamp-signature');
+            Route::post('/arms/reset-stamp-signature', [$reportCards, 'resetArmStampSignatures'])->name('arm.stamp-signature.reset-all');
             Route::post('/{studentId}/generate', [$reportCards, 'generate'])->name('generate');
             Route::post('/{studentId}/assign', [$reportCards, 'assignReview'])->name('assign');
             Route::post('/{studentId}/send-back', [$reportCards, 'sendBack'])->name('send-back');
@@ -504,6 +510,17 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/{studentId}/archive', [$reportCards, 'archive'])->name('archive');
             Route::post('/{studentId}/nudge', [$reportCards, 'nudge'])->name('nudge');
             Route::get('/{studentId}/{termId}', [$reportCards, 'show'])->name('show');
+        });
+
+        // Behavioural/psychomotor trait catalog (user request 2026-07-18,
+        // "the admin set it" whether each trait is a remark or a score).
+        Route::prefix('report-cards/traits')->name('school.report-cards.traits.')->group(function () {
+            $traits = \App\Http\Controllers\School\BehaviouralTraitController::class;
+            Route::get('/', [$traits, 'index'])->name('index');
+            Route::post('/', [$traits, 'store'])->name('store');
+            Route::post('/bulk-action', [$traits, 'bulkAction'])->name('bulk-action');
+            Route::post('/{traitId}', [$traits, 'update'])->name('update');
+            Route::post('/{traitId}/toggle-active', [$traits, 'toggleActive'])->name('toggle-active');
         });
 
         // Student Reports (Foundation plan feature 'student_reports',

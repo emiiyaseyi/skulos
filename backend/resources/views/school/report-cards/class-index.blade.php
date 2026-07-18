@@ -13,6 +13,7 @@
       <input type="hidden" name="term_id" value="{{ $term->id }}" />
       <button class="btn btn-primary btn-sm" type="submit">Generate all</button>
     </form>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.class.entry', ['school' => $school->slug, 'classId' => $class->id, 'term_id' => $term->id]) }}">Class teacher entry</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.index', ['school' => $school->slug, 'term_id' => $term->id]) }}">Back to Report Cards</a>
   </div>
 </div>

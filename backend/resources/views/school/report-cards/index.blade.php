@@ -13,6 +13,7 @@
     @if($canAssign)
       <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.pending-review', ['school' => $school->slug]) }}">Pending review</a>
     @endif
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.traits.index', ['school' => $school->slug]) }}">Behavioural traits</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.edit', ['school' => $school->slug]) }}">Report settings</a>
   </div>
 </div>

@@ -29,7 +29,10 @@
     <h1 class="title">Report Settings</h1>
     <p class="subtitle">Your report card look, and how report cards move through review before release.</p>
   </div>
-  <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.preview', ['school' => $school->slug]) }}" target="_blank" rel="noopener">Preview current look</a>
+  <div class="stack" style="flex-direction:row;gap:.6rem">
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.layout.edit', ['school' => $school->slug]) }}">Layout designer</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.preview', ['school' => $school->slug]) }}" target="_blank" rel="noopener">Preview current look</a>
+  </div>
 </div>
 
 <div class="card" style="margin-bottom:1.25rem">
@@ -107,7 +110,7 @@
   <div class="card" style="margin-bottom:1.25rem">
     <h3 style="margin-bottom:.4rem">Fields</h3>
     <p class="muted" style="margin-bottom:.4rem">Turn any field on or off. Custom additions can be requested from support.</p>
-    @php($groups = ['identity' => 'Student details', 'academic' => 'Academic', 'remarks' => 'Remarks'])
+    @php($groups = ['identity' => 'Student details', 'academic' => 'Academic', 'remarks' => 'Remarks', 'evaluation' => 'Evaluation (traits, physical stats, comments, stamp, grade key)'])
     @foreach($groups as $groupKey => $groupLabel)
       <div class="fgroup">{{ $groupLabel }}</div>
       @foreach(config('skulos.report_card_fields') as $code => $meta)
@@ -122,4 +125,13 @@
 
   <button class="btn btn-primary" type="submit">Save report card look</button>
 </form>
+
+<div class="card" style="margin-top:1.25rem">
+  <h3 style="margin-bottom:.4rem">Stamp and signature</h3>
+  <p class="muted" style="margin-bottom:.8rem">The school wide default is set on <a href="{{ route('school.branding.edit', ['school' => $school->slug]) }}">Branding</a>. A class teacher can upload their own for their class from the Class Teacher Entry screen, overriding the default for that class only.</p>
+  <form method="POST" action="{{ route('school.report-cards.arm.stamp-signature.reset-all', ['school' => $school->slug]) }}" onsubmit="return confirm('Reset every class to the school default stamp and signature? Any class specific uploads will be cleared.');">
+    @csrf
+    <button class="btn btn-ghost btn-sm" type="submit">Reset all classes to the school default</button>
+  </form>
+</div>
 @endsection

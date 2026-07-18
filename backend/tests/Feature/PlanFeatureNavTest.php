@@ -539,6 +539,23 @@ class PlanFeatureNavTest extends TestCase
         $this->actingAs($user)->get("http://{$school->slug}.localhost/finance/payments")->assertOk();
     }
 
+    /**
+     * Advance tier plan feature 'advanced_report_cards' (2026-07-18):
+     * points at the real behavioural/psychomotor traits catalog, a
+     * capability Foundation's plain 'basic_report_cards' does not include.
+     */
+    public function test_advanced_report_cards_renders_as_a_real_link_not_soon(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['basic_report_cards', 'advanced_report_cards'], 'planadvrc');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()
+            ->assertSee('Behavioural Traits')
+            ->assertDontSee('Soon');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/report-cards/traits")->assertOk();
+    }
+
     public function test_the_nav_search_box_also_renders_on_the_platform_admin_portal(): void
     {
         $admin = User::factory()->create();

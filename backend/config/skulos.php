@@ -1131,8 +1131,80 @@ return [
         'modern' => ['label' => 'Modern', 'description' => 'A card layout with a student photo, subject position, class average, highest and lowest.'],
         'formal' => ['label' => 'Formal', 'description' => 'A dense formal sheet with a grade distribution summary and term by term cumulative columns.'],
         'compact' => ['label' => 'Compact', 'description' => 'A short, simple sheet suited to Nursery and Primary classes.'],
+        // Templates 5 and 6 (user-supplied reference, 2026-07-18, "HEYDAY
+        // PRIVATE SCHOOL" nursery evaluation sheets): a scored evaluation
+        // sheet and a comments-only one, both with a behavioural traits/
+        // physical stats block, sized for Nursery/Early Years.
+        'evaluation' => ['label' => 'Evaluation Sheet', 'description' => 'A scored nursery/primary evaluation sheet with a behavioural traits and physical stats block, plus separate class teacher and head teacher remarks.'],
+        'narrative' => ['label' => 'Narrative Evaluation', 'description' => 'A comments-only evaluation sheet (no scores): a written comment per subject instead, for Nursery/Early Years classes that are not scored numerically.'],
     ],
     'default_report_card_template' => 'classic',
+
+    /*
+    | The header and identity strip, as movable blocks a school can drag
+    | between two zones (Header, Info Strip) or leave unused (user request
+    | 2026-07-18: "schools should be able to select where the logo should
+    | be, what should come next, name of school, address, term, session,
+    | class, name of learner, date of next term, position, etc"). Opt in
+    | per school via ReportCardLayout::enabled(); off by default so every
+    | existing template's fixed header/id-strip markup is unaffected until
+    | a school deliberately turns this on. Applies on top of whichever
+    | template is active, replacing only the header/identity area, not the
+    | subject table, remarks, traits, or stamp/signature blocks (those stay
+    | governed by report_card_fields above).
+    */
+    'report_card_layout_blocks' => [
+        'logo' => 'School Logo',
+        'school_name' => 'School Name',
+        'address' => 'School Address',
+        'term_session' => 'Term and Session',
+        'student_name' => 'Name of Learner',
+        'admission_number' => 'Admission Number',
+        'class' => 'Class',
+        'gender' => 'Gender',
+        'date_of_birth' => 'Date of Birth',
+        'age' => 'Age',
+        'house' => 'House',
+        'class_teacher' => 'Class Teacher',
+        'attendance' => 'Attendance',
+        'next_term_begins' => 'Date of Next Term',
+        'overall_position' => 'Position in Class',
+    ],
+    'default_report_card_layout' => [
+        'header' => ['logo', 'school_name', 'address', 'term_session'],
+        'info' => [
+            'student_name', 'class', 'admission_number', 'gender', 'date_of_birth',
+            'age', 'house', 'class_teacher', 'attendance', 'next_term_begins', 'overall_position',
+        ],
+    ],
+
+    /*
+    | Seed default for the behavioural/psychomotor trait catalog, copied
+    | verbatim from the user-supplied real report card ("HEYDAY PRIVATE
+    | SCHOOL"). Only ever a seed: App\Services\Results\BehaviouralTraitCatalog
+    | seeds this into the real behavioural_traits table the first time a
+    | school needs it, then that table is the only thing ever read, an
+    | admin can add/edit/retire/reorder freely from there (the standing
+    | "DB-backed, never read live from config" rule).
+    */
+    'default_behavioural_traits' => [
+        ['name' => 'Class Participation', 'type' => 'remark'],
+        ['name' => 'Punctuality', 'type' => 'remark'],
+        ['name' => 'Attendance', 'type' => 'remark'],
+        ['name' => 'Neatness', 'type' => 'remark'],
+        ['name' => 'Homework/Assignment', 'type' => 'remark'],
+        ['name' => "Attitude to School's Property", 'type' => 'remark'],
+        ['name' => 'Attitude to Personal Property', 'type' => 'remark'],
+        ['name' => 'Obedience', 'type' => 'remark'],
+    ],
+
+    /*
+    | The remark-word scale a "type=remark" behavioural trait picks from
+    | (matches the reference sheet's own wording exactly: "Excellent",
+    | "V.Good", "Good", ...). A "type=score" trait uses a plain number
+    | (0 to its own max_score) instead, no fixed scale needed for that.
+    */
+    'behavioural_trait_remark_scale' => ['Excellent', 'Very Good', 'Good', 'Fair', 'Weak'],
 
     /*
     | Fields a report card can show. Grouped for the settings screen. A
@@ -1158,6 +1230,17 @@ return [
         'class_teacher_remark' => ['label' => 'Class teacher remark', 'group' => 'remarks', 'default' => true],
         'principal_remark' => ['label' => 'Head of school remark', 'group' => 'remarks', 'default' => true],
         'next_term_begins' => ['label' => 'Next term begins on', 'group' => 'remarks', 'default' => true],
+        // Added 2026-07-18 alongside Templates 5/6 (Evaluation Sheet /
+        // Narrative Evaluation), but usable on any template, not only
+        // those two: a school can turn on a behavioural traits block,
+        // physical stats, subject-by-subject written comments, the stamp
+        // and signature images, or a grade key legend on whichever
+        // template it prefers.
+        'behavioural_traits' => ['label' => 'Behavioural / psychomotor traits', 'group' => 'evaluation', 'default' => false],
+        'physical_stats' => ['label' => 'Physical stats (height, weight, club, days present)', 'group' => 'evaluation', 'default' => false],
+        'subject_comments' => ['label' => 'Written comment per subject (instead of, or alongside, scores)', 'group' => 'evaluation', 'default' => false],
+        'stamp_signature' => ['label' => 'School stamp and signature', 'group' => 'evaluation', 'default' => false],
+        'grade_legend' => ['label' => 'Grade key legend', 'group' => 'evaluation', 'default' => false],
     ],
 
     'permission_actions' => ['view', 'create', 'update', 'delete', 'export', 'bulk'],
@@ -1227,6 +1310,7 @@ return [
         'continuous_assessment' => 'examinations.view',
         'result_management' => 'examinations.view',
         'basic_report_cards' => 'report_cards.view',
+        'advanced_report_cards' => 'report_cards.view',
         'student_reports' => 'examinations.view',
         'unlimited_grading_systems' => 'examinations.view',
         'student_promotion' => 'academics.view',

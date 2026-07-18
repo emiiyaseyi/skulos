@@ -4,6 +4,7 @@ namespace App\Http\Controllers\School;
 
 use App\Http\Controllers\Controller;
 use App\Models\School;
+use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\ReportCardReview;
 use App\Models\Tenant\Section;
 use App\Models\Tenant\SchoolClass;
@@ -14,6 +15,8 @@ use App\Models\Tenant\Term;
 use App\Services\Rbac\Rbac;
 use App\Services\Rbac\StudentAccessGuard;
 use App\Services\Rbac\TeacherScope;
+use App\Services\Media\ImageProcessingService;
+use App\Services\ReportCards\ReportCardLayout;
 use App\Services\ReportCards\ReportCardPreferences;
 use App\Services\ReportCards\ReportCardService;
 use Illuminate\Http\Request;
@@ -150,7 +153,17 @@ class ReportCardController extends Controller
         return back()->with('status', 'Your report card look has been updated.');
     }
 
-    public function preview(Request $request, ReportCardService $cards, ReportCardPreferences $prefs): \Illuminate\View\View
+    /** The active grading scale's bands as the render view's grade key legend, most generous band first. */
+    protected function gradeBands(): array
+    {
+        $scale = \App\Models\Tenant\GradingScale::default();
+
+        return $scale
+            ? $scale->bands()->orderByDesc('min_score')->get(['grade', 'min_score', 'max_score', 'remark'])->toArray()
+            : [];
+    }
+
+    public function preview(Request $request, ReportCardService $cards, ReportCardPreferences $prefs, ReportCardLayout $layout): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'report_cards.view');
         $school = $this->school($request);
@@ -164,11 +177,14 @@ class ReportCardController extends Controller
             'template' => $template,
             'fields' => $prefs->fields(),
             'data' => $cards->sample(),
+            'gradeBands' => $this->gradeBands(),
+            'layoutEnabled' => $layout->enabled(),
+            'layoutZones' => $layout->zones(),
             'isPreview' => true,
         ]);
     }
 
-    public function show(Request $request, ReportCardService $cards, ReportCardPreferences $prefs): \Illuminate\View\View
+    public function show(Request $request, ReportCardService $cards, ReportCardPreferences $prefs, ReportCardLayout $layout): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'report_cards.view');
         $school = $this->school($request);
@@ -182,8 +198,50 @@ class ReportCardController extends Controller
             'template' => $prefs->template(),
             'fields' => $prefs->fields(),
             'data' => $cards->forStudent($student, $term),
+            'gradeBands' => $this->gradeBands(),
+            'layoutEnabled' => $layout->enabled(),
+            'layoutZones' => $layout->zones(),
             'isPreview' => false,
         ]);
+    }
+
+    /**
+     * The drag-and-drop header/identity-strip designer (user request
+     * 2026-07-18: "let's make the report card a widget approach and drag
+     * and drop approach"). Same view permission as the settings page it's
+     * reached from.
+     */
+    public function editLayout(Request $request, ReportCardLayout $layout): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'report_cards.view');
+        $school = $this->school($request);
+
+        return view('school.report-cards.layout', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'enabled' => $layout->enabled(),
+            'zones' => $layout->zones(),
+            'blocks' => config('skulos.report_card_layout_blocks', []),
+        ]);
+    }
+
+    public function updateLayout(Request $request, ReportCardLayout $layout): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.update');
+        $validBlocks = array_keys(config('skulos.report_card_layout_blocks', []));
+
+        $data = $request->validate([
+            'enabled' => ['nullable', 'boolean'],
+            'header' => ['array'],
+            'header.*' => [Rule::in($validBlocks)],
+            'info' => ['array'],
+            'info.*' => [Rule::in($validBlocks)],
+        ]);
+
+        $layout->setEnabled((bool) ($data['enabled'] ?? false));
+        $layout->setZones(['header' => $data['header'] ?? [], 'info' => $data['info'] ?? []]);
+
+        return back()->with('status', 'Report card layout saved.');
     }
 
     /**
@@ -644,5 +702,194 @@ class ReportCardController extends Controller
         ]);
 
         return back()->with('status', "{$staff->fullName()} has been nudged.");
+    }
+
+    /**
+     * Class Teacher Entry (user request 2026-07-18, from 2 real report
+     * card templates supplied as reference: behavioural/psychomotor
+     * traits, physical stats, and remarks, "this section is only for the
+     * class teachers to enter"). One page, one row per student, bulk
+     * saved in a single submit (the standing bulk-actions convention),
+     * the same shape AttendanceController::index()'s class-arm picker
+     * already uses. class_teacher_remark is editable by anyone with
+     * report_cards.update (the class teacher); principal_remark needs
+     * the stronger report_cards.release permission the same way
+     * approve()/release() already require it above, a class teacher does
+     * not hold it, so that column is simply hidden for them, not merely
+     * disabled.
+     */
+    public function classEntry(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'report_cards.update');
+        $school = $this->school($request);
+        $user = Auth::user();
+
+        $class = SchoolClass::with(['section', 'arms'])->findOrFail($request->route('classId'));
+        $term = $this->resolveTerm($request);
+
+        $armIds = $class->arms->pluck('id');
+        $scopedArmIds = app(TeacherScope::class)->classArmIds($user, $school);
+        if ($scopedArmIds !== null) {
+            abort_unless($armIds->intersect($scopedArmIds)->isNotEmpty(), 404);
+        }
+
+        app(\App\Services\Results\BehaviouralTraitCatalog::class)->ensureSeeded();
+        $traits = \App\Models\Tenant\BehaviouralTrait::active()->orderBy('sequence')->get();
+
+        $students = Student::whereIn('current_class_arm_id', $armIds)->active()->orderBy('last_name')->get();
+        $studentIds = $students->pluck('id');
+
+        $remarks = \App\Models\Tenant\StudentTermRemark::whereIn('student_id', $studentIds)
+            ->where('term_id', $term->id)->get()->keyBy('student_id');
+        $ratings = \App\Models\Tenant\StudentBehaviouralRating::whereIn('student_id', $studentIds)
+            ->where('term_id', $term->id)->get()->groupBy('student_id');
+
+        $prefs = app(ReportCardPreferences::class);
+        $template = $prefs->template();
+        $subjects = collect();
+        $comments = collect();
+        // Comments are entered here whenever the active look actually shows
+        // them: always for the comments-only "narrative" template, or for
+        // any other template a school turned the optional "subject_
+        // comments" field on for (found in QA 2026-07-18: without this, a
+        // school on Classic/Modern/etc. with that field on had nowhere to
+        // ever enter one).
+        if ($template === 'narrative' || $prefs->shows('subject_comments')) {
+            $subjectIds = \App\Models\Tenant\TeachingAssignment::whereIn('class_arm_id', $armIds)->pluck('subject_id')->unique();
+            $subjects = \App\Models\Tenant\Subject::whereIn('id', $subjectIds)->orderBy('name')->get();
+            $comments = \App\Models\Tenant\StudentSubjectComment::whereIn('student_id', $studentIds)
+                ->where('term_id', $term->id)->get()->groupBy(fn ($c) => $c->student_id.'-'.$c->subject_id);
+        }
+
+        return view('school.report-cards.class-entry', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'class' => $class,
+            'term' => $term,
+            'students' => $students,
+            'traits' => $traits,
+            'remarks' => $remarks,
+            'ratings' => $ratings,
+            'subjects' => $subjects,
+            'comments' => $comments,
+            'template' => $template,
+            'canEnterPrincipalRemark' => app(Rbac::class)->check($user, $school, 'report_cards.release'),
+        ]);
+    }
+
+    public function classEntryUpdate(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.update');
+        $school = $this->school($request);
+        $user = Auth::user();
+
+        $class = SchoolClass::with('arms')->findOrFail($request->route('classId'));
+        $term = $this->resolveTerm($request);
+        $armIds = $class->arms->pluck('id');
+        $scopedArmIds = app(TeacherScope::class)->classArmIds($user, $school);
+        if ($scopedArmIds !== null) {
+            abort_unless($armIds->intersect($scopedArmIds)->isNotEmpty(), 404);
+        }
+        // A crafted student_id outside this class is silently dropped,
+        // the same "never act on an id outside scope" convention every
+        // other bulk action in this codebase already follows.
+        $validStudentIds = Student::whereIn('current_class_arm_id', $armIds)->pluck('id');
+
+        $canEnterPrincipalRemark = app(Rbac::class)->check($user, $school, 'report_cards.release');
+        $data = $request->input('students', []);
+
+        foreach ($data as $studentId => $row) {
+            if (! $validStudentIds->contains((int) $studentId)) {
+                continue;
+            }
+
+            $remarkData = [
+                'class_teacher_remark' => $row['class_teacher_remark'] ?? null,
+                'height' => $row['height'] ?? null,
+                'weight' => $row['weight'] ?? null,
+                'club' => $row['club'] ?? null,
+            ];
+            if ($canEnterPrincipalRemark) {
+                $remarkData['principal_remark'] = $row['principal_remark'] ?? null;
+            }
+            \App\Models\Tenant\StudentTermRemark::updateOrCreate(
+                ['student_id' => $studentId, 'term_id' => $term->id],
+                $remarkData
+            );
+
+            foreach (($row['traits'] ?? []) as $traitId => $value) {
+                if ($value === '' || $value === null) {
+                    continue;
+                }
+                \App\Models\Tenant\StudentBehaviouralRating::updateOrCreate(
+                    ['student_id' => $studentId, 'term_id' => $term->id, 'behavioural_trait_id' => $traitId],
+                    ['value' => $value]
+                );
+            }
+
+            foreach (($row['comments'] ?? []) as $subjectId => $comment) {
+                if ($comment === '' || $comment === null) {
+                    continue;
+                }
+                \App\Models\Tenant\StudentSubjectComment::updateOrCreate(
+                    ['student_id' => $studentId, 'subject_id' => $subjectId, 'term_id' => $term->id],
+                    ['comment' => $comment]
+                );
+            }
+        }
+
+        return back()->with('status', 'Class entry saved.');
+    }
+
+    /**
+     * A class teacher's own stamp/signature override for report cards
+     * generated from this class arm (user request 2026-07-18: "the school
+     * stamp and signature is to be uploaded for all the school's sections
+     * and classes but each class teacher can decide to change it"). Blank
+     * file inputs leave the existing override untouched; ReportCardService
+     * falls back to the school wide default when neither was ever set.
+     */
+    public function updateArmStampSignature(Request $request, ImageProcessingService $images): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.update');
+        $school = $this->school($request);
+        $arm = ClassArm::findOrFail($request->route('armId'));
+
+        $scopedArmIds = app(TeacherScope::class)->classArmIds(Auth::user(), $school);
+        abort_if($scopedArmIds !== null && ! $scopedArmIds->contains($arm->id), 404);
+
+        $data = $request->validate([
+            'stamp' => ['nullable', 'image', 'max:2048'],
+            'signature' => ['nullable', 'image', 'max:2048'],
+        ]);
+
+        if ($request->hasFile('stamp')) {
+            $arm->stamp_path = $images->toWebp($request->file('stamp'), "schools/{$school->id}/arms/{$arm->id}", maxDimension: 500);
+        }
+        if ($request->hasFile('signature')) {
+            $arm->signature_path = $images->toWebp($request->file('signature'), "schools/{$school->id}/arms/{$arm->id}", maxDimension: 500);
+        }
+        $arm->save();
+
+        return back()->with('status', 'Stamp and signature updated for '.$arm->label().'.');
+    }
+
+    /**
+     * Clears every class arm's own stamp/signature override in one action
+     * (the standing bulk-actions rule: "remember the bulk approach for
+     * every action"), so every class falls back to the school wide
+     * default set on Branding without having to open each class one at a
+     * time. A school wide, admin level decision, gated the same as the
+     * review chain/review stage toggle above.
+     */
+    public function resetArmStampSignatures(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.assign_review');
+
+        $count = ClassArm::where(function ($q) {
+            $q->whereNotNull('stamp_path')->orWhereNotNull('signature_path');
+        })->update(['stamp_path' => null, 'signature_path' => null]);
+
+        return back()->with('status', "{$count} class(es) reset to the school's default stamp and signature.");
     }
 }
