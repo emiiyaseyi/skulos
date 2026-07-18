@@ -47,13 +47,23 @@ class FeeItemController extends Controller
             'accent' => $school->branding()['color'],
             'feeItems' => FeeItem::with('term')->orderByDesc('created_at')->get(),
             'terms' => Term::with('session')->get()->sortBy(fn (Term $t) => sprintf('%05d-%05d', $t->session?->id ?? 0, $t->sequence ?? 0))->values(),
-            'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'finance.create'),
+            'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'finance.update'),
         ]);
     }
 
+    /**
+     * Gated on finance.update, not finance.create (audit finding
+     * 2026-07-18, user check-in "hope admin can set this and parent can
+     * see it too" surfaced it live): finance.create is what a parent
+     * legitimately holds to submit a payment (PaymentController::store()),
+     * a completely different capability from defining the school's own
+     * fee catalog, which is institution-level policy, admin only, the
+     * same tier every other write action on this controller already
+     * requires.
+     */
     public function store(Request $request): \Illuminate\Http\RedirectResponse
     {
-        $this->authorizeAction($request, 'finance.create');
+        $this->authorizeAction($request, 'finance.update');
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],

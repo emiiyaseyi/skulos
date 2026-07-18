@@ -112,6 +112,30 @@ class FinanceTest extends TestCase
     }
 
     /**
+     * Audit finding 2026-07-18 (surfaced live by the user's own "hope
+     * admin can set this and parent can see it too" check-in on
+     * Installment Payment Plans): store() was gated on finance.create,
+     * the same permission PaymentController::store() correctly uses for
+     * "submit a payment" and that a parent legitimately holds, letting
+     * any parent create arbitrary entries in the school's own fee
+     * catalog. Fee catalog management is institution-level policy,
+     * admin-only, the same finance.update tier every other write action
+     * on FeeItemController already required.
+     */
+    public function test_a_parent_cannot_create_a_fee_item(): void
+    {
+        [$school, $parent] = $this->schoolWithMember('parent', 'finauth');
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($parent)->post("http://{$school->slug}.localhost/finance/fee-items", [
+            'name' => 'Not allowed', 'amount' => 1000, 'term_id' => $term->id,
+        ])->assertForbidden();
+    }
+
+    /**
      * Rbac::moduleState() only ever wrote a real "enabled" row for a
      * module when a platform admin visited Billing and explicitly
      * assigned/changed a school's plan (BillingController::assignPlan());
@@ -543,6 +567,36 @@ class FinanceTest extends TestCase
 
         $this->assertNotNull($payment);
         $this->assertSame($installment->id, $payment->fee_item_installment_id);
+    }
+
+    /**
+     * User check-in 2026-07-18, after the installment feature shipped:
+     * "hope admin can set this and parent can see it too". Admin (bursar)
+     * already could; this locks in that a parent (finance.view/finance.
+     * create, no finance.update) can browse to a fee item's own page and
+     * see its installment schedule too, just without the manage controls.
+     */
+    public function test_a_parent_can_view_but_not_manage_an_installment_schedule(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'fininstallfive');
+        $parent = User::factory()->create();
+        $parentRole = $this->rbac->cloneTemplateRole($school, 'parent');
+        $school->users()->attach($parent->id, ['role_id' => $parentRole->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $item = FeeItem::create(['name' => 'Tuition', 'amount' => 60000, 'term_id' => $term->id, 'allow_installments' => true]);
+        \App\Models\Tenant\FeeItemInstallment::create(['fee_item_id' => $item->id, 'label' => '1st Installment', 'amount' => 30000, 'sequence' => 1]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($parent)->get("http://{$school->slug}.localhost/finance/fee-items")
+            ->assertOk()->assertSee('Tuition')->assertSee('View')->assertDontSee('Add a fee item');
+
+        $this->actingAs($parent)->get("http://{$school->slug}.localhost/finance/fee-items/{$item->id}")
+            ->assertOk()
+            ->assertSee('1st Installment')
+            ->assertSee('Collected')
+            ->assertDontSee('Add an installment');
     }
 
     /** An installment id belonging to a different fee item than the one submitted is silently dropped, never trusted cross-field. */
