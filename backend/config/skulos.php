@@ -1227,6 +1227,7 @@ return [
         'continuous_assessment' => 'examinations.view',
         'result_management' => 'examinations.view',
         'basic_report_cards' => 'report_cards.view',
+        'student_reports' => 'examinations.view',
         'unlimited_grading_systems' => 'examinations.view',
         'student_promotion' => 'academics.view',
         'school_profile' => 'school_info.view',

@@ -198,6 +198,10 @@
     // works on it as-is, same as any other printable document), "Export
     // to PDF" is not a separate generator/download screen.
     'export_to_pdf' => ['school.report-cards.index', 'Report Cards', 'results'],
+    // Foundation gap closed 2026-07-18 (StudentReportsController): a real
+    // class-wide broadsheet, distinct from result_management/
+    // basic_report_cards above (a single student's own document).
+    'student_reports' => ['school.reports.students.index', 'Student Reports', 'results'],
     'unlimited_grading_systems' => ['school.examinations.grading', 'Grading', 'results'],
     'student_promotion' => ['school.settings.calendar.edit', 'Sessions &amp; Terms', 'calendar'],
     // Repointed from school.campuses (2026-07-18): a real, dedicated

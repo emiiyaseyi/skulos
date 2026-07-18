@@ -506,6 +506,15 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/{studentId}/{termId}', [$reportCards, 'show'])->name('show');
         });
 
+        // Student Reports (Foundation plan feature 'student_reports',
+        // 2026-07-18): a class-wide broadsheet, distinct from a single
+        // student's own Report Card document.
+        Route::prefix('reports/students')->name('school.reports.students.')->group(function () {
+            $studentReports = \App\Http\Controllers\School\StudentReportsController::class;
+            Route::get('/', [$studentReports, 'index'])->name('index');
+            Route::get('/export', [$studentReports, 'export'])->name('export');
+        });
+
         // Backup and restore.
         Route::prefix('backups')->name('school.backups.')->group(function () {
             $backups = \App\Http\Controllers\School\BackupController::class;
