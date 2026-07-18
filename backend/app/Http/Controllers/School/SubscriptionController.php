@@ -77,13 +77,16 @@ class SubscriptionController extends Controller
         // successfully, the file is deleted rather than left orphaned on
         // disk indefinitely (audit finding M-6, 2026-07-17).
         try {
+            // status is intentionally not passed here: it is not
+            // mass-assignable (see SubscriptionPayment::$fillable), so a
+            // new payment always starts at the migration's own
+            // status='pending' column default.
             SubscriptionPayment::create([
                 'school_id' => $school->id,
                 'amount' => $data['amount'],
                 'bank_name' => $data['bank_name'] ?? null,
                 'reference' => $data['reference'] ?? null,
                 'evidence_path' => $evidencePath,
-                'status' => SubscriptionPayment::STATUS_PENDING,
                 'submitted_by_user_id' => Auth::id(),
             ]);
         } catch (\Throwable $e) {

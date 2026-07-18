@@ -208,7 +208,7 @@ class FinanceTest extends TestCase
         app(TenantManager::class)->use($school);
         $student = Student::create(['admission_number' => 'F13', 'first_name' => 'Evi', 'last_name' => 'Dence']);
         StudentGuardian::create(['student_id' => $student->id, 'name' => 'P1', 'relationship' => 'Mother', 'guardian_user_id' => $parentOne->id, 'is_primary' => true]);
-        $payment = Payment::create(['student_id' => $student->id, 'amount' => 1000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_PENDING, 'submitted_by_user_id' => $parentOne->id, 'evidence_path' => 'payments/'.$school->slug.'/fake.webp']);
+        $payment = Payment::forceCreate(['student_id' => $student->id, 'amount' => 1000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_PENDING, 'submitted_by_user_id' => $parentOne->id, 'evidence_path' => 'payments/'.$school->slug.'/fake.webp']);
         Storage::disk('local')->put($payment->evidence_path, 'fake-image-bytes');
         app(TenantManager::class)->forget();
 
@@ -272,7 +272,7 @@ class FinanceTest extends TestCase
 
         app(TenantManager::class)->use($school);
         $student = Student::create(['admission_number' => 'F4', 'first_name' => 'Chika', 'last_name' => 'Uzo']);
-        $payment = Payment::create([
+        $payment = Payment::forceCreate([
             'student_id' => $student->id, 'amount' => 20000, 'method' => 'bank_transfer',
             'status' => Payment::STATUS_PENDING, 'submitted_by_user_id' => $parent->id,
         ]);
@@ -298,7 +298,7 @@ class FinanceTest extends TestCase
 
         app(TenantManager::class)->use($school);
         $student = Student::create(['admission_number' => 'F5', 'first_name' => 'Tola', 'last_name' => 'Jide']);
-        $payment = Payment::create([
+        $payment = Payment::forceCreate([
             'student_id' => $student->id, 'amount' => 5000, 'method' => 'bank_transfer',
             'status' => Payment::STATUS_PENDING, 'submitted_by_user_id' => $bursar->id,
         ]);
@@ -322,7 +322,7 @@ class FinanceTest extends TestCase
 
         app(TenantManager::class)->use($school);
         $student = Student::create(['admission_number' => 'F6', 'first_name' => 'Kemi', 'last_name' => 'Ola']);
-        $payment = Payment::create([
+        $payment = Payment::forceCreate([
             'student_id' => $student->id, 'amount' => 5000, 'method' => 'bank_transfer',
             'status' => Payment::STATUS_VERIFIED, 'submitted_by_user_id' => $bursar->id,
             'verified_by_user_id' => $bursar->id, 'verified_at' => now(),
@@ -352,8 +352,8 @@ class FinanceTest extends TestCase
         $studentTwo = Student::create(['admission_number' => 'F8', 'first_name' => 'Other', 'last_name' => 'Child']);
         StudentGuardian::create(['student_id' => $studentTwo->id, 'name' => 'P2', 'relationship' => 'Mother', 'guardian_user_id' => $parentTwo->id, 'is_primary' => true]);
 
-        Payment::create(['student_id' => $studentOne->id, 'amount' => 1000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_PENDING, 'submitted_by_user_id' => $parentOne->id]);
-        Payment::create(['student_id' => $studentTwo->id, 'amount' => 2000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_PENDING, 'submitted_by_user_id' => $parentTwo->id]);
+        Payment::forceCreate(['student_id' => $studentOne->id, 'amount' => 1000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_PENDING, 'submitted_by_user_id' => $parentOne->id]);
+        Payment::forceCreate(['student_id' => $studentTwo->id, 'amount' => 2000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_PENDING, 'submitted_by_user_id' => $parentTwo->id]);
         app(TenantManager::class)->forget();
 
         $response = $this->actingAs($parentOne)->get("http://{$school->slug}.localhost/finance/payments");
@@ -367,8 +367,8 @@ class FinanceTest extends TestCase
         app(TenantManager::class)->use($school);
         $term = $this->currentTerm();
         $student = Student::create(['admission_number' => 'F9', 'first_name' => 'Dayo', 'last_name' => 'Ige']);
-        Payment::create(['student_id' => $student->id, 'amount' => 1000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_PENDING, 'submitted_by_user_id' => $bursar->id]);
-        Payment::create(['student_id' => $student->id, 'amount' => 30000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_VERIFIED, 'submitted_by_user_id' => $bursar->id, 'verified_by_user_id' => $bursar->id, 'verified_at' => now()]);
+        Payment::forceCreate(['student_id' => $student->id, 'amount' => 1000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_PENDING, 'submitted_by_user_id' => $bursar->id]);
+        Payment::forceCreate(['student_id' => $student->id, 'amount' => 30000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_VERIFIED, 'submitted_by_user_id' => $bursar->id, 'verified_by_user_id' => $bursar->id, 'verified_at' => now()]);
         app(TenantManager::class)->forget();
 
         $response = $this->actingAs($bursar)->get("http://{$school->slug}.localhost/dashboard");
@@ -418,7 +418,7 @@ class FinanceTest extends TestCase
         $clean = FeeItem::create(['name' => 'Excursion', 'amount' => 2000, 'term_id' => $term->id]);
         $withPayments = FeeItem::create(['name' => 'Tuition', 'amount' => 50000, 'term_id' => $term->id]);
         $student = Student::create(['admission_number' => 'F10', 'first_name' => 'Bulk', 'last_name' => 'Test']);
-        Payment::create(['student_id' => $student->id, 'fee_item_id' => $withPayments->id, 'amount' => 50000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_VERIFIED, 'submitted_by_user_id' => $bursar->id]);
+        Payment::forceCreate(['student_id' => $student->id, 'fee_item_id' => $withPayments->id, 'amount' => 50000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_VERIFIED, 'submitted_by_user_id' => $bursar->id]);
         app(TenantManager::class)->forget();
 
         $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items/bulk-action", [
@@ -439,9 +439,9 @@ class FinanceTest extends TestCase
         app(TenantManager::class)->use($school);
         $studentOne = Student::create(['admission_number' => 'F11', 'first_name' => 'Bulk', 'last_name' => 'One']);
         $studentTwo = Student::create(['admission_number' => 'F12', 'first_name' => 'Bulk', 'last_name' => 'Two']);
-        $paymentOne = Payment::create(['student_id' => $studentOne->id, 'amount' => 1000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_PENDING, 'submitted_by_user_id' => $bursar->id]);
-        $paymentTwo = Payment::create(['student_id' => $studentTwo->id, 'amount' => 2000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_PENDING, 'submitted_by_user_id' => $bursar->id]);
-        $alreadyVerified = Payment::create(['student_id' => $studentOne->id, 'amount' => 3000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_VERIFIED, 'submitted_by_user_id' => $bursar->id, 'verified_by_user_id' => $bursar->id, 'verified_at' => now()]);
+        $paymentOne = Payment::forceCreate(['student_id' => $studentOne->id, 'amount' => 1000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_PENDING, 'submitted_by_user_id' => $bursar->id]);
+        $paymentTwo = Payment::forceCreate(['student_id' => $studentTwo->id, 'amount' => 2000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_PENDING, 'submitted_by_user_id' => $bursar->id]);
+        $alreadyVerified = Payment::forceCreate(['student_id' => $studentOne->id, 'amount' => 3000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_VERIFIED, 'submitted_by_user_id' => $bursar->id, 'verified_by_user_id' => $bursar->id, 'verified_at' => now()]);
         app(TenantManager::class)->forget();
 
         $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/payments/bulk-action", [

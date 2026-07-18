@@ -21,9 +21,17 @@ class SubscriptionPayment extends Model
     public const STATUS_VERIFIED = 'verified';
     public const STATUS_REJECTED = 'rejected';
 
+    /**
+     * status/verified_by_user_id/verified_at/notes are deliberately NOT
+     * fillable (audit finding, 2026-07-17): every write to those fields
+     * already goes through Admin\SubscriptionController::decide()'s
+     * atomic query-builder update() (bypasses $fillable entirely, by
+     * design) or relies on the migration's own status='pending' column
+     * default at creation, never through create()/fill(). See
+     * Payment::$fillable for the tenant-side equivalent of this.
+     */
     protected $fillable = [
-        'school_id', 'amount', 'bank_name', 'reference', 'evidence_path',
-        'status', 'submitted_by_user_id', 'verified_by_user_id', 'verified_at', 'notes',
+        'school_id', 'amount', 'bank_name', 'reference', 'evidence_path', 'submitted_by_user_id',
     ];
 
     protected function casts(): array

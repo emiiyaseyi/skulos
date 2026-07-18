@@ -25,9 +25,20 @@ class Payment extends Model
 
     protected $connection = 'tenant';
 
+    /**
+     * status/verified_by_user_id/verified_at/notes are deliberately NOT
+     * fillable (audit finding, 2026-07-17): every write to those fields
+     * already goes through PaymentController::applyDecision()'s atomic
+     * query-builder update() (bypasses $fillable entirely, by design) or
+     * relies on the migration's own status='pending' column default at
+     * creation, never through create()/fill(). Keeping them out closes
+     * off a self-approval footgun (Payment::create($request->all())
+     * could otherwise let a POST body set status=verified directly) even
+     * though no current controller does that.
+     */
     protected $fillable = [
         'student_id', 'fee_item_id', 'amount', 'method', 'bank_name', 'reference',
-        'evidence_path', 'status', 'submitted_by_user_id', 'verified_by_user_id', 'verified_at', 'notes',
+        'evidence_path', 'submitted_by_user_id',
     ];
 
     protected function casts(): array

@@ -135,6 +135,10 @@ class PaymentController extends Controller
         // disk indefinitely, unreferenced by any record (audit finding
         // M-6, 2026-07-17).
         try {
+            // status is intentionally not passed here: it is not
+            // mass-assignable (see Payment::$fillable), so a new payment
+            // always starts at the migration's own status='pending'
+            // column default, the single source of truth for that.
             $payment = Payment::create([
                 'student_id' => $data['student_id'],
                 'fee_item_id' => $data['fee_item_id'] ?? null,
@@ -143,7 +147,6 @@ class PaymentController extends Controller
                 'bank_name' => $data['bank_name'] ?? null,
                 'reference' => $data['reference'] ?? null,
                 'evidence_path' => $evidencePath,
-                'status' => Payment::STATUS_PENDING,
                 'submitted_by_user_id' => $user->id,
             ]);
         } catch (\Throwable $e) {

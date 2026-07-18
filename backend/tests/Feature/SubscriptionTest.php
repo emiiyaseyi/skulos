@@ -208,7 +208,7 @@ class SubscriptionTest extends TestCase
     public function test_admin_can_verify_a_payment_and_the_school_is_notified(): void
     {
         [$school, $owner] = $this->schoolWithOwner('subfive');
-        $payment = SubscriptionPayment::create([
+        $payment = SubscriptionPayment::forceCreate([
             'school_id' => $school->id, 'amount' => 10000, 'status' => SubscriptionPayment::STATUS_PENDING,
             'submitted_by_user_id' => $owner->id,
         ]);
@@ -230,7 +230,7 @@ class SubscriptionTest extends TestCase
     public function test_admin_can_reject_a_payment(): void
     {
         [$school, $owner] = $this->schoolWithOwner('subsix');
-        $payment = SubscriptionPayment::create([
+        $payment = SubscriptionPayment::forceCreate([
             'school_id' => $school->id, 'amount' => 10000, 'status' => SubscriptionPayment::STATUS_PENDING,
             'submitted_by_user_id' => $owner->id,
         ]);

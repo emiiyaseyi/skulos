@@ -119,6 +119,20 @@ class AnnouncementController extends Controller
         ]);
     }
 
+    /**
+     * Unlike MessageController::store() (a rich-text composer producing
+     * real HTML, cleaned via HtmlSanitizer before storage), this body
+     * comes from a plain <textarea> and is stored as plain text on
+     * purpose (audit follow-up, 2026-07-17: confirmed via
+     * HtmlSanitizer::clean() that running arbitrary plain text through it
+     * corrupts legitimate content containing angle brackets, e.g. "Use
+     * <JSS2> as the code" silently loses "JSS2" since it parses as an
+     * unrecognized tag). Every current render path already escapes this
+     * field ({{ }} or strip_tags()), which is the correct and sufficient
+     * protection for plain text: any FUTURE raw {!! !!} render of this
+     * field would need its own escaping at that point, not a
+     * sanitizer this field doesn't actually need today.
+     */
     public function store(Request $request, NotificationService $notifications): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'communication.broadcast');
