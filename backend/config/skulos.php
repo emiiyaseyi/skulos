@@ -351,16 +351,20 @@ return [
 
     /*
     | Seed default for the bank account a school transfers its SKULOS
-    | subscription payment into (user directive 2026-07-17, real details
-    | given directly). A platform admin can override this from Admin >
-    | Settings > Subscription Bank without a code deploy
+    | subscription payment into. A platform admin can override this from
+    | Admin > Settings > Subscription Bank without a code deploy
     | (SubscriptionBankService, same PlatformSetting-override pattern as
-    | 'support' above).
+    | 'support' above). The real account details live in .env only
+    | (SKULOS_SUBSCRIPTION_*), never as a committed default here: this is
+    | a real bank account, not public contact info like 'support' above,
+    | and a leaked real account name/number in version control is
+    | directly usable for a fraudulent "updated bank details" scam
+    | against paying schools (audit finding M-3, 2026-07-17).
     */
     'subscription_bank' => [
-        'bank_name' => env('SKULOS_SUBSCRIPTION_BANK_NAME', 'GTBank'),
-        'account_name' => env('SKULOS_SUBSCRIPTION_ACCOUNT_NAME', 'Michael Oluwaseyi Adeniran'),
-        'account_number' => env('SKULOS_SUBSCRIPTION_ACCOUNT_NUMBER', '0036905082'),
+        'bank_name' => env('SKULOS_SUBSCRIPTION_BANK_NAME', ''),
+        'account_name' => env('SKULOS_SUBSCRIPTION_ACCOUNT_NAME', ''),
+        'account_number' => env('SKULOS_SUBSCRIPTION_ACCOUNT_NUMBER', ''),
     ],
 
     /*
