@@ -141,4 +141,42 @@ class ReportCardTest extends TestCase
         $this->assertSame(['First Term' => 70.0, 'Second Term' => 80.0], $maths['previous_terms']);
         $this->assertSame(80.0, $maths['cumulative_average']); // (70 + 80 + 90) / 3
     }
+
+    /**
+     * Class Position & Ranking (Advance plan feature 'class_position_
+     * ranking', wired into the nav 2026-07-18): the underlying computation
+     * (ResultService::classBroadsheet()/subjectStats()) already existed
+     * and was already rendered on the report card ("overall_position"
+     * defaults on), just never mapped to a nav link. Proves it with a
+     * real 3-student class, not the single-student fixture above, where
+     * a trivial "1st of 1" would not actually prove ranking works.
+     */
+    public function test_the_real_report_card_shows_a_students_actual_class_position(): void
+    {
+        [$school] = $this->schoolWithMember('school-owner', 'rcposition');
+        app(TenantManager::class)->use($school);
+
+        $session = AcademicSession::create(['name' => '2025/2026']);
+        $term = Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1]);
+        $section = Section::create(['name' => 'Secondary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS 3', 'sequence' => 1]);
+        $arm = Arm::create(['name' => 'A']);
+        $classArm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => $arm->id]);
+        $subject = Subject::create(['name' => 'Mathematics']);
+        $component = AssessmentComponent::create(['name' => 'Exam', 'max_score' => 100, 'sequence' => 1]);
+
+        $top = Student::create(['admission_number' => 'P1', 'first_name' => 'Top', 'last_name' => 'Scorer', 'current_class_arm_id' => $classArm->id]);
+        $middle = Student::create(['admission_number' => 'P2', 'first_name' => 'Middle', 'last_name' => 'Scorer', 'current_class_arm_id' => $classArm->id]);
+        $last = Student::create(['admission_number' => 'P3', 'first_name' => 'Last', 'last_name' => 'Scorer', 'current_class_arm_id' => $classArm->id]);
+
+        Score::create(['student_id' => $top->id, 'subject_id' => $subject->id, 'class_arm_id' => $classArm->id, 'term_id' => $term->id, 'assessment_component_id' => $component->id, 'score' => 95]);
+        Score::create(['student_id' => $middle->id, 'subject_id' => $subject->id, 'class_arm_id' => $classArm->id, 'term_id' => $term->id, 'assessment_component_id' => $component->id, 'score' => 70]);
+        Score::create(['student_id' => $last->id, 'subject_id' => $subject->id, 'class_arm_id' => $classArm->id, 'term_id' => $term->id, 'assessment_component_id' => $component->id, 'score' => 40]);
+
+        $middleData = app(ReportCardService::class)->forStudent($middle, $term);
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(2, $middleData['overall']['position']);
+        $this->assertSame(3, $middleData['overall']['class_size']);
+    }
 }

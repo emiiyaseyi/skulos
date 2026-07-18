@@ -203,6 +203,13 @@
     // basic_report_cards above (a single student's own document).
     'student_reports' => ['school.reports.students.index', 'Student Reports', 'results'],
     'unlimited_grading_systems' => ['school.examinations.grading', 'Grading', 'results'],
+    // Already fully built, just never wired into this catalog (2026-07-18):
+    // ReportCardService::forStudent() already computes both overall
+    // position/class size (shown by default, "overall_position" field)
+    // and per-subject position (opt-in, "subject_position" field, modern
+    // template) from ResultService::classBroadsheet()/subjectStats(); the
+    // toggle for both lives on the existing Report settings screen.
+    'class_position_ranking' => ['school.report-cards.edit', 'Report settings', 'results'],
     'student_promotion' => ['school.settings.calendar.edit', 'Sessions &amp; Terms', 'calendar'],
     // Repointed from school.campuses (2026-07-18): a real, dedicated
     // School Profile screen now exists (SchoolPortalController::
@@ -242,6 +249,13 @@
   $forceGroup = [
     'basic_report_cards' => 'Reports & Analytics',
     'result_management' => 'Reports & Analytics',
+    // Points at the same school.report-cards.edit route the always-shown
+    // "Report settings" unconditional append below already renders, so
+    // this must land in the same group that append targets (Reports &
+    // Analytics), not "academic" (this feature's plain catalog category),
+    // or the two would fight over which group "Report settings" appears
+    // in depending on plan tier.
+    'class_position_ranking' => 'Reports & Analytics',
     'continuous_assessment' => 'Settings',
     'academic_sessions_terms' => 'Settings',
     'school_branding' => 'Settings',
