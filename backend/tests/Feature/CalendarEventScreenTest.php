@@ -136,6 +136,32 @@ class CalendarEventScreenTest extends TestCase
         $response->assertDontSee('action="'.route('school.calendar.destroy', ['school' => $school->slug, 'eventId' => $defaultEvent->id]).'"', false);
     }
 
+    /**
+     * Audit finding L-1 (2026-07-17): destroy() previously typed $eventId
+     * as a scalar method parameter, which this route's domain wildcard
+     * ({school}.<domain>) caused Laravel to bind positionally instead of
+     * by name, silently receiving the school slug instead of the event
+     * id, so this delete always 404'd. The prior test above only checked
+     * that a DEFAULT event's destroy form doesn't render, never that a
+     * real custom event's destroy action actually works.
+     */
+    public function test_a_custom_event_can_actually_be_deleted(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'calnine');
+
+        app(TenantManager::class)->use($school);
+        $event = CalendarEvent::create(['title' => 'Sports Day', 'category' => 'other', 'is_default' => false, 'all_day' => true]);
+        $eventId = $event->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->delete(route('school.calendar.destroy', ['school' => $school->slug, 'eventId' => $eventId]))
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertNull(CalendarEvent::find($eventId));
+        app(TenantManager::class)->forget();
+    }
+
     public function test_a_teacher_without_calendar_create_cannot_open_the_create_form(): void
     {
         [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'calfour');

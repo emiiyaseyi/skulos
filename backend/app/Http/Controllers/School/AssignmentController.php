@@ -220,13 +220,24 @@ class AssignmentController extends Controller
             ->with('status', 'Assignment posted.');
     }
 
-    public function destroy(Request $request, string $assignmentId, TeacherScope $teacherScope): \Illuminate\Http\RedirectResponse
+    /**
+     * $assignmentId is read via $request->route() rather than a typed
+     * method parameter: this route sits under a domain wildcard
+     * ({school}.<domain>), and Laravel resolves untyped/scalar controller
+     * parameters positionally against the full route parameter list
+     * (domain parameter included), not by name, so a typed parameter here
+     * would silently receive the school slug instead (the recurring
+     * gotcha documented in CLAUDE.md; this was the live bug instance of
+     * it, found by audit 2026-07-17: delete always 404'd since
+     * findOrFail() was looking up the slug string as an id).
+     */
+    public function destroy(Request $request, TeacherScope $teacherScope): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'assignments.delete');
         $school = $this->school($request);
         $user = Auth::user();
 
-        $assignment = Assignment::findOrFail($assignmentId);
+        $assignment = Assignment::findOrFail($request->route('assignmentId'));
 
         $armIds = $teacherScope->classArmIds($user, $school);
         if ($armIds !== null && ! $armIds->contains($assignment->class_arm_id)) {

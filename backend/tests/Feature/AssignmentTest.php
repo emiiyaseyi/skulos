@@ -87,6 +87,34 @@ class AssignmentTest extends TestCase
         $this->assertSame($arm->id, $assignment->class_arm_id);
     }
 
+    /**
+     * Audit finding L-1 (2026-07-17): destroy() previously typed
+     * $assignmentId as a scalar method parameter, which this route's
+     * domain wildcard ({school}.<domain>) caused Laravel to bind
+     * positionally instead of by name, silently receiving the school
+     * slug instead of the assignment id, so this delete always 404'd.
+     */
+    public function test_an_owner_can_actually_delete_an_assignment(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'asgten');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 4', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id]);
+        $subject = Subject::create(['name' => 'Mathematics', 'code' => 'MTH']);
+        $assignment = Assignment::create(['title' => 'To be deleted', 'subject_id' => $subject->id, 'class_arm_id' => $arm->id]);
+        $assignmentId = $assignment->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->delete(route('school.assignments.destroy', ['school' => $school->slug, 'assignmentId' => $assignmentId]))
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertNull(Assignment::find($assignmentId));
+        app(TenantManager::class)->forget();
+    }
+
     public function test_a_subject_teacher_cannot_post_to_a_class_they_do_not_teach(): void
     {
         [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'asgtwo');

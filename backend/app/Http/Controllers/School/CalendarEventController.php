@@ -206,12 +206,19 @@ class CalendarEventController extends Controller
             ->with('status', 'Event updated.');
     }
 
-    public function destroy(Request $request, string $eventId): \Illuminate\Http\RedirectResponse
+    /**
+     * $eventId is read via $request->route() rather than a typed method
+     * parameter, the same domain-wildcard positional-binding gotcha fixed
+     * on AssignmentController::destroy() (audit finding L-1, 2026-07-17):
+     * a typed parameter here silently received the school slug instead,
+     * so delete always 404'd.
+     */
+    public function destroy(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'calendar.delete');
         $school = $this->school($request);
 
-        CalendarEvent::findOrFail($eventId)->delete();
+        CalendarEvent::findOrFail($request->route('eventId'))->delete();
 
         return redirect()->route('school.calendar.index', ['school' => $school->slug])
             ->with('status', 'Event removed.');
