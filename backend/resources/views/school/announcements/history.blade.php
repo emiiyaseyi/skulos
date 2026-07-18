@@ -35,9 +35,13 @@
             $delivered = (int) $item->delivered_count;
             $read = (int) $item->read_count;
             $pct = $delivered > 0 ? round($read / $delivered * 100) : 0;
-            $target = ucfirst($item->audience);
-            if ($item->classArm) { $target .= ' &middot; '.$item->classArm->label(); }
-            elseif ($item->section) { $target .= ' &middot; '.$item->section->name; }
+            // The class arm/section name is admin-authored data, not a
+            // literal, and was previously interpolated into a raw {!! !!}
+            // render unescaped, a stored XSS vector (audit finding L-3,
+            // 2026-07-17).
+            $target = e(ucfirst($item->audience));
+            if ($item->classArm) { $target .= ' &middot; '.e($item->classArm->label()); }
+            elseif ($item->section) { $target .= ' &middot; '.e($item->section->name); }
             else { $target .= ' &middot; whole school'; }
           @endphp
           <tr>

@@ -25,9 +25,13 @@
             $delivered = (int) $b->delivered_count;
             $read = (int) $b->read_count;
             $pct = $delivered > 0 ? round($read / $delivered * 100) : 0;
-            $target = ucfirst($b->audience);
-            if ($b->classArm) { $target .= ' &middot; '.$b->classArm->label(); }
-            elseif ($b->section) { $target .= ' &middot; '.$b->section->name; }
+            // The class arm/section name is admin-authored data, not a
+            // literal, and was previously interpolated into a raw {!! !!}
+            // render unescaped, a stored XSS vector (audit finding L-3,
+            // 2026-07-17).
+            $target = e(ucfirst($b->audience));
+            if ($b->classArm) { $target .= ' &middot; '.e($b->classArm->label()); }
+            elseif ($b->section) { $target .= ' &middot; '.e($b->section->name); }
             else { $target .= ' &middot; whole school'; }
           @endphp
           <tr>
@@ -35,7 +39,7 @@
             <td>
               <div style="display:flex;align-items:center;gap:.6rem">
                 @if($b->image_path)
-                  <img src="{{ $b->imageUrl() }}" alt="" style="width:2.4rem;height:2.4rem;object-fit:cover;border-radius:6px;flex-shrink:0" />
+                  <img src="{{ $b->imageUrl() }}" alt="{{ $b->title }}" style="width:2.4rem;height:2.4rem;object-fit:cover;border-radius:6px;flex-shrink:0" />
                 @endif
                 <div>
                   <strong>{{ $b->title }}</strong>
