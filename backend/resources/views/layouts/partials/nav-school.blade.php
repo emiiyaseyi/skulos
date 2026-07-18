@@ -169,6 +169,15 @@
     'announcements' => ['school.announcements.index', 'Announcements', 'comms'],
     'parent_broadcast' => ['school.messages.index', 'Messages', 'comms'],
     'communication_history' => ['school.announcements.history', 'Communication History', 'comms'],
+    // Already fully built end to end, just never wired into this catalog
+    // (2026-07-18): AnnouncementController::store() ->
+    // NotificationService::dispatchAnnouncement() ->
+    // CommunicationService::emailAnnouncement() -> a real Mailable,
+    // logged per recipient in communication_logs, all pre-existing. Only
+    // the school-facing on/off switch was missing (channelEnabled('email')
+    // previously read a hardcoded config default with no override), added
+    // to this same Communication Settings screen alongside it.
+    'email_notifications' => ['school.settings.communication.edit', 'Notifications', 'chat'],
     // Same real screen as in_app_notifications above (2026-07-18, user
     // report: "I AM STILL SEEING COMING SOON UNDER SOME FEATURES"): the
     // scheduled skulos:notify-birthdays-anniversaries command (built
@@ -256,6 +265,14 @@
     // or the two would fight over which group "Report settings" appears
     // in depending on plan tier.
     'class_position_ranking' => 'Reports & Analytics',
+    // Same reasoning: points at school.settings.communication.edit, the
+    // same route the unconditional Settings > Communication > Notifications
+    // link below already renders (that block does not dedup against
+    // $renderedRoutes the way the catalog loop does), so it must land in
+    // Settings too, or an Advance-tier school would see it rendered
+    // twice, once under the top-level Communication group and once under
+    // Settings.
+    'email_notifications' => 'Settings',
     'continuous_assessment' => 'Settings',
     'academic_sessions_terms' => 'Settings',
     'school_branding' => 'Settings',
@@ -284,6 +301,7 @@
     'continuous_assessment' => 'School',
     'school_branding' => 'Appearance',
     'user_role_management' => 'Users',
+    'email_notifications' => 'Communication',
   ];
   // Populated by both the catalog loop and the unconditional block below,
   // in the exact order the user specified. Filtered down to whichever

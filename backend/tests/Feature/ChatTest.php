@@ -265,4 +265,30 @@ class ChatTest extends TestCase
         app(TenantManager::class)->forget();
         $this->assertTrue($enabledAgain);
     }
+
+    /** Email Notifications toggle (2026-07-18) lives on the same settings screen/form as the messaging toggle above. */
+    public function test_school_owner_can_toggle_email_notifications_on_the_same_screen(): void
+    {
+        [$school, ] = $this->schoolWithTeacherStudentGuardian('chatten');
+        $owner = $this->member($school, 'school-owner');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/settings/communication", [
+            'teacher_parent_messaging_enabled' => '1',
+            'email_notifications_enabled' => '1',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $enabled = app(\App\Services\Communication\CommunicationService::class)->channelEnabled('email');
+        app(TenantManager::class)->forget();
+        $this->assertTrue($enabled);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/settings/communication", [
+            'teacher_parent_messaging_enabled' => '1',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $disabled = app(\App\Services\Communication\CommunicationService::class)->channelEnabled('email');
+        app(TenantManager::class)->forget();
+        $this->assertFalse($disabled, 'omitting the checkbox from the POST must turn it off');
+    }
 }

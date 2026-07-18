@@ -84,6 +84,32 @@ class CommunicationTest extends TestCase
         );
     }
 
+    /**
+     * Email Notifications (Advance plan feature 'email_notifications',
+     * wired 2026-07-18): the delivery itself always worked, but there was
+     * no school-facing way to turn it off, channelEnabled('email') always
+     * read the hardcoded config default. Proves the new Setting-backed
+     * toggle actually controls delivery, not just the config fallback the
+     * test above already covers.
+     */
+    public function test_email_channel_can_be_disabled_via_the_school_setting(): void
+    {
+        Mail::fake();
+        app(CommunicationService::class)->setEmailChannelEnabled(false);
+
+        $announcement = Announcement::create(['title' => 'Hi', 'body' => 'Test', 'audience' => 'all']);
+        $outcome = app(CommunicationService::class)->publishAnnouncement($announcement, ['x@example.com']);
+
+        $this->assertSame(['sent' => 0, 'failed' => 0], $outcome);
+        Mail::assertNothingSent();
+
+        // Turning it back on takes effect immediately, no cache to bust.
+        app(CommunicationService::class)->setEmailChannelEnabled(true);
+        $announcement2 = Announcement::create(['title' => 'Hi Again', 'body' => 'Test', 'audience' => 'all']);
+        $outcome2 = app(CommunicationService::class)->publishAnnouncement($announcement2, ['x@example.com']);
+        $this->assertSame(['sent' => 1, 'failed' => 0], $outcome2);
+    }
+
     public function test_one_off_email_is_logged(): void
     {
         Mail::fake();

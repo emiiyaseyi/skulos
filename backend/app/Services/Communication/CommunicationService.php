@@ -5,6 +5,7 @@ namespace App\Services\Communication;
 use App\Mail\AnnouncementMail;
 use App\Models\Tenant\Announcement;
 use App\Models\Tenant\CommunicationLog;
+use App\Models\Tenant\Setting;
 use App\Services\Auditing\Recorder;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
@@ -16,9 +17,29 @@ use Throwable;
  */
 class CommunicationService
 {
+    /** Only 'email' has a real per-school Setting override so far (sms/whatsapp/push have no provider wired up yet, config('skulos.communication_channels') stays their only source until they do). */
+    public const EMAIL_SETTING_KEY = 'communication_email_enabled';
+
     public function channelEnabled(string $channel): bool
     {
+        if ($channel === 'email') {
+            // Real DB-backed toggle (audit follow-up, 2026-07-18): this
+            // used to read config('skulos.communication_channels.email.
+            // enabled') directly with no way for a school to turn it off,
+            // despite that config file's own comment already promising
+            // "a school will toggle these in the admin CMS", matching the
+            // standing "config is only ever a seed default, never the live
+            // source of truth" rule. Config value is now only the
+            // fallback for a school that has never touched the setting.
+            return (bool) Setting::grab(self::EMAIL_SETTING_KEY, config('skulos.communication_channels.email.enabled', true));
+        }
+
         return (bool) config("skulos.communication_channels.{$channel}.enabled", false);
+    }
+
+    public function setEmailChannelEnabled(bool $enabled): void
+    {
+        Setting::put(self::EMAIL_SETTING_KEY, $enabled);
     }
 
     /**
