@@ -55,7 +55,7 @@
             @endif
             <td class="muted" style="white-space:nowrap">{{ $payment->created_at->format('d M Y') }}</td>
             <td>{{ $payment->student?->fullName() }}</td>
-            <td class="muted">{{ $payment->feeItem?->name ?? 'General payment' }}</td>
+            <td class="muted">{{ $payment->feeItem?->name ?? 'General payment' }}@if($payment->installment) &middot; {{ $payment->installment->label }}@endif</td>
             <td>₦{{ number_format((float) $payment->amount, 2) }}</td>
             <td>
               <span class="badge {{ $payment->status === 'verified' ? 'badge-ok' : ($payment->status === 'rejected' ? 'badge-bad' : 'badge-warn') }}">{{ ucfirst($payment->status) }}</span>

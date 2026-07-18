@@ -256,6 +256,19 @@ tr:last-child td{border-bottom:none}
 :root[data-theme="dark"] .badge-ok{background:color-mix(in srgb,var(--ok) 35%,transparent);color:#fff}
 :root[data-theme="dark"] .badge-warn{background:color-mix(in srgb,var(--warn) 35%,transparent);color:#fff}
 :root[data-theme="dark"] .badge-bad{background:color-mix(in srgb,var(--bad) 35%,transparent);color:#fff}
+/* The dark-mode rules above only ever checked the OS/browser's actual
+   colour preference, never whether the viewer had explicitly picked
+   "light" with the theme toggle (user report 2026-07-18: badges looked
+   "faded" and washed out). An OS set to dark with the app explicitly set
+   to light matched the @media query above with no counteracting rule to
+   win it back, applying dark mode's white-text-on-a-weak-tint formula on
+   top of a light (white/near-white) panel, a low-contrast mismatch, not
+   the intended light-mode look at all. Explicit here for the same
+   attribute-selector-beats-bare-media-query reason :root[data-theme="dark"]
+   above already relies on. */
+:root[data-theme="light"] .badge-ok{background:color-mix(in srgb,var(--ok) 18%,transparent);color:color-mix(in srgb,var(--ok) 55%,black)}
+:root[data-theme="light"] .badge-warn{background:color-mix(in srgb,var(--warn) 18%,transparent);color:color-mix(in srgb,var(--warn) 55%,black)}
+:root[data-theme="light"] .badge-bad{background:color-mix(in srgb,var(--bad) 18%,transparent);color:color-mix(in srgb,var(--bad) 55%,black)}
 .flash{padding:.85rem 1.1rem;border-radius:12px;margin-bottom:1.2rem;font-weight:600;font-size:.9rem;border:1px solid}
 /* Same fix as .badge above: darkened text for guaranteed contrast in
    light mode (audit finding, 2026-07-17), this is the payment
@@ -267,6 +280,12 @@ tr:last-child td{border-bottom:none}
 @media(prefers-color-scheme:dark){.flash-ok{color:var(--ok)}.flash-bad{color:var(--bad)}}
 :root[data-theme="dark"] .flash-ok{color:var(--ok)}
 :root[data-theme="dark"] .flash-bad{color:var(--bad)}
+/* Same explicit-theme-vs-OS-preference gap as .badge above: without
+   these, an OS set to dark with the app explicitly set to light kept the
+   plain bright var(--ok)/var(--bad) text meant for a dark panel, faded
+   and low-contrast against light mode's white/near-white background. */
+:root[data-theme="light"] .flash-ok{color:color-mix(in srgb,var(--ok) 55%,black)}
+:root[data-theme="light"] .flash-bad{color:color-mix(in srgb,var(--bad) 55%,black)}
 .idle-scrim{position:fixed;inset:0;background:rgba(8,12,20,.6);z-index:200;display:none;place-items:center;padding:1.25rem}
 .idle-scrim.show{display:grid}
 .idle-card{width:100%;max-width:22rem;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:1.8rem;box-shadow:var(--shadow);text-align:center}

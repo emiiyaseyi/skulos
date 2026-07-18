@@ -37,6 +37,10 @@
         </select>
         @error('term_id')<p class="err" id="term_id-error">{{ $message }}</p>@enderror
       </div>
+      <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem">
+        <input type="checkbox" name="allow_installments" value="1" @checked(old('allow_installments')) />
+        <span>Allow this fee to be paid in installments</span>
+      </label>
       <button class="btn btn-primary btn-sm" type="submit">Add fee item</button>
     </form>
   </div>
@@ -53,7 +57,7 @@
     <table>
       <thead><tr>
         @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="fee-item-select-all" aria-label="Select all fee items" /></th>@endif
-        <th>Name</th><th>Term</th><th>Amount</th><th>Status</th>@if($canManage)<th></th>@endif</tr></thead>
+        <th>Name</th><th>Term</th><th>Amount</th><th>Installments</th><th>Status</th><th></th></tr></thead>
       <tbody>
         @foreach($feeItems as $item)
           <tr>
@@ -63,9 +67,11 @@
             <td><strong>{{ $item->name }}</strong></td>
             <td class="muted">{{ $item->term?->name }}</td>
             <td>₦{{ number_format((float) $item->amount, 2) }}</td>
+            <td class="muted">{{ $item->allow_installments ? 'Allowed' : 'Full amount only' }}</td>
             <td><span class="badge {{ $item->is_active ? 'badge-ok' : 'badge-warn' }}">{{ $item->is_active ? 'Active' : 'Retired' }}</span></td>
-            @if($canManage)
-              <td style="white-space:nowrap">
+            <td style="white-space:nowrap">
+              <a class="btn btn-ghost btn-sm" href="{{ route('school.finance.fee-items.show', ['school' => $school->slug, 'feeItemId' => $item->id]) }}">{{ $canManage ? 'Manage' : 'View' }}</a>
+              @if($canManage)
                 <form method="POST" action="{{ route('school.finance.fee-items.toggle-active', ['school' => $school->slug, 'feeItemId' => $item->id]) }}" style="display:inline">
                   @csrf
                   <button class="btn btn-ghost btn-sm" type="submit">{{ $item->is_active ? 'Retire' : 'Reactivate' }}</button>
@@ -75,8 +81,8 @@
                   @method('DELETE')
                   <button class="btn btn-ghost btn-sm" type="submit">Delete</button>
                 </form>
-              </td>
-            @endif
+              @endif
+            </td>
           </tr>
         @endforeach
       </tbody>

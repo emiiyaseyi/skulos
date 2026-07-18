@@ -59,7 +59,7 @@ class PaymentController extends Controller
 
         $status = $request->query('status');
 
-        $payments = Payment::with('student.currentClassArm.schoolClass', 'feeItem')
+        $payments = Payment::with('student.currentClassArm.schoolClass', 'feeItem', 'installment')
             ->when($familyStudentIds !== null, fn ($q) => $q->whereIn('student_id', $familyStudentIds))
             ->when(in_array($status, [Payment::STATUS_PENDING, Payment::STATUS_VERIFIED, Payment::STATUS_REJECTED], true), fn ($q) => $q->where('status', $status))
             ->orderByDesc('created_at')
@@ -93,7 +93,7 @@ class PaymentController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'students' => $students,
-            'feeItems' => FeeItem::active()->with('term')->orderByDesc('created_at')->get(),
+            'feeItems' => FeeItem::active()->with('term', 'installments')->orderByDesc('created_at')->get(),
         ]);
     }
 
@@ -107,11 +107,24 @@ class PaymentController extends Controller
         $data = $request->validate([
             'student_id' => ['required', 'exists:tenant.students,id'],
             'fee_item_id' => ['nullable', 'exists:tenant.fee_items,id'],
+            'fee_item_installment_id' => ['nullable', 'exists:tenant.fee_item_installments,id'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'bank_name' => ['nullable', 'string', 'max:120'],
             'reference' => ['nullable', 'string', 'max:120'],
             'evidence' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:'.config('skulos.upload_limits.payment_evidence_kb')],
         ]);
+
+        // A crafted installment id belonging to a different fee item than
+        // the one submitted is silently dropped rather than acted on, the
+        // same "never trust cross-field ids" convention the rest of this
+        // controller already follows for student_id.
+        if (! empty($data['fee_item_installment_id'])) {
+            $belongs = \App\Models\Tenant\FeeItemInstallment::where('id', $data['fee_item_installment_id'])
+                ->where('fee_item_id', $data['fee_item_id'] ?? null)->exists();
+            if (! $belongs) {
+                $data['fee_item_installment_id'] = null;
+            }
+        }
 
         // A parent/student may only ever submit for their own linked
         // child/self, a crafted student_id outside that set is rejected,
@@ -142,6 +155,7 @@ class PaymentController extends Controller
             $payment = Payment::create([
                 'student_id' => $data['student_id'],
                 'fee_item_id' => $data['fee_item_id'] ?? null,
+                'fee_item_installment_id' => $data['fee_item_installment_id'] ?? null,
                 'amount' => $data['amount'],
                 'method' => 'bank_transfer',
                 'bank_name' => $data['bank_name'] ?? null,
@@ -167,7 +181,7 @@ class PaymentController extends Controller
         $user = Auth::user();
         $familyStudentIds = app(FamilyScope::class)->studentIds($user, $school);
 
-        $payment = Payment::with('student.currentClassArm.schoolClass', 'feeItem')->findOrFail($request->route('paymentId'));
+        $payment = Payment::with('student.currentClassArm.schoolClass', 'feeItem', 'installment')->findOrFail($request->route('paymentId'));
 
         if ($familyStudentIds !== null && ! $familyStudentIds->contains($payment->student_id)) {
             abort(404);

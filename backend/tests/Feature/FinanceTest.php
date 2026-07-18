@@ -454,4 +454,122 @@ class FinanceTest extends TestCase
         $this->assertSame(2, Notification::where('category', 'payment_verified')->count());
         app(TenantManager::class)->forget();
     }
+
+    /**
+     * Installment Payment Plans (Advance Finance, 2026-07-18): a fee item
+     * can be split into a scheduled series of partial payments instead of
+     * one lump submission, the natural extension of this Foundation slice
+     * flagged as deferred when it first shipped.
+     */
+    public function test_a_bursar_can_manage_a_fee_items_installment_schedule(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'fininstallone');
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $item = FeeItem::create(['name' => 'Tuition', 'amount' => 60000, 'term_id' => $term->id, 'allow_installments' => true]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->get("http://{$school->slug}.localhost/finance/fee-items/{$item->id}")
+            ->assertOk()->assertSee('Installment schedule');
+
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items/{$item->id}/installments", [
+            'label' => '1st Installment', 'amount' => 30000, 'due_date' => now()->addDays(30)->toDateString(),
+        ])->assertRedirect();
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items/{$item->id}/installments", [
+            'label' => '2nd Installment', 'amount' => 30000,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $installments = \App\Models\Tenant\FeeItemInstallment::where('fee_item_id', $item->id)->orderBy('sequence')->get();
+        app(TenantManager::class)->forget();
+
+        $this->assertCount(2, $installments);
+        $this->assertSame('1st Installment', $installments[0]->label);
+        $this->assertSame('30000.00', (string) $installments[0]->amount);
+
+        $this->actingAs($bursar)->delete("http://{$school->slug}.localhost/finance/fee-items/installments/{$installments[1]->id}")
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertCount(1, \App\Models\Tenant\FeeItemInstallment::where('fee_item_id', $item->id)->get());
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_an_installment_with_a_payment_recorded_cannot_be_deleted(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'fininstalltwo');
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $item = FeeItem::create(['name' => 'Tuition', 'amount' => 60000, 'term_id' => $term->id, 'allow_installments' => true]);
+        $installment = \App\Models\Tenant\FeeItemInstallment::create(['fee_item_id' => $item->id, 'label' => '1st Installment', 'amount' => 30000, 'sequence' => 1]);
+        $student = Student::create(['admission_number' => 'FI1', 'first_name' => 'Inst', 'last_name' => 'Allment']);
+        Payment::forceCreate([
+            'student_id' => $student->id, 'fee_item_id' => $item->id, 'fee_item_installment_id' => $installment->id,
+            'amount' => 30000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_VERIFIED, 'submitted_by_user_id' => $bursar->id,
+        ]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->delete("http://{$school->slug}.localhost/finance/fee-items/installments/{$installment->id}")
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertNotNull(\App\Models\Tenant\FeeItemInstallment::find($installment->id));
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_a_parent_can_submit_a_payment_against_a_specific_installment(): void
+    {
+        [$school, $parent] = $this->schoolWithMember('parent', 'fininstallthree');
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $item = FeeItem::create(['name' => 'Tuition', 'amount' => 60000, 'term_id' => $term->id, 'allow_installments' => true]);
+        $installment = \App\Models\Tenant\FeeItemInstallment::create(['fee_item_id' => $item->id, 'label' => '1st Installment', 'amount' => 30000, 'sequence' => 1]);
+        $child = Student::create(['admission_number' => 'FI2', 'first_name' => 'Child', 'last_name' => 'Payer']);
+        StudentGuardian::create(['student_id' => $child->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        app(TenantManager::class)->forget();
+
+        $file = UploadedFile::fake()->image('evidence.jpg');
+        $this->actingAs($parent)->post("http://{$school->slug}.localhost/finance/payments", [
+            'student_id' => $child->id, 'fee_item_id' => $item->id, 'fee_item_installment_id' => $installment->id,
+            'amount' => 30000, 'evidence' => $file,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $payment = Payment::where('student_id', $child->id)->first();
+        app(TenantManager::class)->forget();
+
+        $this->assertNotNull($payment);
+        $this->assertSame($installment->id, $payment->fee_item_installment_id);
+    }
+
+    /** An installment id belonging to a different fee item than the one submitted is silently dropped, never trusted cross-field. */
+    public function test_a_mismatched_installment_id_is_dropped_not_trusted(): void
+    {
+        [$school, $parent] = $this->schoolWithMember('parent', 'fininstallfour');
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $itemA = FeeItem::create(['name' => 'Tuition', 'amount' => 60000, 'term_id' => $term->id, 'allow_installments' => true]);
+        $itemB = FeeItem::create(['name' => 'PTA Levy', 'amount' => 5000, 'term_id' => $term->id, 'allow_installments' => true]);
+        $installmentOfB = \App\Models\Tenant\FeeItemInstallment::create(['fee_item_id' => $itemB->id, 'label' => 'Only Installment', 'amount' => 5000, 'sequence' => 1]);
+        $child = Student::create(['admission_number' => 'FI3', 'first_name' => 'Child', 'last_name' => 'Mismatch']);
+        StudentGuardian::create(['student_id' => $child->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        app(TenantManager::class)->forget();
+
+        $file = UploadedFile::fake()->image('evidence.jpg');
+        $this->actingAs($parent)->post("http://{$school->slug}.localhost/finance/payments", [
+            'student_id' => $child->id, 'fee_item_id' => $itemA->id, 'fee_item_installment_id' => $installmentOfB->id,
+            'amount' => 30000, 'evidence' => $file,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $payment = Payment::where('student_id', $child->id)->first();
+        app(TenantManager::class)->forget();
+
+        $this->assertNotNull($payment);
+        $this->assertNull($payment->fee_item_installment_id);
+    }
 }

@@ -38,6 +38,15 @@
         @error('fee_item_id')<p class="err">{{ $message }}</p>@enderror
       </div>
 
+      <div class="field" id="installmentField" style="display:none">
+        <label for="fee_item_installment_id">Which installment (optional)</label>
+        <select id="fee_item_installment_id" name="fee_item_installment_id">
+          <option value="">Full amount / not tied to one installment</option>
+        </select>
+        <p class="hint">This fee can be paid in installments. Choose one if this payment is for a specific installment.</p>
+        @error('fee_item_installment_id')<p class="err">{{ $message }}</p>@enderror
+      </div>
+
       <div class="field">
         <label for="amount">Amount paid (₦)</label>
         <input id="amount" name="amount" type="number" step="0.01" min="0.01" required value="{{ old('amount') }}" aria-invalid="@error('amount') true @else false @enderror" @error('amount') aria-describedby="amount-error" @enderror />
@@ -77,6 +86,28 @@
         btn.setAttribute('aria-busy', 'true');
         btn.textContent = 'Uploading...';
       });
+
+      {{-- Installment Payment Plans (2026-07-18): which fee items allow
+           installments, and what those installments are, so the picker
+           below only appears, and only offers real options, for a fee
+           item that actually has any. --}}
+      var feeItemInstallments = @json($feeItems->mapWithKeys(fn($item) => [$item->id => $item->installments->map(fn($i) => ['id' => $i->id, 'label' => $i->label, 'amount' => (float) $i->amount])]));
+      var feeItemSelect = document.getElementById('fee_item_id');
+      var installmentField = document.getElementById('installmentField');
+      var installmentSelect = document.getElementById('fee_item_installment_id');
+      function refreshInstallments(){
+        var installments = feeItemInstallments[feeItemSelect.value] || [];
+        installmentSelect.innerHTML = '<option value="">Full amount / not tied to one installment</option>';
+        installments.forEach(function(inst){
+          var opt = document.createElement('option');
+          opt.value = inst.id;
+          opt.textContent = inst.label + ' (₦' + inst.amount.toLocaleString(undefined, {minimumFractionDigits:2}) + ')';
+          installmentSelect.appendChild(opt);
+        });
+        installmentField.style.display = installments.length ? '' : 'none';
+      }
+      feeItemSelect?.addEventListener('change', refreshInstallments);
+      refreshInstallments();
     </script>
   @endif
 </div>

@@ -14,6 +14,7 @@
   <div class="card">
     <h3 style="margin-bottom:.6rem">Details</h3>
     <p><strong>Amount:</strong> ₦{{ number_format((float) $payment->amount, 2) }}</p>
+    @if($payment->installment)<p><strong>Installment:</strong> {{ $payment->installment->label }}</p>@endif
     <p><strong>Method:</strong> Bank transfer</p>
     <p><strong>Bank:</strong> {{ $payment->bank_name ?: 'Not provided' }}</p>
     <p><strong>Reference:</strong> {{ $payment->reference ?: 'Not provided' }}</p>

@@ -342,6 +342,73 @@ class AssignmentTest extends TestCase
             ->assertDontSee('Other class English'); // not their subject there, not their class
     }
 
+    /**
+     * User report 2026-07-18: "a class teacher can see all the details of
+     * the assignment for her class, submission, who has and not... if
+     * she is assigned a subject, she can create and check submission
+     * details". A student can submit their own work, a teacher sees the
+     * whole class roster's submission status.
+     */
+    public function test_a_student_can_submit_and_the_class_teacher_sees_who_has_and_has_not(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('class-teacher', 'asgsub1');
+        $studentUser = User::factory()->create();
+        $role = $this->rbac->cloneTemplateRole($school, 'student');
+        $school->users()->attach($studentUser->id, ['role_id' => $role->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Secondary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS 1', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => Arm::create(['name' => 'A'])->id]);
+        $subject = Subject::create(['name' => 'Maths', 'code' => 'MTH']);
+        $staff = Staff::create(['staff_id' => 'STF/20', 'first_name' => 'C', 'last_name' => 'T', 'user_id' => $teacher->id]);
+        $arm->update(['class_teacher_staff_id' => $staff->id]);
+        $submitter = Student::create(['admission_number' => 'SB1', 'first_name' => 'Sub', 'last_name' => 'Mitter', 'current_class_arm_id' => $arm->id, 'user_id' => $studentUser->id]);
+        $nonSubmitter = Student::create(['admission_number' => 'SB2', 'first_name' => 'No', 'last_name' => 'Sub', 'current_class_arm_id' => $arm->id]);
+        $assignment = Assignment::create(['title' => 'Algebra worksheet', 'subject_id' => $subject->id, 'class_arm_id' => $arm->id]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($studentUser)->post(route('school.assignments.submit', ['school' => $school->slug, 'assignmentId' => $assignment->id]), [
+            'content' => 'Here is my completed worksheet.',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $submission = \App\Models\Tenant\AssignmentSubmission::where('assignment_id', $assignment->id)->where('student_id', $submitter->id)->first();
+        app(TenantManager::class)->forget();
+        $this->assertNotNull($submission);
+        $this->assertSame('Here is my completed worksheet.', $submission->content);
+
+        $this->actingAs($teacher)->get(route('school.assignments.show', ['school' => $school->slug, 'assignmentId' => $assignment->id]))
+            ->assertOk()
+            ->assertSeeInOrder(['Sub Mitter', 'Submitted'])
+            ->assertSeeInOrder(['No Sub', 'Not submitted']);
+
+        // The student's own view shows their submission, not the whole roster.
+        $this->actingAs($studentUser)->get(route('school.assignments.show', ['school' => $school->slug, 'assignmentId' => $assignment->id]))
+            ->assertOk()
+            ->assertSee('Here is my completed worksheet.')
+            ->assertDontSee('No Sub');
+    }
+
+    public function test_a_parent_cannot_submit_on_their_childs_behalf(): void
+    {
+        [$school, $parentUser] = $this->schoolWithMember('parent', 'asgsub2');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 3', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id]);
+        $subject = Subject::create(['name' => 'English', 'code' => 'ENG']);
+        $child = Student::create(['admission_number' => 'CH2', 'first_name' => 'Child', 'last_name' => 'Two', 'current_class_arm_id' => $arm->id]);
+        StudentGuardian::create(['student_id' => $child->id, 'name' => 'Parent', 'relationship' => 'Father', 'guardian_user_id' => $parentUser->id, 'is_primary' => true]);
+        $assignment = Assignment::create(['title' => 'Spelling list', 'subject_id' => $subject->id, 'class_arm_id' => $arm->id]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($parentUser)->post(route('school.assignments.submit', ['school' => $school->slug, 'assignmentId' => $assignment->id]), [
+            'content' => 'Submitted by parent.',
+        ])->assertForbidden();
+    }
+
     /** User directive 2026-07-16: "ASSIGNMENT MENU SHOULD BE MOVED TO ACADEMIC SECTION". */
     public function test_assignments_appears_under_academic_in_the_nav(): void
     {

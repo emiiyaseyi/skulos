@@ -55,7 +55,7 @@
   @else
     <div style="overflow-x:auto">
     <table>
-      <thead><tr><th>Due</th><th>Title</th><th>Subject</th><th>Class</th>@if($canCreate)<th></th>@endif</tr></thead>
+      <thead><tr><th>Due</th><th>Title</th><th>Subject</th><th>Class</th><th></th></tr></thead>
       <tbody>
         @foreach($assignments as $assignment)
           <tr>
@@ -66,14 +66,15 @@
             </td>
             <td class="muted">{{ $assignment->subject?->name }}</td>
             <td class="muted">{{ $assignment->classArm?->label() }}</td>
-            @if($canCreate)
-              <td>
-                <form method="POST" action="{{ route('school.assignments.destroy', ['school' => $school->slug, 'assignmentId' => $assignment->id]) }}" onsubmit="return confirm('Remove this assignment?')">
+            <td style="white-space:nowrap">
+              <a class="btn btn-ghost btn-sm" href="{{ route('school.assignments.show', ['school' => $school->slug, 'assignmentId' => $assignment->id]) }}">View</a>
+              @if($canCreate)
+                <form method="POST" action="{{ route('school.assignments.destroy', ['school' => $school->slug, 'assignmentId' => $assignment->id]) }}" style="display:inline" onsubmit="return confirm('Remove this assignment?')">
                   @csrf @method('DELETE')
                   <button class="btn btn-ghost btn-sm" type="submit">Remove</button>
                 </form>
-              </td>
-            @endif
+              @endif
+            </td>
           </tr>
         @endforeach
       </tbody>

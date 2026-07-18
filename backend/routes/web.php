@@ -357,6 +357,9 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/', [$assignments, 'index'])->name('index');
             Route::get('/create', [$assignments, 'create'])->name('create');
             Route::post('/create', [$assignments, 'store'])->name('store');
+            Route::get('/{assignmentId}', [$assignments, 'show'])->name('show');
+            Route::post('/{assignmentId}/submit', [$assignments, 'submit'])->name('submit');
+            Route::get('/{assignmentId}/submissions/{submissionId}/file', [$assignments, 'submissionFile'])->name('submissions.file');
             Route::delete('/{assignmentId}', [$assignments, 'destroy'])->name('destroy');
         });
         Route::get('/setup', [\App\Http\Controllers\School\SetupController::class, 'index'])->name('school.setup');
@@ -454,6 +457,10 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/fee-items/{feeItemId}', [$feeItems, 'update'])->name('fee-items.update');
             Route::post('/fee-items/{feeItemId}/toggle-active', [$feeItems, 'toggleActive'])->name('fee-items.toggle-active');
             Route::delete('/fee-items/{feeItemId}', [$feeItems, 'destroy'])->name('fee-items.destroy');
+            Route::get('/fee-items/{feeItemId}', [$feeItems, 'show'])->name('fee-items.show');
+            Route::post('/fee-items/{feeItemId}/installments', [$feeItems, 'storeInstallment'])->name('fee-items.installments.store');
+            Route::post('/fee-items/installments/bulk-action', [$feeItems, 'bulkActionInstallments'])->name('fee-items.installments.bulk-action');
+            Route::delete('/fee-items/installments/{installmentId}', [$feeItems, 'destroyInstallment'])->name('fee-items.installments.destroy');
 
             $payments = \App\Http\Controllers\School\PaymentController::class;
             Route::get('/payments', [$payments, 'index'])->name('payments.index');

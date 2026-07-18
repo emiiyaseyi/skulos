@@ -5,6 +5,7 @@ namespace App\Http\Controllers\School;
 use App\Http\Controllers\Controller;
 use App\Models\School;
 use App\Models\Tenant\Assignment;
+use App\Models\Tenant\AssignmentSubmission;
 use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\Section;
 use App\Models\Tenant\Staff;
@@ -124,13 +125,16 @@ class AssignmentController extends Controller
         });
     }
 
-    public function index(Request $request, TeacherScope $teacherScope, FamilyScope $familyScope): \Illuminate\View\View
+    /**
+     * The same class-arm/subject/family scoping index() has always
+     * applied, extracted so show() (a single assignment, reached
+     * directly by id) can reuse it exactly rather than duplicating the
+     * rules: filtering by id afterward naturally 404s an out-of-scope
+     * assignment instead of needing a second, separately-maintained check.
+     */
+    protected function scopedAssignmentsQuery(School $school, TeacherScope $teacherScope, FamilyScope $familyScope): \Illuminate\Database\Eloquent\Builder
     {
-        $this->authorizeAction($request, 'assignments.view');
-        $school = $this->school($request);
         $user = Auth::user();
-        $unrestricted = ! app(TeacherScope::class)->isScoped($user, $school) && $familyScope->studentIds($user, $school) === null;
-
         $query = Assignment::with('subject', 'classArm.schoolClass.section', 'creator')->orderByDesc('due_on');
 
         $armIds = $teacherScope->classArmIds($user, $school);
@@ -144,6 +148,18 @@ class AssignmentController extends Controller
             $familyArmIds = Student::whereIn('id', $studentIds)->pluck('current_class_arm_id')->filter()->unique();
             $query->whereIn('class_arm_id', $familyArmIds);
         }
+
+        return $query;
+    }
+
+    public function index(Request $request, TeacherScope $teacherScope, FamilyScope $familyScope): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'assignments.view');
+        $school = $this->school($request);
+        $user = Auth::user();
+        $unrestricted = ! app(TeacherScope::class)->isScoped($user, $school) && $familyScope->studentIds($user, $school) === null;
+
+        $query = $this->scopedAssignmentsQuery($school, $teacherScope, $familyScope);
 
         // Browsing by section/class is only meaningful for an
         // unrestricted (admin-type) user, whose own scope above did not
@@ -285,5 +301,133 @@ class AssignmentController extends Controller
 
         return redirect()->route('school.assignments.index', ['school' => $school->slug])
             ->with('status', 'Assignment removed.');
+    }
+
+    /**
+     * Assignment detail (user report 2026-07-18: "a class teacher can see
+     * all the details of the assignment for her class, submission, who
+     * has and not... if she is assigned a subject, she can create and
+     * check submission details"). Reuses scopedAssignmentsQuery() so an
+     * out-of-scope assignment 404s exactly the same way the list already
+     * hides it, rather than a second hand-maintained check. A teacher
+     * (any scope) sees the whole class roster with each student's
+     * submission status; a student/parent sees only their own child's
+     * submission and a form to add or update it.
+     */
+    public function show(Request $request, TeacherScope $teacherScope, FamilyScope $familyScope): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'assignments.view');
+        $school = $this->school($request);
+        $user = Auth::user();
+
+        $assignment = $this->scopedAssignmentsQuery($school, $teacherScope, $familyScope)
+            ->findOrFail($request->route('assignmentId'));
+
+        $familyStudentIds = $familyScope->studentIds($user, $school);
+        if ($familyStudentIds !== null) {
+            // A parent/student: only their own child's submission, never
+            // the whole class roster.
+            $ownStudentId = Student::whereIn('id', $familyStudentIds)
+                ->where('current_class_arm_id', $assignment->class_arm_id)->value('id');
+            $submission = $ownStudentId
+                ? AssignmentSubmission::where('assignment_id', $assignment->id)->where('student_id', $ownStudentId)->first()
+                : null;
+
+            return view('school.assignments.show', [
+                'school' => $school,
+                'accent' => $school->branding()['color'],
+                'assignment' => $assignment,
+                'isFamily' => true,
+                'ownStudentId' => $ownStudentId,
+                'submission' => $submission,
+                'canSubmit' => (bool) $ownStudentId,
+            ]);
+        }
+
+        $students = Student::where('current_class_arm_id', $assignment->class_arm_id)->active()->orderBy('last_name')->get();
+        $submissions = AssignmentSubmission::where('assignment_id', $assignment->id)
+            ->whereIn('student_id', $students->pluck('id'))->get()->keyBy('student_id');
+
+        return view('school.assignments.show', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'assignment' => $assignment,
+            'isFamily' => false,
+            'students' => $students,
+            'submissions' => $submissions,
+            'submittedCount' => $submissions->count(),
+        ]);
+    }
+
+    /**
+     * A student submits (or updates) their own work for an assignment;
+     * one row per student per assignment (the migration's own unique
+     * constraint), updateOrCreate keeps a resubmission as an edit, not a
+     * duplicate. A parent may not submit on their child's behalf, this is
+     * the student's own account only, matching the real-world "the
+     * learner does the homework" shape of the feature.
+     */
+    public function submit(Request $request, TeacherScope $teacherScope, FamilyScope $familyScope): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'assignments.view');
+        $school = $this->school($request);
+        $user = Auth::user();
+
+        $assignment = $this->scopedAssignmentsQuery($school, $teacherScope, $familyScope)
+            ->findOrFail($request->route('assignmentId'));
+
+        $role = $user->roleIn($school);
+        abort_unless($role && $role->slug === 'student', 403, 'Only the student may submit their own work.');
+
+        $student = Student::where('user_id', $user->id)->where('current_class_arm_id', $assignment->class_arm_id)->first();
+        abort_unless($student, 404);
+
+        $data = $request->validate([
+            'content' => ['nullable', 'string', 'max:8000'],
+            'file' => ['nullable', 'file', 'max:5120', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx'],
+        ]);
+        abort_if(empty($data['content']) && ! $request->hasFile('file'), 422, 'Add a written response or attach a file.');
+
+        $filePath = $request->hasFile('file')
+            ? $request->file('file')->store("assignment-submissions/{$school->slug}", 'local')
+            : null;
+
+        $existing = AssignmentSubmission::where('assignment_id', $assignment->id)->where('student_id', $student->id)->first();
+        if ($filePath && $existing?->file_path) {
+            \Illuminate\Support\Facades\Storage::disk('local')->delete($existing->file_path);
+        }
+
+        AssignmentSubmission::updateOrCreate(
+            ['assignment_id' => $assignment->id, 'student_id' => $student->id],
+            [
+                'content' => $data['content'] ?? $existing?->content,
+                'file_path' => $filePath ?? $existing?->file_path,
+                'submitted_at' => now(),
+            ]
+        );
+
+        return redirect()->route('school.assignments.show', ['school' => $school->slug, 'assignmentId' => $assignment->id])
+            ->with('status', 'Submitted.');
+    }
+
+    /** Streams a submission's attached file from the private disk, scoped the same way the assignment itself is. */
+    public function submissionFile(Request $request, TeacherScope $teacherScope, FamilyScope $familyScope): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $this->authorizeAction($request, 'assignments.view');
+        $school = $this->school($request);
+        $user = Auth::user();
+
+        $assignment = $this->scopedAssignmentsQuery($school, $teacherScope, $familyScope)
+            ->findOrFail($request->route('assignmentId'));
+        $submission = AssignmentSubmission::where('assignment_id', $assignment->id)
+            ->findOrFail($request->route('submissionId'));
+
+        $familyStudentIds = $familyScope->studentIds($user, $school);
+        if ($familyStudentIds !== null && ! $familyStudentIds->contains($submission->student_id)) {
+            abort(404);
+        }
+        abort_unless($submission->file_path, 404);
+
+        return \Illuminate\Support\Facades\Storage::disk('local')->response($submission->file_path);
     }
 }

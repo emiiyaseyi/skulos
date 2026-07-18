@@ -5,6 +5,7 @@ namespace App\Http\Controllers\School;
 use App\Http\Controllers\Controller;
 use App\Models\School;
 use App\Models\Tenant\FeeItem;
+use App\Models\Tenant\FeeItemInstallment;
 use App\Models\Tenant\Term;
 use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
@@ -58,7 +59,9 @@ class FeeItemController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'amount' => ['required', 'numeric', 'min:0'],
             'term_id' => ['required', 'exists:tenant.terms,id'],
+            'allow_installments' => ['nullable', 'boolean'],
         ]);
+        $data['allow_installments'] = (bool) ($data['allow_installments'] ?? false);
 
         FeeItem::create($data);
 
@@ -74,7 +77,9 @@ class FeeItemController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'amount' => ['required', 'numeric', 'min:0'],
             'term_id' => ['required', 'exists:tenant.terms,id'],
+            'allow_installments' => ['nullable', 'boolean'],
         ]);
+        $data['allow_installments'] = (bool) ($data['allow_installments'] ?? false);
 
         $feeItem->update($data);
 
@@ -106,6 +111,85 @@ class FeeItemController extends Controller
         $feeItem->delete();
 
         return back()->with('status', "\"{$name}\" removed from the fee catalog.");
+    }
+
+    /**
+     * A fee item's own page (user-facing "Installment Payment Plans",
+     * 2026-07-18): edit the fee item itself (including whether it allows
+     * installments), and manage its installment schedule, with each
+     * installment's collection progress against already-verified
+     * payments.
+     */
+    public function show(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'finance.view');
+        $school = $this->school($request);
+        $feeItem = FeeItem::with(['term', 'installments'])->findOrFail($request->route('feeItemId'));
+
+        return view('school.finance.fee-items.show', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'feeItem' => $feeItem,
+            'terms' => Term::with('session')->get()->sortBy(fn (Term $t) => sprintf('%05d-%05d', $t->session?->id ?? 0, $t->sequence ?? 0))->values(),
+            'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'finance.update'),
+        ]);
+    }
+
+    public function storeInstallment(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'finance.update');
+        $feeItem = FeeItem::findOrFail($request->route('feeItemId'));
+
+        $data = $request->validate([
+            'label' => ['required', 'string', 'max:120'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'due_date' => ['nullable', 'date'],
+        ]);
+
+        $feeItem->installments()->create([
+            'label' => $data['label'],
+            'amount' => $data['amount'],
+            'due_date' => $data['due_date'] ?? null,
+            'sequence' => (int) $feeItem->installments()->max('sequence') + 1,
+        ]);
+
+        return back()->with('status', "\"{$data['label']}\" added to {$feeItem->name}'s installment schedule.");
+    }
+
+    public function destroyInstallment(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'finance.update');
+        $installment = FeeItemInstallment::findOrFail($request->route('installmentId'));
+
+        if ($installment->payments()->exists()) {
+            return back()->with('error', "\"{$installment->label}\" has payments recorded against it and cannot be removed.");
+        }
+
+        $installment->delete();
+
+        return back()->with('status', 'Installment removed.');
+    }
+
+    /** Bulk delete for ticked installments, matching the standing bulk-actions convention every list screen follows. */
+    public function bulkActionInstallments(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'finance.update');
+        $data = $request->validate([
+            'installment_ids' => ['required', 'array', 'min:1'],
+            'installment_ids.*' => ['exists:tenant.fee_item_installments,id'],
+        ]);
+
+        $items = FeeItemInstallment::whereIn('id', $data['installment_ids'])->withCount('payments')->get();
+        $deletable = $items->where('payments_count', 0);
+        $skipped = $items->count() - $deletable->count();
+        FeeItemInstallment::whereIn('id', $deletable->pluck('id'))->delete();
+
+        $message = "{$deletable->count()} installment(s) removed.";
+        if ($skipped > 0) {
+            $message .= " {$skipped} skipped (has payments recorded against it).";
+        }
+
+        return back()->with('status', $message);
     }
 
     /** Bulk retire/reactivate/delete for ticked fee items, matching the standing bulk-actions convention every list screen follows (audit finding M-12, 2026-07-17). */

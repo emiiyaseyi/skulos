@@ -247,6 +247,12 @@
     'payment_evidence_upload' => ['school.finance.payments.index', 'Payments', 'billing'],
     'payment_verification' => ['school.finance.payments.index', 'Payments', 'billing'],
     'basic_fee_records' => ['school.finance.fee-items.index', 'Fee Records', 'billing'],
+    // Advance tier plan feature 'installment_payment_plans' wired 2026-07-18:
+    // same real screen as basic_fee_records (a fee item's own page there
+    // is where the installment schedule is actually managed, per-fee-item,
+    // once a school turns "Allow this fee to be paid in installments" on
+    // for it), not a separate screen.
+    'installment_payment_plans' => ['school.finance.fee-items.index', 'Fee Records', 'billing'],
   ];
 
   // The report card browse/review page lives under Academic in the plan

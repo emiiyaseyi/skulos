@@ -37,7 +37,7 @@ class Payment extends Model
      * though no current controller does that.
      */
     protected $fillable = [
-        'student_id', 'fee_item_id', 'amount', 'method', 'bank_name', 'reference',
+        'student_id', 'fee_item_id', 'fee_item_installment_id', 'amount', 'method', 'bank_name', 'reference',
         'evidence_path', 'submitted_by_user_id',
     ];
 
@@ -54,6 +54,11 @@ class Payment extends Model
     public function feeItem(): BelongsTo
     {
         return $this->belongsTo(FeeItem::class);
+    }
+
+    public function installment(): BelongsTo
+    {
+        return $this->belongsTo(FeeItemInstallment::class, 'fee_item_installment_id');
     }
 
     public function scopePending($query)
