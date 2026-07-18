@@ -22,6 +22,30 @@ use Illuminate\Validation\Rule;
  */
 class BackupAdminController extends Controller
 {
+    /**
+     * A consolidated backups matrix (user request 2026-07-18: "so many
+     * features that we have in the school end are missing under the
+     * platform owner end"), the same cross-school-matrix pattern
+     * ModuleAdminController already established: previously the platform
+     * admin could only see/initiate a backup one school at a time, from
+     * inside that school's own detail page.
+     */
+    public function index(): \Illuminate\View\View
+    {
+        $schools = School::whereNotNull('provisioned_at')->orderBy('name')->get();
+
+        $latestBackups = Backup::whereIn('school_id', $schools->pluck('id'))
+            ->orderByDesc('created_at')
+            ->get()
+            ->unique('school_id')
+            ->keyBy('school_id');
+
+        return view('admin.backups', [
+            'schools' => $schools,
+            'latestBackups' => $latestBackups,
+        ]);
+    }
+
     public function store(School $school, BackupService $backups): \Illuminate\Http\RedirectResponse
     {
         $backups->create($school, Backup::TYPE_MANUAL, Auth::user());

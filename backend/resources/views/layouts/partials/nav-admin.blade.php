@@ -21,11 +21,11 @@
 {!! $item('admin.billing.index', 'Billing', 'billing') !!}
 {!! $item('admin.subscriptions.index', 'Subscriptions', 'billing', $pendingSubscriptionPayments ?? 0) !!}
 {!! $item('admin.schools.archive-list', 'Archive', 'archive') !!}
+{!! $item('admin.modules.index', 'Modules', 'settings') !!}
+{!! $item('admin.backups.index', 'Backups', 'retention') !!}
+{!! $item('admin.broadcast.create', 'Broadcast', 'chat') !!}
+{!! $item('admin.audit-log.index', 'Audit Log', 'search') !!}
+{!! $item('admin.team.index', 'Platform Team', 'roles') !!}
 
 <div class="side-group">Settings</div>
-{!! $item('admin.settings.mail.edit', 'Mail Settings', 'mail') !!}
-{!! $item('admin.settings.landing-pages.edit', 'Landing Pages', 'pages') !!}
-{!! $item('admin.settings.idle-timeout.edit', 'Idle Timeout', 'clock') !!}
-{!! $item('admin.settings.retention.edit', 'Retention', 'retention') !!}
-{!! $item('admin.settings.support-contact.edit', 'Support Contact', 'support') !!}
-{!! $item('admin.settings.subscription-bank.edit', 'Subscription Bank', 'billing') !!}
+{!! $item('admin.settings.index', 'Platform Settings', 'settings') !!}

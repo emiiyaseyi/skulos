@@ -54,6 +54,10 @@ Route::domain($appDomain)->group(function () {
         Route::post('/broadcast', [\App\Http\Controllers\Admin\BroadcastController::class, 'send'])->name('broadcast.send');
         Route::get('/audit-log', [\App\Http\Controllers\Admin\AuditLogController::class, 'index'])->name('audit-log.index');
         Route::get('/modules', [\App\Http\Controllers\Admin\ModuleAdminController::class, 'index'])->name('modules.index');
+        Route::get('/backups', [\App\Http\Controllers\Admin\BackupAdminController::class, 'index'])->name('backups.index');
+        Route::get('/team', [\App\Http\Controllers\Admin\PlatformTeamController::class, 'index'])->name('team.index');
+        Route::post('/team', [\App\Http\Controllers\Admin\PlatformTeamController::class, 'store'])->name('team.store');
+        Route::post('/team/{user}/revoke', [\App\Http\Controllers\Admin\PlatformTeamController::class, 'revoke'])->name('team.revoke');
         Route::get('/schools', [SchoolAdminController::class, 'schools'])->name('schools.index');
         Route::post('/schools', [SchoolAdminController::class, 'store'])->name('schools.store');
         Route::get('/schools/archive', [SchoolAdminController::class, 'trashed'])->name('schools.archive-list');
@@ -75,6 +79,8 @@ Route::domain($appDomain)->group(function () {
         Route::post('/schools/{school}/backups/schedule', [\App\Http\Controllers\Admin\BackupAdminController::class, 'updateSchedule'])->name('schools.backups.schedule');
         Route::get('/schools/{school}/backups/{backupId}/download', [\App\Http\Controllers\Admin\BackupAdminController::class, 'download'])->name('schools.backups.download');
         Route::post('/schools/{school}/backups/{backupId}/restore', [\App\Http\Controllers\Admin\BackupAdminController::class, 'restore'])->name('schools.backups.restore');
+
+        Route::get('/settings', [\App\Http\Controllers\Admin\PlatformSettingsController::class, 'index'])->name('settings.index');
 
         Route::prefix('settings/mail')->name('settings.mail.')->group(function () {
             $mailSettings = \App\Http\Controllers\Admin\MailSettingsController::class;
