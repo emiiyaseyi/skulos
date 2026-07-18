@@ -106,15 +106,29 @@ class SubscriptionService
             return;
         }
 
-        $this->tenants->connectTo($school, function () use ($memberIds, $category, $title, $body) {
+        // A failure creating any one recipient's notification (e.g. a
+        // locked/contended tenant DB) previously aborted the whole loop
+        // and threw back to the caller, who by this point had already
+        // committed the actual billing state change (payment decided/
+        // extended/locked/reinstated) — the request then 500'd with no
+        // signal of which recipients, if any, were actually notified
+        // (audit finding M-5, 2026-07-17). Each recipient is now
+        // isolated: one failure is logged and skipped, the rest still go
+        // out, and the state change this is called after always stands
+        // regardless.
+        $this->tenants->connectTo($school, function () use ($memberIds, $category, $title, $body, $school) {
             foreach ($memberIds as $userId) {
-                \App\Models\Tenant\Notification::create([
-                    'user_id' => $userId,
-                    'category' => $category,
-                    'type' => \App\Models\Tenant\Notification::typeFor($category),
-                    'title' => $title,
-                    'body' => $body,
-                ]);
+                try {
+                    \App\Models\Tenant\Notification::create([
+                        'user_id' => $userId,
+                        'category' => $category,
+                        'type' => \App\Models\Tenant\Notification::typeFor($category),
+                        'title' => $title,
+                        'body' => $body,
+                    ]);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error("Failed to notify user {$userId} in school {$school->slug} ({$category}): ".$e->getMessage());
+                }
             }
         });
     }

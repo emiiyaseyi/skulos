@@ -73,15 +73,23 @@ class SubscriptionController extends Controller
             ? $file->storeAs('subscription-payments/'.$school->slug, Str::random(24).'.pdf', 'local')
             : $images->toWebp($file, 'subscription-payments/'.$school->slug, disk: 'local');
 
-        SubscriptionPayment::create([
-            'school_id' => $school->id,
-            'amount' => $data['amount'],
-            'bank_name' => $data['bank_name'] ?? null,
-            'reference' => $data['reference'] ?? null,
-            'evidence_path' => $evidencePath,
-            'status' => SubscriptionPayment::STATUS_PENDING,
-            'submitted_by_user_id' => Auth::id(),
-        ]);
+        // If the record create fails after the file already uploaded
+        // successfully, the file is deleted rather than left orphaned on
+        // disk indefinitely (audit finding M-6, 2026-07-17).
+        try {
+            SubscriptionPayment::create([
+                'school_id' => $school->id,
+                'amount' => $data['amount'],
+                'bank_name' => $data['bank_name'] ?? null,
+                'reference' => $data['reference'] ?? null,
+                'evidence_path' => $evidencePath,
+                'status' => SubscriptionPayment::STATUS_PENDING,
+                'submitted_by_user_id' => Auth::id(),
+            ]);
+        } catch (\Throwable $e) {
+            Storage::disk('local')->delete($evidencePath);
+            throw $e;
+        }
 
         return redirect()->route('school.subscription.index', ['school' => $school->slug])
             ->with('status', 'Payment submitted. SKULOS will verify it shortly.');

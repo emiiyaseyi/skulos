@@ -130,17 +130,26 @@ class PaymentController extends Controller
             ? $file->storeAs("payments/{$school->slug}", Str::random(24).'.pdf', 'local')
             : $images->toWebp($file, "payments/{$school->slug}", disk: 'local');
 
-        $payment = Payment::create([
-            'student_id' => $data['student_id'],
-            'fee_item_id' => $data['fee_item_id'] ?? null,
-            'amount' => $data['amount'],
-            'method' => 'bank_transfer',
-            'bank_name' => $data['bank_name'] ?? null,
-            'reference' => $data['reference'] ?? null,
-            'evidence_path' => $evidencePath,
-            'status' => Payment::STATUS_PENDING,
-            'submitted_by_user_id' => $user->id,
-        ]);
+        // If the record create fails after the file already uploaded
+        // successfully, the file is deleted rather than left orphaned on
+        // disk indefinitely, unreferenced by any record (audit finding
+        // M-6, 2026-07-17).
+        try {
+            $payment = Payment::create([
+                'student_id' => $data['student_id'],
+                'fee_item_id' => $data['fee_item_id'] ?? null,
+                'amount' => $data['amount'],
+                'method' => 'bank_transfer',
+                'bank_name' => $data['bank_name'] ?? null,
+                'reference' => $data['reference'] ?? null,
+                'evidence_path' => $evidencePath,
+                'status' => Payment::STATUS_PENDING,
+                'submitted_by_user_id' => $user->id,
+            ]);
+        } catch (\Throwable $e) {
+            Storage::disk('local')->delete($evidencePath);
+            throw $e;
+        }
 
         $this->notifyFinanceStaff($school, $payment, 'payment_submitted', 'New payment submitted', "{$payment->student->fullName()}'s payment of ₦".number_format((float) $payment->amount, 2).' is awaiting verification.');
 

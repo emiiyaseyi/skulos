@@ -10,6 +10,7 @@ use App\Services\Billing\SubscriptionBankService;
 use App\Services\Billing\SubscriptionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -175,12 +176,20 @@ class SubscriptionController extends Controller
 
         $base = $school->next_billing_date && $school->next_billing_date->isFuture() ? $school->next_billing_date : now();
         $newDate = $base->copy()->addDays($data['days']);
-        $school->update(['next_billing_date' => $newDate]);
 
-        SubscriptionEvent::create([
-            'school_id' => $school->id, 'type' => SubscriptionEvent::TYPE_EXTENSION,
-            'note' => $data['note'] ?? null, 'extended_to' => $newDate, 'actioned_by_user_id' => Auth::id(),
-        ]);
+        // The school's due-date change and its audit-trail event are
+        // platform-DB writes and must land together or not at all: a
+        // failure between them previously left the due date moved with
+        // no record of who extended it or why (audit finding M-4,
+        // 2026-07-17). The tenant-DB notification below stays outside
+        // this transaction, it's a separate database connection.
+        DB::transaction(function () use ($school, $newDate, $data) {
+            $school->update(['next_billing_date' => $newDate]);
+            SubscriptionEvent::create([
+                'school_id' => $school->id, 'type' => SubscriptionEvent::TYPE_EXTENSION,
+                'note' => $data['note'] ?? null, 'extended_to' => $newDate, 'actioned_by_user_id' => Auth::id(),
+            ]);
+        });
 
         $subs->notifySchoolLeadership($school, 'subscription_extended', 'Subscription extended', "Your subscription due date has been moved to {$newDate->format('d M Y')}.".($data['note'] ?? '' ? ' Note: '.$data['note'] : ''));
 
@@ -199,12 +208,13 @@ class SubscriptionController extends Controller
     {
         $data = $request->validate(['note' => ['nullable', 'string', 'max:500']]);
 
-        $school->update(['status' => School::STATUS_SUSPENDED, 'suspension_reason' => School::SUSPENSION_REASON_BILLING]);
-
-        SubscriptionEvent::create([
-            'school_id' => $school->id, 'type' => SubscriptionEvent::TYPE_DEMAND,
-            'note' => $data['note'] ?? null, 'actioned_by_user_id' => Auth::id(),
-        ]);
+        DB::transaction(function () use ($school, $data) {
+            $school->update(['status' => School::STATUS_SUSPENDED, 'suspension_reason' => School::SUSPENSION_REASON_BILLING]);
+            SubscriptionEvent::create([
+                'school_id' => $school->id, 'type' => SubscriptionEvent::TYPE_DEMAND,
+                'note' => $data['note'] ?? null, 'actioned_by_user_id' => Auth::id(),
+            ]);
+        });
 
         $subs->notifySchoolLeadership($school, 'subscription_locked', 'Access locked: subscription overdue', 'SKULOS access for your school has been locked due to an overdue subscription payment. Please contact SKULOS to resolve this.'.($data['note'] ?? '' ? ' '.$data['note'] : ''));
 
@@ -215,12 +225,13 @@ class SubscriptionController extends Controller
     {
         abort_unless($school->suspension_reason === School::SUSPENSION_REASON_BILLING, 404);
 
-        $school->update(['status' => School::STATUS_ACTIVE, 'suspension_reason' => null]);
-
-        SubscriptionEvent::create([
-            'school_id' => $school->id, 'type' => SubscriptionEvent::TYPE_REINSTATED,
-            'actioned_by_user_id' => Auth::id(),
-        ]);
+        DB::transaction(function () use ($school) {
+            $school->update(['status' => School::STATUS_ACTIVE, 'suspension_reason' => null]);
+            SubscriptionEvent::create([
+                'school_id' => $school->id, 'type' => SubscriptionEvent::TYPE_REINSTATED,
+                'actioned_by_user_id' => Auth::id(),
+            ]);
+        });
 
         $subs->notifySchoolLeadership($school, 'subscription_reinstated', 'Access restored', 'SKULOS access for your school has been restored.');
 
