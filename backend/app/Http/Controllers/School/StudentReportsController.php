@@ -73,21 +73,51 @@ class StudentReportsController extends Controller
 
         $rows = collect();
         $subjects = collect();
+        $insights = null;
         if ($selectedArm && $term) {
             $rows = collect($results->classBroadsheet($selectedArm->id, $term->id));
             $subjects = \App\Models\Tenant\Subject::whereIn('id', $rows->flatMap(fn ($r) => array_keys($r['subjects']))->unique())
                 ->orderBy('name')->pluck('name', 'id');
+
+            // Insights (user request 2026-07-18: "add insights from all
+            // data such as under term sheet broadsheets too").
+            if ($rows->isNotEmpty()) {
+                $insights = [
+                    'students' => $rows->count(),
+                    'average' => round($rows->avg('average'), 1),
+                    'highest' => $rows->max('total'),
+                    'lowest' => $rows->min('total'),
+                    'top' => $rows->firstWhere('position', 1),
+                ];
+            }
+
+            // Sort (user request: "no sort and filter options"). Position
+            // is the meaningful default (already ranked, ties handled);
+            // any other sort is a plain re-order for browsing, not a
+            // re-ranking.
+            $sort = in_array($request->query('sort'), ['name', 'total', 'average'], true) ? $request->query('sort') : 'position';
+            $dir = $request->query('dir') === 'desc' ? 'desc' : 'asc';
+            $rows = $dir === 'desc' ? $rows->sortByDesc($sort)->values() : $rows->sortBy($sort)->values();
         }
+
+        // Group by section (user request: "group by section and
+        // classes"): the class picker is grouped into <optgroup>s by
+        // section rather than one long flat list.
+        $classArmsBySection = $classArms->groupBy(fn (ClassArm $arm) => $arm->schoolClass?->section?->name ?? 'Other');
 
         return view('school.reports.students', [
             'school' => $school,
             'accent' => $school->branding()['color'],
             'classArms' => $classArms,
+            'classArmsBySection' => $classArmsBySection,
             'selectedArm' => $selectedArm,
             'terms' => $terms,
             'term' => $term,
             'rows' => $rows,
             'subjects' => $subjects,
+            'insights' => $insights,
+            'sort' => $sort ?? 'position',
+            'dir' => $dir ?? 'asc',
         ]);
     }
 

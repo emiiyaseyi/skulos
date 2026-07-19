@@ -21,6 +21,10 @@ class ReportCardLayout
 
     public const KEY_LAYOUT = 'report_card_layout';
 
+    public const KEY_BODY_ORDER = 'report_card_body_order';
+
+    public const KEY_HEADER_ALIGN = 'report_card_header_align';
+
     public const ZONES = ['header', 'info'];
 
     public function enabled(): bool
@@ -60,5 +64,81 @@ class ReportCardLayout
         }
 
         return $clean;
+    }
+
+    /**
+     * Which whole body sections show, and in what order (2026-07-18,
+     * "make it much more holistic": scores table, remarks, stamp and
+     * signature, etc. are now themselves reorderable/hideable, not just
+     * the header/info strip). A section left out is not rendered at all.
+     *
+     * @return array<int, string>
+     */
+    public function bodyOrder(): array
+    {
+        $saved = Setting::grab(self::KEY_BODY_ORDER);
+        $valid = array_keys(config('skulos.report_card_body_sections', []));
+
+        return is_array($saved) ? array_values(array_intersect($saved, $valid)) : $valid;
+    }
+
+    /**
+     * bodyOrder() when the custom layout is enabled, every section in its
+     * original fixed order when it is not (computed here, not in the
+     * report card view itself, to sidestep a Blade compiler quirk where a
+     * block @php immediately before a @foreach in render.blade.php
+     * intermittently failed to compile — see CLAUDE.md's documented
+     * single-line/adjacent-directive gotcha; moving this one conditional
+     * into PHP proper removed the need for the view to compute it at all).
+     *
+     * @return array<int, string>
+     */
+    public function effectiveBodyOrder(bool $enabled): array
+    {
+        if (! $enabled) {
+            return array_keys(config('skulos.report_card_body_sections', []));
+        }
+
+        return $this->bodyOrder();
+    }
+
+    /**
+     * @param array<int, string> $order
+     */
+    public function setBodyOrder(array $order): void
+    {
+        $valid = array_keys(config('skulos.report_card_body_sections', []));
+        Setting::put(self::KEY_BODY_ORDER, array_values(array_intersect($order, $valid)));
+    }
+
+    /**
+     * Per header block horizontal position (2026-07-18, user report:
+     * "unable to move the logo to left, right or center"). Applies
+     * only to the Header zone (a flex column), each block gets its own
+     * align-self, independent of its siblings; the Info Strip stays a
+     * grid where per-item alignment would not mean much.
+     *
+     * @return array<string, string> block key => 'left'|'center'|'right'
+     */
+    public function headerAlign(): array
+    {
+        $saved = Setting::grab(self::KEY_HEADER_ALIGN);
+
+        return is_array($saved) ? $saved : [];
+    }
+
+    /**
+     * @param array<string, string> $aligns
+     */
+    public function setHeaderAlign(array $aligns): void
+    {
+        $valid = array_keys(config('skulos.report_card_layout_blocks', []));
+        $clean = [];
+        foreach ($aligns as $key => $align) {
+            if (in_array($key, $valid, true) && in_array($align, ['left', 'center', 'right'], true)) {
+                $clean[$key] = $align;
+            }
+        }
+        Setting::put(self::KEY_HEADER_ALIGN, $clean);
     }
 }

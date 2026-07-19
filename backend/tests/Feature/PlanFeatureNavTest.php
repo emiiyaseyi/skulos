@@ -621,6 +621,73 @@ class PlanFeatureNavTest extends TestCase
         $this->actingAs($user)->get("http://{$school->slug}.localhost/reports/builder")->assertOk();
     }
 
+    public function test_custom_report_card_designer_renders_as_a_real_link_not_soon(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['custom_report_card_designer'], 'plandesigner');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()
+            ->assertSee('Report Card Designer')
+            ->assertDontSee('Soon');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/report-cards/settings/layout")->assertOk();
+    }
+
+    public function test_academic_insights_renders_as_a_real_link_not_soon(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['academic_insights'], 'planinsights');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()
+            ->assertSee('Academic Insights')
+            ->assertDontSee('Soon');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/examinations/academic-insights")->assertOk();
+    }
+
+    public function test_teacher_workload_renders_as_a_real_link_not_soon(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['teacher_workload'], 'planworkload');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()
+            ->assertSee('Teacher Workload')
+            ->assertDontSee('Soon');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/staff-portal/workload")->assertOk();
+    }
+
+    /**
+     * Narrative Evaluation (2026-07-18) is deliberately not a
+     * plan_feature_catalog entry ("for all admins across all plan"), so
+     * it always shows for an admin regardless of which features the
+     * plan lists, unlike everything else this file tests.
+     */
+    public function test_narrative_evaluation_always_shows_for_an_admin_regardless_of_plan_features(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['student_records'], 'plannarrative');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()
+            ->assertSee('Narrative Evaluation');
+    }
+
+    public function test_narrative_evaluation_is_hidden_from_a_scoped_teacher_role(): void
+    {
+        $plan = Plan::create([
+            'name' => 'Test Plan plannarrativetwo', 'slug' => 'plan-plannarrativetwo',
+            'price_per_student_per_term' => 500, 'modules' => [], 'features' => ['student_records'],
+        ]);
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'plannarrativetwo', 'plan_id' => $plan->id]));
+        $user = User::factory()->create();
+        $role = $this->rbac->cloneTemplateRole($school, 'teacher');
+        $school->users()->attach($user->id, ['role_id' => $role->id, 'status' => 'active']);
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()
+            ->assertDontSee('Narrative Evaluation');
+    }
+
     public function test_the_nav_search_box_also_renders_on_the_platform_admin_portal(): void
     {
         $admin = User::factory()->create();

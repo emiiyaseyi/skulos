@@ -318,6 +318,76 @@ class ResultService
     }
 
     /**
+     * School wide, per subject average/highest/lowest percentage for a
+     * term (Academic Insights, 2026-07-18), normalized the same
+     * sum-components-then-percentage way as averagePercentageForClassArms()
+     * but grouped by subject across every class arm, not scoped to any
+     * one class. A whole-school view on purpose, distinct from the
+     * Performance Dashboard's per-class comparison.
+     *
+     * @return \Illuminate\Support\Collection<int, array{subject: string, average: float, highest: float, lowest: float, students_assessed: int}>
+     */
+    public function subjectAveragesForTerm(int $termId): \Illuminate\Support\Collection
+    {
+        $totalPossible = AssessmentComponent::totalPossible();
+        if ($totalPossible <= 0) {
+            return collect();
+        }
+
+        $bySubject = Score::where('term_id', $termId)
+            ->selectRaw('subject_id, student_id, SUM(score) as subject_total')
+            ->groupBy('subject_id', 'student_id')
+            ->get()
+            ->groupBy('subject_id');
+
+        if ($bySubject->isEmpty()) {
+            return collect();
+        }
+
+        $subjects = Subject::whereIn('id', $bySubject->keys())->get()->keyBy('id');
+
+        return $bySubject->map(function ($rows, $subjectId) use ($totalPossible, $subjects) {
+            $totals = $rows->pluck('subject_total')->map(fn ($t) => (float) $t);
+
+            return [
+                'subject' => $subjects[$subjectId]?->name ?? (string) $subjectId,
+                'average' => round(((float) $totals->avg()) / $totalPossible * 100, 1),
+                'highest' => round($totals->max() / $totalPossible * 100, 1),
+                'lowest' => round($totals->min() / $totalPossible * 100, 1),
+                'students_assessed' => $totals->count(),
+            ];
+        })->sortByDesc('average')->values();
+    }
+
+    /**
+     * School wide grade distribution for a term (Academic Insights,
+     * 2026-07-18): how many student-subject entries landed in each grade
+     * band, across the whole school, grade => count, highest count first.
+     */
+    public function gradeDistributionForTerm(int $termId, ?GradingScale $scale = null): array
+    {
+        $scale ??= GradingScale::default();
+        if (! $scale) {
+            return [];
+        }
+
+        $totals = Score::where('term_id', $termId)
+            ->selectRaw('subject_id, student_id, SUM(score) as subject_total')
+            ->groupBy('subject_id', 'student_id')
+            ->pluck('subject_total');
+
+        $counts = [];
+        foreach ($totals as $total) {
+            $grade = $scale->bandFor((float) $total)?->grade ?? 'Ungraded';
+            $counts[$grade] = ($counts[$grade] ?? 0) + 1;
+        }
+
+        arsort($counts);
+
+        return $counts;
+    }
+
+    /**
      * Every student in the given collection whose own term average falls
      * below the threshold, worst first. $limit null returns the full
      * list (Student Performance Dashboard's own screen); RoleDashboard's

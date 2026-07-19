@@ -75,7 +75,9 @@
     @if(($layoutEnabled ?? false) && ! empty($layoutZones))
       <div class="rc-head rc-head-custom">
         @foreach(($layoutZones['header'] ?? []) as $block)
-          @include('school.report-cards._layout-block', ['block' => $block])
+          <div style="align-self:{{ ['left' => 'flex-start', 'center' => 'center', 'right' => 'flex-end'][($headerAlign ?? [])[$block] ?? 'center'] }}">
+            @include('school.report-cards._layout-block', ['block' => $block])
+          </div>
         @endforeach
       </div>
       @if(! empty($layoutZones['info']))
@@ -125,164 +127,9 @@
     </div>
     @endif
 
-    @if($template === 'formal' && $data['subjects'])
-      @php($tally = collect($data['subjects'])->countBy('grade'))
-      <div class="rc-tally">
-        @foreach($tally as $grade => $count)
-          <span>{{ $grade }}: {{ $count }}</span>
-        @endforeach
-      </div>
-    @endif
-
-    @php($firstSubject = $data['subjects'][0] ?? null)
-    @php($priorTermNames = $firstSubject ? array_keys($firstSubject['previous_terms']) : [])
-
-    @unless($template === 'narrative')
-    <div style="overflow-x:auto">
-    <table class="rc-table">
-      <thead>
-        <tr>
-          <th>Subject</th>
-          @if($template !== 'compact')
-            @foreach(($firstSubject['components'] ?? []) as $componentName => $ignored)
-              <th class="num">{{ $componentName }}</th>
-            @endforeach
-          @endif
-          @if($show('cumulative_terms'))
-            @foreach($priorTermNames as $termName)
-              <th class="num">{{ $termName }}</th>
-            @endforeach
-          @endif
-          <th class="num">Total</th>
-          @if($show('cumulative_terms') && count($priorTermNames))<th class="num">Average</th>@endif
-          <th class="num">Grade</th>
-          @if($template === 'modern' && $show('subject_position'))<th class="num">Position</th>@endif
-          @if($template === 'modern' && $show('class_average'))<th class="num">Class Avg</th>@endif
-          @if($template === 'modern' && $show('subject_highest'))<th class="num">Highest</th>@endif
-          @if($template === 'modern' && $show('subject_lowest'))<th class="num">Lowest</th>@endif
-          @if($template !== 'compact')<th>Remark</th>@endif
-        </tr>
-      </thead>
-      <tbody>
-        @foreach($data['subjects'] as $subject)
-          <tr>
-            <td>{{ $subject['name'] }}</td>
-            @if($template !== 'compact')
-              @foreach($subject['components'] as $score)
-                <td class="num">{{ $score }}</td>
-              @endforeach
-            @endif
-            @if($show('cumulative_terms'))
-              @foreach($priorTermNames as $termName)
-                <td class="num">{{ $subject['previous_terms'][$termName] ?? 'N/A' }}</td>
-              @endforeach
-            @endif
-            <td class="num"><strong>{{ $subject['total'] }}</strong></td>
-            @if($show('cumulative_terms') && count($priorTermNames))<td class="num">{{ $subject['cumulative_average'] }}</td>@endif
-            <td class="num"><strong>{{ $subject['grade'] }}</strong></td>
-            @if($template === 'modern' && $show('subject_position'))<td class="num">{{ $subject['position'] }}</td>@endif
-            @if($template === 'modern' && $show('class_average'))<td class="num">{{ $subject['class_average'] }}</td>@endif
-            @if($template === 'modern' && $show('subject_highest'))<td class="num">{{ $subject['highest'] }}</td>@endif
-            @if($template === 'modern' && $show('subject_lowest'))<td class="num">{{ $subject['lowest'] }}</td>@endif
-            @if($template !== 'compact')<td>{{ $subject['remark'] }}</td>@endif
-          </tr>
-        @endforeach
-      </tbody>
-    </table>
-    </div>
-    @endunless
-
-    @if($template === 'narrative' || $show('subject_comments'))
-      <div class="rc-block">
-        <h3>Subject Comments</h3>
-        <div style="overflow-x:auto">
-        <table class="rc-table">
-          <thead><tr><th style="width:30%">Subject</th><th>Comment</th></tr></thead>
-          <tbody>
-            @forelse($data['subject_comments'] as $subjectName => $comment)
-              <tr><td>{{ $subjectName }}</td><td>{{ $comment ?: 'Not yet entered.' }}</td></tr>
-            @empty
-              <tr><td colspan="2" style="color:#888">No subject comments entered yet.</td></tr>
-            @endforelse
-          </tbody>
-        </table>
-        </div>
-      </div>
-    @endif
-
-    @unless($template === 'narrative')
-    <div class="rc-summary">
-      <div class="box"><b>{{ $data['overall']['total'] }}</b><span>Total Score</span></div>
-      <div class="box"><b>{{ $data['overall']['average'] }}%</b><span>Average</span></div>
-      @if($show('overall_position'))
-        <div class="box"><b>{{ $data['overall']['position'] }}</b><span>Position</span></div>
-        <div class="box"><b>{{ $data['overall']['class_size'] }}</b><span>Class Size</span></div>
-      @endif
-    </div>
-    @endunless
-
-    @if(($show('behavioural_traits') && count($data['traits'])) || $show('physical_stats'))
-      <div class="rc-twocol rc-block">
-        @if($show('behavioural_traits') && count($data['traits']))
-          <div>
-            <h3>Behavioural / Psychomotor Traits</h3>
-            <table class="rc-traits">
-              @foreach($data['traits'] as $trait)
-                <tr><td>{{ $trait['name'] }}</td><td class="val">{{ $trait['value'] ?? 'Not yet entered' }}</td></tr>
-              @endforeach
-            </table>
-          </div>
-        @endif
-        @if($show('physical_stats'))
-          <div>
-            <h3>Physical &amp; Attendance</h3>
-            <table class="rc-traits">
-              <tr><td>Height</td><td class="val">{{ $data['physical']['height'] ?? 'N/A' }}</td></tr>
-              <tr><td>Weight</td><td class="val">{{ $data['physical']['weight'] ?? 'N/A' }}</td></tr>
-              <tr><td>Club</td><td class="val">{{ $data['physical']['club'] ?? 'N/A' }}</td></tr>
-              <tr><td>Days school was open</td><td class="val">{{ $data['physical']['total_school_days'] ?? 'N/A' }}</td></tr>
-              <tr><td>Times absent</td><td class="val">{{ $data['physical']['times_absent'] ?? 'N/A' }}</td></tr>
-            </table>
-          </div>
-        @endif
-      </div>
-    @endif
-
-    @if($show('grade_legend') && $template !== 'narrative' && ! empty($gradeBands))
-      <div class="rc-block">
-        <h3>Grade Key</h3>
-        <div class="rc-legend">
-          @foreach($gradeBands as $band)
-            <span><strong>{{ $band['grade'] }}</strong> {{ $band['min_score'] }}&ndash;{{ $band['max_score'] }}: {{ $band['remark'] }}</span>
-          @endforeach
-        </div>
-      </div>
-    @endif
-
-    @if($show('class_teacher_remark') || $show('principal_remark') || ($show('next_term_begins') && ! $isEval))
-      <div class="rc-remarks">
-        @if($show('class_teacher_remark'))
-          <div><b>Class Teacher's Remark</b>{{ $data['remarks']['class_teacher'] ?: 'Not yet entered.' }}</div>
-        @endif
-        @if($show('principal_remark'))
-          <div><b>Head of School's Remark</b>{{ $data['remarks']['principal'] ?: 'Not yet entered.' }}</div>
-        @endif
-        @if($show('next_term_begins') && ! $isEval)
-          <div><b>Next Term Begins</b>{{ $data['remarks']['next_term_begins_on'] ?: 'To be announced.' }}</div>
-        @endif
-      </div>
-    @endif
-
-    @if($show('stamp_signature') && ($data['stamp_url'] || $data['signature_url']))
-      <div class="rc-signoff">
-        @if($data['stamp_url'])
-          <div><img src="{{ $data['stamp_url'] }}" alt="School stamp" /><div class="line">School Stamp</div></div>
-        @endif
-        @if($data['signature_url'])
-          <div><img src="{{ $data['signature_url'] }}" alt="Signature" /><div class="line">Class Teacher's Signature</div></div>
-        @endif
-      </div>
-    @endif
+    @foreach($bodySections as $sectionKey)
+      @includeIf('school.report-cards._body-'.$sectionKey)
+    @endforeach
   </div>
 </div>
 @endsection

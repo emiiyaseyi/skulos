@@ -1179,6 +1179,26 @@ return [
     ],
 
     /*
+    | Report card body sections (2026-07-18, Layout Designer "make it
+    | much more holistic": "so many blocks are missing... where are the
+    | footer blocks like class teacher remark, headteacher/principal,
+    | stamp and signature"). Each key has a matching partial
+    | resources/views/school/report-cards/_body-{key}.blade.php,
+    | extracted verbatim from the report card's own fixed rendering so
+    | the designer's live preview is always the real markup. Order here
+    | is the render order when a school has not customized it.
+    */
+    'report_card_body_sections' => [
+        'subjects_table' => 'Scores Table',
+        'subject_comments' => 'Subject Comments',
+        'summary' => 'Summary Boxes',
+        'traits_physical' => 'Behavioural Traits & Physical Stats',
+        'grade_key' => 'Grade Key',
+        'remarks' => 'Remarks (Class Teacher / Head of School)',
+        'signoff' => 'Stamp & Signature',
+    ],
+
+    /*
     | Custom Report Builder (Advance plan feature 'custom_report_builder',
     | built 2026-07-18): which data sources and columns an admin can pick
     | from to assemble their own report, scoped down from the full
@@ -1374,6 +1394,8 @@ return [
         'student_promotion' => 'academics.view',
         'school_profile' => 'school_info.view',
         'school_branding' => 'school_info.update',
+        'academic_insights' => 'examinations.approve_results',
+        'teacher_workload' => 'staff.view',
     ],
 
     'extra_permissions' => [

@@ -180,6 +180,8 @@ class ReportCardController extends Controller
             'gradeBands' => $this->gradeBands(),
             'layoutEnabled' => $layout->enabled(),
             'layoutZones' => $layout->zones(),
+            'bodySections' => $layout->effectiveBodyOrder($layout->enabled()),
+            'headerAlign' => $layout->headerAlign(),
             'isPreview' => true,
         ]);
     }
@@ -188,19 +190,26 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.view');
         $school = $this->school($request);
-        $student = Student::findOrFail($request->route('studentId'));
+        $student = Student::with('currentClassArm.schoolClass')->findOrFail($request->route('studentId'));
         $this->assertStudentVisible($request, $student);
         $term = Term::findOrFail($request->route('termId'));
+
+        // Narrative Evaluation (2026-07-18): overrides the school's own
+        // global template choice for this one student's class, same
+        // reasoning as classEntry() above.
+        $narrativeClass = $student->currentClassArm?->schoolClass?->isNarrativeEvaluation();
 
         return view('school.report-cards.render', [
             'school' => $school,
             'accent' => $school->branding()['color'],
-            'template' => $prefs->template(),
+            'template' => $narrativeClass ? 'narrative' : $prefs->template(),
             'fields' => $prefs->fields(),
             'data' => $cards->forStudent($student, $term),
             'gradeBands' => $this->gradeBands(),
             'layoutEnabled' => $layout->enabled(),
             'layoutZones' => $layout->zones(),
+            'bodySections' => $layout->effectiveBodyOrder($layout->enabled()),
+            'headerAlign' => $layout->headerAlign(),
             'isPreview' => false,
         ]);
     }
@@ -208,20 +217,61 @@ class ReportCardController extends Controller
     /**
      * The drag-and-drop header/identity-strip designer (user request
      * 2026-07-18: "let's make the report card a widget approach and drag
-     * and drop approach"). Same view permission as the settings page it's
+     * and drop approach"; rebuilt 2026-07-18 same day after user feedback
+     * "the report card designer is poorly done... there should be a live
+     * preview of how it will look like which is where all the items
+     * should also be dragged to or remove"). Every block is pre-rendered
+     * here through the exact same partial (_layout-block.blade.php) the
+     * real report card uses, with the same sample data ReportCardService::
+     * sample() already provides for the Template preview screen, so what
+     * the admin drags around IS the real markup, not a mockup that could
+     * drift from it. Same view permission as the settings page it's
      * reached from.
      */
-    public function editLayout(Request $request, ReportCardLayout $layout): \Illuminate\View\View
+    public function editLayout(Request $request, ReportCardLayout $layout, ReportCardService $cards, ReportCardPreferences $prefs): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'report_cards.view');
         $school = $this->school($request);
+        $sample = $cards->sample();
+        $logoUrl = $school->logo_path ? \Illuminate\Support\Facades\Storage::url($school->logo_path) : null;
+        $template = $prefs->template();
+
+        $blockLabels = config('skulos.report_card_layout_blocks', []);
+        $blockHtml = [];
+        foreach (array_keys($blockLabels) as $key) {
+            $blockHtml[$key] = view('school.report-cards._layout-block', [
+                'block' => $key, 'data' => $sample, 'school' => $school, 'logoUrl' => $logoUrl,
+            ])->render();
+        }
+
+        // Body sections (2026-07-18, "make it much more holistic"): the
+        // same real markup the actual report card uses, same sample
+        // data, rendered with the school's own current template choice
+        // so what an admin arranges here matches what they will
+        // actually see (compact hides columns, modern adds extras, etc).
+        $bodyLabels = config('skulos.report_card_body_sections', []);
+        $bodyHtml = [];
+        foreach (array_keys($bodyLabels) as $key) {
+            $bodyHtml[$key] = view('school.report-cards._body-'.$key, [
+                'template' => $template,
+                'show' => fn ($f) => $prefs->shows($f),
+                'data' => $sample,
+                'gradeBands' => $this->gradeBands(),
+                'isEval' => in_array($template, ['evaluation', 'narrative'], true),
+            ])->render();
+        }
 
         return view('school.report-cards.layout', [
             'school' => $school,
             'accent' => $school->branding()['color'],
             'enabled' => $layout->enabled(),
             'zones' => $layout->zones(),
-            'blocks' => config('skulos.report_card_layout_blocks', []),
+            'blocks' => $blockLabels,
+            'blockHtml' => $blockHtml,
+            'headerAlign' => $layout->headerAlign(),
+            'bodySections' => $layout->bodyOrder(),
+            'bodyLabels' => $bodyLabels,
+            'bodyHtml' => $bodyHtml,
         ]);
     }
 
@@ -229,6 +279,7 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.update');
         $validBlocks = array_keys(config('skulos.report_card_layout_blocks', []));
+        $validBodySections = array_keys(config('skulos.report_card_body_sections', []));
 
         $data = $request->validate([
             'enabled' => ['nullable', 'boolean'],
@@ -236,10 +287,16 @@ class ReportCardController extends Controller
             'header.*' => [Rule::in($validBlocks)],
             'info' => ['array'],
             'info.*' => [Rule::in($validBlocks)],
+            'header_align' => ['array'],
+            'header_align.*' => [Rule::in(['left', 'center', 'right'])],
+            'body' => ['array'],
+            'body.*' => [Rule::in($validBodySections)],
         ]);
 
         $layout->setEnabled((bool) ($data['enabled'] ?? false));
         $layout->setZones(['header' => $data['header'] ?? [], 'info' => $data['info'] ?? []]);
+        $layout->setHeaderAlign($data['header_align'] ?? []);
+        $layout->setBodyOrder($data['body'] ?? []);
 
         return back()->with('status', 'Report card layout saved.');
     }
@@ -745,7 +802,12 @@ class ReportCardController extends Controller
             ->where('term_id', $term->id)->get()->groupBy('student_id');
 
         $prefs = app(ReportCardPreferences::class);
-        $template = $prefs->template();
+        // Narrative Evaluation (2026-07-18): a class flagged evaluation_style
+        // 'narrative' always uses the comment based template here, regardless
+        // of the school's own global template choice, so a school can mix a
+        // scored Primary/Secondary with a narrative Creche/Reception rather
+        // than the template being one all-or-nothing school wide setting.
+        $template = $class->isNarrativeEvaluation() ? 'narrative' : $prefs->template();
         $subjects = collect();
         $comments = collect();
         // Comments are entered here whenever the active look actually shows

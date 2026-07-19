@@ -80,6 +80,14 @@ class ExaminationController extends Controller
         if ($this->hasBlanketAccess($request)) {
             $pairs = collect();
             ClassArm::with(['schoolClass.section', 'schoolClass.subjects', 'arm'])->get()->each(function (ClassArm $classArm) use (&$pairs) {
+                // Narrative Evaluation (2026-07-18): scores are not entered
+                // for a class using the comment based report, see
+                // NarrativeEvaluationController; that class's report card
+                // shows written comments instead (ReportCardController::
+                // classEntry()), entered from Report Cards, not here.
+                if ($classArm->schoolClass?->isNarrativeEvaluation()) {
+                    return;
+                }
                 $order = $classArm->orderKey();
                 foreach ($classArm->schoolClass?->subjects ?? [] as $subject) {
                     $pairs->push([
@@ -102,6 +110,7 @@ class ExaminationController extends Controller
         return TeachingAssignment::where('staff_id', $staff->id)
             ->with(['subject', 'classArm.schoolClass.section', 'classArm.arm'])
             ->get()
+            ->reject(fn (TeachingAssignment $a) => $a->classArm?->schoolClass?->isNarrativeEvaluation())
             ->map(fn (TeachingAssignment $a) => [
                 'class_arm_id' => (int) $a->class_arm_id,
                 'subject_id' => (int) $a->subject_id,

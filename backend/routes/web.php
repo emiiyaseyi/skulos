@@ -289,6 +289,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             $staffDirectory = \App\Http\Controllers\School\StaffDirectoryController::class;
             Route::get('/', [$staffDirectory, 'index'])->name('directory');
             Route::get('/classes/{classId}', [$staffDirectory, 'showClass'])->name('directory-class');
+            Route::get('/workload', [\App\Http\Controllers\School\TeacherWorkloadController::class, 'index'])->name('workload');
         });
         Route::prefix('parent-portal')->name('school.parents.')->group(function () {
             $parentDirectory = \App\Http\Controllers\School\ParentDirectoryController::class;
@@ -451,6 +452,11 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             $examinations = \App\Http\Controllers\School\ExaminationController::class;
             Route::get('/', [$examinations, 'index'])->name('index');
             Route::get('/performance-dashboard', [$examinations, 'performanceDashboard'])->name('performance-dashboard');
+            Route::get('/academic-insights', [\App\Http\Controllers\School\AcademicInsightsController::class, 'index'])->name('academic-insights');
+
+            $narrative = \App\Http\Controllers\School\NarrativeEvaluationController::class;
+            Route::get('/narrative-evaluation', [$narrative, 'index'])->name('narrative-evaluation');
+            Route::post('/narrative-evaluation', [$narrative, 'update'])->name('narrative-evaluation.update');
             Route::post('/scores', [$examinations, 'save'])->name('scores.save');
             Route::get('/scores/bulk-template', [$examinations, 'bulkTemplate'])->name('scores.bulk-template');
             Route::post('/scores/bulk-upload', [$examinations, 'bulkUpload'])->name('scores.bulk-upload');

@@ -16,15 +16,25 @@ class SchoolClass extends Model
 {
     use Auditable;
 
+    public const EVALUATION_STYLE_SCORES = 'scores';
+
+    public const EVALUATION_STYLE_NARRATIVE = 'narrative';
+
     protected $connection = 'tenant';
 
     protected $table = 'school_classes';
 
-    protected $fillable = ['section_id', 'name', 'sequence', 'is_active', 'default_reviewer_staff_id'];
+    protected $fillable = ['section_id', 'name', 'sequence', 'is_active', 'default_reviewer_staff_id', 'evaluation_style'];
 
     protected function casts(): array
     {
         return ['sequence' => 'integer', 'is_active' => 'boolean'];
+    }
+
+    /** Narrative Evaluation (2026-07-18): comment based, no scores, typically Creche/Reception. */
+    public function isNarrativeEvaluation(): bool
+    {
+        return $this->evaluation_style === self::EVALUATION_STYLE_NARRATIVE;
     }
 
     public function section(): BelongsTo

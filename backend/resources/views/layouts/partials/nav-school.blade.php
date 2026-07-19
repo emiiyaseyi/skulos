@@ -231,6 +231,13 @@
     // depends on it, only make sense once behavioural/psychomotor rating
     // is actually a feature the school pays for).
     'advanced_report_cards' => ['school.report-cards.traits.index', 'Behavioural Traits', 'results'],
+    // Already fully built, just never wired into this catalog (2026-07-18):
+    // the drag-and-drop report card layout designer (ReportCardController::
+    // editLayout()/updateLayout(), school.report-cards.layout.edit) is
+    // exactly the freeform designer this catalog feature describes,
+    // distinct from the 4 fixed templates every plan can already pick
+    // between.
+    'custom_report_card_designer' => ['school.report-cards.layout.edit', 'Report Card Designer', 'results'],
     'student_promotion' => ['school.settings.calendar.edit', 'Sessions &amp; Terms', 'calendar'],
     // Repointed from school.campuses (2026-07-18): a real, dedicated
     // School Profile screen now exists (SchoolPortalController::
@@ -257,6 +264,15 @@
     // for it), not a separate screen.
     'installment_payment_plans' => ['school.finance.fee-items.index', 'Fee Records', 'billing'],
     'custom_report_builder' => ['school.reports.builder.index', 'Report Builder', 'results'],
+    // Advance tier plan feature wired 2026-07-18: a whole school,
+    // subject-level ranking + grade distribution, distinct from the
+    // Student Performance Dashboard above (class/student level, current
+    // term only).
+    'academic_insights' => ['school.examinations.academic-insights', 'Academic Insights', 'results'],
+    // Advance tier plan feature wired 2026-07-18: real teaching-load data
+    // (TeachingAssignment + class teacher/assistant assignment), not a
+    // timetable (Timetable Management stays deferred).
+    'teacher_workload' => ['school.staff.workload', 'Teacher Workload', 'staff'],
   ];
 
   // The report card browse/review page lives under Academic in the plan
@@ -285,6 +301,7 @@
     // in depending on plan tier.
     'class_position_ranking' => 'Reports & Analytics',
     'advanced_report_cards' => 'Reports & Analytics',
+    'custom_report_card_designer' => 'Reports & Analytics',
     // Nested under Academic > Examinations instead of its previous
     // Reports & Analytics category placement (user directive 2026-07-18:
     // "add a submenu for term broadsheets too").
@@ -452,6 +469,20 @@
   if ($navRbac->check($navUser, $school, 'examinations.view') && ! isset($renderedRoutes['school.examinations.index'])) {
     $renderedRoutes['school.examinations.index'] = true;
     $academicSubgroups['Examinations']['enter_scores'] = $link('school.examinations.index', 'Enter Scores', 'results');
+  }
+
+  // Narrative Evaluation (user request 2026-07-18: "add a new settings
+  // for all admins across all plan that allows the admin... to set a
+  // class or some classes to have the Narrative Evaluation style of
+  // report... add it under examination as a sub menu"). Not gated by
+  // any plan feature, same "core functionality every plan gets"
+  // treatment as Enter Scores/Report settings, and admin only (the
+  // same blanket examinations.approve_results tier already used for
+  // score-entry window policy), never shown to a scoped teacher role.
+  if (! $isRestrictedNav && $navRbac->check($navUser, $school, 'examinations.approve_results')
+      && ! isset($renderedRoutes['school.examinations.narrative-evaluation'])) {
+    $renderedRoutes['school.examinations.narrative-evaluation'] = true;
+    $academicSubgroups['Examinations']['narrative_evaluation'] = $link('school.examinations.narrative-evaluation', 'Narrative Evaluation', 'results');
   }
 
   // "Report settings" (template and field choices for the report card
@@ -622,7 +653,7 @@
   // scoped to Settings specifically), pushed into the otherwise-flat
   // Academic group rather than making the whole group nested.
   $examEntries = [];
-  foreach (['enter_scores', 'term_broadsheets', 'grading'] as $examKey) {
+  foreach (['enter_scores', 'term_broadsheets', 'grading', 'narrative_evaluation'] as $examKey) {
     if (isset($academicSubgroups['Examinations'][$examKey])) {
       $examEntries[] = $academicSubgroups['Examinations'][$examKey];
     }

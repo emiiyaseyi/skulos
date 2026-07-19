@@ -138,6 +138,50 @@ class StudentReportsTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_the_broadsheet_shows_insight_cards(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'srfive');
+
+        app(TenantManager::class)->use($school);
+        [$classArmId, $termId] = $this->seedBroadsheet();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/reports/students?class_arm_id={$classArmId}&term_id={$termId}")
+            ->assertOk()
+            ->assertSee('Students assessed')
+            ->assertSee('Class average')
+            ->assertSee('Top of the class')
+            ->assertSee('Top Student');
+    }
+
+    public function test_the_broadsheet_can_be_sorted_by_name(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'srsix');
+
+        app(TenantManager::class)->use($school);
+        [$classArmId, $termId] = $this->seedBroadsheet();
+        app(TenantManager::class)->forget();
+
+        // "Second Student" sorts before "Top Student" alphabetically,
+        // reversing the position-ranked default order (Top Student first).
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/reports/students?class_arm_id={$classArmId}&term_id={$termId}&sort=name&dir=asc")
+            ->assertOk()
+            ->assertSeeInOrder(['Second Student', 'Top Student']);
+    }
+
+    public function test_the_class_picker_is_grouped_by_section(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'srseven');
+
+        app(TenantManager::class)->use($school);
+        $this->seedBroadsheet();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/reports/students")
+            ->assertOk()
+            ->assertSee('<optgroup label="Secondary">', false);
+    }
+
     public function test_a_role_without_examinations_view_cannot_reach_it(): void
     {
         [$school, $user] = $this->schoolWithMember('security', 'srfour');
