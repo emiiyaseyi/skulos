@@ -212,8 +212,14 @@ h1.title{font-size:1.55rem;font-weight:800;letter-spacing:-.01em}
 .stat b{font-size:1.6rem;font-weight:800;font-variant-numeric:tabular-nums;display:block;line-height:1.1}
 .stat span{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim)}
 label{display:block;font-weight:700;font-size:.82rem;margin-bottom:.35rem}
-input,textarea,select{width:100%;padding:.65rem .8rem;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-family:inherit;font-size:.92rem}
+input:not([type="checkbox"]):not([type="radio"]),textarea,select{width:100%;padding:.65rem .8rem;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-family:inherit;font-size:.92rem}
 input:focus,textarea:focus,select:focus{outline:2px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:1px;border-color:var(--accent)}
+/* A plain checkbox/radio must never inherit the text-input width:100%
+   rule above (found 2026-07-19: it silently turned every checkbox in the
+   app into a huge, heavily padded box with the tiny native glyph
+   floating somewhere inside it, e.g. Notifications' bulk-select
+   checkboxes). Sized to its native small footprint, everywhere. */
+input[type="checkbox"],input[type="radio"]{width:1.05rem;height:1.05rem;flex-shrink:0;accent-color:var(--accent)}
 .field{margin-bottom:1rem}
 .hint{font-size:.78rem;color:var(--mut-dim);margin-top:.3rem}
 .err{color:var(--bad);font-size:.8rem;margin-top:.3rem}

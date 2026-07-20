@@ -56,6 +56,7 @@
     'items' => $atRisk,
     'title' => 'Performance at risk',
     'subtitle' => "Every student below the school's {$threshold}% threshold this term, lowest average first.",
+    'filterable' => true,
   ])
 @endif
 @endsection

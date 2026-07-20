@@ -311,6 +311,70 @@ class SubscriptionTest extends TestCase
         $this->actingAs($owner)->get("http://{$school->slug}.localhost/dashboard")->assertOk();
     }
 
+    /**
+     * Confirm & Renew (user request 2026-07-19): a school's amount due
+     * changed mid cycle (plan/learner-count change) and was paid across
+     * two separate verified payments summing to the new total.
+     */
+    public function test_admin_can_confirm_and_renew_after_two_verified_payments_cover_the_amount_due(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('subsixteen', ['price_per_student_per_term' => 500]);
+        $payment1 = SubscriptionPayment::forceCreate([
+            'school_id' => $school->id, 'amount' => 160000, 'status' => SubscriptionPayment::STATUS_PENDING,
+            'submitted_by_user_id' => $owner->id,
+        ]);
+        $payment2 = SubscriptionPayment::forceCreate([
+            'school_id' => $school->id, 'amount' => 96000, 'status' => SubscriptionPayment::STATUS_PENDING,
+            'submitted_by_user_id' => $owner->id,
+        ]);
+        $admin = $this->superAdmin();
+        $this->actingAs($admin)->post("http://localhost/admin/subscriptions/payments/{$payment1->id}/verify");
+        $this->actingAs($admin)->post("http://localhost/admin/subscriptions/payments/{$payment2->id}/verify");
+
+        $this->actingAs($admin)->get("http://localhost/admin/subscriptions/{$school->id}")
+            ->assertOk()
+            ->assertSee('₦256,000.00')
+            ->assertSee('Confirm &amp; Renew', false);
+
+        $newDate = now()->addDays(90)->toDateString();
+        $this->actingAs($admin)->post("http://localhost/admin/subscriptions/{$school->id}/renew", [
+            'next_billing_date' => $newDate, 'note' => 'Two transfers reconciled.',
+        ])->assertRedirect();
+
+        $school->refresh();
+        $this->assertTrue($school->next_billing_date->isSameDay($newDate));
+        $this->assertNotNull($payment1->fresh()->applied_to_renewal_at);
+        $this->assertNotNull($payment2->fresh()->applied_to_renewal_at);
+
+        $event = SubscriptionEvent::where('school_id', $school->id)->where('type', SubscriptionEvent::TYPE_RENEWED)->first();
+        $this->assertNotNull($event);
+        $this->assertStringContainsString('256,000.00', $event->note);
+
+        // Already applied payments must not be offered again on a later renewal.
+        app(\App\Services\Billing\SubscriptionService::class);
+        $this->assertEquals(0.0, app(\App\Services\Billing\SubscriptionService::class)->verifiedUnappliedTotal($school));
+    }
+
+    public function test_confirm_and_renew_reinstates_a_billing_locked_school(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('subseventeen');
+        $school->update(['status' => School::STATUS_SUSPENDED, 'suspension_reason' => School::SUSPENSION_REASON_BILLING]);
+        $payment = SubscriptionPayment::forceCreate([
+            'school_id' => $school->id, 'amount' => 50000, 'status' => SubscriptionPayment::STATUS_VERIFIED,
+            'submitted_by_user_id' => $owner->id, 'verified_at' => now(),
+        ]);
+
+        $admin = $this->superAdmin();
+        $this->actingAs($admin)->post("http://localhost/admin/subscriptions/{$school->id}/renew", [
+            'next_billing_date' => now()->addDays(90)->toDateString(),
+        ])->assertRedirect();
+
+        $school->refresh();
+        $this->assertSame(School::STATUS_ACTIVE, $school->status);
+        $this->assertNull($school->suspension_reason);
+        $this->assertNotNull($payment->fresh()->applied_to_renewal_at);
+    }
+
     public function test_a_manually_suspended_school_still_shows_the_generic_message_not_the_billing_one(): void
     {
         [$school, $owner] = $this->schoolWithOwner('subeleven');

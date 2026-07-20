@@ -76,6 +76,7 @@ class SubscriptionController extends Controller
             'daysUntilDue' => $snapshot['daysUntilDue'],
             'payments' => SubscriptionPayment::where('school_id', $school->id)->orderByDesc('created_at')->get(),
             'events' => SubscriptionEvent::where('school_id', $school->id)->with('actionedBy')->orderByDesc('created_at')->take(20)->get(),
+            'verifiedUnapplied' => $subs->verifiedUnappliedTotal($school),
         ]);
     }
 
@@ -194,6 +195,52 @@ class SubscriptionController extends Controller
         $subs->notifySchoolLeadership($school, 'subscription_extended', 'Subscription extended', "Your subscription due date has been moved to {$newDate->format('d M Y')}.".($data['note'] ?? '' ? ' Note: '.$data['note'] : ''));
 
         return back()->with('status', "{$school->name}'s subscription extended to {$newDate->format('d M Y')}.");
+    }
+
+    /**
+     * Confirm & Renew (user request 2026-07-19: a school's amount due
+     * changed mid cycle after a plan/learner-count change, was paid
+     * across two separate verified payments, "there should be a way for
+     * the platform owner to confirm and renew the school plan"). Marks
+     * every currently verified-but-unapplied payment as applied (so a
+     * later renewal never counts it again), moves next_billing_date
+     * forward, and — since a school confirming payment is by definition
+     * settling up — reinstates access if it had been locked out for
+     * billing, all in the one action, rather than requiring a separate
+     * "Restore access" click right after.
+     */
+    public function renew(Request $request, School $school, SubscriptionService $subs): \Illuminate\Http\RedirectResponse
+    {
+        $data = $request->validate([
+            'next_billing_date' => ['required', 'date', 'after:today'],
+            'note' => ['nullable', 'string', 'max:500'],
+        ]);
+        $newDate = \Illuminate\Support\Carbon::parse($data['next_billing_date']);
+        $appliedTotal = $subs->verifiedUnappliedTotal($school);
+
+        DB::transaction(function () use ($school, $newDate, $data, $appliedTotal) {
+            \App\Models\SubscriptionPayment::where('school_id', $school->id)
+                ->where('status', SubscriptionPayment::STATUS_VERIFIED)
+                ->whereNull('applied_to_renewal_at')
+                ->update(['applied_to_renewal_at' => now()]);
+
+            $updates = ['next_billing_date' => $newDate];
+            if ($school->status === School::STATUS_SUSPENDED && $school->suspension_reason === School::SUSPENSION_REASON_BILLING) {
+                $updates['status'] = School::STATUS_ACTIVE;
+                $updates['suspension_reason'] = null;
+            }
+            $school->update($updates);
+
+            SubscriptionEvent::create([
+                'school_id' => $school->id, 'type' => SubscriptionEvent::TYPE_RENEWED,
+                'note' => trim('₦'.number_format($appliedTotal, 2).' confirmed. '.($data['note'] ?? '')),
+                'extended_to' => $newDate, 'actioned_by_user_id' => Auth::id(),
+            ]);
+        });
+
+        $subs->notifySchoolLeadership($school, 'subscription_renewed', 'Subscription renewed', "Thank you, your payment of ₦".number_format($appliedTotal, 2)." has been confirmed and your subscription renewed. Next due {$newDate->format('d M Y')}.");
+
+        return back()->with('status', "{$school->name}'s subscription confirmed and renewed to {$newDate->format('d M Y')}.");
     }
 
     /**

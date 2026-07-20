@@ -633,6 +633,18 @@ class PlanFeatureNavTest extends TestCase
         $this->actingAs($user)->get("http://{$school->slug}.localhost/report-cards/settings/layout")->assertOk();
     }
 
+    public function test_timetable_management_renders_as_a_real_link_not_soon(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['timetable_management'], 'plantimetable');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()
+            ->assertSee('Timetable')
+            ->assertDontSee('Soon');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/timetable")->assertOk();
+    }
+
     public function test_academic_insights_renders_as_a_real_link_not_soon(): void
     {
         [$school, $user] = $this->schoolOnPlan(['academic_insights'], 'planinsights');

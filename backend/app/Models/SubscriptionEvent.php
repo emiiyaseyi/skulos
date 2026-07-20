@@ -21,6 +21,9 @@ class SubscriptionEvent extends Model
 
     public const TYPE_REINSTATED = 'reinstated';
 
+    /** Confirm & Renew (user request 2026-07-19): an admin confirmed the verified payments received and advanced the school's next_billing_date. */
+    public const TYPE_RENEWED = 'renewed';
+
     protected $fillable = ['school_id', 'type', 'note', 'extended_to', 'actioned_by_user_id'];
 
     protected function casts(): array

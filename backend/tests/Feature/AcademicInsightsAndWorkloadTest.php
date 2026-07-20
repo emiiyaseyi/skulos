@@ -109,6 +109,37 @@ class AcademicInsightsAndWorkloadTest extends TestCase
             ->assertSee('90%'); // Ada: 35+55=90
     }
 
+    /** User request 2026-07-19: "should also have another section to view per section or a class only under the term and session." */
+    public function test_academic_insights_can_be_scoped_to_one_section_or_one_class(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'insightsthree');
+        ['classArm' => $secondaryArm, 'term' => $term] = $this->seedAcademics($school);
+
+        app(TenantManager::class)->use($school);
+        $primarySection = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $primaryClass = SchoolClass::create(['section_id' => $primarySection->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $science = Subject::create(['name' => 'Basic Science']);
+        $primaryClass->subjects()->attach($science->id, ['is_mandatory' => true, 'is_examinable' => true]);
+        $primaryArm = ClassArm::create(['school_class_id' => $primaryClass->id]);
+        $component = AssessmentComponent::first();
+        $chidi = Student::create(['admission_number' => 'P1', 'first_name' => 'Chidi', 'last_name' => 'Eze', 'current_class_arm_id' => $primaryArm->id]);
+        Score::create(['student_id' => $chidi->id, 'subject_id' => $science->id, 'class_arm_id' => $primaryArm->id, 'term_id' => $term->id, 'assessment_component_id' => $component->id, 'score' => 10]);
+        $secondarySectionId = $secondaryArm->schoolClass->section_id;
+        app(TenantManager::class)->forget();
+
+        // Whole school: both subjects show.
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/examinations/academic-insights")
+            ->assertOk()->assertSee('Mathematics')->assertSee('Basic Science');
+
+        // Scoped to Primary section: only Basic Science shows.
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/examinations/academic-insights?section_id={$primarySection->id}")
+            ->assertOk()->assertSee('Basic Science')->assertDontSee('Mathematics');
+
+        // Scoped to the one secondary class: only Mathematics shows.
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/examinations/academic-insights?section_id={$secondarySectionId}&class_arm_id={$secondaryArm->id}")
+            ->assertOk()->assertSee('Mathematics')->assertDontSee('Basic Science');
+    }
+
     public function test_a_teacher_without_the_blanket_permission_cannot_reach_academic_insights(): void
     {
         [$school, $teacherUser] = $this->schoolWithMember('teacher', 'insightstwo');

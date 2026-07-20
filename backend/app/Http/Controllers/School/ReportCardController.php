@@ -5,6 +5,7 @@ namespace App\Http\Controllers\School;
 use App\Http\Controllers\Controller;
 use App\Models\School;
 use App\Models\Tenant\ClassArm;
+use App\Models\Tenant\ReportCardCustomBlock;
 use App\Models\Tenant\ReportCardReview;
 use App\Models\Tenant\Section;
 use App\Models\Tenant\SchoolClass;
@@ -182,6 +183,8 @@ class ReportCardController extends Controller
             'layoutZones' => $layout->zones(),
             'bodySections' => $layout->effectiveBodyOrder($layout->enabled()),
             'headerAlign' => $layout->headerAlign(),
+            'bodyAlign' => $layout->bodyAlign(),
+            'customBlocks' => $this->customBlocksKeyed(),
             'isPreview' => true,
         ]);
     }
@@ -210,8 +213,16 @@ class ReportCardController extends Controller
             'layoutZones' => $layout->zones(),
             'bodySections' => $layout->effectiveBodyOrder($layout->enabled()),
             'headerAlign' => $layout->headerAlign(),
+            'bodyAlign' => $layout->bodyAlign(),
+            'customBlocks' => $this->customBlocksKeyed(),
             'isPreview' => false,
         ]);
+    }
+
+    /** @return array<string, ReportCardCustomBlock> keyed by ReportCardCustomBlock::bodyKey() */
+    protected function customBlocksKeyed(): array
+    {
+        return ReportCardCustomBlock::all()->keyBy(fn (ReportCardCustomBlock $b) => $b->bodyKey())->all();
     }
 
     /**
@@ -249,16 +260,32 @@ class ReportCardController extends Controller
         // data, rendered with the school's own current template choice
         // so what an admin arranges here matches what they will
         // actually see (compact hides columns, modern adds extras, etc).
+        // $show always true here on purpose (user report 2026-07-18: "the
+        // behavioural section is not showing details or samples"): a
+        // field this school currently has switched off (Report settings)
+        // would otherwise render its section empty in the designer with
+        // no way to see what arranging it would even look like. The real
+        // report card (render.blade.php) still uses the school's actual
+        // $prefs->shows() and is unaffected by this.
         $bodyLabels = config('skulos.report_card_body_sections', []);
         $bodyHtml = [];
         foreach (array_keys($bodyLabels) as $key) {
             $bodyHtml[$key] = view('school.report-cards._body-'.$key, [
                 'template' => $template,
-                'show' => fn ($f) => $prefs->shows($f),
+                'show' => fn ($f) => true,
                 'data' => $sample,
                 'gradeBands' => $this->gradeBands(),
                 'isEval' => in_array($template, ['evaluation', 'narrative'], true),
             ])->render();
+        }
+
+        // Custom text blocks (user request 2026-07-19: "add option to add
+        // text... like address etc"): a school's own free text library,
+        // offered alongside the fixed catalog under "custom_{id}" keys.
+        $customBlocks = ReportCardCustomBlock::orderByDesc('id')->get();
+        foreach ($customBlocks as $block) {
+            $bodyLabels[$block->bodyKey()] = $block->label;
+            $bodyHtml[$block->bodyKey()] = view('school.report-cards._body-custom', ['customBlock' => $block])->render();
         }
 
         return view('school.report-cards.layout', [
@@ -272,14 +299,63 @@ class ReportCardController extends Controller
             'bodySections' => $layout->bodyOrder(),
             'bodyLabels' => $bodyLabels,
             'bodyHtml' => $bodyHtml,
+            'bodyAlign' => $layout->bodyAlign(),
+            'customBlocks' => $customBlocks,
         ]);
+    }
+
+    /**
+     * Custom text blocks live in a small library management block on the
+     * Layout Designer, not a separate screen. Content is rendered with
+     * {{ }} escaping in the shared _body-custom partial, the same as
+     * every other user-authored string in this app, no raw HTML allowed.
+     */
+    public function storeCustomBlock(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.update');
+        $data = $request->validate([
+            'label' => ['required', 'string', 'max:80'],
+            'content' => ['required', 'string', 'max:2000'],
+        ]);
+
+        ReportCardCustomBlock::create($data);
+
+        return back()->with('status', 'Custom block added. Drag it onto the page below.');
+    }
+
+    public function updateCustomBlock(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.update');
+        $block = ReportCardCustomBlock::findOrFail($request->route('blockId'));
+        $data = $request->validate([
+            'label' => ['required', 'string', 'max:80'],
+            'content' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $block->update($data);
+
+        return back()->with('status', 'Custom block updated.');
+    }
+
+    public function destroyCustomBlock(Request $request, ReportCardLayout $layout): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.update');
+        $block = ReportCardCustomBlock::findOrFail($request->route('blockId'));
+        $key = $block->bodyKey();
+        $block->delete();
+
+        // Remove it from wherever it was placed too, an orphaned
+        // "custom_5" left in a saved body order would otherwise just
+        // silently render nothing forever, confusing to debug later.
+        $layout->setBodyOrder(array_values(array_diff($layout->bodyOrder(), [$key])));
+
+        return back()->with('status', 'Custom block removed.');
     }
 
     public function updateLayout(Request $request, ReportCardLayout $layout): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'report_cards.update');
         $validBlocks = array_keys(config('skulos.report_card_layout_blocks', []));
-        $validBodySections = array_keys(config('skulos.report_card_body_sections', []));
 
         $data = $request->validate([
             'enabled' => ['nullable', 'boolean'],
@@ -289,14 +365,22 @@ class ReportCardController extends Controller
             'info.*' => [Rule::in($validBlocks)],
             'header_align' => ['array'],
             'header_align.*' => [Rule::in(['left', 'center', 'right'])],
+            // Body section keys are either the fixed catalog or a
+            // school's own "custom_{id}" text block (user request
+            // 2026-07-19), validated authoritatively by
+            // ReportCardLayout::setBodyOrder()/setBodyAlign() below
+            // rather than duplicated here.
             'body' => ['array'],
-            'body.*' => [Rule::in($validBodySections)],
+            'body.*' => ['string'],
+            'body_align' => ['array'],
+            'body_align.*' => [Rule::in(['left', 'center', 'right', 'stretch'])],
         ]);
 
         $layout->setEnabled((bool) ($data['enabled'] ?? false));
         $layout->setZones(['header' => $data['header'] ?? [], 'info' => $data['info'] ?? []]);
         $layout->setHeaderAlign($data['header_align'] ?? []);
         $layout->setBodyOrder($data['body'] ?? []);
+        $layout->setBodyAlign($data['body_align'] ?? []);
 
         return back()->with('status', 'Report card layout saved.');
     }

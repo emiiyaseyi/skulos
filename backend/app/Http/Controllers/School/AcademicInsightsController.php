@@ -4,7 +4,9 @@ namespace App\Http\Controllers\School;
 
 use App\Http\Controllers\Controller;
 use App\Models\School;
+use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\GradingScale;
+use App\Models\Tenant\Section;
 use App\Models\Tenant\Term;
 use App\Services\Rbac\Rbac;
 use App\Services\Results\ResultService;
@@ -38,14 +40,44 @@ class AcademicInsightsController extends Controller
         $terms = Term::with('session')->orderByDesc('starts_on')->get();
         $term = $terms->firstWhere('id', (int) $request->query('term_id')) ?? $terms->firstWhere('is_current', true) ?? $terms->first();
 
-        $subjectAverages = $term ? $results->subjectAveragesForTerm($term->id) : collect();
-        $gradeDistribution = $term ? $results->gradeDistributionForTerm($term->id, GradingScale::default()) : [];
+        // Scope to one section or one class within it (user request
+        // 2026-07-19: "should also have another section to view per
+        // section or a class only under the term and session"). A class
+        // filter without a matching section filter is ignored, the
+        // section picker drives which classes are even offered.
+        $sections = Section::orderBy('sequence')->get();
+        $sectionId = $request->integer('section_id') ?: null;
+        $section = $sectionId ? $sections->firstWhere('id', $sectionId) : null;
+
+        $classArms = collect();
+        $classArmId = null;
+        $classArm = null;
+        if ($section) {
+            $classArms = ClassArm::with('arm')->whereHas('schoolClass', fn ($q) => $q->where('section_id', $section->id))
+                ->get()->sortBy(fn (ClassArm $a) => $a->orderKey())->values();
+            $classArmId = $request->integer('class_arm_id') ?: null;
+            $classArm = $classArmId ? $classArms->firstWhere('id', $classArmId) : null;
+        }
+
+        $classArmIds = null;
+        if ($classArm) {
+            $classArmIds = [$classArm->id];
+        } elseif ($section) {
+            $classArmIds = ClassArm::whereHas('schoolClass', fn ($q) => $q->where('section_id', $section->id))->pluck('id')->all();
+        }
+
+        $subjectAverages = $term ? $results->subjectAveragesForTerm($term->id, $classArmIds) : collect();
+        $gradeDistribution = $term ? $results->gradeDistributionForTerm($term->id, GradingScale::default(), $classArmIds) : [];
 
         return view('school.examinations.academic-insights', [
             'school' => $school,
             'accent' => $school->branding()['color'],
             'terms' => $terms,
             'term' => $term,
+            'sections' => $sections,
+            'section' => $section,
+            'classArms' => $classArms,
+            'classArm' => $classArm,
             'subjectAverages' => $subjectAverages,
             'gradeDistribution' => $gradeDistribution,
             'gradeTotal' => array_sum($gradeDistribution),

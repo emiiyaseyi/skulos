@@ -25,6 +25,8 @@ class ReportCardLayout
 
     public const KEY_HEADER_ALIGN = 'report_card_header_align';
 
+    public const KEY_BODY_ALIGN = 'report_card_body_align';
+
     public const ZONES = ['header', 'info'];
 
     public function enabled(): bool
@@ -79,7 +81,22 @@ class ReportCardLayout
         $saved = Setting::grab(self::KEY_BODY_ORDER);
         $valid = array_keys(config('skulos.report_card_body_sections', []));
 
-        return is_array($saved) ? array_values(array_intersect($saved, $valid)) : $valid;
+        return is_array($saved) ? array_values(array_filter($saved, fn ($k) => $this->isValidBodyKey($k))) : $valid;
+    }
+
+    /**
+     * A fixed catalog key, or a school's own custom text block (user
+     * request 2026-07-19: "add option to add text... like address etc"),
+     * referenced as "custom_{id}" — see ReportCardCustomBlock::bodyKey().
+     * Not looked up against the database here (an id that no longer
+     * exists is silently skipped at render time instead, the same
+     * orphaned-reference tolerance the rest of this class already has),
+     * this only validates the key SHAPE.
+     */
+    protected function isValidBodyKey(string $key): bool
+    {
+        return in_array($key, array_keys(config('skulos.report_card_body_sections', [])), true)
+            || (bool) preg_match('/^custom_\d+$/', $key);
     }
 
     /**
@@ -107,8 +124,7 @@ class ReportCardLayout
      */
     public function setBodyOrder(array $order): void
     {
-        $valid = array_keys(config('skulos.report_card_body_sections', []));
-        Setting::put(self::KEY_BODY_ORDER, array_values(array_intersect($order, $valid)));
+        Setting::put(self::KEY_BODY_ORDER, array_values(array_filter($order, fn ($k) => $this->isValidBodyKey($k))));
     }
 
     /**
@@ -140,5 +156,35 @@ class ReportCardLayout
             }
         }
         Setting::put(self::KEY_HEADER_ALIGN, $clean);
+    }
+
+    /**
+     * Per body section horizontal position (2026-07-18, user report:
+     * "all these items should be able to move to left, right, or central
+     * on the report card page but current one does not allow this"),
+     * same mechanism as headerAlign(), a section left at 'stretch' (the
+     * default) renders full width exactly as before this existed.
+     *
+     * @return array<string, string> section key => 'left'|'center'|'right'|'stretch'
+     */
+    public function bodyAlign(): array
+    {
+        $saved = Setting::grab(self::KEY_BODY_ALIGN);
+
+        return is_array($saved) ? $saved : [];
+    }
+
+    /**
+     * @param array<string, string> $aligns
+     */
+    public function setBodyAlign(array $aligns): void
+    {
+        $clean = [];
+        foreach ($aligns as $key => $align) {
+            if ($this->isValidBodyKey($key) && in_array($align, ['left', 'center', 'right', 'stretch'], true)) {
+                $clean[$key] = $align;
+            }
+        }
+        Setting::put(self::KEY_BODY_ALIGN, $clean);
     }
 }

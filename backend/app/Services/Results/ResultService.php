@@ -327,7 +327,7 @@ class ResultService
      *
      * @return \Illuminate\Support\Collection<int, array{subject: string, average: float, highest: float, lowest: float, students_assessed: int}>
      */
-    public function subjectAveragesForTerm(int $termId): \Illuminate\Support\Collection
+    public function subjectAveragesForTerm(int $termId, ?array $classArmIds = null): \Illuminate\Support\Collection
     {
         $totalPossible = AssessmentComponent::totalPossible();
         if ($totalPossible <= 0) {
@@ -335,6 +335,7 @@ class ResultService
         }
 
         $bySubject = Score::where('term_id', $termId)
+            ->when($classArmIds !== null, fn ($q) => $q->whereIn('class_arm_id', $classArmIds))
             ->selectRaw('subject_id, student_id, SUM(score) as subject_total')
             ->groupBy('subject_id', 'student_id')
             ->get()
@@ -364,7 +365,7 @@ class ResultService
      * 2026-07-18): how many student-subject entries landed in each grade
      * band, across the whole school, grade => count, highest count first.
      */
-    public function gradeDistributionForTerm(int $termId, ?GradingScale $scale = null): array
+    public function gradeDistributionForTerm(int $termId, ?GradingScale $scale = null, ?array $classArmIds = null): array
     {
         $scale ??= GradingScale::default();
         if (! $scale) {
@@ -372,6 +373,7 @@ class ResultService
         }
 
         $totals = Score::where('term_id', $termId)
+            ->when($classArmIds !== null, fn ($q) => $q->whereIn('class_arm_id', $classArmIds))
             ->selectRaw('subject_id, student_id, SUM(score) as subject_total')
             ->groupBy('subject_id', 'student_id')
             ->pluck('subject_total');

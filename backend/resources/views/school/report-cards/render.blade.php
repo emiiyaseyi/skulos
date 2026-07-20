@@ -128,7 +128,21 @@
     @endif
 
     @foreach($bodySections as $sectionKey)
-      @includeIf('school.report-cards._body-'.$sectionKey)
+      @if((($bodyAlign ?? [])[$sectionKey] ?? 'stretch') === 'stretch')
+        @if(str_starts_with($sectionKey, 'custom_'))
+          @include('school.report-cards._body-custom', ['customBlock' => ($customBlocks ?? [])[$sectionKey] ?? null])
+        @else
+          @includeIf('school.report-cards._body-'.$sectionKey)
+        @endif
+      @else
+        <div style="max-width:75%;{{ ['left' => 'margin-right:auto', 'right' => 'margin-left:auto', 'center' => 'margin-left:auto;margin-right:auto'][$bodyAlign[$sectionKey]] }}">
+          @if(str_starts_with($sectionKey, 'custom_'))
+            @include('school.report-cards._body-custom', ['customBlock' => ($customBlocks ?? [])[$sectionKey] ?? null])
+          @else
+            @includeIf('school.report-cards._body-'.$sectionKey)
+          @endif
+        </div>
+      @endif
     @endforeach
   </div>
 </div>

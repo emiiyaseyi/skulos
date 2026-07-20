@@ -148,18 +148,18 @@
     'parent_portal' => ['school.parents.directory', 'Parent Portal', 'students'],
     'student_portal' => ['school.students', 'Student Portal', 'students'],
     'attendance_management' => ['school.attendance.index', 'Attendance', 'attendance'],
-    'attendance_dashboard' => ['school.attendance.dashboard', 'Attendance Dashboard', 'results'],
+    'attendance_dashboard' => ['school.attendance.dashboard', 'Attendance Dashboard', 'attendance'],
     // Same real screen as attendance_dashboard above (2026-07-18): a real
     // per-class/per-student attendance breakdown already exists there,
     // "Attendance Reports" is not a separate, distinct capability.
-    'attendance_reports' => ['school.attendance.dashboard', 'Attendance Dashboard', 'results'],
-    'student_performance_dashboard' => ['school.examinations.performance-dashboard', 'Student Performance Dashboard', 'results'],
+    'attendance_reports' => ['school.attendance.dashboard', 'Attendance Dashboard', 'attendance'],
+    'student_performance_dashboard' => ['school.examinations.performance-dashboard', 'Student Performance Dashboard', 'trend'],
     // Same real screen as student_performance_dashboard above (2026-07-18):
     // it already IS a school-wide analytics dashboard (score distributions,
     // at-risk students, subject/class breakdowns), the catalog's "Basic"
     // vs "Student Performance" naming describes the same one built screen
     // at two different plan tiers, not two different screens.
-    'basic_analytics_dashboard' => ['school.examinations.performance-dashboard', 'Student Performance Dashboard', 'results'],
+    'basic_analytics_dashboard' => ['school.examinations.performance-dashboard', 'Student Performance Dashboard', 'trend'],
     // Fully built (NotificationController: categories, search, pin,
     // archive, bulk actions) since 2026-07-12 but never wired into this
     // catalog, so it only ever showed as "Soon" despite already working
@@ -221,7 +221,7 @@
     // and per-subject position (opt-in, "subject_position" field, modern
     // template) from ResultService::classBroadsheet()/subjectStats(); the
     // toggle for both lives on the existing Report settings screen.
-    'class_position_ranking' => ['school.report-cards.edit', 'Report settings', 'results'],
+    'class_position_ranking' => ['school.report-cards.edit', 'Report settings', 'settings'],
     // Advance tier plan feature 'advanced_report_cards' wired 2026-07-18
     // to the behavioural/psychomotor traits catalog: a real, distinct
     // capability Foundation's plain "basic_report_cards" does not have
@@ -230,14 +230,22 @@
     // the traits catalog itself, and the class teacher entry screen that
     // depends on it, only make sense once behavioural/psychomotor rating
     // is actually a feature the school pays for).
-    'advanced_report_cards' => ['school.report-cards.traits.index', 'Behavioural Traits', 'results'],
+    'advanced_report_cards' => ['school.report-cards.traits.index', 'Behavioural Traits', 'assignments'],
     // Already fully built, just never wired into this catalog (2026-07-18):
     // the drag-and-drop report card layout designer (ReportCardController::
     // editLayout()/updateLayout(), school.report-cards.layout.edit) is
     // exactly the freeform designer this catalog feature describes,
     // distinct from the 4 fixed templates every plan can already pick
     // between.
-    'custom_report_card_designer' => ['school.report-cards.layout.edit', 'Report Card Designer', 'results'],
+    'custom_report_card_designer' => ['school.report-cards.layout.edit', 'Report Card Designer', 'layout'],
+    // Admin-tier roles (holding timetable.update via the blanket
+    // timetable.* grant) browse and edit any class's grid; every scoped
+    // role only ever holds timetable.view and sees their own schedule
+    // instead (user request 2026-07-18, un-deferred and built the same
+    // day: "only admin can set this").
+    'timetable_management' => $isRestrictedNav
+        ? ['school.timetable.mine', 'My Timetable', 'calendar']
+        : ['school.timetable.index', 'Timetable', 'calendar'],
     'student_promotion' => ['school.settings.calendar.edit', 'Sessions &amp; Terms', 'calendar'],
     // Repointed from school.campuses (2026-07-18): a real, dedicated
     // School Profile screen now exists (SchoolPortalController::
@@ -263,12 +271,12 @@
     // once a school turns "Allow this fee to be paid in installments" on
     // for it), not a separate screen.
     'installment_payment_plans' => ['school.finance.fee-items.index', 'Fee Records', 'billing'],
-    'custom_report_builder' => ['school.reports.builder.index', 'Report Builder', 'results'],
+    'custom_report_builder' => ['school.reports.builder.index', 'Report Builder', 'pages'],
     // Advance tier plan feature wired 2026-07-18: a whole school,
     // subject-level ranking + grade distribution, distinct from the
     // Student Performance Dashboard above (class/student level, current
     // term only).
-    'academic_insights' => ['school.examinations.academic-insights', 'Academic Insights', 'results'],
+    'academic_insights' => ['school.examinations.academic-insights', 'Academic Insights', 'search'],
     // Advance tier plan feature wired 2026-07-18: real teaching-load data
     // (TeachingAssignment + class teacher/assistant assignment), not a
     // timetable (Timetable Management stays deferred).
@@ -482,7 +490,7 @@
   if (! $isRestrictedNav && $navRbac->check($navUser, $school, 'examinations.approve_results')
       && ! isset($renderedRoutes['school.examinations.narrative-evaluation'])) {
     $renderedRoutes['school.examinations.narrative-evaluation'] = true;
-    $academicSubgroups['Examinations']['narrative_evaluation'] = $link('school.examinations.narrative-evaluation', 'Narrative Evaluation', 'results');
+    $academicSubgroups['Examinations']['narrative_evaluation'] = $link('school.examinations.narrative-evaluation', 'Narrative Evaluation', 'chat');
   }
 
   // "Report settings" (template and field choices for the report card
@@ -495,7 +503,7 @@
   // report_cards.view for the Report Cards screen itself.
   if (! $isRestrictedNav && ! isset($renderedRoutes['school.report-cards.edit'])) {
     $renderedRoutes['school.report-cards.edit'] = true;
-    $groups['Reports & Analytics'][] = $link('school.report-cards.edit', 'Report settings', 'results');
+    $groups['Reports & Analytics'][] = $link('school.report-cards.edit', 'Report settings', 'settings');
   }
 
   // "Pending review" is a sub screen of Report Cards, not its own catalog

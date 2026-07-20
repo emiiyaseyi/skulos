@@ -82,14 +82,6 @@ class TeacherWorkloadController extends Controller
             ];
         });
 
-        // Insights (user request: "no insights from the data there").
-        $insights = [
-            'teachers' => $rows->count(),
-            'avg_subjects' => $rows->isNotEmpty() ? round($rows->avg('subjects'), 1) : 0,
-            'avg_students' => $rows->isNotEmpty() ? round($rows->avg('students'), 1) : 0,
-            'heaviest' => $rows->sortByDesc('students')->first(),
-        ];
-
         // Sort (user request: "no sort and filter options").
         $sort = in_array($request->query('sort'), ['students', 'subjects', 'classes', 'name'], true) ? $request->query('sort') : 'students';
         $dir = $request->query('dir') === 'asc' ? 'asc' : 'desc';
@@ -100,6 +92,18 @@ class TeacherWorkloadController extends Controller
         // in each relevant group, since their load genuinely spans both.
         $sectionFilter = $request->integer('section_id') ?: null;
         $sections = Section::orderBy('sequence')->get()->when($sectionFilter, fn ($c) => $c->where('id', $sectionFilter));
+
+        // Insights (user request: "no insights from the data there", then
+        // "the mini dashboard did not change when the section was
+        // changed"): scoped to whichever staff the section filter leaves
+        // visible below, not silently stuck at the whole school's totals.
+        $insightRows = $sectionFilter ? $rows->filter(fn ($r) => $r['section_ids']->contains($sectionFilter))->values() : $rows;
+        $insights = [
+            'teachers' => $insightRows->count(),
+            'avg_subjects' => $insightRows->isNotEmpty() ? round($insightRows->avg('subjects'), 1) : 0,
+            'avg_students' => $insightRows->isNotEmpty() ? round($insightRows->avg('students'), 1) : 0,
+            'heaviest' => $insightRows->sortByDesc('students')->first(),
+        ];
 
         $groups = $sections->map(function (Section $section) use ($rows, $sorter) {
             $sectionRows = $rows->filter(fn ($r) => $r['section_ids']->contains($section->id))->values();

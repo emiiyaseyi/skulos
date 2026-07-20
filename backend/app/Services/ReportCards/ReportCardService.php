@@ -177,7 +177,41 @@ class ReportCardService
             'traits' => $traits,
             'stamp_url' => $stampPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($stampPath) : null,
             'signature_url' => $signaturePath ? \Illuminate\Support\Facades\Storage::disk('public')->url($signaturePath) : null,
+            'trend' => $this->overallTrend($subjectRows, $term->name, $overallAverage),
         ];
+    }
+
+    /**
+     * This one student's own overall average, one point per term
+     * (Score Trend Chart, user request 2026-07-19: "add option to add
+     * text, charts etc to the report card"), averaged ACROSS subjects
+     * for each term name every subject's own previous_terms already
+     * carries, then the current term's own already-computed overall
+     * average as the final point. Term order follows whichever subject
+     * happened to have the most terms of history, since every subject
+     * in the same student/term is built from the same $priorTerms
+     * sequence in forStudent() and should agree, this only guards
+     * against an edge case where one subject's Score rows genuinely
+     * start later than another's.
+     *
+     * @param array $subjectRows same shape forStudent() builds above
+     * @return array<string, float> term name => average, in term order
+     */
+    protected function overallTrend(array $subjectRows, string $currentTermName, float $currentOverallAverage): array
+    {
+        $longest = collect($subjectRows)->sortByDesc(fn ($s) => count($s['previous_terms']))->first();
+        $termNames = $longest ? array_keys($longest['previous_terms']) : [];
+
+        $trend = [];
+        foreach ($termNames as $termName) {
+            $totals = collect($subjectRows)->pluck("previous_terms.{$termName}")->filter(fn ($v) => $v !== null);
+            if ($totals->isNotEmpty()) {
+                $trend[$termName] = round($totals->avg(), 1);
+            }
+        }
+        $trend[$currentTermName] = $currentOverallAverage;
+
+        return $trend;
     }
 
     /**
@@ -225,6 +259,7 @@ class ReportCardService
             ],
             'stamp_url' => null,
             'signature_url' => null,
+            'trend' => ['First Term' => 74.3, 'Second Term' => 76.75, 'Third Term' => 78.25],
         ];
     }
 }

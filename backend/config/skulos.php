@@ -396,6 +396,35 @@ return [
     'attendance_statuses' => ['present', 'absent', 'late', 'excused'],
 
     /*
+    | Timetable Management (Advance plan feature, built 2026-07-18). The
+    | school week itself, same lightweight "configurable catalog, not a
+    | hardcoded enum" treatment attendance_statuses above already gets,
+    | not the heavier seed-into-a-DB-table shape (there is nothing here
+    | for a school to add/remove/reorder beyond which weekdays exist).
+    | `default_timetable_periods` IS seeded into the real
+    | `timetable_periods` tenant table (TimetableController::
+    | applyDefaultPeriods()), the same seed-then-DB-table shape
+    | grading_scales/comments already use, since a school genuinely edits
+    | its own period times/names/count afterward.
+    */
+    'school_week_days' => [
+        'monday' => 'Monday', 'tuesday' => 'Tuesday', 'wednesday' => 'Wednesday',
+        'thursday' => 'Thursday', 'friday' => 'Friday',
+    ],
+    'default_timetable_periods' => [
+        ['name' => 'Period 1', 'starts_at' => '08:00', 'ends_at' => '08:40', 'is_teaching_period' => true],
+        ['name' => 'Period 2', 'starts_at' => '08:40', 'ends_at' => '09:20', 'is_teaching_period' => true],
+        ['name' => 'Period 3', 'starts_at' => '09:20', 'ends_at' => '10:00', 'is_teaching_period' => true],
+        ['name' => 'Break', 'starts_at' => '10:00', 'ends_at' => '10:20', 'is_teaching_period' => false],
+        ['name' => 'Period 4', 'starts_at' => '10:20', 'ends_at' => '11:00', 'is_teaching_period' => true],
+        ['name' => 'Period 5', 'starts_at' => '11:00', 'ends_at' => '11:40', 'is_teaching_period' => true],
+        ['name' => 'Period 6', 'starts_at' => '11:40', 'ends_at' => '12:20', 'is_teaching_period' => true],
+        ['name' => 'Lunch', 'starts_at' => '12:20', 'ends_at' => '13:00', 'is_teaching_period' => false],
+        ['name' => 'Period 7', 'starts_at' => '13:00', 'ends_at' => '13:40', 'is_teaching_period' => true],
+        ['name' => 'Period 8', 'starts_at' => '13:40', 'ends_at' => '14:20', 'is_teaching_period' => true],
+    ],
+
+    /*
     | Students At Risk widget bands (Dashboard Design Cross-Check): a
     | student flags as at risk if their current term attendance rate or
     | raw average score falls below these percentages. Config-level today
@@ -1196,6 +1225,11 @@ return [
         'grade_key' => 'Grade Key',
         'remarks' => 'Remarks (Class Teacher / Head of School)',
         'signoff' => 'Stamp & Signature',
+        // Charts (user request 2026-07-19: "add option to add text,
+        // charts etc to the report card"). Print safe inline SVG, no JS,
+        // so they render identically on screen and in a printed/PDF copy.
+        'score_trend' => 'Score Trend Chart',
+        'subject_chart' => 'Subject Breakdown Chart',
     ],
 
     /*
@@ -1396,6 +1430,7 @@ return [
         'school_branding' => 'school_info.update',
         'academic_insights' => 'examinations.approve_results',
         'teacher_workload' => 'staff.view',
+        'timetable_management' => 'timetable.view',
     ],
 
     'extra_permissions' => [

@@ -82,6 +82,23 @@ class SubscriptionService
     }
 
     /**
+     * Sum of every verified payment not yet applied to a renewal (user
+     * request 2026-07-19: a school's amount due changed mid cycle after
+     * a plan/learner-count change, was paid across two separate verified
+     * payments, and the admin needed a way to confirm that total and
+     * renew). "Applied" is tracked per payment (applied_to_renewal_at)
+     * rather than by date range, so a renewal never double counts a
+     * payment an earlier renewal already consumed.
+     */
+    public function verifiedUnappliedTotal(School $school): float
+    {
+        return (float) \App\Models\SubscriptionPayment::where('school_id', $school->id)
+            ->where('status', \App\Models\SubscriptionPayment::STATUS_VERIFIED)
+            ->whereNull('applied_to_renewal_at')
+            ->sum('amount');
+    }
+
+    /**
      * Notifies every active member of the school holding one of
      * config('skulos.subscription_visible_role_slugs') (Owner/Principal/
      * VP/Head Teacher/School Admin), writing a real Notification row

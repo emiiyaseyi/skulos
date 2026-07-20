@@ -143,6 +143,7 @@ Route::domain($appDomain)->group(function () {
             Route::get('/{school}', [$subscriptions, 'show'])->name('show');
             Route::post('/{school}/remind', [$subscriptions, 'remind'])->name('remind');
             Route::post('/{school}/extend', [$subscriptions, 'extend'])->name('extend');
+            Route::post('/{school}/renew', [$subscriptions, 'renew'])->name('renew');
             Route::post('/{school}/demand', [$subscriptions, 'demand'])->name('demand');
             Route::post('/{school}/reinstate', [$subscriptions, 'reinstate'])->name('reinstate');
             Route::post('/payments/{payment}/verify', [$subscriptions, 'verify'])->name('payments.verify');
@@ -520,6 +521,22 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/payments/{paymentId}/evidence', [$payments, 'evidence'])->name('payments.evidence');
         });
 
+        // Timetable Management (Advance plan feature, user request
+        // 2026-07-18, deferred then reversed the same day). "periods" and
+        // "mine" registered before the {classArmId} wildcard-like routes
+        // below, the same route-ordering gotcha documented in CLAUDE.md.
+        Route::prefix('timetable')->name('school.timetable.')->group(function () {
+            $timetable = \App\Http\Controllers\School\TimetableController::class;
+            Route::get('/periods', [$timetable, 'periods'])->name('periods');
+            Route::post('/periods', [$timetable, 'storePeriod'])->name('periods.store');
+            Route::post('/periods/apply-defaults', [$timetable, 'applyDefaultPeriods'])->name('periods.apply-defaults');
+            Route::post('/periods/{periodId}', [$timetable, 'updatePeriod'])->name('periods.update');
+            Route::delete('/periods/{periodId}', [$timetable, 'destroyPeriod'])->name('periods.destroy');
+            Route::get('/mine', [$timetable, 'mine'])->name('mine');
+            Route::get('/', [$timetable, 'index'])->name('index');
+            Route::post('/{classArmId}', [$timetable, 'save'])->name('save');
+        });
+
         // A school's own SKULOS subscription (2026-07-17): due date, real
         // amount owed, bank transfer payment submission.
         Route::prefix('subscription')->name('school.subscription.')->group(function () {
@@ -542,6 +559,9 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/settings', [$reportCards, 'update'])->name('update');
             Route::get('/settings/layout', [$reportCards, 'editLayout'])->name('layout.edit');
             Route::post('/settings/layout', [$reportCards, 'updateLayout'])->name('layout.update');
+            Route::post('/settings/layout/custom-blocks', [$reportCards, 'storeCustomBlock'])->name('layout.custom-blocks.store');
+            Route::post('/settings/layout/custom-blocks/{blockId}', [$reportCards, 'updateCustomBlock'])->name('layout.custom-blocks.update');
+            Route::delete('/settings/layout/custom-blocks/{blockId}', [$reportCards, 'destroyCustomBlock'])->name('layout.custom-blocks.destroy');
             Route::post('/review-stage', [$reportCards, 'updateReviewStage'])->name('review-stage');
             Route::post('/review-chain', [$reportCards, 'updateReviewChain'])->name('review-chain');
             Route::get('/preview/{template?}', [$reportCards, 'preview'])->name('preview');

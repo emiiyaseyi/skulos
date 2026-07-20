@@ -16,6 +16,33 @@
   <div class="card stat" style="padding:1rem"><b>{{ $school->next_billing_date?->format('d M Y') ?? 'Not set' }}</b><span>Due date</span></div>
 </div>
 
+@if($verifiedUnapplied > 0)
+  <div class="card" style="margin-bottom:1.25rem;border-color:var(--ok)">
+    <div class="row-between" style="flex-wrap:wrap;gap:.8rem;align-items:flex-end">
+      <div>
+        <h3 style="margin-bottom:.3rem">Confirm &amp; Renew</h3>
+        <p class="muted" style="max-width:32rem">
+          <strong>₦{{ number_format($verifiedUnapplied, 2) }}</strong> in verified payments has not yet been applied to a renewal
+          @if($amountDue !== null)
+            (amount due is ₦{{ number_format($amountDue, 2) }}{{ $verifiedUnapplied >= $amountDue ? ', fully covered' : ', partially covered' }}).
+          @else
+            .
+          @endif
+          Confirming applies every one of those payments and moves the due date forward{{ $school->suspension_reason === 'billing' ? ', restoring access.' : '.' }}
+        </p>
+      </div>
+      <form method="POST" action="{{ route('admin.subscriptions.renew', ['school' => $school->id]) }}" style="display:flex;gap:.5rem;align-items:flex-end;flex-wrap:wrap">
+        @csrf
+        <div class="field" style="margin:0">
+          <label for="next_billing_date">New due date</label>
+          <input id="next_billing_date" name="next_billing_date" type="date" value="{{ ($school->next_billing_date && $school->next_billing_date->isFuture() ? $school->next_billing_date : now())->copy()->addDays(90)->toDateString() }}" required style="max-width:11rem" />
+        </div>
+        <button class="btn btn-primary btn-sm" type="submit">Confirm &amp; Renew</button>
+      </form>
+    </div>
+  </div>
+@endif
+
 <div class="grid cols-2" style="gap:1rem;align-items:start;margin-bottom:1.25rem">
   <div class="card">
     <h3 style="margin-bottom:.6rem">Actions</h3>

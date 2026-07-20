@@ -120,7 +120,7 @@
         <div class="lb-zone" data-zone="body" id="zone-body">
           @foreach($bodySections as $key)
             @if(isset($bodyHtml[$key]))
-              <div class="lb-section" draggable="true" data-section="{{ $key }}" tabindex="0" role="button" aria-label="{{ $bodyLabels[$key] ?? $key }}, select to edit">
+              <div class="lb-section" draggable="true" data-section="{{ $key }}" data-align="{{ ($bodyAlign ?? [])[$key] ?? 'stretch' }}" tabindex="0" role="button" aria-label="{{ $bodyLabels[$key] ?? $key }}, select to edit" style="{{ (($bodyAlign ?? [])[$key] ?? 'stretch') === 'stretch' ? '' : 'max-width:75%;'.['left' => 'margin-right:auto', 'right' => 'margin-left:auto', 'center' => 'margin-left:auto;margin-right:auto'][$bodyAlign[$key]] }}">
                 <div class="lb-section-tag">{{ $bodyLabels[$key] ?? $key }}</div>
                 {!! $bodyHtml[$key] !!}
               </div>
@@ -174,6 +174,56 @@
   <button class="btn btn-primary" type="submit" style="margin-top:1.1rem">Save layout</button>
 </form>
 
+<div class="card" style="margin-top:1.1rem">
+  <h3 style="margin-bottom:.3rem">Custom text blocks</h3>
+  <p class="muted" style="font-size:.8rem;margin-bottom:.8rem">Your own free text, an address, a disclaimer, a scholarship note, anything the fixed fields above do not cover. Once added, it behaves like any other section, drag it onto the page from "Available sections".</p>
+
+  @if($customBlocks->isNotEmpty())
+    <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1rem">
+      @foreach($customBlocks as $block)
+        <div style="border:1px solid var(--line);border-radius:8px;padding:.6rem .8rem">
+          <div class="row-between" style="align-items:flex-start">
+            <div>
+              <strong>{{ $block->label }}</strong>
+              <p class="muted" style="font-size:.82rem;margin-top:.2rem;white-space:pre-line">{{ \Illuminate\Support\Str::limit($block->content, 140) }}</p>
+            </div>
+            <div style="display:flex;gap:.4rem;white-space:nowrap">
+              <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('edit-block-{{ $block->id }}').classList.toggle('show')">Edit</button>
+              <form method="POST" action="{{ route('school.report-cards.layout.custom-blocks.destroy', ['school' => $school->slug, 'blockId' => $block->id]) }}" onsubmit="return confirm('Remove {{ $block->label }}? It will also come off the report card if placed.')">
+                @csrf @method('DELETE')
+                <button class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit">Remove</button>
+              </form>
+            </div>
+          </div>
+          <form id="edit-block-{{ $block->id }}" class="lb-block-edit-row" method="POST" action="{{ route('school.report-cards.layout.custom-blocks.update', ['school' => $school->slug, 'blockId' => $block->id]) }}" style="display:none;gap:.5rem;margin-top:.6rem;flex-direction:column">
+            @csrf
+            <input name="label" value="{{ $block->label }}" placeholder="Label" required maxlength="80" />
+            <textarea name="content" rows="3" placeholder="Text" required maxlength="2000">{{ $block->content }}</textarea>
+            <button class="btn btn-primary btn-sm" type="submit" style="align-self:flex-start">Save</button>
+          </form>
+        </div>
+      @endforeach
+    </div>
+  @endif
+
+  <form method="POST" action="{{ route('school.report-cards.layout.custom-blocks.store', ['school' => $school->slug]) }}" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end">
+    @csrf
+    <div class="field" style="margin:0;min-width:12rem">
+      <label for="newBlockLabel">Label</label>
+      <input id="newBlockLabel" name="label" placeholder="e.g. School Address" required maxlength="80" />
+    </div>
+    <div class="field" style="margin:0;flex:1;min-width:16rem">
+      <label for="newBlockContent">Text</label>
+      <textarea id="newBlockContent" name="content" rows="2" placeholder="e.g. 12 Freedom Way, Lekki, Lagos" required maxlength="2000"></textarea>
+    </div>
+    <button class="btn btn-primary btn-sm" type="submit">Add block</button>
+  </form>
+</div>
+
+<style>
+  .lb-block-edit-row.show{display:flex !important}
+</style>
+
 @php
   $blocksJson = collect($blocks)->keys()->mapWithKeys(fn ($k) => [$k => $blockHtml[$k] ?? ''])->all();
   $sectionsJson = collect($bodyLabels)->keys()->mapWithKeys(fn ($k) => [$k => $bodyHtml[$k] ?? ''])->all();
@@ -220,7 +270,12 @@
     return el;
   }
 
-  function sectionHtmlEl(key){
+  function sectionAlignStyle(align){
+    if (align === 'stretch' || ! align) { return ''; }
+    return 'max-width:75%;' + ({ left: 'margin-right:auto', right: 'margin-left:auto', center: 'margin-left:auto;margin-right:auto' }[align] || '');
+  }
+
+  function sectionHtmlEl(key, align){
     var el = document.createElement('div');
     el.className = 'lb-section';
     el.draggable = true;
@@ -228,6 +283,8 @@
     el.setAttribute('role', 'button');
     el.setAttribute('aria-label', (sectionLabels[key] || key) + ', select to edit');
     el.dataset.section = key;
+    el.dataset.align = align || 'stretch';
+    el.style.cssText = sectionAlignStyle(align || 'stretch');
     el.innerHTML = '<div class="lb-section-tag"></div>' + (sectionHtml[key] || '');
     el.querySelector('.lb-section-tag').textContent = sectionLabels[key] || key;
     return el;
@@ -260,8 +317,10 @@
   }
 
   function moveSection(key, targetZone, before){
+    var existingSection = document.querySelector('.lb-section[data-section="'+key+'"]');
+    var currentAlign = existingSection ? (existingSection.dataset.align || 'stretch') : 'stretch';
     document.querySelectorAll('[data-section="'+key+'"]').forEach(function(n){ n.remove(); });
-    var node = targetZone === 'bodyTray' ? trayItemHtml(key, 'section') : sectionHtmlEl(key);
+    var node = targetZone === 'bodyTray' ? trayItemHtml(key, 'section') : sectionHtmlEl(key, currentAlign);
     var target = zones[targetZone];
     if (before) { target.insertBefore(node, before); } else { target.appendChild(node); }
     refreshTrayEmptyState('bodyTray', '.lb-tray-item', 'Every section is already on the page.', 'sectionTrayEmpty');
@@ -344,6 +403,22 @@
       var slabel = document.createElement('span');
       slabel.innerHTML = '<strong>' + (sectionLabels[skey] || skey) + '</strong>';
       toolbar.appendChild(slabel);
+
+      var sgroup = document.createElement('span');
+      sgroup.className = 'align-group';
+      ['stretch', 'left', 'center', 'right'].forEach(function(a){
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = a === 'stretch' ? 'Full width' : (a.charAt(0).toUpperCase() + a.slice(1));
+        if ((selected.dataset.align || 'stretch') === a) { b.classList.add('active'); }
+        b.addEventListener('click', function(){
+          selected.dataset.align = a;
+          selected.style.cssText = sectionAlignStyle(a);
+          renderToolbar();
+        });
+        sgroup.appendChild(b);
+      });
+      toolbar.appendChild(sgroup);
 
       var sup = document.createElement('button'); sup.type = 'button'; sup.className = 'btn btn-ghost btn-sm'; sup.textContent = 'Move up';
       sup.addEventListener('click', function(){
@@ -455,6 +530,12 @@
       input.name = 'body[]';
       input.value = chip.dataset.section;
       container.appendChild(input);
+
+      var alignInput = document.createElement('input');
+      alignInput.type = 'hidden';
+      alignInput.name = 'body_align[' + chip.dataset.section + ']';
+      alignInput.value = chip.dataset.align || 'stretch';
+      container.appendChild(alignInput);
     });
   });
 

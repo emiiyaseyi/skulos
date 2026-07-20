@@ -7,12 +7,26 @@
     <h1 class="title">Academic Insights</h1>
     <p class="subtitle">Subject strength, weak spots, and grade spread across the whole school, one term at a time.</p>
   </div>
-  <form method="GET" action="{{ route('school.examinations.academic-insights', ['school' => $school->slug]) }}" style="display:flex;gap:.5rem;align-items:center">
+  <form method="GET" action="{{ route('school.examinations.academic-insights', ['school' => $school->slug]) }}" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
     <select name="term_id" onchange="this.form.requestSubmit()">
       @foreach($terms as $t)
         <option value="{{ $t->id }}" @selected($term && $term->id === $t->id)>{{ $t->session?->name }} {{ $t->name }}</option>
       @endforeach
     </select>
+    <select name="section_id" onchange="this.form.requestSubmit()">
+      <option value="">Every section</option>
+      @foreach($sections as $s)
+        <option value="{{ $s->id }}" @selected($section && $section->id === $s->id)>{{ $s->name }}</option>
+      @endforeach
+    </select>
+    @if($section)
+      <select name="class_arm_id" onchange="this.form.requestSubmit()">
+        <option value="">Every class in {{ $section->name }}</option>
+        @foreach($classArms as $arm)
+          <option value="{{ $arm->id }}" @selected($classArm && $classArm->id === $arm->id)>{{ $arm->label() }}</option>
+        @endforeach
+      </select>
+    @endif
   </form>
 </div>
 
@@ -21,7 +35,9 @@
 @else
   <div class="card" style="margin-bottom:1.25rem">
     <h3 style="margin-bottom:.3rem">Subject performance</h3>
-    <p class="muted" style="font-size:.8rem;margin-bottom:.8rem">Every subject with recorded scores in {{ $term->session?->name }} {{ $term->name }}, strongest first.</p>
+    <p class="muted" style="font-size:.8rem;margin-bottom:.8rem">
+      Every subject with recorded scores in {{ $term->session?->name }} {{ $term->name }}{{ $classArm ? ' for '.$classArm->label() : ($section ? ' across '.$section->name : ', whole school') }}, strongest first.
+    </p>
     @if($subjectAverages->isEmpty())
       <p class="muted">No results have been recorded for this term yet.</p>
     @else
@@ -53,7 +69,7 @@
 
   <div class="card">
     <h3 style="margin-bottom:.3rem">Grade distribution</h3>
-    <p class="muted" style="font-size:.8rem;margin-bottom:.8rem">Every subject result this term, grouped by grade, {{ number_format($gradeTotal) }} total.</p>
+    <p class="muted" style="font-size:.8rem;margin-bottom:.8rem">Every subject result this term{{ $classArm ? ' for '.$classArm->label() : ($section ? ' across '.$section->name : '') }}, grouped by grade, {{ number_format($gradeTotal) }} total.</p>
     @if(empty($gradeDistribution))
       <p class="muted">No results have been recorded for this term yet.</p>
     @else

@@ -131,6 +131,116 @@ class ReportCardLayoutDesignerTest extends TestCase
         $response->assertOk()->assertDontSee('Total Score');
     }
 
+    /**
+     * User feedback 2026-07-19: "all these items should be able to move
+     * to left, right, or central on the report card page but current
+     * one does not allow this" — extends the same per-block align-self
+     * mechanism from the header to whole body sections.
+     */
+    public function test_saving_a_layout_persists_body_section_alignment_and_it_shows_on_the_real_card(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'layouteight');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/settings/layout", [
+            'enabled' => '1',
+            'header' => ['school_name'],
+            'info' => ['student_name'],
+            'body' => ['signoff', 'remarks'],
+            'body_align' => ['signoff' => 'center', 'remarks' => 'left'],
+        ])->assertRedirect();
+
+        $layout = app(\App\Services\ReportCards\ReportCardLayout::class);
+        $this->assertEquals(['signoff' => 'center', 'remarks' => 'left'], $layout->bodyAlign());
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/preview")
+            ->assertOk()
+            ->assertSee('margin-left:auto;margin-right:auto', false);
+    }
+
+    /** User report 2026-07-19: "the behavioural section is not showing details or samples". */
+    public function test_the_designer_shows_sample_content_for_a_section_even_when_its_field_is_switched_off(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'layoutnine');
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/settings/layout")
+            ->assertOk()
+            ->assertSee('Punctuality')
+            ->assertSee('Excellent');
+    }
+
+    /** User request 2026-07-19: "add option to add text, charts etc to the report card... allow me allow something like address etc". */
+    public function test_an_admin_can_create_a_custom_text_block_place_it_and_it_shows_on_the_real_card(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'layoutten');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/settings/layout/custom-blocks", [
+            'label' => 'School Address', 'content' => '12 Freedom Way, Lekki, Lagos',
+        ])->assertRedirect();
+
+        $block = \App\Models\Tenant\ReportCardCustomBlock::first();
+        $this->assertNotNull($block);
+        $this->assertSame('School Address', $block->label);
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/settings/layout")
+            ->assertOk()
+            ->assertSee('data-section="'.$block->bodyKey().'"', false)
+            ->assertSee('12 Freedom Way, Lekki, Lagos');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/settings/layout", [
+            'enabled' => '1',
+            'header' => ['school_name'],
+            'info' => ['student_name'],
+            'body' => [$block->bodyKey()],
+        ])->assertRedirect();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/preview")
+            ->assertOk()
+            ->assertSee('School Address')
+            ->assertSee('12 Freedom Way, Lekki, Lagos');
+    }
+
+    public function test_deleting_a_custom_block_removes_it_from_a_saved_layout_too(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'layouteleven');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/settings/layout/custom-blocks", [
+            'label' => 'Note', 'content' => 'Some text',
+        ]);
+        $block = \App\Models\Tenant\ReportCardCustomBlock::first();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/settings/layout", [
+            'enabled' => '1', 'header' => [], 'info' => [], 'body' => [$block->bodyKey(), 'signoff'],
+        ]);
+
+        $this->actingAs($owner)->delete("http://{$school->slug}.localhost/report-cards/settings/layout/custom-blocks/{$block->id}")
+            ->assertRedirect();
+
+        $layout = app(\App\Services\ReportCards\ReportCardLayout::class);
+        $this->assertEquals(['signoff'], $layout->bodyOrder());
+    }
+
+    /** User request 2026-07-19, answered by AskUserQuestion: both a score trend line chart and a subject breakdown bar chart. */
+    public function test_score_trend_and_subject_breakdown_charts_render_on_the_real_card(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'layouttwelve');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/settings/layout", [
+            'enabled' => '1',
+            'header' => ['school_name'],
+            'info' => ['student_name'],
+            'body' => ['score_trend', 'subject_chart'],
+        ])->assertRedirect();
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/preview");
+
+        $response->assertOk()
+            ->assertSee('Score Trend')
+            ->assertSee('Subject Breakdown')
+            ->assertSee('<svg', false)
+            ->assertSee('<polyline', false)
+            ->assertSee('<rect', false);
+    }
+
     public function test_a_non_report_card_viewer_cannot_reach_the_designer(): void
     {
         [$school, $parent] = $this->schoolWithMember('parent', 'layoutfour');
