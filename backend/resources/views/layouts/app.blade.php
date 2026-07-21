@@ -239,8 +239,23 @@ input[type="checkbox"],input[type="radio"]{width:1.05rem;height:1.05rem;flex-shr
 .ss-label.ss-placeholder{color:var(--mut-dim);font-weight:400}
 .ss-caret{width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid var(--mut);flex-shrink:0;margin-left:.5rem}
 .ss-panel{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:80;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:.4rem;display:flex;flex-direction:column}
+/* .ss-panel's own display:flex has the same CSS specificity as the
+   browser's default [hidden]{display:none}, so the author rule silently
+   won and panel.hidden=true in JS never actually hid anything (found live
+   2026-07-21: "the dropdown close when one select an item... but the
+   search bar is still showing"). This class+attribute selector outranks
+   the plain class rule above, restoring hidden's real effect. */
+.ss-panel[hidden]{display:none}
 .ss-search{position:relative;margin-bottom:.4rem}
-.ss-search input{padding-left:2.15rem;margin:0}
+{{-- input[type="text"] here, not just "input" (found 2026-07-21): the
+     platform-wide field rule `input:not([type="checkbox"]):not([type="radio"])`
+     has two :not() clauses, each counting as an attribute selector, so its
+     specificity (0,2,1) already beat a plain ".ss-search input" (0,1,1),
+     silently winning the padding-left fight and squashing the search box's
+     text/cursor back into the icon. Matching that specificity (0,2,1) here
+     and relying on source order (this rule is declared later) restores it,
+     the same tie-breaking approach already used for .ss-panel[hidden]. --}}
+.ss-search input[type="text"]{padding-left:2.15rem;margin:0}
 .ss-search::before{content:'';position:absolute;left:.72rem;top:50%;width:.7rem;height:.7rem;border:2px solid var(--mut-dim);border-radius:50%;transform:translateY(-65%);pointer-events:none}
 .ss-search::after{content:'';position:absolute;left:1.32rem;top:50%;width:.42rem;height:2px;background:var(--mut-dim);transform:translateY(45%) rotate(45deg);pointer-events:none}
 .ss-list{list-style:none;margin:0;padding:0;overflow-y:auto;max-height:13rem}
@@ -710,7 +725,18 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
     if(isFinite(storedActivity) && storedActivity>lastActivityAt) lastActivityAt=storedActivity;
   }catch(e){}
 
-  function doLogout(){ logoutForm.submit(); }
+  function doLogout(){
+    // Refresh the CSRF token immediately before submitting, not just
+    // whatever was baked into this hidden form at page load: this form
+    // exists specifically to fire after a real stretch of inactivity, and
+    // a meta tag written by a same-tab fetch/response in the meantime
+    // (e.g. a successful "Resume" earlier in the same visit) may hold a
+    // newer token than the one this form was rendered with.
+    var freshToken=document.querySelector('meta[name="csrf-token"]')?.content;
+    var tokenInput=logoutForm.querySelector('input[name="_token"]');
+    if(freshToken && tokenInput) tokenInput.value=freshToken;
+    logoutForm.submit();
+  }
 
   // The only place that decides idle state, driven entirely by wall
   // clock timestamps (Date.now()), never by counting how many timer
@@ -734,6 +760,8 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
   // window already elapsed unseen.
   var closeDialogFocus=null;
 
+  var loggingOut=false;
+
   function evaluate(){
     var now=Date.now();
     if(warningDeadlineAt===null){
@@ -743,11 +771,19 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
       closeDialogFocus=window.SkulosDialog?.open(scrim, {autofocus: resumeBtn, onEscape: resume});
     }
     var secondsLeft=Math.ceil((warningDeadlineAt-now)/1000);
-    if(secondsLeft<=0){
+    // Always update the displayed number first, even on the path to
+    // logout (user report 2026-07-21, second time: countdown stuck at
+    // "1" and never actually logged out). The old code returned as soon
+    // as secondsLeft hit zero, before ever writing "0" (or anything past
+    // "1") to the screen, so the last thing visibly shown stayed frozen
+    // at whatever the previous tick displayed regardless of what
+    // happened next — doLogout() may well have kept firing, just with no
+    // visible sign it was doing anything.
+    countEl.textContent = secondsLeft > 0 ? secondsLeft : 0;
+    if(secondsLeft<=0 && ! loggingOut){
+      loggingOut=true;
       doLogout();
-      return;
     }
-    countEl.textContent=secondsLeft;
   }
 
   // Recursive setTimeout, not setInterval (user report 2026-07-21:
@@ -762,17 +798,39 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
   // from absolute timestamps, not a decrementing counter — this fixes
   // the on-screen number actually refreshing every second, not the
   // security behavior, which was never wrong.
+  //
+  // Stops rescheduling once logout has actually been triggered (second
+  // 2026-07-21 fix, same report): the old version kept calling tick()
+  // forever even after doLogout() fired, which — if the logout form
+  // submission was ever slow, blocked, or silently failed for any reason
+  // — meant doLogout() got invoked again on every subsequent tick with no
+  // visible feedback either way, indistinguishable on screen from doing
+  // nothing at all.
+  var tickRunning=false;
+
   function tick(){
     evaluate();
+    if(loggingOut){ tickRunning=false; return; }
+    countdownTimer=setTimeout(tick,1000);
+  }
+
+  function startTicking(){
+    if(tickRunning) return;
+    tickRunning=true;
     countdownTimer=setTimeout(tick,1000);
   }
 
   function resetIdleTimer(){
     lastActivityAt=Date.now();
     warningDeadlineAt=null;
+    loggingOut=false;
     scrim.classList.remove('show');
     closeDialogFocus?.();
     closeDialogFocus=null;
+    // tick()'s own loop stops rescheduling once loggingOut was set; a
+    // resume after that point (Resume clicked, or activity from another
+    // tab) needs to explicitly restart it, not just clear the flag.
+    startTicking();
   }
 
   function resume(){
@@ -813,7 +871,7 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
   });
   window.addEventListener('focus', evaluate);
 
-  countdownTimer=setTimeout(tick,1000);
+  startTicking();
 })();
 </script>
 
@@ -828,6 +886,28 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
 <script>
 (function(){
   var SS_THRESHOLD = 8;
+
+  // Every enhanced select registers itself here (2026-07-21 fix: multiple
+  // panels on the same page — e.g. Class, Country, State on the student
+  // form — could end up open at once, not closing each other, "does not
+  // leave the screen when one click on it"). One shared registry plus one
+  // shared document click listener, instead of each instance running its
+  // own independent copy of the same "am I outside this wrap?" check,
+  // removes any possibility of instances interfering with or shadowing
+  // each other's close logic.
+  var ssInstances = [];
+
+  function closeAllPanelsExcept(keep){
+    ssInstances.forEach(function(inst){
+      if (inst !== keep && ! inst.panel.hidden) inst.close();
+    });
+  }
+
+  document.addEventListener('click', function(e){
+    ssInstances.forEach(function(inst){
+      if (! inst.wrap.contains(e.target)) inst.close();
+    });
+  });
 
   function enhance(select){
     if (select.dataset.ssEnhanced || select.multiple || 'noSearch' in select.dataset) return;
@@ -953,6 +1033,7 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
 
     function openPanel(){
       if (toggle.disabled) return;
+      closeAllPanelsExcept(instance);
       buildOptions();
       panel.hidden = false;
       toggle.setAttribute('aria-expanded', 'true');
@@ -969,6 +1050,9 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
       toggle.removeAttribute('aria-activedescendant');
     }
 
+    var instance = {wrap: wrap, panel: panel, close: closePanel};
+    ssInstances.push(instance);
+
     function chooseValue(value){
       select.value = value;
       select.dispatchEvent(new Event('change', {bubbles: true}));
@@ -981,6 +1065,16 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
       if (panel.hidden) openPanel(); else closePanel();
     });
     search.addEventListener('input', function(){ filterList(search.value); });
+    // Without this, mousedown on an <li> blurs the still-focused search
+    // input first (li isn't itself focusable), firing wrap's focusout
+    // handler and racing closePanel() against the option's own click —
+    // the classic combobox bug where the panel closes on you before the
+    // click you were making on an option ever gets counted (found live
+    // 2026-07-21: "unable to select an item... it just closes the list").
+    // Blocking the default keeps focus put, so the click always lands.
+    list.addEventListener('mousedown', function(e){
+      if (e.target.closest('[role="option"]')) e.preventDefault();
+    });
     list.addEventListener('click', function(e){
       var li = e.target.closest('[role="option"]');
       if (li) chooseValue(li.dataset.value);
@@ -1009,9 +1103,6 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
       window.requestAnimationFrame(function(){
         if (! wrap.contains(document.activeElement)) closePanel();
       });
-    });
-    document.addEventListener('click', function(e){
-      if (! wrap.contains(e.target)) closePanel();
     });
     // Catches a select repopulated programmatically (e.g. the country to
     // state to LGA cascading picker replacing <option>s after a fetch)
