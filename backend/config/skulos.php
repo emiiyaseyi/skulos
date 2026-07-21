@@ -292,6 +292,66 @@ return [
     ],
 
     /*
+    | Knowledge Base seed catalog (2026-07-21): the initial real, accurate
+    | article set for the in-app help screen, describing features that
+    | genuinely exist and work exactly as described here. Seeded once via
+    | KnowledgeBaseSeeder into the real knowledge_base_categories/articles
+    | tables (the "config feeds a one-time seed into a DB table, every
+    | runtime read goes through the table" pattern already established by
+    | grading_scales/comments/report card traits/admission document
+    | requirements) — a platform admin edits/adds from there afterward,
+    | this array is never read directly at request time.
+    */
+    'default_knowledge_base' => [
+        'Getting Started' => [
+            [
+                'title' => 'Finding your way around',
+                'body' => "Every screen lives behind the menu on the left (tap the menu icon on a phone to open it). Use the search box above the menu to jump straight to a feature by name instead of hunting through the list.\n\nYour dashboard is the home screen after signing in: it shows figures relevant to your role (students, attendance, results, and so on) and a set of quick actions for the things you do most often.",
+            ],
+            [
+                'title' => 'Who can see and do what',
+                'body' => "Every person who signs in has a role (Owner, Principal, Teacher, Parent, and so on), and each role grants access to specific screens and actions. An administrator manages this under Settings > User & Role Management: pick a role, tick the sections and features it should have, and save. A role change takes effect immediately for anyone holding that role.",
+            ],
+        ],
+        'Students & Staff' => [
+            [
+                'title' => 'Adding a student',
+                'body' => "Go to Students > Add Student for a single entry, or Students > Import to bring in many at once from a spreadsheet (download the template first, it lists every column the importer understands). A student's Admission Number is their permanent identifier here, it is set by the school and used everywhere a student is referenced, so double check it before saving. Email is optional and never required.",
+            ],
+            [
+                'title' => 'Setting a student or staff member\'s unique sign-in identifier',
+                'body' => "Under Settings > Student Field Settings, an administrator chooses whether email address or phone number is the required unique identifier for parents and, separately, for staff. Whichever is chosen, sign-in itself still accepts either an email or a phone number in the same field.",
+            ],
+        ],
+        'Attendance & Timetable' => [
+            [
+                'title' => 'Taking attendance',
+                'body' => "Attendance > Take Attendance, pick a class and date, mark each student present, absent, or late, then save. Attendance cannot be recorded for a weekend or a day marked as a holiday or break on the school calendar, those are not real school days.",
+            ],
+            [
+                'title' => 'Building a class timetable',
+                'body' => "Timetable Management is available on the Advance plan and above. An administrator first sets up the school's period slots once (Timetable > Periods, or load the suggested default day), then builds each class's weekly grid under Timetable, assigning a subject and teacher to each period. The same teacher cannot be placed in two different classes at the same day and period, a conflicting cell is skipped and reported rather than silently double booking someone.",
+            ],
+        ],
+        'Results & Report Cards' => [
+            [
+                'title' => 'Setting up how results are scored',
+                'body' => "Under Results > Assessment Structure, define the components scores are made of (for example two Continuous Assessments plus one Examination) and how many marks each is out of. Under Results > Grading, define the grade bands (A, B, C, and so on) and the score range each covers. Both can be loaded from a sensible default and adjusted afterward.",
+            ],
+            [
+                'title' => 'Designing a report card',
+                'body' => "The Report Card Designer (Advance plan and above) lets an administrator drag sections, blocks, and even custom text or charts around a live preview of the real report card, then save it as the school's layout. Every school starts on a sensible default layout even before anyone opens the designer.",
+            ],
+        ],
+        'Communication' => [
+            [
+                'title' => 'Sending an announcement',
+                'body' => "Communication > Announcements lets you write a message and choose who receives it (parents, teachers, staff, students, or a mix). Everyone the announcement is sent to always gets an in-app notification; email is a separate, optional toggle per audience, set under Settings > Communication.",
+            ],
+        ],
+    ],
+
+    /*
     | Add ons purchasable on any plan regardless of tier (tracker section 14).
     | "module" links an add on to an RBAC module code above so granting it
     | can also flip that module on; add ons with "module" => null are
@@ -1427,6 +1487,11 @@ return [
     | those two roles were reported seeing things they should not.
     */
     'nav_permission_map' => [
+        // Every scoped role already holds calendar.view (parent, student,
+        // every teacher tier, ...), used here purely as an "any signed in
+        // member" proxy — Knowledge Base needs no real permission of its
+        // own, it is a help resource, not a management screen.
+        'knowledge_base' => 'calendar.view',
         'student_records' => 'students.view',
         'staff_records' => 'staff.view',
         'attendance_management' => 'attendance.view',

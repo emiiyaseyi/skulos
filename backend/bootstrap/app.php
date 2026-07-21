@@ -17,6 +17,27 @@ return Application::configure(basePath: dirname(__DIR__))
             'school_member' => \App\Http\Middleware\EnsureSchoolMember::class,
             'require_password_change' => \App\Http\Middleware\RequirePasswordChange::class,
         ]);
+
+        // Domain aware guest redirect (found live 2026-07-21: a session
+        // expiring — idle timeout, manual logout elsewhere, ... — while
+        // browsing a school's own subdomain bounced to the platform
+        // admin's bare-domain login instead of that school's own branded
+        // one, since Laravel's own default just calls route('login')
+        // unconditionally, the one route literally named that, wherever
+        // the request actually came from. Worse than a wrong page: it
+        // could read as an actual login/redirect ping pong across the
+        // two hosts ("the page just keeps reloading"), since a stale
+        // session cookie on the bare domain can make that wrong page
+        // look authenticated enough to try bouncing back to the
+        // originally intended school subdomain URL, which is still not
+        // authenticated there either.
+        $middleware->redirectGuestsTo(function (\Illuminate\Http\Request $request) {
+            $school = $request->route('school');
+
+            return $school
+                ? route('school.login', ['school' => $school])
+                : route('login');
+        });
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // A stale/expired CSRF token (e.g. a tab left open past the idle

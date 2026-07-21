@@ -27,6 +27,7 @@
 {!! $item('admin.audit-log.index', 'Audit Log', 'search') !!}
 {!! $item('admin.team.index', 'Platform Team', 'roles') !!}
 {!! $item('admin.marketing-pages.index', 'Marketing Pages', 'pages') !!}
+{!! $item('admin.knowledge-base.index', 'Knowledge Base', 'support') !!}
 
 <div class="side-group">Settings</div>
 {!! $item('admin.settings.index', 'Platform Settings', 'settings') !!}

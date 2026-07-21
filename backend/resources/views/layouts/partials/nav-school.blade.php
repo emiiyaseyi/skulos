@@ -85,14 +85,16 @@
    * read the school's current Plan row and any BillingController
    * grantFeature()/SchoolAddOn state fresh, nothing is cached here.
    *
-   * "support" is excluded entirely: its features (Standard Support,
-   * Priority Email Support, Knowledge Base, ...) are service
+   * "support" is excluded except for Knowledge Base (2026-07-21, a real
+   * screen now exists for it): the rest of it (Standard Support, Priority
+   * Email Support, Staff Onboarding & Training, ...) are service
    * commitments, not screens a user navigates to, listing them as
    * "Soon" would misleadingly imply an unbuilt page is coming.
    */
   $builtRoutes = [
     // feature key => [routeName, label, icon]
     'dashboard' => ['school.dashboard', 'Dashboard', 'dashboard'],
+    'knowledge_base' => ['school.knowledge-base.index', 'Knowledge Base', 'support'],
     // "Student Records" and "Student Portal" merged into one nav line
     // (user directive 2026-07-16: "UNDER ACADEMICS, WE HAVE STUDENT AND
     // STUDENT PORTAL, MERGE WHAT WE HAVE UNDER STUDENT INTO STUDENT
@@ -386,11 +388,19 @@
   ];
 
   foreach (config('skulos.plan_feature_catalog') as $categoryKey => $category) {
-    if ($categoryKey === 'support' || ! $school?->hasAnyFeatureInCategory($categoryKey)) {
+    if (! $school?->hasAnyFeatureInCategory($categoryKey)) {
       continue;
     }
 
     foreach ($category['features'] as $featureKey => $featureLabel) {
+      // The rest of "support" (Standard Support, Priority Email Support,
+      // Staff Onboarding & Training, ...) stays excluded as service
+      // commitments, not screens — see the docblock above. Knowledge
+      // Base is the one exception (2026-07-21): a real in-app help
+      // screen now exists for it, see $builtRoutes below.
+      if ($categoryKey === 'support' && $featureKey !== 'knowledge_base') {
+        continue;
+      }
       if (! $school->hasFeature($featureKey)) {
         continue;
       }

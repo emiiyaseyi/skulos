@@ -75,6 +75,17 @@ Route::domain($appDomain)->group(function () {
             Route::get('/{page}', [$marketingPages, 'edit'])->name('edit');
             Route::post('/{page}', [$marketingPages, 'update'])->name('update');
         });
+        Route::prefix('knowledge-base')->name('knowledge-base.')->group(function () {
+            $kb = \App\Http\Controllers\Admin\KnowledgeBaseController::class;
+            Route::get('/', [$kb, 'index'])->name('index');
+            Route::post('/categories', [$kb, 'storeCategory'])->name('categories.store');
+            Route::post('/categories/{categoryId}', [$kb, 'updateCategory'])->name('categories.update');
+            Route::delete('/categories/{categoryId}', [$kb, 'destroyCategory'])->name('categories.destroy');
+            Route::post('/articles', [$kb, 'storeArticle'])->name('articles.store');
+            Route::get('/articles/{articleId}/edit', [$kb, 'editArticle'])->name('articles.edit');
+            Route::post('/articles/{articleId}', [$kb, 'updateArticle'])->name('articles.update');
+            Route::delete('/articles/{articleId}', [$kb, 'destroyArticle'])->name('articles.destroy');
+        });
         Route::get('/schools', [SchoolAdminController::class, 'schools'])->name('schools.index');
         Route::post('/schools', [SchoolAdminController::class, 'store'])->name('schools.store');
         Route::get('/schools/archive', [SchoolAdminController::class, 'trashed'])->name('schools.archive-list');
@@ -251,6 +262,12 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
     Route::middleware(['auth', 'school_member', 'require_password_change'])->group(function () {
         Route::get('/dashboard', [SchoolPortalController::class, 'dashboard'])->name('school.dashboard');
         Route::post('/session/end-impersonation', [SchoolAdminController::class, 'endImpersonation'])->name('session.end-impersonation');
+
+        Route::prefix('help')->name('school.knowledge-base.')->group(function () {
+            $kb = \App\Http\Controllers\School\KnowledgeBaseController::class;
+            Route::get('/', [$kb, 'index'])->name('index');
+            Route::get('/{slug}', [$kb, 'show'])->name('show');
+        });
 
         // Students
         Route::get('/students', [\App\Http\Controllers\School\StudentController::class, 'index'])->name('school.students');
