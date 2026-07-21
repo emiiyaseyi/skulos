@@ -165,4 +165,39 @@ class StaffParentDirectoryTest extends TestCase
             route('school.students', ['school' => $school->slug]),
         );
     }
+
+    /** User report 2026-07-21: "parent portal not showing the all parent list like we have under the staff portal page for admin." */
+    public function test_parent_portal_links_to_a_full_parent_list(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'ppfive');
+        $this->seedClassStructure($school);
+
+        $response = $this->actingAs($owner)->get(route('school.parents.directory', ['school' => $school->slug]));
+
+        $response->assertOk()->assertSee(route('school.parents.all', ['school' => $school->slug]), false);
+    }
+
+    public function test_full_parent_list_shows_every_guardian_and_supports_search(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'ppsix');
+        [, , , , , $student] = $this->seedClassStructure($school);
+
+        $response = $this->actingAs($owner)->get(route('school.parents.all', ['school' => $school->slug]));
+        $response->assertOk()->assertSee('Mrs Ade')->assertSee('Mother')
+            ->assertSee(route('school.students.show', ['school' => $school->slug, 'studentId' => $student->id]), false);
+
+        $noMatch = $this->actingAs($owner)->get(route('school.parents.all', ['school' => $school->slug, 'q' => 'Nobody']));
+        $noMatch->assertOk()->assertDontSee('Mrs Ade');
+    }
+
+    public function test_full_parent_list_respects_the_existing_guardian_visibility_setting(): void
+    {
+        [$school, $subjectTeacherUser] = $this->schoolWithMember('subject-teacher', 'ppseven');
+        $this->seedClassStructure($school);
+        $this->rbac->grantModuleOverride($school, $subjectTeacherUser, 'parents');
+
+        $response = $this->actingAs($subjectTeacherUser)->get(route('school.parents.all', ['school' => $school->slug]));
+
+        $response->assertOk()->assertSee('restricted for your role')->assertDontSee('Mrs Ade');
+    }
 }

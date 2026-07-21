@@ -6,6 +6,7 @@
     <h1 class="title">Parent Portal</h1>
     <p class="subtitle">Browse by section and class to reach a student's guardians.</p>
   </div>
+  <a class="btn btn-ghost btn-sm" href="{{ route('school.parents.all', ['school' => $school->slug]) }}">Full parent list</a>
 </div>
 
 @if(! $canSeeGuardianDetails)

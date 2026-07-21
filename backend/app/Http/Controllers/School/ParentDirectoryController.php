@@ -7,6 +7,7 @@ use App\Models\School;
 use App\Models\Tenant\Section;
 use App\Models\Tenant\Setting;
 use App\Models\Tenant\Student;
+use App\Models\Tenant\StudentGuardian;
 use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -86,6 +87,49 @@ class ParentDirectoryController extends Controller
             'accent' => $school->branding()['color'],
             'class' => $class,
             'students' => $students,
+            'canSeeGuardianDetails' => $this->canSeeGuardianDetails(),
+        ]);
+    }
+
+    /**
+     * Flat "every parent on record" list, the same "Full staff list" a
+     * Staff Portal already links out to alongside its own section/class
+     * browse (user report 2026-07-21: "parent portal not showing the all
+     * parent list like we have under the staff portal page for admin").
+     * One row per StudentGuardian record rather than a deduplicated
+     * "person," since a guardian isn't its own first-class entity in this
+     * data model (see the class docblock) and two rows for the same real
+     * parent across two siblings can legitimately carry different
+     * relationship/contact details that should never be silently merged.
+     * Each row links to the guardian's student, where the actual guardian
+     * management (edit/remove, create a login) already lives, matching
+     * this controller's existing "browse only, don't duplicate" stance.
+     */
+    public function all(Request $request): \Illuminate\View\View
+    {
+        $school = $this->school($request);
+        abort_unless(app(Rbac::class)->check(Auth::user(), $school, 'parents.view'), 403, 'You do not have permission for this.');
+        $search = trim((string) $request->query('q'));
+
+        $guardians = StudentGuardian::query()
+            ->with('student.currentClassArm.arm')
+            ->when($search, fn ($q) => $q->where(function ($w) use ($search) {
+                $w->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%")
+                    ->orWhereHas('student', fn ($sw) => $sw->where('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%"));
+            }))
+            ->orderBy('name')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('school.parents.all', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'guardians' => $guardians,
+            'search' => $search,
+            'total' => StudentGuardian::count(),
             'canSeeGuardianDetails' => $this->canSeeGuardianDetails(),
         ]);
     }

@@ -65,6 +65,13 @@ Route::domain($appDomain)->group(function () {
         Route::post('/audit-log/verify', [\App\Http\Controllers\Admin\AuditLogController::class, 'verify'])->name('audit-log.verify');
         Route::get('/modules', [\App\Http\Controllers\Admin\ModuleAdminController::class, 'index'])->name('modules.index');
         Route::get('/backups', [\App\Http\Controllers\Admin\BackupAdminController::class, 'index'])->name('backups.index');
+        Route::prefix('platform-backups')->name('platform-backups.')->group(function () {
+            $platformBackups = \App\Http\Controllers\Admin\PlatformBackupController::class;
+            Route::get('/', [$platformBackups, 'index'])->name('index');
+            Route::post('/', [$platformBackups, 'store'])->name('store');
+            Route::get('/{backupId}/download', [$platformBackups, 'download'])->name('download');
+            Route::delete('/{backupId}', [$platformBackups, 'destroy'])->name('destroy');
+        });
         Route::get('/team', [\App\Http\Controllers\Admin\PlatformTeamController::class, 'index'])->name('team.index');
         Route::post('/team', [\App\Http\Controllers\Admin\PlatformTeamController::class, 'store'])->name('team.store');
         Route::post('/team/{user}/revoke', [\App\Http\Controllers\Admin\PlatformTeamController::class, 'revoke'])->name('team.revoke');
@@ -341,6 +348,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::prefix('parent-portal')->name('school.parents.')->group(function () {
             $parentDirectory = \App\Http\Controllers\School\ParentDirectoryController::class;
             Route::get('/', [$parentDirectory, 'index'])->name('directory');
+            Route::get('/all', [$parentDirectory, 'all'])->name('all');
             Route::get('/classes/{classId}', [$parentDirectory, 'showClass'])->name('directory-class');
         });
 
