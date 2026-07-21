@@ -56,25 +56,67 @@
           <thead><tr><th>Class</th><th>Streams</th><th>Subjects offered</th><th></th></tr></thead>
           <tbody>
             @foreach($section->classes as $class)
-              <tr>
-                <td>
-                  <a href="{{ route('school.academics.classes.show', ['school' => $school->slug, 'classId' => $class->id]) }}"><strong>{{ $class->name }}</strong></a>
-                  @unless($class->is_active)<span class="badge badge-warn" style="margin-left:.4rem">Retired</span>@endunless
-                </td>
-                <td class="muted">
-                  {{ $class->arms->map(fn($ca) => $ca->arm?->name ?: 'Single stream')->join(', ') }}
-                  @if($canManage)
-                    <form method="POST" action="{{ route('school.academics.arms.store', ['school' => $school->slug]) }}" style="display:inline-flex;gap:.3rem;margin-left:.5rem">
-                      @csrf
-                      <input type="hidden" name="school_class_id" value="{{ $class->id }}" />
-                      <input name="name" placeholder="e.g. B" style="width:5rem;padding:.3rem .5rem" />
-                      <button class="btn btn-ghost btn-sm" type="submit">Add stream</button>
-                    </form>
-                  @endif
-                </td>
-                <td class="muted">{{ $class->subjects_count }}</td>
-                <td><a class="btn btn-ghost btn-sm" href="{{ route('school.academics.classes.show', ['school' => $school->slug, 'classId' => $class->id]) }}">View</a></td>
-              </tr>
+
+              {{-- Triggered on arm COUNT, not on whether an arm happens to
+                   be named — see the matching note on the Students index,
+                   the exact same convention applies here. Subjects offered
+                   stays on the class row either way: subjects apply to the
+                   whole class, not per stream, that part of the data model
+                   is unaffected by streaming. --}}
+              @if($class->arms->count() > 1)
+                <tr>
+                  <td>
+                    <a href="{{ route('school.academics.classes.show', ['school' => $school->slug, 'classId' => $class->id]) }}"><strong>{{ $class->name }}</strong></a>
+                    @unless($class->is_active)<span class="badge badge-warn" style="margin-left:.4rem">Retired</span>@endunless
+                  </td>
+                  <td class="muted">
+                    @if($canManage)
+                      <form method="POST" action="{{ route('school.academics.arms.store', ['school' => $school->slug]) }}" style="display:inline-flex;gap:.3rem">
+                        @csrf
+                        <input type="hidden" name="school_class_id" value="{{ $class->id }}" />
+                        <input name="name" placeholder="e.g. B" style="width:5rem;padding:.3rem .5rem" />
+                        <button class="btn btn-ghost btn-sm" type="submit">Add stream</button>
+                      </form>
+                    @endif
+                  </td>
+                  <td class="muted">{{ $class->subjects_count }}</td>
+                  <td></td>
+                </tr>
+                {{-- View belongs on each stream, not the class heading row
+                     above (user directive 2026-07-21, after seeing it on
+                     the parent row only: "the View button should be for
+                     each class stream and not the main class name") — a
+                     streamed class's own row carries no other action
+                     either, per the same "no data on the parent" rule. --}}
+                @foreach($class->arms->sortBy(fn($arm) => $arm->orderKey()) as $arm)
+                  <tr>
+                    <td style="padding-left:1.6rem" class="muted">{{ $arm->label() }}</td>
+                    <td></td>
+                    <td></td>
+                    <td><a class="btn btn-ghost btn-sm" href="{{ route('school.academics.classes.show', ['school' => $school->slug, 'classId' => $class->id]) }}">View</a></td>
+                  </tr>
+                @endforeach
+              @else
+                <tr>
+                  <td>
+                    <a href="{{ route('school.academics.classes.show', ['school' => $school->slug, 'classId' => $class->id]) }}"><strong>{{ $class->name }}</strong></a>
+                    @unless($class->is_active)<span class="badge badge-warn" style="margin-left:.4rem">Retired</span>@endunless
+                  </td>
+                  <td class="muted">
+                    {{ $class->arms->first()?->arm?->name ?: 'Single stream' }}
+                    @if($canManage)
+                      <form method="POST" action="{{ route('school.academics.arms.store', ['school' => $school->slug]) }}" style="display:inline-flex;gap:.3rem;margin-left:.5rem">
+                        @csrf
+                        <input type="hidden" name="school_class_id" value="{{ $class->id }}" />
+                        <input name="name" placeholder="e.g. B" style="width:5rem;padding:.3rem .5rem" />
+                        <button class="btn btn-ghost btn-sm" type="submit">Add stream</button>
+                      </form>
+                    @endif
+                  </td>
+                  <td class="muted">{{ $class->subjects_count }}</td>
+                  <td><a class="btn btn-ghost btn-sm" href="{{ route('school.academics.classes.show', ['school' => $school->slug, 'classId' => $class->id]) }}">View</a></td>
+                </tr>
+              @endif
             @endforeach
           </tbody>
         </table>

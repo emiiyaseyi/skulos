@@ -136,15 +136,50 @@
             <thead><tr><th>Class</th><th>Students</th><th></th></tr></thead>
             <tbody>
               @foreach($section->classes as $class)
-                @php($classTotal = $class->arms->sum(fn($arm) => $classCounts[$arm->id] ?? 0))
-                <tr>
-                  <td>
-                    <strong>{{ $class->name }}</strong>
-                    @unless($class->is_active)<span class="badge badge-warn" style="margin-left:.4rem">Retired</span>@endunless
-                  </td>
-                  <td class="muted">{{ $classTotal }}</td>
-                  <td><a class="btn btn-ghost btn-sm" href="{{ route('school.academics.classes.show', ['school' => $school->slug, 'classId' => $class->id]) }}">View</a></td>
-                </tr>
+                {{-- Triggered on arm COUNT, not on whether an arm happens
+                     to be named: storeArm() converts a class's original
+                     default arm in place for the very first stream added
+                     (so a class with exactly one arm is a flat single
+                     stream row either way, named or not), only the
+                     second stream onward creates a genuinely separate
+                     ClassArm row. Counting arms rather than filtering by
+                     name also means a legacy/orphaned unnamed arm from
+                     before that conversion logic existed still shows up
+                     as its own row with its own real students, never
+                     silently dropped. --}}
+                @if($class->arms->count() > 1)
+                  {{-- A class actually split into streams carries no data
+                       of its own on this row (user directive 2026-07-21:
+                       "when stream is used, the class name has no data as
+                       the data falls under the stream") — it is a heading
+                       only, each real stream underneath is where the
+                       students actually are. --}}
+                  <tr>
+                    <td>
+                      <strong>{{ $class->name }}</strong>
+                      @unless($class->is_active)<span class="badge badge-warn" style="margin-left:.4rem">Retired</span>@endunless
+                    </td>
+                    <td></td>
+                    <td></td>
+                  </tr>
+                  @foreach($class->arms->sortBy(fn($arm) => $arm->orderKey()) as $arm)
+                    <tr>
+                      <td style="padding-left:1.6rem" class="muted">{{ $arm->label() }}</td>
+                      <td class="muted">{{ $classCounts[$arm->id] ?? 0 }}</td>
+                      <td><a class="btn btn-ghost btn-sm" href="{{ route('school.academics.classes.show', ['school' => $school->slug, 'classId' => $class->id]) }}">View</a></td>
+                    </tr>
+                  @endforeach
+                @else
+                  @php($classTotal = $class->arms->sum(fn($arm) => $classCounts[$arm->id] ?? 0))
+                  <tr>
+                    <td>
+                      <strong>{{ $class->name }}</strong>
+                      @unless($class->is_active)<span class="badge badge-warn" style="margin-left:.4rem">Retired</span>@endunless
+                    </td>
+                    <td class="muted">{{ $classTotal }}</td>
+                    <td><a class="btn btn-ghost btn-sm" href="{{ route('school.academics.classes.show', ['school' => $school->slug, 'classId' => $class->id]) }}">View</a></td>
+                  </tr>
+                @endif
               @endforeach
             </tbody>
           </table>
