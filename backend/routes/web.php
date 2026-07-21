@@ -183,8 +183,8 @@ Route::domain($appDomain)->group(function () {
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 Route::post('/session/keep-alive', [\App\Http\Controllers\SessionController::class, 'keepAlive'])
     ->middleware('auth')->name('session.keep-alive');
-Route::post('/session/end-impersonation', [SchoolAdminController::class, 'endImpersonation'])
-    ->middleware('auth')->name('session.end-impersonation');
+Route::get('/session/resume-admin/{admin}', [SchoolAdminController::class, 'resumeAdmin'])
+    ->middleware('signed')->name('session.resume-admin');
 
 Route::get('/auth/{provider}/redirect', [SsoController::class, 'redirect'])
     ->whereIn('provider', \App\Services\Auth\SsoManager::PROVIDERS)->name('sso.redirect');
@@ -241,8 +241,16 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::post('/password/reset', [\App\Http\Controllers\School\ProfileController::class, 'resetViaToken'])->middleware('throttle:5,1')->name('school.password.reset.submit');
     });
 
+    // Impersonation handoff landing point (see SchoolAdminController::
+    // impersonate()'s docblock): neither 'guest' nor 'auth', the browser
+    // is not yet authenticated on this host at this point, only the
+    // signature proves the request is legitimate.
+    Route::get('/impersonate/consume/{user}', [SchoolAdminController::class, 'consumeImpersonation'])
+        ->middleware('signed')->name('school.impersonate.consume');
+
     Route::middleware(['auth', 'school_member', 'require_password_change'])->group(function () {
         Route::get('/dashboard', [SchoolPortalController::class, 'dashboard'])->name('school.dashboard');
+        Route::post('/session/end-impersonation', [SchoolAdminController::class, 'endImpersonation'])->name('session.end-impersonation');
 
         // Students
         Route::get('/students', [\App\Http\Controllers\School\StudentController::class, 'index'])->name('school.students');

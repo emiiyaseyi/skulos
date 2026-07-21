@@ -450,7 +450,16 @@ tr:last-child td{border-bottom:none}
     @if(session('impersonator_id'))
       <div class="impersonate-bar">
         <span>You are viewing as <strong>{{ auth()->user()->name }}</strong> for support.</span>
-        <form method="POST" action="{{ route('session.end-impersonation') }}">
+        {{-- A relative path, not route('session.end-impersonation'): that
+             route now lives inside the school-subdomain group (2026-07-21
+             impersonation fix) and needs a 'school' domain parameter this
+             shared layout cannot always supply (this banner only ever
+             renders on a school portal page, but the layout itself is
+             also used by the platform admin portal, where no school is in
+             scope). The browser already submits a relative action to
+             whatever host this page is actually on, which is exactly the
+             one host this route needs to run on. --}}
+        <form method="POST" action="/session/end-impersonation">
           @csrf
           <button class="btn btn-sm" type="submit">End and return to my account</button>
         </form>
@@ -735,11 +744,27 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
     }
     var secondsLeft=Math.ceil((warningDeadlineAt-now)/1000);
     if(secondsLeft<=0){
-      clearInterval(countdownTimer);
       doLogout();
       return;
     }
     countEl.textContent=secondsLeft;
+  }
+
+  // Recursive setTimeout, not setInterval (user report 2026-07-21:
+  // countdown visibly froze on screen for a stretch before the real
+  // timeout still correctly fired). setInterval keeps firing on its own
+  // fixed schedule regardless of how long a tick took to run, so ticks
+  // pile up and lag under main-thread contention (a heavy fetch, a big
+  // DOM update from something else on the page, ...); each call here
+  // instead schedules the next one fresh off the actual current time, so
+  // a late tick self-corrects instead of compounding. evaluate() itself
+  // was already correct either way, since it always computes secondsLeft
+  // from absolute timestamps, not a decrementing counter — this fixes
+  // the on-screen number actually refreshing every second, not the
+  // security behavior, which was never wrong.
+  function tick(){
+    evaluate();
+    countdownTimer=setTimeout(tick,1000);
   }
 
   function resetIdleTimer(){
@@ -788,7 +813,7 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
   });
   window.addEventListener('focus', evaluate);
 
-  countdownTimer=setInterval(evaluate,1000);
+  countdownTimer=setTimeout(tick,1000);
 })();
 </script>
 

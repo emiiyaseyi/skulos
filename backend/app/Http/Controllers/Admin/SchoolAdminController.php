@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -515,19 +516,72 @@ class SchoolAdminController extends Controller
      * to the audit trail with who/when, and a persistent banner is shown
      * the whole time so it can never be silently forgotten. It replaces
      * needing to reset a password just to see what a user sees.
+     *
+     * Does not log the target user in directly here: this action runs on
+     * the platform admin's own bare domain, but the school's portal lives
+     * on a completely different host (its own subdomain), and this app
+     * deliberately runs with SESSION_DOMAIN unset (host-only cookies —
+     * see the .env comment and tracker's 2026-07-08 "Clickable platform
+     * UI" entry for why a shared leading-dot cookie domain was tried and
+     * reverted, it broke the bare host's own login with a 419). A cookie
+     * set for this host is therefore never sent by the browser to the
+     * school's subdomain, so logging in here and simply redirecting
+     * across hosts silently loses the session (found live 2026-07-21: the
+     * redirect landed the browser on the school portal fully signed out,
+     * 404ing on every page since EnsureSchoolMember has no user to check).
+     * Instead, hand off via a short-lived signed URL to a route that
+     * actually runs ON the destination host and logs in there, so that
+     * host's own cookie gets set correctly. No new storage needed, no
+     * SESSION_DOMAIN change: Laravel's signed-URL primitive already is a
+     * tamper-proof, time-limited token, exactly what a handoff needs.
      */
-    public function impersonate(Request $request, School $school, User $user, Recorder $recorder): RedirectResponse
+    public function impersonate(Request $request, School $school, User $user): RedirectResponse
     {
         abort_unless($school->users()->whereKey($user->id)->wherePivot('status', 'active')->exists(), 404);
 
         $admin = Auth::user();
-        $request->session()->put('impersonator_id', $admin->id);
+
+        $signedUrl = URL::temporarySignedRoute('school.impersonate.consume', now()->addMinutes(2), [
+            'school' => $school->slug,
+            'user' => $user->id,
+            'impersonator' => $admin->id,
+        ]);
+
+        return redirect($signedUrl);
+    }
+
+    /**
+     * Runs on the school's own subdomain (the actual handoff landing
+     * point) — see impersonate()'s docblock. The signature itself is the
+     * authorization: it could only have been minted moments ago by the
+     * super-admin-gated action above, using this app's own APP_KEY, so no
+     * separate permission re-check is needed beyond confirming the target
+     * membership is still active (the same guard impersonate() itself
+     * already applied, re-checked here since a minute or two may have
+     * passed and access could have been revoked in between).
+     */
+    public function consumeImpersonation(Request $request, Recorder $recorder): RedirectResponse
+    {
+        // $request->route('user'), not a User $user type-hint: this route
+        // sits under a Route::domain('{school}.'.$domain) group, and per
+        // the domain-routing gotcha documented in CLAUDE.md, a route
+        // parameter on a domain-wildcarded route can resolve incorrectly
+        // through implicit binding (confirmed here directly: it threw
+        // "must be of type App\Models\User, string given" instead of
+        // binding), so read and look it up explicitly instead.
+        $user = User::findOrFail($request->route('user'));
+        $school = $request->attributes->get('school');
+        $impersonator = User::findOrFail((int) $request->query('impersonator'));
+
+        abort_unless($school->users()->whereKey($user->id)->wherePivot('status', 'active')->exists(), 404);
+
         Auth::login($user);
         $request->session()->regenerate();
+        $request->session()->put('impersonator_id', $impersonator->id);
 
         $recorder->record('support.impersonate.start', $user, new: [
-            'impersonator_id' => $admin->id,
-            'impersonator_email' => $admin->email,
+            'impersonator_id' => $impersonator->id,
+            'impersonator_email' => $impersonator->email,
             'school_id' => $school->id,
         ]);
 
@@ -535,7 +589,14 @@ class SchoolAdminController extends Controller
             ->with('status', "You are now viewing {$school->name} as {$user->name} for support. End this from the banner at the top when you are done.");
     }
 
-    /** Return to the platform admin's own session. */
+    /**
+     * Ends impersonation, runs on the school's own subdomain (the
+     * impersonate bar's form lives there). Mirrors impersonate()'s own
+     * cross-host handoff, in reverse: logs the school-scoped session out
+     * cleanly here, then hands off via another signed URL to a route that
+     * runs on the platform admin's bare domain and logs the admin back in
+     * there, rather than trying to carry a cookie across hosts.
+     */
     public function endImpersonation(Request $request, Recorder $recorder): RedirectResponse
     {
         $impersonatorId = $request->session()->get('impersonator_id');
@@ -544,14 +605,29 @@ class SchoolAdminController extends Controller
         $viewedAs = Auth::user();
         $admin = User::findOrFail($impersonatorId);
 
-        $request->session()->forget('impersonator_id');
-        Auth::login($admin);
-        $request->session()->regenerate();
-
         $recorder->record('support.impersonate.end', $viewedAs, new: [
             'impersonator_id' => $admin->id,
             'impersonator_email' => $admin->email,
         ]);
+
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        $signedUrl = URL::temporarySignedRoute('session.resume-admin', now()->addMinutes(2), [
+            'admin' => $admin->id,
+        ]);
+
+        return redirect($signedUrl);
+    }
+
+    /** Runs on the platform admin's bare domain, the landing point of endImpersonation()'s handoff. */
+    public function resumeAdmin(Request $request, User $admin): RedirectResponse
+    {
+        abort_unless($admin->is_super_admin, 404);
+
+        Auth::login($admin);
+        $request->session()->regenerate();
 
         return redirect()->route('admin.dashboard')->with('status', 'You are back in your own account.');
     }

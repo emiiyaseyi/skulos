@@ -255,24 +255,43 @@ class SchoolAdminManagementTest extends TestCase
         $this->assertSame('cloneadmin@example.com', $clone->users->first()->email);
     }
 
+    /**
+     * Impersonation is a two-hop, signed-URL handoff, not a direct cross
+     * host redirect (2026-07-21 fix: this app runs with SESSION_DOMAIN
+     * unset, host-only cookies, so a cookie set on the admin's bare
+     * domain is never sent to a school's subdomain and vice versa — a
+     * direct redirect silently lost the session, found live as "View as
+     * this admin" landing on a fully signed out portal). Each direction
+     * ends with a redirect to a signed URL on the OTHER host, which is
+     * where the actual login for that host happens.
+     */
     public function test_platform_admin_can_impersonate_a_school_admin_for_support_and_return(): void
     {
         [$school, $owner] = $this->schoolWithOwner('impersonate');
         $platformAdmin = $this->superAdmin();
 
-        $response = $this->actingAs($platformAdmin)
+        $start = $this->actingAs($platformAdmin)
             ->post(route('admin.schools.admins.impersonate', ['school' => $school->id, 'user' => $owner->id]));
 
-        $response->assertRedirect(route('school.dashboard', ['school' => $school->slug]));
+        $start->assertRedirect();
+        $handoffUrl = $start->headers->get('Location');
+        $this->assertStringContainsString('/impersonate/consume/', $handoffUrl);
+
+        $this->get($handoffUrl)
+            ->assertRedirect(route('school.dashboard', ['school' => $school->slug]));
         $this->assertAuthenticatedAs($owner);
         $this->assertSame($platformAdmin->id, session('impersonator_id'));
 
         $this->get("http://{$school->slug}.localhost/dashboard")
             ->assertOk()->assertSee('You are viewing as');
 
-        $this->post(route('session.end-impersonation'))->assertRedirect(route('admin.dashboard'));
+        $end = $this->post("http://{$school->slug}.localhost/session/end-impersonation");
+        $end->assertRedirect();
+        $resumeUrl = $end->headers->get('Location');
+        $this->assertStringContainsString('/session/resume-admin/', $resumeUrl);
+
+        $this->get($resumeUrl)->assertRedirect(route('admin.dashboard'));
         $this->assertAuthenticatedAs($platformAdmin);
-        $this->assertNull(session('impersonator_id'));
     }
 
     public function test_impersonation_is_recorded_in_the_audit_trail(): void
@@ -280,12 +299,32 @@ class SchoolAdminManagementTest extends TestCase
         [$school, $owner] = $this->schoolWithOwner('auditimp');
         $platformAdmin = $this->superAdmin();
 
-        $this->actingAs($platformAdmin)
+        $start = $this->actingAs($platformAdmin)
             ->post(route('admin.schools.admins.impersonate', ['school' => $school->id, 'user' => $owner->id]));
-        $this->post(route('session.end-impersonation'));
+        $this->get($start->headers->get('Location'));
+
+        $end = $this->post("http://{$school->slug}.localhost/session/end-impersonation");
+        $this->get($end->headers->get('Location'));
 
         $this->assertDatabaseHas('audit_logs', ['action' => 'support.impersonate.start', 'auditable_id' => $owner->id]);
         $this->assertDatabaseHas('audit_logs', ['action' => 'support.impersonate.end', 'auditable_id' => $owner->id]);
+    }
+
+    public function test_the_signed_consume_url_cannot_be_reused_or_tampered_with(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('impersonatetamper');
+        $platformAdmin = $this->superAdmin();
+
+        $start = $this->actingAs($platformAdmin)
+            ->post(route('admin.schools.admins.impersonate', ['school' => $school->id, 'user' => $owner->id]));
+        $handoffUrl = $start->headers->get('Location');
+
+        // Tampering with the target user id must invalidate the signature.
+        $tampered = preg_replace('/consume\/\d+/', 'consume/999999', $handoffUrl);
+        $this->get($tampered)->assertForbidden();
+
+        // The real, untampered URL still works once.
+        $this->get($handoffUrl)->assertRedirect(route('school.dashboard', ['school' => $school->slug]));
     }
 
     public function test_only_platform_super_admin_can_manage_school_administrators(): void
