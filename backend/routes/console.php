@@ -50,6 +50,13 @@ Schedule::command('skulos:notify-birthdays-anniversaries')->dailyAt('06:00')->wi
 // itself no-ops unless config('skulos.self_hosted') is true.
 Schedule::command('license:check')->hourly()->withoutOverlapping();
 
+// Platform database backup (2026-07-21): every school's own tenant
+// database has had scheduled backups since 2026-07-09, the shared
+// platform database (schools, users, plans, billing, licenses) never
+// did, a genuine gap found during a deployment readiness review. Off
+// peak, once a day, same as the other maintenance jobs.
+Schedule::command('platform:backup')->dailyAt('02:30')->withoutOverlapping();
+
 // Audit log hardening (2026-07-20). Export is hourly so a durable,
 // external copy of new audit activity never sits unshipped for long;
 // verify is once daily, off peak, since walking every row on every
