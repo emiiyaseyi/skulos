@@ -493,8 +493,17 @@ class RoleDashboardTest extends TestCase
         $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
         $arm = ClassArm::create(['school_class_id' => $class->id]);
         $a = Student::create(['admission_number' => 'FB1', 'first_name' => 'A', 'last_name' => 'One', 'current_class_arm_id' => $arm->id]);
-        // 3 days ago, nothing marked today or yesterday.
-        app(\App\Services\Attendance\AttendanceService::class)->markClass($arm->id, now()->subDays(3), [
+        // A few days ago, nothing marked today or yesterday. A fixed
+        // subDays(3) intermittently landed on a Saturday or Sunday
+        // depending on which day the suite happened to run on, and
+        // AttendanceService::markClass() refuses to mark a weekend (a
+        // real, correct guard, not a bug) — nudge back onto the nearest
+        // weekday so this test is not flaky by the calendar.
+        $markDate = now()->subDays(3);
+        if ($markDate->isWeekend()) {
+            $markDate = $markDate->subDays(2);
+        }
+        app(\App\Services\Attendance\AttendanceService::class)->markClass($arm->id, $markDate, [
             $a->id => 'present',
         ]);
         app(TenantManager::class)->forget();
