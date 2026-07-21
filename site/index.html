@@ -1582,11 +1582,14 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
  </section>
 
  <!-- PRICING -->
- <!-- NOTE: figures and per-plan feature checklists below are the current confirmed
-       business decision (see DEVELOPMENT_TRACKER.md, "Confirmed Business Decisions",
-       and tracker section 14 for the full catalog this was built from). Once the
-       admin CMS ships (tracker section 13), this section reads from the Pricing
-       Plans table instead of being hardcoded here. -->
+ <!-- NOTE (2026-07-21): price and the full "See all features" checklist
+      are now live, fetched from the plans table via PlanCatalogController
+      and assets/pricing.js, which overwrite the figures/markup below in
+      place once the fetch resolves. What you see here in the raw HTML is
+      the hand maintained fallback shown if that fetch fails (backend
+      unreachable or not yet deployed) or before it resolves, kept in sync
+      by hand with tracker section 14's catalog, not the live source of
+      truth anymore. -->
  <section class="wrap" id="pricing">
  <div class="section-head">
  <span class="eyebrow">Pricing</span>
@@ -1671,8 +1674,9 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
  <p class="pricing-note">Annual billing is available at 3 times the termly rate. Add ons such as SMS bundles, extra storage and a custom domain are purchasable on any plan.</p>
  </section>
 
- <!-- FEATURE MODAL: full checklist per plan, data generated from the seeded Plan
-      records to stay consistent with the admin Billing screen (tracker section 14) -->
+ <!-- FEATURE MODAL: full checklist per plan. The embedded JSON below is the
+      fallback data source (see the PRICING note above) used only if
+      assets/pricing.js's live fetch fails or hasn't resolved yet. -->
  <div class="feature-modal" id="featureModal" aria-hidden="true">
  <div class="feature-modal-backdrop" data-close></div>
  <div class="feature-modal-panel" role="dialog" aria-modal="true" aria-labelledby="featureModalTitle">
@@ -1924,58 +1928,6 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
     });
   });
 
-  (function(){
-    var modal = document.getElementById('featureModal');
-    var dataEl = document.getElementById('planFeaturesData');
-    if(!modal || !dataEl) return;
-    var planFeatures = JSON.parse(dataEl.textContent);
-    var titleEl = modal.querySelector('#featureModalTitle');
-    var bodyEl = modal.querySelector('.feature-modal-body');
-    var lastFocused = null;
-
-    function render(planKey, planLabel){
-      var groups = planFeatures[planKey] || [];
-      var total = groups.reduce(function(sum, g){ return sum + g[1].length; }, 0);
-      titleEl.textContent = planLabel + ': ' + total + ' features';
-      bodyEl.innerHTML = groups.map(function(group){
-        var items = group[1].map(function(f){ return '<li>' + f + '</li>'; }).join('');
-        return '<div class="feature-group"><h4>' + group[0] + '</h4><ul>' + items + '</ul></div>';
-      }).join('');
-    }
-
-    function open(planKey, planLabel){
-      render(planKey, planLabel);
-      lastFocused = document.activeElement;
-      modal.classList.add('is-open');
-      modal.setAttribute('aria-hidden', 'false');
-      modal.querySelector('.feature-modal-close').focus();
-      document.body.style.overflow = 'hidden';
-    }
-
-    function close(){
-      modal.classList.remove('is-open');
-      modal.setAttribute('aria-hidden', 'true');
-      document.body.style.overflow = '';
-      if(lastFocused) lastFocused.focus();
-    }
-
-    document.querySelectorAll('.tier-more').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        var plan = btn.getAttribute('data-plan');
-        var label = btn.closest('.tier').querySelector('h3').textContent;
-        open(plan, label);
-      });
-    });
-
-    modal.querySelectorAll('[data-close]').forEach(function(el){
-      el.addEventListener('click', close);
-    });
-
-    document.addEventListener('keydown', function(e){
-      if(e.key === 'Escape' && modal.classList.contains('is-open')) close();
-    });
-  })();
-
   document.querySelectorAll('.faq-q').forEach(function(q){
     q.addEventListener('click', function(){
       var item = q.closest('.faq-item');
@@ -1985,6 +1937,7 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
     });
   });
 </script>
+<script src="assets/pricing.js" defer></script>
 <script src="assets/widget.js" defer></script>
 </body>
 </html>

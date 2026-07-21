@@ -210,6 +210,17 @@ Route::prefix('geo')->name('geo.')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
+| Public plan catalog (marketing site CMS wiring, any host)
+|--------------------------------------------------------------------------
+| Same "reference data, no domain constraint, no auth" reasoning as geo
+| above, except this one is also called cross origin from the separately
+| hosted static site under /site — see config/cors.php.
+*/
+
+Route::get('/plans', [\App\Http\Controllers\PlanCatalogController::class, 'index'])->name('plans.index');
+
+/*
+|--------------------------------------------------------------------------
 | School portal (subdomain: {school}.<APP_DOMAIN>)
 |--------------------------------------------------------------------------
 | Each school has a branded welcome/login page and, once signed in, a
