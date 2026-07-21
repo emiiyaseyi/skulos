@@ -130,7 +130,7 @@ class TimetableController extends Controller
         return back()->with('status', count($data['period_ids']).' period(s) removed, along with any class assignments in those slots.');
     }
 
-    public function index(Request $request, TimetableService $timetable): \Illuminate\View\View
+    public function index(Request $request, TimetableService $timetable): \Illuminate\View\View|\Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'timetable.update');
         $school = $this->school($request);
@@ -146,7 +146,17 @@ class TimetableController extends Controller
         }
 
         $periods = $timetable->periods();
-        abort_if($periods->isEmpty() && $selectedArm, 422, 'Set up the period catalog first.');
+        // A school that has never set up its period catalog yet is a
+        // completely normal, anticipated state (found live 2026-07-21: a
+        // real school hit a raw 422 error page just from picking a class
+        // before ever visiting Timetable > Periods), not an error —
+        // redirect to where that is fixed in one click ("Load default
+        // day"), the same graceful pattern every other "nothing set up
+        // yet" screen in this app already uses instead of hard aborting.
+        if ($periods->isEmpty() && $selectedArm) {
+            return redirect()->route('school.timetable.periods', ['school' => $school->slug])
+                ->with('status', 'Set up your period catalog first, then come back and build this class\'s timetable.');
+        }
 
         $grid = $selectedArm ? $timetable->gridForClassArm($selectedArm->id) : [];
         $subjects = $selectedArm ? ($selectedArm->schoolClass?->subjects()->orderBy('name')->get() ?? collect()) : collect();
