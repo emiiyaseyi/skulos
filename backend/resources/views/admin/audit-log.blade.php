@@ -5,33 +5,39 @@
 
 @section('content')
 <div class="card" style="margin-bottom:1.25rem">
-  <form method="GET" action="{{ route('admin.audit-log.index') }}" style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap">
-    <div class="field" style="margin:0">
-      <label for="action">Action contains</label>
-      <input id="action" name="action" value="{{ $action }}" placeholder="e.g. school, broadcast, backup" />
-    </div>
-    <div class="field" style="margin:0">
-      <label for="user_id">By</label>
-      <select id="user_id" name="user_id">
-        <option value="">Anyone</option>
-        @foreach($users as $u)
-          <option value="{{ $u->id }}" @selected($userId == $u->id)>{{ $u->name }}</option>
-        @endforeach
-      </select>
-    </div>
-    <div class="field" style="margin:0">
-      <label for="from">From</label>
-      <input id="from" name="from" type="date" value="{{ $from }}" />
-    </div>
-    <div class="field" style="margin:0">
-      <label for="to">To</label>
-      <input id="to" name="to" type="date" value="{{ $to }}" />
-    </div>
-    <button class="btn btn-primary btn-sm" type="submit">Filter</button>
-    @if($action !== '' || $userId || $from || $to)
-      <a class="btn btn-ghost btn-sm" href="{{ route('admin.audit-log.index') }}">Clear</a>
-    @endif
-  </form>
+  <div class="row-between" style="flex-wrap:wrap;gap:.8rem;align-items:flex-end">
+    <form method="GET" action="{{ route('admin.audit-log.index') }}" style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap">
+      <div class="field" style="margin:0">
+        <label for="action">Action contains</label>
+        <input id="action" name="action" value="{{ $action }}" placeholder="e.g. school, broadcast, backup" />
+      </div>
+      <div class="field" style="margin:0">
+        <label for="user_id">By</label>
+        <select id="user_id" name="user_id">
+          <option value="">Anyone</option>
+          @foreach($users as $u)
+            <option value="{{ $u->id }}" @selected($userId == $u->id)>{{ $u->name }}</option>
+          @endforeach
+        </select>
+      </div>
+      <div class="field" style="margin:0">
+        <label for="from">From</label>
+        <input id="from" name="from" type="date" value="{{ $from }}" />
+      </div>
+      <div class="field" style="margin:0">
+        <label for="to">To</label>
+        <input id="to" name="to" type="date" value="{{ $to }}" />
+      </div>
+      <button class="btn btn-primary btn-sm" type="submit">Filter</button>
+      @if($action !== '' || $userId || $from || $to)
+        <a class="btn btn-ghost btn-sm" href="{{ route('admin.audit-log.index') }}">Clear</a>
+      @endif
+    </form>
+    <form method="POST" action="{{ route('admin.audit-log.verify') }}">
+      @csrf
+      <button class="btn btn-ghost btn-sm" type="submit" title="Recomputes every platform audit log row's hash and confirms none were altered outside the app">Verify integrity</button>
+    </form>
+  </div>
 </div>
 
 <div class="card">

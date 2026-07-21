@@ -72,4 +72,18 @@ class CampusController extends Controller
 
         return back()->with('status', 'Campus removed.');
     }
+
+    public function bulkDestroy(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'school_info.manage_settings');
+        $data = $request->validate([
+            'campus_ids' => ['required', 'array', 'min:1'],
+            'campus_ids.*' => ['exists:campuses,id'],
+        ]);
+
+        $count = Campus::whereIn('id', $data['campus_ids'])->count();
+        Campus::whereIn('id', $data['campus_ids'])->delete();
+
+        return back()->with('status', "{$count} campus(es) removed.");
+    }
 }

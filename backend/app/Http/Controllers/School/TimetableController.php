@@ -116,6 +116,20 @@ class TimetableController extends Controller
         return back()->with('status', 'Period removed, along with any class assignments in that slot.');
     }
 
+    /** Bulk version of destroyPeriod(), same list-screen bulk-action pattern used across the app. */
+    public function bulkDestroyPeriods(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'timetable.update');
+        $data = $request->validate([
+            'period_ids' => ['required', 'array', 'min:1'],
+            'period_ids.*' => ['exists:tenant.timetable_periods,id'],
+        ]);
+
+        TimetablePeriod::whereIn('id', $data['period_ids'])->delete();
+
+        return back()->with('status', count($data['period_ids']).' period(s) removed, along with any class assignments in those slots.');
+    }
+
     public function index(Request $request, TimetableService $timetable): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'timetable.update');

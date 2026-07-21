@@ -223,4 +223,22 @@ class CalendarEventController extends Controller
         return redirect()->route('school.calendar.index', ['school' => $school->slug])
             ->with('status', 'Event removed.');
     }
+
+    /** Bulk version of destroy(); default seeded events are never deletable, same rule the single Remove button already enforces. */
+    public function bulkDestroy(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'calendar.delete');
+        $school = $this->school($request);
+
+        $data = $request->validate([
+            'event_ids' => ['required', 'array', 'min:1'],
+            'event_ids.*' => ['exists:calendar_events,id'],
+        ]);
+
+        $count = CalendarEvent::whereIn('id', $data['event_ids'])->where('is_default', false)->count();
+        CalendarEvent::whereIn('id', $data['event_ids'])->where('is_default', false)->delete();
+
+        return redirect()->route('school.calendar.index', ['school' => $school->slug])
+            ->with('status', "{$count} event(s) removed.");
+    }
 }

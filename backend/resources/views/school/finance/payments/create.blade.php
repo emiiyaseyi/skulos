@@ -105,6 +105,7 @@
           installmentSelect.appendChild(opt);
         });
         installmentField.style.display = installments.length ? '' : 'none';
+        if (window.SkulosSearchable) window.SkulosSearchable.enhanceAll(installmentSelect.parentNode);
       }
       feeItemSelect?.addEventListener('change', refreshInstallments);
       refreshInstallments();

@@ -64,12 +64,17 @@
   @if($schools->isEmpty())
     <p class="muted">No schools yet. Create your first one to test the platform.</p>
   @else
+    <form id="bulkSchoolsForm" method="POST" action="{{ route('admin.schools.bulk-action') }}"></form>
     <div style="overflow-x:auto">
     <table>
-      <thead><tr><th>Name</th><th>Address</th><th>Plan</th><th>Next due</th><th>Status</th><th></th></tr></thead>
+      <thead><tr>
+        <th style="width:2.2rem"><input type="checkbox" id="school-select-all" aria-label="Select all schools" /></th>
+        <th>Name</th><th>Address</th><th>Plan</th><th>Next due</th><th>Status</th><th></th>
+      </tr></thead>
       <tbody>
       @foreach($schools as $s)
         <tr>
+          <td><input type="checkbox" form="bulkSchoolsForm" class="school-row-check" name="school_ids[]" value="{{ $s->id }}" aria-label="Select {{ $s->name }}" /></td>
           <td><strong>{{ $s->name }}</strong></td>
           <td class="muted">{{ $s->slug }}.{{ config('app.domain', 'localhost') }}</td>
           <td class="muted">{{ $s->plan?->name ?? 'No plan set' }}</td>
@@ -94,6 +99,27 @@
       </tbody>
     </table>
     </div>
+
+    <div class="row-between" style="margin-top:.8rem;flex-wrap:wrap;gap:.6rem">
+      <span class="muted" style="font-size:.85rem">Tick any number of schools above, then choose an action.</span>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button form="bulkSchoolsForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="activate">Resume selected</button>
+        <button form="bulkSchoolsForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="suspend">Suspend selected</button>
+        <button form="bulkSchoolsForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="archive">Archive selected</button>
+        <button form="bulkSchoolsForm" class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit" name="action" value="delete" onclick="return confirm('Remove the selected schools? Their data is retained and each can be restored.')">Delete selected</button>
+      </div>
+    </div>
+    <script>
+      (function(){
+        var all = document.getElementById('school-select-all');
+        var boxes = document.querySelectorAll('.school-row-check');
+        all?.addEventListener('change', function(){ boxes.forEach(function(cb){ cb.checked = all.checked; }); });
+        document.getElementById('bulkSchoolsForm')?.addEventListener('submit', function(e){
+          var anyChecked = Array.prototype.some.call(boxes, function(cb){ return cb.checked; });
+          if (! anyChecked) { e.preventDefault(); alert('Tick at least one school first.'); }
+        });
+      })();
+    </script>
   @endif
 </div>
 

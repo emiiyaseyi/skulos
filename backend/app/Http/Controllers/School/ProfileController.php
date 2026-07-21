@@ -403,4 +403,152 @@ class ProfileController extends Controller
 
         return back()->with('status', 'The profile change has been rejected.');
     }
+
+    /**
+     * Bulk version of approve(), same list-screen bulk-action pattern used
+     * across the app. Mirrors approve()'s own email/phone conflict guard
+     * per row, skipping (not failing the whole batch on) any request that
+     * now conflicts with another account.
+     */
+    public function bulkApprove(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless($this->canSelfApply($request), 403, 'You do not have permission for this.');
+        $data = $request->validate([
+            'request_ids' => ['required', 'array', 'min:1'],
+            'request_ids.*' => ['exists:tenant.profile_change_requests,id'],
+        ]);
+
+        $changeRequests = ProfileChangeRequest::where('status', ProfileChangeRequest::STATUS_PENDING)
+            ->whereIn('id', $data['request_ids'])->get();
+
+        $approved = 0;
+        $skipped = [];
+        foreach ($changeRequests as $changeRequest) {
+            $applicant = User::find($changeRequest->user_id);
+            if (! $applicant) {
+                continue;
+            }
+            $fields = $changeRequest->requested;
+
+            if (isset($fields['email']) || isset($fields['phone'])) {
+                $conflict = User::where('id', '!=', $applicant->id)
+                    ->where(function ($q) use ($fields) {
+                        if (isset($fields['email'])) {
+                            $q->orWhere('email', $fields['email']);
+                        }
+                        if (isset($fields['phone'])) {
+                            $q->orWhere('phone', $fields['phone']);
+                        }
+                    })
+                    ->exists();
+                if ($conflict) {
+                    $skipped[] = $applicant->name;
+                    continue;
+                }
+            }
+
+            $applicant->update($fields);
+            $changeRequest->update([
+                'status' => ProfileChangeRequest::STATUS_APPROVED,
+                'reviewed_by_user_id' => Auth::id(),
+                'reviewed_at' => now(),
+            ]);
+            $approved++;
+        }
+
+        $message = $approved > 0 ? "{$approved} profile change(s) approved and applied." : 'No changes approved.';
+        if ($skipped) {
+            $message .= ' Skipped (email or phone now used elsewhere): '.implode(', ', $skipped).'.';
+        }
+
+        return back()->with($skipped ? 'error' : 'status', $message);
+    }
+
+    /** Bulk version of reject(), one shared reason applied to every selected request. */
+    public function bulkReject(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless($this->canSelfApply($request), 403, 'You do not have permission for this.');
+        $data = $request->validate([
+            'request_ids' => ['required', 'array', 'min:1'],
+            'request_ids.*' => ['exists:tenant.profile_change_requests,id'],
+            'notes' => ['required', 'string', 'max:500'],
+        ]);
+
+        $count = ProfileChangeRequest::where('status', ProfileChangeRequest::STATUS_PENDING)
+            ->whereIn('id', $data['request_ids'])
+            ->update([
+                'status' => ProfileChangeRequest::STATUS_REJECTED,
+                'reviewed_by_user_id' => Auth::id(),
+                'reviewed_at' => now(),
+                'notes' => $data['notes'],
+            ]);
+
+        return back()->with('status', "{$count} profile change(s) rejected.");
+    }
+
+    /** Bulk version of approveReset(), same "set the hash directly" step per row. */
+    public function bulkApproveReset(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless($this->canSelfApply($request), 403, 'You do not have permission for this.');
+        $data = $request->validate([
+            'request_ids' => ['required', 'array', 'min:1'],
+            'request_ids.*' => ['exists:tenant.password_reset_requests,id'],
+        ]);
+
+        $resetRequests = PasswordResetRequest::where('status', PasswordResetRequest::STATUS_PENDING)
+            ->whereIn('id', $data['request_ids'])->get();
+        $school = $this->school($request);
+
+        $approved = 0;
+        foreach ($resetRequests as $resetRequest) {
+            $applicant = User::find($resetRequest->user_id);
+            if (! $applicant) {
+                continue;
+            }
+
+            // Set the column directly, bypassing Eloquent's 'hashed' cast:
+            // password_hash was already hashed at request time, re-assigning
+            // it through $user->password = ... would hash it a second time.
+            \Illuminate\Support\Facades\DB::table('users')->where('id', $applicant->id)->update([
+                'password' => $resetRequest->password_hash,
+                'must_change_password' => false,
+            ]);
+
+            $resetRequest->update([
+                'status' => PasswordResetRequest::STATUS_APPROVED,
+                'reviewed_by_user_id' => Auth::id(),
+                'reviewed_at' => now(),
+            ]);
+
+            if ($applicant->email) {
+                \Illuminate\Support\Facades\Mail::to($applicant->email)
+                    ->send(new \App\Mail\PasswordResetApprovedMail($applicant, $school));
+            }
+            $approved++;
+        }
+
+        return back()->with('status', "{$approved} password reset request(s) approved.");
+    }
+
+    /** Bulk version of rejectReset(), one shared reason applied to every selected request. */
+    public function bulkRejectReset(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless($this->canSelfApply($request), 403, 'You do not have permission for this.');
+        $data = $request->validate([
+            'request_ids' => ['required', 'array', 'min:1'],
+            'request_ids.*' => ['exists:tenant.password_reset_requests,id'],
+            'notes' => ['required', 'string', 'max:500'],
+        ]);
+
+        $count = PasswordResetRequest::where('status', PasswordResetRequest::STATUS_PENDING)
+            ->whereIn('id', $data['request_ids'])
+            ->update([
+                'status' => PasswordResetRequest::STATUS_REJECTED,
+                'reviewed_by_user_id' => Auth::id(),
+                'reviewed_at' => now(),
+                'notes' => $data['notes'],
+            ]);
+
+        return back()->with('status', "{$count} password reset request(s) rejected.");
+    }
 }

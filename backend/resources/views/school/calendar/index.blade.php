@@ -37,12 +37,26 @@
   @if($events->isEmpty())
     <p class="muted">No events yet.</p>
   @else
+    @php $anyRemovable = $events->contains(fn ($e) => ! $e->is_default); @endphp
+    @if($canCreate && $anyRemovable)
+      <form id="bulkEventsForm" method="POST" action="{{ route('school.calendar.bulk-destroy', ['school' => $school->slug]) }}"></form>
+    @endif
     <div style="overflow-x:auto">
     <table>
-      <thead><tr><th>Date</th><th>Title</th><th>Category</th>@if($canCreate)<th></th>@endif</tr></thead>
+      <thead><tr>
+        @if($canCreate && $anyRemovable)<th style="width:2.2rem"><input type="checkbox" id="event-select-all" aria-label="Select all events" /></th>@endif
+        <th>Date</th><th>Title</th><th>Category</th>@if($canCreate)<th></th>@endif
+      </tr></thead>
       <tbody>
         @foreach($events as $event)
           <tr>
+            @if($canCreate && $anyRemovable)
+              <td>
+                @unless($event->is_default)
+                  <input type="checkbox" form="bulkEventsForm" class="event-row-check" name="event_ids[]" value="{{ $event->id }}" aria-label="Select {{ $event->title }}" />
+                @endunless
+              </td>
+            @endif
             <td class="muted" style="white-space:nowrap">
               @if($canCreate)
                 <a href="{{ route('school.calendar.edit', ['school' => $school->slug, 'eventId' => $event->id]) }}">
@@ -77,6 +91,24 @@
       </tbody>
     </table>
     </div>
+
+    @if($canCreate && $anyRemovable)
+      <div class="row-between" style="margin-top:.8rem;flex-wrap:wrap;gap:.6rem">
+        <span class="muted" style="font-size:.85rem">Tick any number of events above, then remove them all at once.</span>
+        <button form="bulkEventsForm" class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit" onclick="return confirm('Remove the selected events?')">Remove selected</button>
+      </div>
+      <script>
+        (function(){
+          var all = document.getElementById('event-select-all');
+          var boxes = document.querySelectorAll('.event-row-check');
+          all?.addEventListener('change', function(){ boxes.forEach(function(cb){ cb.checked = all.checked; }); });
+          document.getElementById('bulkEventsForm')?.addEventListener('submit', function(e){
+            var anyChecked = Array.prototype.some.call(boxes, function(cb){ return cb.checked; });
+            if (! anyChecked) { e.preventDefault(); alert('Tick at least one event first.'); }
+          });
+        })();
+      </script>
+    @endif
     <div style="margin-top:1rem">{{ $events->links() }}</div>
   @endif
 </div>

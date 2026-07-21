@@ -49,12 +49,19 @@
   @if($reviews->isEmpty())
     <p class="muted">Nothing is waiting on review right now.</p>
   @else
+    <form id="bulkReviewApproveForm" method="POST" action="{{ route('school.report-cards.bulk-approve', ['school' => $school->slug]) }}">@csrf</form>
+    <form id="bulkReviewSendBackForm" method="POST" action="{{ route('school.report-cards.bulk-send-back', ['school' => $school->slug]) }}">@csrf<input type="hidden" name="notes" value="" /></form>
+    <form id="bulkReviewNudgeForm" method="POST" action="{{ route('school.report-cards.bulk-nudge', ['school' => $school->slug]) }}">@csrf</form>
     <div style="overflow-x:auto">
     <table>
-      <thead><tr><th>Student</th><th>Class</th><th>Status</th><th>Assigned to</th><th></th></tr></thead>
+      <thead><tr>
+        <th style="width:2.2rem"><input type="checkbox" id="review-select-all" aria-label="Select all report cards" /></th>
+        <th>Student</th><th>Class</th><th>Status</th><th>Assigned to</th><th></th>
+      </tr></thead>
       <tbody>
         @foreach($reviews as $review)
           <tr>
+            <td><input type="checkbox" class="review-row-check" value="{{ $review->student_id }}" aria-label="Select {{ $review->student?->fullName() }}" /></td>
             <td><strong>{{ $review->student?->fullName() }}</strong></td>
             <td class="muted">{{ $review->student?->currentClassArm?->schoolClass?->name ?? 'Not set' }}</td>
             <td>
@@ -100,6 +107,15 @@
       </tbody>
     </table>
     </div>
+
+    <div class="row-between" style="margin-top:.6rem;flex-wrap:wrap;gap:.6rem">
+      <span class="muted" style="font-size:.85rem">Tick any number above, then act on all of them at once.</span>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button type="button" class="btn btn-primary btn-sm" id="review-bulk-approve-btn">Approve selected</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="review-bulk-reject-btn">Reject selected</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="review-bulk-nudge-btn">Nudge selected</button>
+      </div>
+    </div>
   @endif
 </div>
 
@@ -116,6 +132,53 @@
         form.querySelector('[name="notes"]').value = notes.trim();
         form.submit();
       });
+    });
+
+    var all = document.getElementById('review-select-all');
+    var boxes = function(){ return document.querySelectorAll('.review-row-check'); };
+    all?.addEventListener('change', function(){ boxes().forEach(function(cb){ cb.checked = all.checked; }); });
+
+    function selectedIds(){
+      return Array.prototype.filter.call(boxes(), function(cb){ return cb.checked; }).map(function(cb){ return cb.value; });
+    }
+
+    function fillIds(form, ids){
+      form.querySelectorAll('input[name="student_ids[]"]').forEach(function(el){ el.remove(); });
+      ids.forEach(function(id){
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'student_ids[]';
+        input.value = id;
+        form.appendChild(input);
+      });
+    }
+
+    document.getElementById('review-bulk-approve-btn')?.addEventListener('click', function(){
+      var ids = selectedIds();
+      if (! ids.length) { alert('Tick at least one report card first.'); return; }
+      var form = document.getElementById('bulkReviewApproveForm');
+      fillIds(form, ids);
+      form.submit();
+    });
+
+    document.getElementById('review-bulk-reject-btn')?.addEventListener('click', function(){
+      var ids = selectedIds();
+      if (! ids.length) { alert('Tick at least one report card first.'); return; }
+      var notes = prompt('What needs correcting? A comment is required.');
+      if (notes === null) return;
+      if (! notes.trim()) { alert('A comment is required to reject a report card.'); return; }
+      var form = document.getElementById('bulkReviewSendBackForm');
+      fillIds(form, ids);
+      form.querySelector('[name="notes"]').value = notes.trim();
+      form.submit();
+    });
+
+    document.getElementById('review-bulk-nudge-btn')?.addEventListener('click', function(){
+      var ids = selectedIds();
+      if (! ids.length) { alert('Tick at least one report card first.'); return; }
+      var form = document.getElementById('bulkReviewNudgeForm');
+      fillIds(form, ids);
+      form.submit();
     });
   })();
 </script>

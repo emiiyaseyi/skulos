@@ -134,12 +134,19 @@
 <div class="card">
   <h3 style="margin-bottom:.7rem">Archived sessions</h3>
   <p class="muted" style="margin-bottom:.7rem">Kept in your records, hidden from the list above. Restore one to bring it back.</p>
+  @if($canManage)
+    <form id="bulkArchivedSessionsForm" method="POST" action="{{ route('school.academics.sessions.bulk-unarchive', ['school' => $school->slug]) }}"></form>
+  @endif
   <div style="overflow-x:auto">
   <table>
-    <thead><tr><th>Session</th><th>Terms</th><th></th></tr></thead>
+    <thead><tr>
+      @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="archived-session-select-all" aria-label="Select all archived sessions" /></th>@endif
+      <th>Session</th><th>Terms</th><th></th>
+    </tr></thead>
     <tbody>
       @foreach($archivedSessions as $session)
         <tr>
+          @if($canManage)<td><input type="checkbox" form="bulkArchivedSessionsForm" class="archived-session-row-check" name="session_ids[]" value="{{ $session->id }}" aria-label="Select {{ $session->name }}" /></td>@endif
           <td><strong>{{ $session->name }}</strong></td>
           <td class="muted">{{ $session->terms->pluck('name')->implode(', ') }}</td>
           <td>
@@ -155,6 +162,24 @@
     </tbody>
   </table>
   </div>
+
+  @if($canManage)
+    <div class="row-between" style="margin-top:.6rem;flex-wrap:wrap;gap:.6rem">
+      <span class="muted" style="font-size:.85rem">Tick any number above, then restore them all at once.</span>
+      <button form="bulkArchivedSessionsForm" class="btn btn-ghost btn-sm" type="submit">Restore selected</button>
+    </div>
+    <script>
+      (function(){
+        var all = document.getElementById('archived-session-select-all');
+        var boxes = document.querySelectorAll('.archived-session-row-check');
+        all?.addEventListener('change', function(){ boxes.forEach(function(cb){ cb.checked = all.checked; }); });
+        document.getElementById('bulkArchivedSessionsForm')?.addEventListener('submit', function(e){
+          var anyChecked = Array.prototype.some.call(boxes, function(cb){ return cb.checked; });
+          if (! anyChecked) { e.preventDefault(); alert('Tick at least one session first.'); }
+        });
+      })();
+    </script>
+  @endif
 </div>
 @endif
 @endsection

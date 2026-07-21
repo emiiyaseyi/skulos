@@ -67,6 +67,12 @@
       opt.textContent = item.name;
       select.appendChild(opt);
     });
+    // State and LGA start with only a placeholder option, so the
+    // searchable-select enhancer (app.blade.php) skips them on initial
+    // page load as too short. Once populated from the API they're
+    // usually well past that threshold, so re-run the enhancer now;
+    // it's a no-op for a select it already enhanced.
+    if (window.SkulosSearchable) window.SkulosSearchable.enhanceAll(select.parentNode);
   }
 
   function setLgaVisible(wrapper, select, visible) {

@@ -221,6 +221,33 @@ input:focus,textarea:focus,select:focus{outline:2px solid color-mix(in srgb,var(
    checkboxes). Sized to its native small footprint, everywhere. */
 input[type="checkbox"],input[type="radio"]{width:1.05rem;height:1.05rem;flex-shrink:0;accent-color:var(--accent)}
 .field{margin-bottom:1rem}
+/* Searchable select (platform-wide directive 2026-07-20: every long list
+   anywhere in the app, country/state/LGA, staff/student/parent/role
+   pickers, gets a type-to-filter combobox, not a plain native <select> a
+   person has to scroll through). Auto-applied app-wide by the script near
+   the end of this file, no per-page wiring, so it reaches every current
+   AND future long select without a manual sweep. The original <select>
+   stays in the DOM (visually hidden, tabindex=-1) as the real form field;
+   this is a pure progressive enhancement over it. */
+.ss-combo{position:relative}
+.ss-combo select.ss-native{position:absolute;opacity:0;width:1px;height:1px;overflow:hidden;pointer-events:none}
+.ss-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.65rem .8rem;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-family:inherit;font-size:.92rem;text-align:left;cursor:pointer}
+.ss-toggle:focus{outline:2px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:1px;border-color:var(--accent)}
+.ss-toggle[aria-expanded="true"]{border-color:var(--accent)}
+.ss-toggle:disabled{opacity:.55;cursor:not-allowed}
+.ss-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ss-label.ss-placeholder{color:var(--mut-dim);font-weight:400}
+.ss-caret{width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid var(--mut);flex-shrink:0;margin-left:.5rem}
+.ss-panel{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:80;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:.4rem;display:flex;flex-direction:column}
+.ss-search{position:relative;margin-bottom:.4rem}
+.ss-search input{padding-left:2.15rem;margin:0}
+.ss-search::before{content:'';position:absolute;left:.72rem;top:50%;width:.7rem;height:.7rem;border:2px solid var(--mut-dim);border-radius:50%;transform:translateY(-65%);pointer-events:none}
+.ss-search::after{content:'';position:absolute;left:1.32rem;top:50%;width:.42rem;height:2px;background:var(--mut-dim);transform:translateY(45%) rotate(45deg);pointer-events:none}
+.ss-list{list-style:none;margin:0;padding:0;overflow-y:auto;max-height:13rem}
+.ss-list li[role="option"]{padding:.5rem .6rem;border-radius:8px;font-size:.88rem;cursor:pointer}
+.ss-list li[role="option"]:hover,.ss-list li[role="option"].ss-active{background:var(--soft)}
+.ss-list li[aria-selected="true"]{font-weight:700;color:var(--accent-text)}
+.ss-list .ss-empty{padding:.5rem .6rem;font-size:.85rem;color:var(--mut-dim);cursor:default}
 .hint{font-size:.78rem;color:var(--mut-dim);margin-top:.3rem}
 .err{color:var(--bad);font-size:.8rem;margin-top:.3rem}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;padding:.6rem 1.1rem;border-radius:10px;border:1px solid transparent;font-weight:700;font-size:.9rem;cursor:pointer;font-family:inherit;transition:transform .15s ease,background .15s ease,box-shadow .15s ease}
@@ -762,6 +789,219 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
   window.addEventListener('focus', evaluate);
 
   countdownTimer=setInterval(evaluate,1000);
+})();
+</script>
+
+{{-- Searchable select, platform-wide (user directive 2026-07-20): country,
+     state, LGA, and any staff/student/parent/role picker, or any other
+     long list anywhere in the app, gets a type-to-filter combobox
+     automatically. A plain <select> with more than SS_THRESHOLD options
+     is enhanced on load; short ones (status filters, term pickers, three
+     way toggles) are deliberately left alone, search would be friction
+     there, not help. Opt a specific select out with data-no-search;
+     multi-selects are left untouched (out of scope for this pass). --}}
+<script>
+(function(){
+  var SS_THRESHOLD = 8;
+
+  function enhance(select){
+    if (select.dataset.ssEnhanced || select.multiple || 'noSearch' in select.dataset) return;
+    if (select.options.length <= SS_THRESHOLD) return;
+    select.dataset.ssEnhanced = '1';
+
+    var wrap = document.createElement('div');
+    wrap.className = 'ss-combo';
+    select.parentNode.insertBefore(wrap, select);
+    wrap.appendChild(select);
+    select.classList.add('ss-native');
+    select.tabIndex = -1;
+
+    var toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'ss-toggle';
+    toggle.setAttribute('aria-haspopup', 'listbox');
+    toggle.setAttribute('aria-expanded', 'false');
+    if (select.disabled) toggle.disabled = true;
+
+    var assocLabel = select.id ? document.querySelector('label[for="'+select.id+'"]') : null;
+    if (assocLabel) {
+      if (! assocLabel.id) assocLabel.id = 'ss-label-'+select.id;
+      toggle.setAttribute('aria-labelledby', assocLabel.id);
+      assocLabel.addEventListener('click', function(){ toggle.focus(); openPanel(); });
+    }
+
+    var label = document.createElement('span');
+    label.className = 'ss-label';
+    var caret = document.createElement('span');
+    caret.className = 'ss-caret';
+    caret.setAttribute('aria-hidden', 'true');
+    toggle.appendChild(label);
+    toggle.appendChild(caret);
+
+    var panel = document.createElement('div');
+    panel.className = 'ss-panel';
+    panel.hidden = true;
+
+    var searchWrap = document.createElement('div');
+    searchWrap.className = 'ss-search';
+    var search = document.createElement('input');
+    search.type = 'text';
+    search.setAttribute('role', 'searchbox');
+    search.setAttribute('aria-label', 'Search options');
+    search.placeholder = 'Search...';
+    search.autocomplete = 'off';
+    searchWrap.appendChild(search);
+
+    var list = document.createElement('ul');
+    list.className = 'ss-list';
+    list.setAttribute('role', 'listbox');
+    if (! select.id) select.id = 'ss-select-'+Math.random().toString(36).slice(2);
+    list.id = 'ss-list-'+select.id;
+    toggle.setAttribute('aria-controls', list.id);
+
+    panel.appendChild(searchWrap);
+    panel.appendChild(list);
+    wrap.appendChild(toggle);
+    wrap.appendChild(panel);
+
+    var activeIndex = -1;
+
+    function visibleOptions(){
+      return Array.prototype.filter.call(list.children, function(li){ return ! li.hidden && li.getAttribute('role') === 'option'; });
+    }
+
+    function setActive(li){
+      var current = list.querySelector('.ss-active');
+      if (current) current.classList.remove('ss-active');
+      activeIndex = -1;
+      if (li) {
+        li.classList.add('ss-active');
+        toggle.setAttribute('aria-activedescendant', li.id);
+        li.scrollIntoView({block: 'nearest'});
+        activeIndex = visibleOptions().indexOf(li);
+      } else {
+        toggle.removeAttribute('aria-activedescendant');
+      }
+    }
+
+    function buildOptions(){
+      list.innerHTML = '';
+      Array.prototype.forEach.call(select.options, function(opt, idx){
+        var li = document.createElement('li');
+        li.setAttribute('role', 'option');
+        li.id = list.id+'-'+idx;
+        li.dataset.value = opt.value;
+        li.textContent = opt.textContent;
+        if (opt.value === select.value) li.setAttribute('aria-selected', 'true');
+        list.appendChild(li);
+      });
+    }
+
+    function syncLabel(){
+      var opt = select.options[select.selectedIndex];
+      label.textContent = opt ? opt.textContent : '';
+      label.classList.toggle('ss-placeholder', ! opt || ! opt.value);
+      toggle.disabled = select.disabled;
+    }
+
+    function filterList(q){
+      q = q.trim().toLowerCase();
+      var any = false;
+      Array.prototype.forEach.call(list.querySelectorAll('[role="option"]'), function(li){
+        var match = ! q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.hidden = ! match;
+        if (match) any = true;
+      });
+      var empty = list.querySelector('.ss-empty');
+      if (! any) {
+        if (! empty) {
+          empty = document.createElement('li');
+          empty.className = 'ss-empty';
+          empty.textContent = 'No matches';
+          list.appendChild(empty);
+        }
+      } else if (empty) {
+        empty.remove();
+      }
+      setActive(null);
+    }
+
+    function openPanel(){
+      if (toggle.disabled) return;
+      buildOptions();
+      panel.hidden = false;
+      toggle.setAttribute('aria-expanded', 'true');
+      search.value = '';
+      filterList('');
+      var selected = list.querySelector('[aria-selected="true"]');
+      if (selected) setActive(selected);
+      search.focus();
+    }
+
+    function closePanel(){
+      panel.hidden = true;
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.removeAttribute('aria-activedescendant');
+    }
+
+    function chooseValue(value){
+      select.value = value;
+      select.dispatchEvent(new Event('change', {bubbles: true}));
+      syncLabel();
+      closePanel();
+      toggle.focus();
+    }
+
+    toggle.addEventListener('click', function(){
+      if (panel.hidden) openPanel(); else closePanel();
+    });
+    search.addEventListener('input', function(){ filterList(search.value); });
+    list.addEventListener('click', function(e){
+      var li = e.target.closest('[role="option"]');
+      if (li) chooseValue(li.dataset.value);
+    });
+    search.addEventListener('keydown', function(e){
+      var opts;
+      if (e.key === 'Escape') { closePanel(); toggle.focus(); return; }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        opts = visibleOptions();
+        var target = activeIndex >= 0 && opts[activeIndex] ? opts[activeIndex] : opts[0];
+        if (target) chooseValue(target.dataset.value);
+        return;
+      }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        opts = visibleOptions();
+        if (! opts.length) return;
+        var next = activeIndex + (e.key === 'ArrowDown' ? 1 : -1);
+        if (next < 0) next = opts.length - 1;
+        if (next >= opts.length) next = 0;
+        setActive(opts[next]);
+      }
+    });
+    wrap.addEventListener('focusout', function(){
+      window.requestAnimationFrame(function(){
+        if (! wrap.contains(document.activeElement)) closePanel();
+      });
+    });
+    document.addEventListener('click', function(e){
+      if (! wrap.contains(e.target)) closePanel();
+    });
+    // Catches a select repopulated programmatically (e.g. the country to
+    // state to LGA cascading picker replacing <option>s after a fetch)
+    // without a user driven 'change' event to hook into.
+    new MutationObserver(syncLabel).observe(select, {childList: true});
+
+    syncLabel();
+  }
+
+  function enhanceAll(root){
+    (root || document).querySelectorAll('select').forEach(enhance);
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){ enhanceAll(document); });
+  window.SkulosSearchable = {enhanceAll: enhanceAll};
 })();
 </script>
 @stack('scripts')

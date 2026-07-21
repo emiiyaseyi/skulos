@@ -570,6 +570,24 @@ return [
     ],
 
     /*
+    | Audit log durable export (2026-07-20 audit log hardening): the
+    | archive-not-delete strategy the comment above pointed at. Batches of
+    | new audit_logs rows are periodically written as append-only, never
+    | overwritten NDJSON files to this filesystem disk (see
+    | config/filesystems.php), which any external log shipper / SIEM can
+    | tail. Defaults to the 'local' private disk, which is durable but not
+    | truly immutable; pointing AUDIT_LOG_EXPORT_DISK at 's3' with the
+    | bucket's Object Lock / versioning enabled in production is what
+    | makes this genuinely write-once-read-many, that bucket policy is an
+    | infrastructure setting outside this codebase, not something this app
+    | can turn on for you. See DEVELOPMENT_TRACKER.md's audit log
+    | hardening entry for the full picture, including the pieces (direct
+    | database access restriction) that are ops policy, not application
+    | code, and so aren't implemented here.
+    */
+    'audit_export_disk' => env('AUDIT_LOG_EXPORT_DISK', 'local'),
+
+    /*
     | Communication channels. Only enabled channels are attempted. Email is
     | wired now; SMS, WhatsApp and push are placeholders for later providers.
     | A school will toggle these in the admin CMS; not hardcoded in code.

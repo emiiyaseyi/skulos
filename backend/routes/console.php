@@ -49,3 +49,12 @@ Schedule::command('skulos:notify-birthdays-anniversaries')->dailyAt('06:00')->wi
 // every deployment, including the main platform's own: the command
 // itself no-ops unless config('skulos.self_hosted') is true.
 Schedule::command('license:check')->hourly()->withoutOverlapping();
+
+// Audit log hardening (2026-07-20). Export is hourly so a durable,
+// external copy of new audit activity never sits unshipped for long;
+// verify is once daily, off peak, since walking every row on every
+// connection is the heavier of the two and a break, once introduced,
+// stays a break until fixed, an hourly cadence would only spam duplicate
+// alerts. Both loop every provisioned school in addition to the platform.
+Schedule::command('audit-logs:export')->hourly()->withoutOverlapping();
+Schedule::command('audit-logs:verify')->dailyAt('05:00')->withoutOverlapping();

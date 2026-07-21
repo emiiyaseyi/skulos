@@ -30,7 +30,7 @@
       <div style="max-height:12rem;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:.6rem .8rem">
         @foreach($schools as $school)
           <label style="display:flex;align-items:center;gap:.5rem;font-weight:500;padding:.25rem 0">
-            <input type="checkbox" name="school_ids[]" value="{{ $school->id }}" style="width:auto" /> {{ $school->name }}
+            <input type="checkbox" name="school_ids[]" value="{{ $school->id }}" /> {{ $school->name }}
           </label>
         @endforeach
       </div>

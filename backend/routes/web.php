@@ -58,9 +58,11 @@ Route::domain($appDomain)->group(function () {
         Route::get('/trial-requests', [\App\Http\Controllers\Admin\TrialRequestAdminController::class, 'index'])->name('trial-requests.index');
         Route::post('/trial-requests/{trialRequest}/approve', [\App\Http\Controllers\Admin\TrialRequestAdminController::class, 'approve'])->name('trial-requests.approve');
         Route::post('/trial-requests/{trialRequest}/reject', [\App\Http\Controllers\Admin\TrialRequestAdminController::class, 'reject'])->name('trial-requests.reject');
+        Route::post('/trial-requests/bulk-reject', [\App\Http\Controllers\Admin\TrialRequestAdminController::class, 'bulkReject'])->name('trial-requests.bulk-reject');
         Route::get('/broadcast', [\App\Http\Controllers\Admin\BroadcastController::class, 'create'])->name('broadcast.create');
         Route::post('/broadcast', [\App\Http\Controllers\Admin\BroadcastController::class, 'send'])->name('broadcast.send');
         Route::get('/audit-log', [\App\Http\Controllers\Admin\AuditLogController::class, 'index'])->name('audit-log.index');
+        Route::post('/audit-log/verify', [\App\Http\Controllers\Admin\AuditLogController::class, 'verify'])->name('audit-log.verify');
         Route::get('/modules', [\App\Http\Controllers\Admin\ModuleAdminController::class, 'index'])->name('modules.index');
         Route::get('/backups', [\App\Http\Controllers\Admin\BackupAdminController::class, 'index'])->name('backups.index');
         Route::get('/team', [\App\Http\Controllers\Admin\PlatformTeamController::class, 'index'])->name('team.index');
@@ -77,6 +79,7 @@ Route::domain($appDomain)->group(function () {
         Route::post('/schools', [SchoolAdminController::class, 'store'])->name('schools.store');
         Route::get('/schools/archive', [SchoolAdminController::class, 'trashed'])->name('schools.archive-list');
         Route::post('/schools/{schoolId}/restore', [SchoolAdminController::class, 'restore'])->name('schools.restore');
+        Route::post('/schools/archive/bulk-restore', [SchoolAdminController::class, 'bulkRestore'])->name('schools.archive.bulk-restore');
         Route::get('/schools/{school}', [SchoolAdminController::class, 'show'])->name('schools.show');
         Route::get('/schools/{school}/overview', [SchoolAdminController::class, 'overview'])->name('schools.overview');
         Route::post('/schools/{school}/billing-date', [SchoolAdminController::class, 'updateBillingDate'])->name('schools.billing-date');
@@ -85,9 +88,11 @@ Route::domain($appDomain)->group(function () {
         Route::post('/schools/{school}/license/regenerate', [SchoolAdminController::class, 'regenerateLicense'])->name('schools.license.regenerate');
         Route::post('/schools/{school}/license/revoke', [SchoolAdminController::class, 'revokeSelfHosted'])->name('schools.license.revoke');
         Route::post('/schools/{school}/admins', [SchoolAdminController::class, 'storeAdmin'])->name('schools.admins.store');
+        Route::post('/schools/{school}/admins/bulk-action', [SchoolAdminController::class, 'bulkAdminAction'])->name('schools.admins.bulk-action');
         Route::post('/schools/{school}/admins/{user}/reset-password', [SchoolAdminController::class, 'resetAdminPassword'])->name('schools.admins.reset-password');
         Route::post('/schools/{school}/admins/{user}/toggle-access', [SchoolAdminController::class, 'toggleAdminAccess'])->name('schools.admins.toggle-access');
         Route::post('/schools/{school}/admins/{user}/impersonate', [SchoolAdminController::class, 'impersonate'])->name('schools.admins.impersonate');
+        Route::post('/schools/bulk-action', [SchoolAdminController::class, 'bulkAction'])->name('schools.bulk-action');
         Route::post('/schools/{school}/suspend', [SchoolAdminController::class, 'suspend'])->name('schools.suspend');
         Route::post('/schools/{school}/archive', [SchoolAdminController::class, 'archive'])->name('schools.archive');
         Route::post('/schools/{school}/activate', [SchoolAdminController::class, 'activate'])->name('schools.activate');
@@ -146,6 +151,7 @@ Route::domain($appDomain)->group(function () {
             Route::post('/{school}/renew', [$subscriptions, 'renew'])->name('renew');
             Route::post('/{school}/demand', [$subscriptions, 'demand'])->name('demand');
             Route::post('/{school}/reinstate', [$subscriptions, 'reinstate'])->name('reinstate');
+            Route::post('/payments/bulk-action', [$subscriptions, 'bulkDecide'])->name('payments.bulk-action');
             Route::post('/payments/{payment}/verify', [$subscriptions, 'verify'])->name('payments.verify');
             Route::post('/payments/{payment}/reject', [$subscriptions, 'reject'])->name('payments.reject');
             Route::get('/payments/{payment}/evidence', [$subscriptions, 'evidence'])->name('payments.evidence');
@@ -258,8 +264,12 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/', [$profile, 'edit'])->name('edit');
             Route::post('/', [$profile, 'update'])->name('update');
             Route::get('/approvals', [$profile, 'approvals'])->name('approvals');
+            Route::post('/approvals/bulk-approve', [$profile, 'bulkApprove'])->name('bulk-approve');
+            Route::post('/approvals/bulk-reject', [$profile, 'bulkReject'])->name('bulk-reject');
             Route::post('/approvals/{requestId}/approve', [$profile, 'approve'])->name('approve');
             Route::post('/approvals/{requestId}/reject', [$profile, 'reject'])->name('reject');
+            Route::post('/approvals/reset/bulk-approve', [$profile, 'bulkApproveReset'])->name('reset.bulk-approve');
+            Route::post('/approvals/reset/bulk-reject', [$profile, 'bulkRejectReset'])->name('reset.bulk-reject');
             Route::post('/approvals/reset/{requestId}/approve', [$profile, 'approveReset'])->name('reset.approve');
             Route::post('/approvals/reset/{requestId}/reject', [$profile, 'rejectReset'])->name('reset.reject');
         });
@@ -382,6 +392,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/{eventId}/edit', [$calendar, 'edit'])->name('edit');
             Route::post('/{eventId}/edit', [$calendar, 'update'])->name('update');
             Route::delete('/{eventId}', [$calendar, 'destroy'])->name('destroy');
+            Route::post('/bulk-destroy', [$calendar, 'bulkDestroy'])->name('bulk-destroy');
         });
         Route::prefix('assignments')->name('school.assignments.')->group(function () {
             $assignments = \App\Http\Controllers\School\AssignmentController::class;
@@ -392,6 +403,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/{assignmentId}/submit', [$assignments, 'submit'])->name('submit');
             Route::get('/{assignmentId}/submissions/{submissionId}/file', [$assignments, 'submissionFile'])->name('submissions.file');
             Route::delete('/{assignmentId}', [$assignments, 'destroy'])->name('destroy');
+            Route::post('/bulk-destroy', [$assignments, 'bulkDestroy'])->name('bulk-destroy');
         });
         Route::get('/setup', [\App\Http\Controllers\School\SetupController::class, 'index'])->name('school.setup');
         Route::post('/notifications/{id}/read', [SchoolPortalController::class, 'markNotificationRead'])->name('school.notifications.read');
@@ -422,6 +434,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/sessions/{sessionId}/make-current', [$academics, 'makeSessionCurrent'])->name('sessions.make-current');
             Route::post('/sessions/{sessionId}/archive', [$academics, 'archiveSession'])->name('sessions.archive');
             Route::post('/sessions/{sessionId}/unarchive', [$academics, 'unarchiveSession'])->name('sessions.unarchive');
+            Route::post('/sessions/bulk-unarchive', [$academics, 'bulkUnarchiveSessions'])->name('sessions.bulk-unarchive');
             Route::post('/terms', [$academics, 'storeTerm'])->name('terms.store');
             Route::post('/terms/{termId}/make-current', [$academics, 'makeTermCurrent'])->name('terms.make-current');
             Route::post('/end-term', [$academics, 'endTerm'])->name('end-term');
@@ -441,6 +454,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/classes/{classId}/subjects/apply-defaults', [$academics, 'applyDefaults'])->name('subjects.apply-defaults');
             Route::post('/classes/{classId}/subjects/attach', [$academics, 'attachSubject'])->name('subjects.attach');
             Route::post('/classes/{classId}/subjects/new', [$academics, 'newSubject'])->name('subjects.new');
+            Route::post('/classes/{classId}/subjects/bulk-detach', [$academics, 'bulkDetachSubjects'])->name('subjects.bulk-detach');
             Route::post('/classes/{classId}/subjects/{subjectId}', [$academics, 'updateSubject'])->name('subjects.update');
             Route::delete('/classes/{classId}/subjects/{subjectId}', [$academics, 'detachSubject'])->name('subjects.detach');
             Route::post('/classes/{classId}/subjects/{subjectId}/assign-teacher', [$academics, 'assignSubjectTeacher'])->name('subjects.assign-teacher');
@@ -472,6 +486,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             // same route-ordering gotcha documented in CLAUDE.md).
             $windows = \App\Http\Controllers\School\AssessmentWindowController::class;
             Route::post('/structure/windows', [$windows, 'updateWindow'])->name('structure.windows.update');
+            Route::post('/structure/bulk-destroy', [$assessment, 'bulkDestroy'])->name('structure.bulk-destroy');
 
             Route::post('/structure/{componentId}', [$assessment, 'update'])->name('structure.update');
             Route::delete('/structure/{componentId}', [$assessment, 'destroy'])->name('structure.destroy');
@@ -488,6 +503,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/grading/{scaleId}/make-default', [$grading, 'makeDefault'])->name('grading.make-default');
             Route::delete('/grading/{scaleId}', [$grading, 'destroy'])->name('grading.destroy');
             Route::post('/grading/{scaleId}/bands', [$grading, 'storeBand'])->name('grading.bands.store');
+            Route::post('/grading/bands/bulk-destroy', [$grading, 'bulkDestroyBands'])->name('grading.bands.bulk-destroy');
             Route::post('/grading/bands/{bandId}', [$grading, 'updateBand'])->name('grading.bands.update');
             Route::delete('/grading/bands/{bandId}', [$grading, 'destroyBand'])->name('grading.bands.destroy');
         });
@@ -530,6 +546,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/periods', [$timetable, 'periods'])->name('periods');
             Route::post('/periods', [$timetable, 'storePeriod'])->name('periods.store');
             Route::post('/periods/apply-defaults', [$timetable, 'applyDefaultPeriods'])->name('periods.apply-defaults');
+            Route::post('/periods/bulk-destroy', [$timetable, 'bulkDestroyPeriods'])->name('periods.bulk-destroy');
             Route::post('/periods/{periodId}', [$timetable, 'updatePeriod'])->name('periods.update');
             Route::delete('/periods/{periodId}', [$timetable, 'destroyPeriod'])->name('periods.destroy');
             Route::get('/mine', [$timetable, 'mine'])->name('mine');
@@ -550,6 +567,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::get('/campuses', [\App\Http\Controllers\School\CampusController::class, 'index'])->name('school.campuses');
         Route::post('/campuses', [\App\Http\Controllers\School\CampusController::class, 'store'])->name('school.campuses.store');
         Route::delete('/campuses/{campusId}', [\App\Http\Controllers\School\CampusController::class, 'destroy'])->name('school.campuses.destroy');
+        Route::post('/campuses/bulk-destroy', [\App\Http\Controllers\School\CampusController::class, 'bulkDestroy'])->name('school.campuses.bulk-destroy');
 
         // Report cards: browse by section/class, the review workflow, settings, preview, and the real per student render.
         Route::prefix('report-cards')->name('school.report-cards.')->group(function () {
@@ -574,6 +592,9 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/classes/{classId}/entry', [$reportCards, 'classEntryUpdate'])->name('class.entry.update');
             Route::post('/arms/{armId}/stamp-signature', [$reportCards, 'updateArmStampSignature'])->name('arm.stamp-signature');
             Route::post('/arms/reset-stamp-signature', [$reportCards, 'resetArmStampSignatures'])->name('arm.stamp-signature.reset-all');
+            Route::post('/bulk-approve', [$reportCards, 'bulkApprove'])->name('bulk-approve');
+            Route::post('/bulk-send-back', [$reportCards, 'bulkSendBack'])->name('bulk-send-back');
+            Route::post('/bulk-nudge', [$reportCards, 'bulkNudge'])->name('bulk-nudge');
             Route::post('/{studentId}/generate', [$reportCards, 'generate'])->name('generate');
             Route::post('/{studentId}/assign', [$reportCards, 'assignReview'])->name('assign');
             Route::post('/{studentId}/send-back', [$reportCards, 'sendBack'])->name('send-back');

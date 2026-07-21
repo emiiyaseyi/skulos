@@ -48,13 +48,19 @@
     @if($caComponents->isEmpty())
       <p class="muted">None yet.</p>
     @else
+      @if($canManage)
+        <form id="bulkCaForm" method="POST" action="{{ route('school.examinations.structure.bulk-destroy', ['school' => $school->slug]) }}"></form>
+      @endif
       <div style="overflow-x:auto">
       <table>
-        <thead><tr><th>Name</th><th>Out of</th>@if($canManage && $term)<th>Entry window</th>@endif @if($canManage)<th></th>@endif</tr></thead>
+        <thead><tr>
+          @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="ca-select-all" aria-label="Select all CA components" /></th>@endif
+          <th>Name</th><th>Out of</th>@if($canManage && $term)<th>Entry window</th>@endif @if($canManage)<th></th>@endif</tr></thead>
         <tbody>
           @foreach($caComponents as $component)
             @php $window = $windowsByComponent->get($component->id); @endphp
             <tr>
+              @if($canManage)<td><input type="checkbox" form="bulkCaForm" class="ca-row-check" name="component_ids[]" value="{{ $component->id }}" aria-label="Select {{ $component->name }}" /></td>@endif
               <td><strong>{{ $component->name }}</strong></td>
               <td class="muted">{{ rtrim(rtrim(number_format($component->max_score, 2), '0'), '.') }}</td>
               @if($canManage && $term)
@@ -79,7 +85,7 @@
             </tr>
             @if($canManage)
             <tr id="edit-{{ $component->id }}" class="component-edit-row">
-              <td colspan="4">
+              <td colspan="5">
                 <form method="POST" action="{{ route('school.examinations.structure.update', ['school' => $school->slug, 'componentId' => $component->id]) }}" style="display:flex;gap:.5rem;padding:.6rem 0">
                   @csrf
                   <input name="name" value="{{ $component->name }}" required style="flex:1" />
@@ -91,7 +97,7 @@
             @endif
             @if($canManage && $term)
             <tr id="window-{{ $component->id }}" class="component-edit-row">
-              <td colspan="4">
+              <td colspan="5">
                 <form method="POST" action="{{ route('school.examinations.structure.windows.update', ['school' => $school->slug]) }}" style="display:flex;gap:.5rem;padding:.6rem 0;flex-wrap:wrap;align-items:flex-end">
                   @csrf
                   <input type="hidden" name="assessment_component_id" value="{{ $component->id }}" />
@@ -114,6 +120,24 @@
         </tbody>
       </table>
       </div>
+
+      @if($canManage)
+        <div class="row-between" style="margin-top:.6rem;flex-wrap:wrap;gap:.6rem">
+          <span class="muted" style="font-size:.85rem">Tick any number above, then remove them all at once.</span>
+          <button form="bulkCaForm" class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit" onclick="return confirm('Remove the selected components?')">Remove selected</button>
+        </div>
+        <script>
+          (function(){
+            var all = document.getElementById('ca-select-all');
+            var boxes = document.querySelectorAll('.ca-row-check');
+            all?.addEventListener('change', function(){ boxes.forEach(function(cb){ cb.checked = all.checked; }); });
+            document.getElementById('bulkCaForm')?.addEventListener('submit', function(e){
+              var anyChecked = Array.prototype.some.call(boxes, function(cb){ return cb.checked; });
+              if (! anyChecked) { e.preventDefault(); alert('Tick at least one component first.'); }
+            });
+          })();
+        </script>
+      @endif
     @endif
 
     @if($canManage)
@@ -132,13 +156,19 @@
     @if($examComponents->isEmpty())
       <p class="muted">None yet.</p>
     @else
+      @if($canManage)
+        <form id="bulkExamForm" method="POST" action="{{ route('school.examinations.structure.bulk-destroy', ['school' => $school->slug]) }}"></form>
+      @endif
       <div style="overflow-x:auto">
       <table>
-        <thead><tr><th>Name</th><th>Out of</th>@if($canManage && $term)<th>Entry window</th>@endif @if($canManage)<th></th>@endif</tr></thead>
+        <thead><tr>
+          @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="exam-select-all" aria-label="Select all exam components" /></th>@endif
+          <th>Name</th><th>Out of</th>@if($canManage && $term)<th>Entry window</th>@endif @if($canManage)<th></th>@endif</tr></thead>
         <tbody>
           @foreach($examComponents as $component)
             @php $window = $windowsByComponent->get($component->id); @endphp
             <tr>
+              @if($canManage)<td><input type="checkbox" form="bulkExamForm" class="exam-row-check" name="component_ids[]" value="{{ $component->id }}" aria-label="Select {{ $component->name }}" /></td>@endif
               <td><strong>{{ $component->name }}</strong></td>
               <td class="muted">{{ rtrim(rtrim(number_format($component->max_score, 2), '0'), '.') }}</td>
               @if($canManage && $term)
@@ -163,7 +193,7 @@
             </tr>
             @if($canManage)
             <tr id="edit-{{ $component->id }}" class="component-edit-row">
-              <td colspan="4">
+              <td colspan="5">
                 <form method="POST" action="{{ route('school.examinations.structure.update', ['school' => $school->slug, 'componentId' => $component->id]) }}" style="display:flex;gap:.5rem;padding:.6rem 0">
                   @csrf
                   <input name="name" value="{{ $component->name }}" required style="flex:1" />
@@ -175,7 +205,7 @@
             @endif
             @if($canManage && $term)
             <tr id="window-{{ $component->id }}" class="component-edit-row">
-              <td colspan="4">
+              <td colspan="5">
                 <form method="POST" action="{{ route('school.examinations.structure.windows.update', ['school' => $school->slug]) }}" style="display:flex;gap:.5rem;padding:.6rem 0;flex-wrap:wrap;align-items:flex-end">
                   @csrf
                   <input type="hidden" name="assessment_component_id" value="{{ $component->id }}" />
@@ -198,6 +228,24 @@
         </tbody>
       </table>
       </div>
+
+      @if($canManage)
+        <div class="row-between" style="margin-top:.6rem;flex-wrap:wrap;gap:.6rem">
+          <span class="muted" style="font-size:.85rem">Tick any number above, then remove them all at once.</span>
+          <button form="bulkExamForm" class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit" onclick="return confirm('Remove the selected components?')">Remove selected</button>
+        </div>
+        <script>
+          (function(){
+            var all = document.getElementById('exam-select-all');
+            var boxes = document.querySelectorAll('.exam-row-check');
+            all?.addEventListener('change', function(){ boxes.forEach(function(cb){ cb.checked = all.checked; }); });
+            document.getElementById('bulkExamForm')?.addEventListener('submit', function(e){
+              var anyChecked = Array.prototype.some.call(boxes, function(cb){ return cb.checked; });
+              if (! anyChecked) { e.preventDefault(); alert('Tick at least one component first.'); }
+            });
+          })();
+        </script>
+      @endif
     @endif
 
     @if($canManage)

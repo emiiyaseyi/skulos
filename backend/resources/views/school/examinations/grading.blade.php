@@ -44,12 +44,18 @@
     @if($scale->bands->isEmpty())
       <p class="muted">No bands yet.</p>
     @else
+      @if($canManage)
+        <form id="bulkBandsForm{{ $scale->id }}" method="POST" action="{{ route('school.examinations.grading.bands.bulk-destroy', ['school' => $school->slug]) }}"></form>
+      @endif
       <div style="overflow-x:auto">
       <table>
-        <thead><tr><th>Grade</th><th>Score range</th><th>Remark</th>@if($canManage)<th></th>@endif</tr></thead>
+        <thead><tr>
+          @if($canManage)<th style="width:2.2rem"><input type="checkbox" class="band-select-all" data-scale="{{ $scale->id }}" aria-label="Select all bands" /></th>@endif
+          <th>Grade</th><th>Score range</th><th>Remark</th>@if($canManage)<th></th>@endif</tr></thead>
         <tbody>
           @foreach($scale->bands->sortByDesc('min_score') as $band)
             <tr>
+              @if($canManage)<td><input type="checkbox" form="bulkBandsForm{{ $scale->id }}" class="band-row-check band-row-check-{{ $scale->id }}" name="band_ids[]" value="{{ $band->id }}" aria-label="Select {{ $band->grade }}" /></td>@endif
               <td><strong>{{ $band->grade }}</strong></td>
               <td class="muted">{{ rtrim(rtrim(number_format($band->min_score, 2), '0'), '.') }} to {{ rtrim(rtrim(number_format($band->max_score, 2), '0'), '.') }}</td>
               <td class="muted">{{ $band->remark ?: 'Not set' }}</td>
@@ -65,7 +71,7 @@
             </tr>
             @if($canManage)
             <tr id="edit-band-{{ $band->id }}" class="component-edit-row">
-              <td colspan="4">
+              <td colspan="5">
                 <form method="POST" action="{{ route('school.examinations.grading.bands.update', ['school' => $school->slug, 'bandId' => $band->id]) }}" style="display:flex;gap:.5rem;padding:.6rem 0;flex-wrap:wrap">
                   @csrf
                   <input name="grade" value="{{ $band->grade }}" placeholder="Grade" required style="max-width:6rem" />
@@ -81,6 +87,25 @@
         </tbody>
       </table>
       </div>
+
+      @if($canManage)
+        <div class="row-between" style="margin-top:.6rem;flex-wrap:wrap;gap:.6rem">
+          <span class="muted" style="font-size:.85rem">Tick any number of bands above, then remove them all at once.</span>
+          <button form="bulkBandsForm{{ $scale->id }}" class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit" onclick="return confirm('Remove the selected bands?')">Remove selected</button>
+        </div>
+        <script>
+          (function(){
+            var scaleId = '{{ $scale->id }}';
+            var all = document.querySelector('.band-select-all[data-scale="'+scaleId+'"]');
+            var boxes = document.querySelectorAll('.band-row-check-'+scaleId);
+            all?.addEventListener('change', function(){ boxes.forEach(function(cb){ cb.checked = all.checked; }); });
+            document.getElementById('bulkBandsForm'+scaleId)?.addEventListener('submit', function(e){
+              var anyChecked = Array.prototype.some.call(boxes, function(cb){ return cb.checked; });
+              if (! anyChecked) { e.preventDefault(); alert('Tick at least one band first.'); }
+            });
+          })();
+        </script>
+      @endif
     @endif
 
     @if($canManage)

@@ -12,11 +12,11 @@
   <form method="POST" action="{{ route('school.settings.idle-timeout.update', ['school' => $school->slug]) }}" id="idleForm">
     @csrf
     <label style="font-weight:500;display:flex;gap:.5rem;align-items:center;margin-bottom:1rem">
-      <input type="checkbox" name="use_own" value="1" style="width:auto" id="useOwn" @checked($hasOwn) /> Set our own idle timeout for this school
+      <input type="checkbox" name="use_own" value="1" id="useOwn" @checked($hasOwn) /> Set our own idle timeout for this school
     </label>
     <div id="ownFields" style="{{ $hasOwn ? '' : 'display:none' }}">
       <label style="font-weight:500;display:flex;gap:.5rem;align-items:center;margin-bottom:1rem">
-        <input type="checkbox" name="enabled" value="1" style="width:auto" @checked($settings['enabled'] ?? true) /> Enable idle sign out
+        <input type="checkbox" name="enabled" value="1" @checked($settings['enabled'] ?? true) /> Enable idle sign out
       </label>
       <div class="field">
         <label for="idle_seconds">Sign out after (seconds of inactivity)</label>

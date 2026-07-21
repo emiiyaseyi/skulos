@@ -40,12 +40,17 @@
   @if($admins->isEmpty())
     <p class="muted">No administrator on record. Add one below.</p>
   @else
+    <form id="bulkAdminsForm" method="POST" action="{{ route('admin.schools.admins.bulk-action', $school) }}"></form>
     <div style="overflow-x:auto">
     <table>
-      <thead><tr><th>Name</th><th>Email</th><th>Access</th><th></th></tr></thead>
+      <thead><tr>
+        <th style="width:2.2rem"><input type="checkbox" id="admin-select-all" aria-label="Select all administrators" /></th>
+        <th>Name</th><th>Email</th><th>Access</th><th></th>
+      </tr></thead>
       <tbody>
         @foreach($admins as $admin)
           <tr>
+            <td><input type="checkbox" form="bulkAdminsForm" class="admin-row-check" name="user_ids[]" value="{{ $admin->id }}" aria-label="Select {{ $admin->email }}" /></td>
             <td><strong>{{ $admin->name }}</strong></td>
             <td class="muted">{{ $admin->email }}</td>
             <td><span class="badge {{ $admin->pivot->status === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucfirst($admin->pivot->status) }}</span></td>
@@ -72,6 +77,26 @@
       </tbody>
     </table>
     </div>
+
+    <div class="row-between" style="margin-top:.8rem;flex-wrap:wrap;gap:.6rem">
+      <span class="muted" style="font-size:.85rem">Tick any number of administrators above, then choose an action.</span>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button form="bulkAdminsForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="restore">Restore access</button>
+        <button form="bulkAdminsForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="revoke">Revoke access</button>
+        <button form="bulkAdminsForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="reset-password" onclick="return confirm('Reset the password for every selected administrator? New ones will be generated and emailed.')">Reset password</button>
+      </div>
+    </div>
+    <script>
+      (function(){
+        var all = document.getElementById('admin-select-all');
+        var boxes = document.querySelectorAll('.admin-row-check');
+        all?.addEventListener('change', function(){ boxes.forEach(function(cb){ cb.checked = all.checked; }); });
+        document.getElementById('bulkAdminsForm')?.addEventListener('submit', function(e){
+          var anyChecked = Array.prototype.some.call(boxes, function(cb){ return cb.checked; });
+          if (! anyChecked) { e.preventDefault(); alert('Tick at least one administrator first.'); }
+        });
+      })();
+    </script>
   @endif
 </div>
 

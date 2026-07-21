@@ -57,7 +57,7 @@
       <input id="ends_on" name="ends_on" type="date" value="{{ old('ends_on', optional($event->ends_on)->toDateString()) }}" />
     </div>
     <label style="font-weight:500;display:flex;gap:.5rem;align-items:center;margin-bottom:1rem">
-      <input type="checkbox" name="all_day" value="1" style="width:auto" @checked(old('all_day', $event->all_day)) /> All day
+      <input type="checkbox" name="all_day" value="1" @checked(old('all_day', $event->all_day)) /> All day
     </label>
     <div class="field">
       <label for="description">Description (optional)</label>

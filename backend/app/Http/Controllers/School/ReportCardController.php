@@ -599,6 +599,62 @@ class ReportCardController extends Controller
         return back()->with('status', "{$student->fullName()}'s report card sent back for correction.");
     }
 
+    /**
+     * Bulk version of sendBack(), one shared reason applied to every
+     * selected report card, each sent back to its own currently assigned
+     * staff member (mirroring the single-row UI, which sends a card back
+     * to whoever it is already assigned to, not a newly chosen assignee).
+     * Skips (does not fail the whole batch on) a card with no assignee.
+     */
+    public function bulkSendBack(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.update');
+        $school = $this->school($request);
+        $term = $this->resolveTerm($request);
+
+        $data = $request->validate([
+            'student_ids' => ['required', 'array', 'min:1'],
+            'student_ids.*' => ['exists:tenant.students,id'],
+            'notes' => ['required', 'string', 'max:1000'],
+        ], [
+            'notes.required' => 'A comment is required when sending report cards back for correction.',
+        ]);
+
+        $scopedArmIds = app(TeacherScope::class)->classArmIds(Auth::user(), $school);
+        $studentIds = $scopedArmIds !== null
+            ? Student::whereIn('id', $data['student_ids'])->whereIn('current_class_arm_id', $scopedArmIds)->pluck('id')
+            : collect($data['student_ids']);
+
+        $reviews = ReportCardReview::whereIn('student_id', $studentIds)->where('term_id', $term->id)->get()
+            ->keyBy('student_id');
+
+        $sent = 0;
+        $skipped = 0;
+        foreach ($studentIds as $studentId) {
+            $review = $reviews->get($studentId) ?? ReportCardReview::firstOrNew(['student_id' => $studentId, 'term_id' => $term->id]);
+
+            if (! $review->assigned_to_staff_id) {
+                $skipped++;
+
+                continue;
+            }
+
+            $review->fill([
+                'status' => ReportCardReview::STATUS_NEEDS_CORRECTION,
+                'review_stage' => 0,
+                'notes' => $data['notes'],
+            ])->save();
+            $sent++;
+        }
+
+        $message = "{$sent} report card(s) sent back for correction.";
+        if ($skipped) {
+            $message .= " Skipped {$skipped} with no assigned staff member.";
+        }
+
+        return back()->with($skipped && ! $sent ? 'error' : 'status', $message);
+    }
+
     /** Single assign: who is reviewing this one report card. */
     public function assignReview(Request $request): \Illuminate\Http\RedirectResponse
     {
@@ -690,6 +746,44 @@ class ReportCardController extends Controller
         $nextRole = config('skulos.report_card_review_roles')[$review->currentStageRole()] ?? $review->currentStageRole();
 
         return back()->with('status', "{$student->fullName()}'s report card moved to the next review stage ({$nextRole}).");
+    }
+
+    /** Bulk version of approve(), same list-screen bulk-action pattern used across the app. */
+    public function bulkApprove(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.assign_review');
+        $school = $this->school($request);
+        $term = $this->resolveTerm($request);
+
+        $data = $request->validate([
+            'student_ids' => ['required', 'array', 'min:1'],
+            'student_ids.*' => ['exists:tenant.students,id'],
+        ]);
+
+        // A scoped teacher's id list is narrowed to their own classes, same
+        // convention as bulkAssignReview() above.
+        $scopedArmIds = app(TeacherScope::class)->classArmIds(Auth::user(), $school);
+        $studentIds = $scopedArmIds !== null
+            ? Student::whereIn('id', $data['student_ids'])->whereIn('current_class_arm_id', $scopedArmIds)->pluck('id')
+            : collect($data['student_ids']);
+
+        $students = Student::whereIn('id', $studentIds)->get();
+
+        $count = 0;
+        foreach ($students as $student) {
+            $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id]);
+
+            if ($review->isFinalStage()) {
+                $review->status = ReportCardReview::STATUS_APPROVED;
+            } else {
+                $review->review_stage++;
+                $review->status = ReportCardReview::STATUS_PENDING_REVIEW;
+            }
+            $review->save();
+            $count++;
+        }
+
+        return back()->with('status', "{$count} report card(s) approved or moved to the next review stage.");
     }
 
     /**
@@ -843,6 +937,58 @@ class ReportCardController extends Controller
         ]);
 
         return back()->with('status', "{$staff->fullName()} has been nudged.");
+    }
+
+    /**
+     * Bulk version of nudge(), same list-screen bulk-action pattern used
+     * across the app. Mirrors nudge()'s own two guards per row, skipping
+     * (not failing the whole batch on) a review with no assigned staff or
+     * an assigned staff member with no login.
+     */
+    public function bulkNudge(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.assign_review');
+        $school = $this->school($request);
+        $term = $this->currentTermOrAbort();
+
+        $data = $request->validate([
+            'student_ids' => ['required', 'array', 'min:1'],
+            'student_ids.*' => ['exists:tenant.students,id'],
+        ]);
+
+        $scopedArmIds = app(TeacherScope::class)->classArmIds(Auth::user(), $school);
+        $studentIds = $scopedArmIds !== null
+            ? Student::whereIn('id', $data['student_ids'])->whereIn('current_class_arm_id', $scopedArmIds)->pluck('id')
+            : collect($data['student_ids']);
+
+        $reviews = ReportCardReview::whereIn('student_id', $studentIds)->where('term_id', $term->id)->with('assignedTo', 'student')->get();
+
+        $nudged = 0;
+        $skipped = 0;
+        foreach ($reviews as $review) {
+            $staff = $review->assignedTo;
+            if (! $staff || ! $staff->user_id) {
+                $skipped++;
+
+                continue;
+            }
+
+            \App\Models\Tenant\Notification::create([
+                'user_id' => $staff->user_id,
+                'title' => 'Report card awaiting your review',
+                'body' => "{$review->student->fullName()}'s report card is waiting on you to review, approve, or send back.",
+                'category' => 'report_card_review',
+                'type' => \App\Models\Tenant\Notification::typeFor('report_card_review'),
+            ]);
+            $nudged++;
+        }
+
+        $message = "{$nudged} reviewer(s) nudged.";
+        if ($skipped) {
+            $message .= " Skipped {$skipped} report card(s) with no assigned staff or no login.";
+        }
+
+        return back()->with($skipped && ! $nudged ? 'error' : 'status', $message);
     }
 
     /**

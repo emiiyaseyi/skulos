@@ -54,7 +54,7 @@
       <input id="ends_on" name="ends_on" type="date" />
     </div>
     <label style="font-weight:500;display:flex;gap:.5rem;align-items:center;margin-bottom:1rem">
-      <input type="checkbox" name="all_day" value="1" style="width:auto" checked /> All day
+      <input type="checkbox" name="all_day" value="1" checked /> All day
     </label>
     <div class="field">
       <label for="description">Description (optional)</label>

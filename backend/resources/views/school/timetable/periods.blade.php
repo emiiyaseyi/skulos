@@ -25,12 +25,17 @@
   @if($periods->isEmpty())
     <p class="muted">No periods yet.</p>
   @else
+    <form id="bulkPeriodsForm" method="POST" action="{{ route('school.timetable.periods.bulk-destroy', ['school' => $school->slug]) }}"></form>
     <div style="overflow-x:auto">
     <table>
-      <thead><tr><th>Name</th><th>Time</th><th>Type</th><th></th></tr></thead>
+      <thead><tr>
+        <th style="width:2.2rem"><input type="checkbox" id="period-select-all" aria-label="Select all periods" /></th>
+        <th>Name</th><th>Time</th><th>Type</th><th></th>
+      </tr></thead>
       <tbody>
         @foreach($periods as $period)
           <tr>
+            <td><input type="checkbox" form="bulkPeriodsForm" class="period-row-check" name="period_ids[]" value="{{ $period->id }}" aria-label="Select {{ $period->name }}" /></td>
             <td><strong>{{ $period->name }}</strong></td>
             <td class="muted">{{ $period->timeLabel() }}</td>
             <td>{{ $period->is_teaching_period ? 'Teaching' : 'Break' }}</td>
@@ -43,7 +48,7 @@
             </td>
           </tr>
           <tr id="edit-{{ $period->id }}" class="period-edit-row">
-            <td colspan="4">
+            <td colspan="5">
               <form method="POST" action="{{ route('school.timetable.periods.update', ['school' => $school->slug, 'periodId' => $period->id]) }}" style="display:flex;gap:.5rem;padding:.6rem 0;flex-wrap:wrap;align-items:flex-end">
                 @csrf
                 <input name="name" value="{{ $period->name }}" required style="flex:1;min-width:8rem" />
@@ -67,6 +72,22 @@
       </tbody>
     </table>
     </div>
+
+    <div class="row-between" style="margin-top:.6rem;flex-wrap:wrap;gap:.6rem">
+      <span class="muted" style="font-size:.85rem">Tick any number of periods above, then remove them all at once.</span>
+      <button form="bulkPeriodsForm" class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit" onclick="return confirm('Remove the selected periods? Any class assignments in those slots are removed too.')">Remove selected</button>
+    </div>
+    <script>
+      (function(){
+        var all = document.getElementById('period-select-all');
+        var boxes = document.querySelectorAll('.period-row-check');
+        all?.addEventListener('change', function(){ boxes.forEach(function(cb){ cb.checked = all.checked; }); });
+        document.getElementById('bulkPeriodsForm')?.addEventListener('submit', function(e){
+          var anyChecked = Array.prototype.some.call(boxes, function(cb){ return cb.checked; });
+          if (! anyChecked) { e.preventDefault(); alert('Tick at least one period first.'); }
+        });
+      })();
+    </script>
   @endif
 
   <form method="POST" action="{{ route('school.timetable.periods.store', ['school' => $school->slug]) }}" style="display:flex;gap:.5rem;margin-top:1rem;flex-wrap:wrap;align-items:flex-end">

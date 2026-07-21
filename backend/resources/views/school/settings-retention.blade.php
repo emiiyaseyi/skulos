@@ -12,7 +12,7 @@
   <form method="POST" action="{{ route('school.settings.retention.update', ['school' => $school->slug]) }}" id="retentionForm">
     @csrf
     <label style="font-weight:500;display:flex;gap:.5rem;align-items:center;margin-bottom:1rem">
-      <input type="checkbox" name="use_own" value="1" style="width:auto" id="useOwn" @checked($hasOwn) /> Set our own retention windows for this school
+      <input type="checkbox" name="use_own" value="1" id="useOwn" @checked($hasOwn) /> Set our own retention windows for this school
     </label>
     <div id="ownFields" style="{{ $hasOwn ? '' : 'display:none' }}">
       <div class="field">

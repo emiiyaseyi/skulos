@@ -132,6 +132,18 @@ class SubscriptionController extends Controller
      */
     protected function decide(SubscriptionPayment $payment, string $status, SubscriptionService $subs): \Illuminate\Http\RedirectResponse
     {
+        if (! $this->applyDecision($payment, $status, $subs)) {
+            return back()->with('error', 'This payment has already been processed.');
+        }
+
+        $verb = $status === SubscriptionPayment::STATUS_VERIFIED ? 'verified' : 'rejected';
+
+        return back()->with('status', "Payment marked as {$verb}.");
+    }
+
+    /** The atomic update plus notification, shared by decide() and bulkDecide(). Returns whether this call was the one that actually transitioned the payment. */
+    protected function applyDecision(SubscriptionPayment $payment, string $status, SubscriptionService $subs): bool
+    {
         $updated = SubscriptionPayment::where('id', $payment->id)
             ->where('status', SubscriptionPayment::STATUS_PENDING)
             ->update([
@@ -141,7 +153,7 @@ class SubscriptionController extends Controller
             ]);
 
         if ($updated === 0) {
-            return back()->with('error', 'This payment has already been processed.');
+            return false;
         }
 
         $payment->refresh();
@@ -150,7 +162,31 @@ class SubscriptionController extends Controller
         $category = $status === SubscriptionPayment::STATUS_VERIFIED ? 'subscription_payment_verified' : 'subscription_payment_rejected';
         $subs->notifySchoolLeadership($payment->school, $category, "Subscription payment {$verb}", 'Your payment of ₦'.number_format((float) $payment->amount, 2)." was {$verb}.");
 
-        return back()->with('status', "Payment marked as {$verb}.");
+        return true;
+    }
+
+    /** Bulk verify/reject across several pending payments on the same school, same list-screen bulk-action pattern as SchoolAdminController::bulkAction(). */
+    public function bulkDecide(Request $request, SubscriptionService $subs): \Illuminate\Http\RedirectResponse
+    {
+        $data = $request->validate([
+            'payment_ids' => ['required', 'array', 'min:1'],
+            'payment_ids.*' => ['exists:subscription_payments,id'],
+            'action' => ['required', 'in:verify,reject'],
+        ]);
+
+        $status = $data['action'] === 'verify' ? SubscriptionPayment::STATUS_VERIFIED : SubscriptionPayment::STATUS_REJECTED;
+        $payments = SubscriptionPayment::whereIn('id', $data['payment_ids'])->get();
+
+        $processed = 0;
+        foreach ($payments as $payment) {
+            if ($this->applyDecision($payment, $status, $subs)) {
+                $processed++;
+            }
+        }
+
+        $verb = $status === SubscriptionPayment::STATUS_VERIFIED ? 'verified' : 'rejected';
+
+        return back()->with('status', "{$processed} payment(s) {$verb}.");
     }
 
     public function remind(School $school, SubscriptionService $subs): \Illuminate\Http\RedirectResponse

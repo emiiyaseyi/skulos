@@ -287,6 +287,23 @@ class AcademicsController extends Controller
         return back()->with('status', "{$session->name} restored.");
     }
 
+    /** Bulk version of unarchiveSession(), same list-screen bulk-action pattern used across the app. */
+    public function bulkUnarchiveSessions(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.update');
+        $data = $request->validate([
+            'session_ids' => ['required', 'array', 'min:1'],
+            'session_ids.*' => ['exists:tenant.academic_sessions,id'],
+        ]);
+
+        $sessions = AcademicSession::whereIn('id', $data['session_ids'])->get();
+        foreach ($sessions as $session) {
+            $session->unarchive();
+        }
+
+        return back()->with('status', "{$sessions->count()} session(s) restored.");
+    }
+
     /** Optional start/end dates for a term, used to auto-suggest the current term by today's date. */
     public function updateTermDates(Request $request): \Illuminate\Http\RedirectResponse
     {
@@ -811,5 +828,20 @@ class AcademicsController extends Controller
         $class->subjects()->detach($subject->id);
 
         return back()->with('status', "Removed {$subject->name} from this class.");
+    }
+
+    /** Bulk version of detachSubject(), same list-screen bulk-action pattern used across the app. */
+    public function bulkDetachSubjects(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.update');
+        $data = $request->validate([
+            'subject_ids' => ['required', 'array', 'min:1'],
+            'subject_ids.*' => ['exists:tenant.subjects,id'],
+        ]);
+
+        $class = SchoolClass::findOrFail($request->route('classId'));
+        $class->subjects()->detach($data['subject_ids']);
+
+        return back()->with('status', count($data['subject_ids']).' subject(s) removed from this class.');
     }
 }

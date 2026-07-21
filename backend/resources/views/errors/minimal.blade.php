@@ -6,6 +6,13 @@
 <title>{{ $code }} {{ $title ?? 'Something went wrong' }} | SKULOS</title>
 <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}" />
 <style>
+  /* --accent here is a fixed platform color (#E8A33D, always this exact
+     value), not a school's own configurable brand color, this page
+     renders pre-auth with no tenant/school context at all. The "text on
+     --accent must use --accent-ink" rule exists because a SCHOOL can
+     pick any brand color including a dark one; that risk does not apply
+     here, so the hardcoded #241503 ink below is a deliberate, stable
+     pairing, the same exemption CLAUDE.md already gives --warn/--bad. */
   :root{--accent:#E8A33D;--accent-text:color-mix(in srgb, var(--accent) 62%, black);--bg:#EEF1F6;--panel:#FFFFFF;--ink:#0B1420;--mut:rgba(11,20,32,.60);--line:rgba(11,20,32,.10)}
   *{box-sizing:border-box}
   body{margin:0;min-height:100vh;display:grid;place-items:center;padding:2rem 1.25rem;

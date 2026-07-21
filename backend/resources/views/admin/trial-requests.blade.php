@@ -15,12 +15,45 @@
 @if($trials->isEmpty())
   <div class="card"><p class="muted">Nothing here.</p></div>
 @else
+  @php $anyPending = $trials->contains('status', 'pending'); @endphp
+
+  @if($anyPending)
+    <form id="bulkTrialsForm" method="POST" action="{{ route('admin.trial-requests.bulk-reject') }}"></form>
+    <div class="card" style="margin-bottom:1.1rem">
+      <div class="row-between" style="margin-bottom:.3rem;flex-wrap:wrap;gap:.6rem">
+        <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem"><input type="checkbox" id="trial-select-all" /> Select all pending</label>
+        <span class="muted" style="font-size:.82rem">Bulk decline only, approving stays one school at a time.</span>
+      </div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end">
+        <div class="field" style="margin:0;flex:1;min-width:14rem">
+          <label for="bulk_reject_note">Note to include (applies to every selected trial)</label>
+          <textarea form="bulkTrialsForm" id="bulk_reject_note" name="review_note" rows="1" placeholder="Optional reason"></textarea>
+        </div>
+        <button form="bulkTrialsForm" class="btn btn-ghost btn-sm" type="submit" style="color:var(--bad)">Decline selected</button>
+      </div>
+    </div>
+    <script>
+      (function(){
+        var all = document.getElementById('trial-select-all');
+        var boxes = document.querySelectorAll('.trial-row-check');
+        all?.addEventListener('change', function(){ boxes.forEach(function(cb){ cb.checked = all.checked; }); });
+        document.getElementById('bulkTrialsForm')?.addEventListener('submit', function(e){
+          var anyChecked = Array.prototype.some.call(boxes, function(cb){ return cb.checked; });
+          if (! anyChecked) { e.preventDefault(); alert('Tick at least one pending trial first.'); }
+        });
+      })();
+    </script>
+  @endif
+
   @foreach($trials as $trial)
     <div class="card" style="margin-bottom:1.1rem">
       <div class="row-between" style="margin-bottom:.6rem">
-        <div>
+        <div style="display:flex;align-items:center;gap:.6rem">
+          @if($trial->status === 'pending')
+            <input type="checkbox" form="bulkTrialsForm" class="trial-row-check" name="trial_ids[]" value="{{ $trial->id }}" aria-label="Select {{ $trial->school_name }}" />
+          @endif
           <strong>{{ $trial->school_name }}</strong>
-          <span class="badge {{ $trial->status === 'approved' ? 'badge-ok' : ($trial->status === 'rejected' ? 'badge-bad' : 'badge-warn') }}" style="margin-left:.5rem">{{ ucfirst($trial->status) }}</span>
+          <span class="badge {{ $trial->status === 'approved' ? 'badge-ok' : ($trial->status === 'rejected' ? 'badge-bad' : 'badge-warn') }}">{{ ucfirst($trial->status) }}</span>
         </div>
         <span class="muted" style="font-size:.82rem">{{ $trial->created_at->diffForHumans() }}</span>
       </div>

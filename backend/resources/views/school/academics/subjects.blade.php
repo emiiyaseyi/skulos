@@ -55,12 +55,18 @@
   @if($offered->isEmpty())
     <p class="muted">No subjects added to this class yet.</p>
   @else
+    @if($canManage)
+      <form id="bulkSubjectsForm" method="POST" action="{{ route('school.academics.subjects.bulk-detach', ['school' => $school->slug, 'classId' => $class->id]) }}"></form>
+    @endif
     <div style="overflow-x:auto">
     <table>
-      <thead><tr><th>Subject</th><th>Mandatory</th><th>Examinable</th>@if($canManage)<th></th>@endif</tr></thead>
+      <thead><tr>
+        @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="subject-select-all" aria-label="Select all subjects" /></th>@endif
+        <th>Subject</th><th>Mandatory</th><th>Examinable</th>@if($canManage)<th></th>@endif</tr></thead>
       <tbody>
         @foreach($offered as $subject)
           <tr>
+            @if($canManage)<td><input type="checkbox" form="bulkSubjectsForm" class="subject-row-check" name="subject_ids[]" value="{{ $subject->id }}" aria-label="Select {{ $subject->name }}" /></td>@endif
             <td><strong>{{ $subject->name }}</strong></td>
             @if($canManage)
               <td colspan="2">
@@ -86,6 +92,24 @@
       </tbody>
     </table>
     </div>
+
+    @if($canManage)
+      <div class="row-between" style="margin-top:.8rem;flex-wrap:wrap;gap:.6rem">
+        <span class="muted" style="font-size:.85rem">Tick any number of subjects above, then remove them all at once.</span>
+        <button form="bulkSubjectsForm" class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit" onclick="return confirm('Remove the selected subjects from this class?')">Remove selected</button>
+      </div>
+      <script>
+        (function(){
+          var all = document.getElementById('subject-select-all');
+          var boxes = document.querySelectorAll('.subject-row-check');
+          all?.addEventListener('change', function(){ boxes.forEach(function(cb){ cb.checked = all.checked; }); });
+          document.getElementById('bulkSubjectsForm')?.addEventListener('submit', function(e){
+            var anyChecked = Array.prototype.some.call(boxes, function(cb){ return cb.checked; });
+            if (! anyChecked) { e.preventDefault(); alert('Tick at least one subject first.'); }
+          });
+        })();
+      </script>
+    @endif
   @endif
 </div>
 

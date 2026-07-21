@@ -302,6 +302,50 @@ class SchoolAdminController extends Controller
             ->with('status', "{$name} has been removed and moved to the archive. Its database is retained and it can be restored at any time.");
     }
 
+    /**
+     * Bulk suspend/archive/resume/delete (2026-07-19 UI audit: the
+     * platform's busiest admin list screen was the one list screen in
+     * the app with no bulk action support, the standing per-list-screen
+     * rule this project otherwise applies everywhere). Same standalone
+     * actions this controller already exposes one row at a time, applied
+     * to every ticked school in one request.
+     */
+    public function bulkAction(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'school_ids' => ['required', 'array', 'min:1'],
+            'school_ids.*' => ['exists:schools,id'],
+            'action' => ['required', 'in:suspend,archive,activate,delete'],
+        ]);
+
+        $schools = School::whereIn('id', $data['school_ids'])->get();
+
+        if ($data['action'] === 'delete') {
+            $count = $schools->count();
+            School::whereIn('id', $data['school_ids'])->delete();
+
+            return back()->with('status', "{$count} school(s) removed and moved to the archive. Their data is retained and each can be restored at any time.");
+        }
+
+        $statusMap = [
+            'suspend' => School::STATUS_SUSPENDED,
+            'archive' => School::STATUS_ARCHIVED,
+            'activate' => School::STATUS_ACTIVE,
+        ];
+        $targetStatus = $statusMap[$data['action']];
+        $changed = 0;
+        foreach ($schools as $school) {
+            if ($school->status !== $targetStatus) {
+                $school->update(['status' => $targetStatus]);
+                $changed++;
+            }
+        }
+
+        $verb = ['suspend' => 'suspended', 'archive' => 'archived', 'activate' => 'resumed'][$data['action']];
+
+        return back()->with('status', $changed > 0 ? "{$changed} school(s) {$verb}." : 'No changes to make, the selected schools were already in that state.');
+    }
+
     /** Deleted schools, still recoverable (user request 2026-07-09). */
     public function trashed(): \Illuminate\View\View
     {
@@ -317,6 +361,22 @@ class SchoolAdminController extends Controller
         $school->restore();
 
         return back()->with('status', "{$school->name} has been restored.");
+    }
+
+    /** Bulk version of restore(), same list-screen bulk-action pattern as bulkAction() above. */
+    public function bulkRestore(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'school_ids' => ['required', 'array', 'min:1'],
+            'school_ids.*' => ['exists:schools,id'],
+        ]);
+
+        $schools = School::onlyTrashed()->whereIn('id', $data['school_ids'])->get();
+        foreach ($schools as $school) {
+            $school->restore();
+        }
+
+        return back()->with('status', "{$schools->count()} school(s) restored.");
     }
 
     public function show(School $school): \Illuminate\View\View
@@ -410,6 +470,41 @@ class SchoolAdminController extends Controller
         return back()->with('status', $next === 'active'
             ? "{$user->email} can sign in to {$school->name} again."
             : "{$user->email}'s access to {$school->name} has been revoked.");
+    }
+
+    /** Bulk revoke/restore/reset password across several of this school's administrators at once, same list-screen bulk-action pattern used elsewhere. */
+    public function bulkAdminAction(Request $request, School $school): RedirectResponse
+    {
+        $data = $request->validate([
+            'user_ids' => ['required', 'array', 'min:1'],
+            'user_ids.*' => ['exists:users,id'],
+            'action' => ['required', 'in:revoke,restore,reset-password'],
+        ]);
+
+        $members = $school->users()->whereIn('users.id', $data['user_ids'])->withPivot(['status'])->get();
+
+        if ($data['action'] === 'reset-password') {
+            foreach ($members as $admin) {
+                $newPassword = Str::password(12);
+                $admin->update(['password' => Hash::make($newPassword)]);
+                Mail::to($admin->email)->send(new PasswordResetByAdminMail($admin, $school, $newPassword));
+            }
+
+            return back()->with('status', "{$members->count()} administrator(s) had their password reset and emailed to them.");
+        }
+
+        $targetStatus = $data['action'] === 'revoke' ? 'suspended' : 'active';
+        $changed = 0;
+        foreach ($members as $admin) {
+            if ($admin->pivot->status !== $targetStatus) {
+                $school->users()->updateExistingPivot($admin->id, ['status' => $targetStatus]);
+                $changed++;
+            }
+        }
+
+        $verb = $targetStatus === 'active' ? 'restored' : 'revoked';
+
+        return back()->with('status', $changed > 0 ? "Access {$verb} for {$changed} administrator(s)." : 'No changes to make, they were already in that state.');
     }
 
     /**

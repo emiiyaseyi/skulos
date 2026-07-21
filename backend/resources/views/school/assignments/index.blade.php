@@ -53,12 +53,19 @@
   @if($assignments->isEmpty())
     <p class="muted">No assignments yet.</p>
   @else
+    @if($canCreate)
+      <form id="bulkAssignmentsForm" method="POST" action="{{ route('school.assignments.bulk-destroy', ['school' => $school->slug]) }}"></form>
+    @endif
     <div style="overflow-x:auto">
     <table>
-      <thead><tr><th>Due</th><th>Title</th><th>Subject</th><th>Class</th><th></th></tr></thead>
+      <thead><tr>
+        @if($canCreate)<th style="width:2.2rem"><input type="checkbox" id="assignment-select-all" aria-label="Select all assignments" /></th>@endif
+        <th>Due</th><th>Title</th><th>Subject</th><th>Class</th><th></th>
+      </tr></thead>
       <tbody>
         @foreach($assignments as $assignment)
           <tr>
+            @if($canCreate)<td><input type="checkbox" form="bulkAssignmentsForm" class="assignment-row-check" name="assignment_ids[]" value="{{ $assignment->id }}" aria-label="Select {{ $assignment->title }}" /></td>@endif
             <td class="muted" style="white-space:nowrap">{{ $assignment->due_on?->format('d M Y') ?? 'No due date' }}</td>
             <td>
               <strong>{{ $assignment->title }}</strong>
@@ -80,6 +87,24 @@
       </tbody>
     </table>
     </div>
+
+    @if($canCreate)
+      <div class="row-between" style="margin-top:.8rem;flex-wrap:wrap;gap:.6rem">
+        <span class="muted" style="font-size:.85rem">Tick any number of assignments above, then remove them all at once.</span>
+        <button form="bulkAssignmentsForm" class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit" onclick="return confirm('Remove the selected assignments?')">Remove selected</button>
+      </div>
+      <script>
+        (function(){
+          var all = document.getElementById('assignment-select-all');
+          var boxes = document.querySelectorAll('.assignment-row-check');
+          all?.addEventListener('change', function(){ boxes.forEach(function(cb){ cb.checked = all.checked; }); });
+          document.getElementById('bulkAssignmentsForm')?.addEventListener('submit', function(e){
+            var anyChecked = Array.prototype.some.call(boxes, function(cb){ return cb.checked; });
+            if (! anyChecked) { e.preventDefault(); alert('Tick at least one assignment first.'); }
+          });
+        })();
+      </script>
+    @endif
     <div style="margin-top:1rem">{{ $assignments->links() }}</div>
   @endif
 </div>

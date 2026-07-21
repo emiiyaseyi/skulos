@@ -56,7 +56,22 @@ class Recorder
             'url' => $inConsole ? null : Str::limit((string) $request?->fullUrl(), 2048, ''),
         ]));
 
-        $log->setConnection($connection ?? config('database.default'));
+        $connectionName = $connection ?? config('database.default');
+        $log->setConnection($connectionName);
+
+        // Set created_at explicitly (rather than letting Eloquent's own
+        // auto-timestamp fill it in on save) so the value hashed below is
+        // guaranteed to be exactly what ends up stored on the row.
+        $log->created_at = now();
+
+        // Tamper-evident hash chain (2026-07-20 audit log hardening): each
+        // row's hash covers its own fields plus the previous row's hash on
+        // this same connection, so an edit made outside this immutable
+        // model (e.g. a raw SQL UPDATE) is detectable by IntegrityChecker.
+        $previousHash = AuditLog::on($connectionName)->orderByDesc('id')->value('hash');
+        $log->previous_hash = $previousHash;
+        $log->hash = app(IntegrityChain::class)->hashFor($log, $previousHash);
+
         $log->save();
     }
 }

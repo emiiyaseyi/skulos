@@ -94,12 +94,26 @@
   @if($payments->isEmpty())
     <p class="muted">No payments submitted yet.</p>
   @else
+    @php $hasPending = $payments->contains('status', 'pending'); @endphp
+    @if($hasPending)
+      <form id="bulkPaymentsForm" method="POST" action="{{ route('admin.subscriptions.payments.bulk-action') }}"></form>
+    @endif
     <div style="overflow-x:auto">
     <table>
-      <thead><tr><th>Date</th><th>Amount</th><th>Status</th><th></th></tr></thead>
+      <thead><tr>
+        @if($hasPending)<th style="width:2.2rem"><input type="checkbox" id="payment-select-all" aria-label="Select all pending payments" /></th>@endif
+        <th>Date</th><th>Amount</th><th>Status</th><th></th>
+      </tr></thead>
       <tbody>
         @foreach($payments as $payment)
           <tr>
+            @if($hasPending)
+              <td>
+                @if($payment->status === 'pending')
+                  <input type="checkbox" form="bulkPaymentsForm" class="payment-row-check" name="payment_ids[]" value="{{ $payment->id }}" aria-label="Select this payment" />
+                @endif
+              </td>
+            @endif
             <td class="muted">{{ $payment->created_at->format('d M Y') }}</td>
             <td>₦{{ number_format((float) $payment->amount, 2) }}</td>
             <td><span class="badge {{ $payment->status === 'verified' ? 'badge-ok' : ($payment->status === 'rejected' ? 'badge-bad' : 'badge-warn') }}">{{ ucfirst($payment->status) }}</span></td>
@@ -123,6 +137,27 @@
       </tbody>
     </table>
     </div>
+
+    @if($hasPending)
+      <div class="row-between" style="margin-top:.8rem;flex-wrap:wrap;gap:.6rem">
+        <span class="muted" style="font-size:.85rem">Tick any number of pending payments above, then decide them all at once.</span>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <button form="bulkPaymentsForm" class="btn btn-primary btn-sm" type="submit" name="action" value="verify">Verify selected</button>
+          <button form="bulkPaymentsForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="reject">Reject selected</button>
+        </div>
+      </div>
+      <script>
+        (function(){
+          var all = document.getElementById('payment-select-all');
+          var boxes = document.querySelectorAll('.payment-row-check');
+          all?.addEventListener('change', function(){ boxes.forEach(function(cb){ cb.checked = all.checked; }); });
+          document.getElementById('bulkPaymentsForm')?.addEventListener('submit', function(e){
+            var anyChecked = Array.prototype.some.call(boxes, function(cb){ return cb.checked; });
+            if (! anyChecked) { e.preventDefault(); alert('Tick at least one pending payment first.'); }
+          });
+        })();
+      </script>
+    @endif
   @endif
 </div>
 @endsection

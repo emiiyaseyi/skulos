@@ -166,9 +166,9 @@
     // (user directive 2026-07-16: build out the remaining Reports &
     // Analytics/Communication "Soon" items).
     'in_app_notifications' => ['school.notifications.index', 'Notifications', 'comms'],
-    'announcements' => ['school.announcements.index', 'Announcements', 'comms'],
-    'parent_broadcast' => ['school.messages.index', 'Messages', 'comms'],
-    'communication_history' => ['school.announcements.history', 'Communication History', 'comms'],
+    'announcements' => ['school.announcements.index', 'Announcements', 'mail'],
+    'parent_broadcast' => ['school.messages.index', 'Messages', 'chat'],
+    'communication_history' => ['school.announcements.history', 'Communication History', 'clock'],
     // Already fully built end to end, just never wired into this catalog
     // (2026-07-18): AnnouncementController::store() ->
     // NotificationService::dispatchAnnouncement() ->
@@ -593,10 +593,20 @@
       $link('school.students.settings.edit', 'Parent Settings', 'students'),
       $link('school.students.settings.edit', 'Staff Settings', 'staff'),
     ]);
-    $settingsSubgroups['Communication'] = array_merge($settingsSubgroups['Communication'], [
-      $link('school.settings.mail.edit', 'Mail Settings', 'mail'),
-      $link('school.settings.communication.edit', 'Notifications', 'chat'),
-    ]);
+    $communicationSettingsLinks = [$link('school.settings.mail.edit', 'Mail Settings', 'mail')];
+    // "Notifications" here is the exact same route the email_notifications
+    // catalog entry above already renders (and marks in $renderedRoutes)
+    // once a school's plan includes that feature (2026-07-18's forceGroup
+    // comment says as much: "or an Advance-tier school would see it
+    // rendered twice"), but this unconditional block never actually
+    // checked for that, so an Advance-tier school saw it twice anyway
+    // (found in a 2026-07-19 UI audit). Guarded the same way every other
+    // dedup in this file already is.
+    if (! isset($renderedRoutes['school.settings.communication.edit'])) {
+      $renderedRoutes['school.settings.communication.edit'] = true;
+      $communicationSettingsLinks[] = $link('school.settings.communication.edit', 'Notifications', 'chat');
+    }
+    $settingsSubgroups['Communication'] = array_merge($settingsSubgroups['Communication'], $communicationSettingsLinks);
     $settingsSubgroups['Appearance'] = array_merge($settingsSubgroups['Appearance'], [
       $link('school.dashboard.edit', 'Dashboard', 'settings'),
       $link('school.settings.landing-pages.edit', 'Landing Pages', 'pages'),

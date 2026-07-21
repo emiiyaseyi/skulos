@@ -99,7 +99,7 @@
           @csrf
           <div class="flagbox" style="margin-bottom:.8rem;flex-wrap:wrap">
             @foreach($classCatalogs as $key => $tier)
-              <label><input type="checkbox" name="tiers[]" value="{{ $key }}" style="width:auto" /> {{ config('skulos.default_subjects.'.$key.'.label', ucfirst($key)) }}</label>
+              <label><input type="checkbox" name="tiers[]" value="{{ $key }}" /> {{ config('skulos.default_subjects.'.$key.'.label', ucfirst($key)) }}</label>
             @endforeach
           </div>
           <button class="btn btn-primary btn-sm" type="submit">Load selected tiers</button>

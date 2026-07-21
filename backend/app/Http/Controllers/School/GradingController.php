@@ -187,4 +187,18 @@ class GradingController extends Controller
 
         return back()->with('status', 'Band removed.');
     }
+
+    /** Bulk version of destroyBand(), same list-screen bulk-action pattern used across the app. */
+    public function bulkDestroyBands(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'examinations.approve_results');
+        $data = $request->validate([
+            'band_ids' => ['required', 'array', 'min:1'],
+            'band_ids.*' => ['exists:tenant.grading_bands,id'],
+        ]);
+
+        GradingBand::whereIn('id', $data['band_ids'])->delete();
+
+        return back()->with('status', count($data['band_ids']).' band(s) removed.');
+    }
 }

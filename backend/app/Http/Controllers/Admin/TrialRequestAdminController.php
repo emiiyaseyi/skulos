@@ -114,6 +114,40 @@ class TrialRequestAdminController extends Controller
         return back()->with('status', "{$trialRequest->school_name} declined. {$trialRequest->contact_name} has been emailed.");
     }
 
+    /**
+     * Bulk decline across several pending trials at once, same list-screen
+     * bulk-action pattern used elsewhere. Approve is deliberately NOT
+     * offered in bulk: it provisions a whole new tenant database per
+     * school (real disk I/O and migrations, several seconds each), and
+     * running several of those synchronously in one request risks the
+     * same PHP max_execution_time timeout already hit once on this
+     * codebase (2026-07-20, the /login stall). Declining is cheap (a
+     * status update and an email) and safe to batch.
+     */
+    public function bulkReject(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'trial_ids' => ['required', 'array', 'min:1'],
+            'trial_ids.*' => ['exists:trial_requests,id'],
+            'review_note' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $trials = TrialRequest::whereIn('id', $data['trial_ids'])->where('status', TrialRequest::STATUS_PENDING)->get();
+
+        foreach ($trials as $trial) {
+            $trial->update([
+                'status' => TrialRequest::STATUS_REJECTED,
+                'review_note' => $data['review_note'] ?? null,
+                'reviewed_by' => Auth::id(),
+                'reviewed_at' => now(),
+            ]);
+
+            Mail::to($trial->email)->send(new TrialRequestStatusMail($trial));
+        }
+
+        return back()->with('status', "{$trials->count()} trial request(s) declined and emailed.");
+    }
+
     protected function uniqueSlug(string $name): string
     {
         $base = Str::slug($name) ?: 'school';

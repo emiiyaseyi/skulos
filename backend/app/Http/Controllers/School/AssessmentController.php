@@ -135,6 +135,43 @@ class AssessmentController extends Controller
     }
 
     /**
+     * Bulk version of destroy(), same list-screen bulk-action pattern used
+     * across the app. Mirrors destroy()'s own scored-component guard per
+     * row, skipping (not failing the whole batch on) any component that
+     * already has scores entered against it.
+     */
+    public function bulkDestroy(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'examinations.approve_results');
+        $data = $request->validate([
+            'component_ids' => ['required', 'array', 'min:1'],
+            'component_ids.*' => ['exists:tenant.assessment_components,id'],
+        ]);
+
+        $components = AssessmentComponent::whereIn('id', $data['component_ids'])->get();
+        $scoredIds = Score::whereIn('assessment_component_id', $components->pluck('id'))
+            ->distinct()->pluck('assessment_component_id')->all();
+
+        $removed = 0;
+        $skipped = [];
+        foreach ($components as $component) {
+            if (in_array($component->id, $scoredIds, true)) {
+                $skipped[] = $component->name;
+                continue;
+            }
+            $component->delete();
+            $removed++;
+        }
+
+        $message = $removed > 0 ? "{$removed} component(s) removed." : 'No components removed.';
+        if ($skipped) {
+            $message .= ' Skipped (already has scores entered): '.implode(', ', $skipped).'.';
+        }
+
+        return back()->with($skipped ? 'error' : 'status', $message);
+    }
+
+    /**
      * One click starting structure (guided setup wizard, user request
      * 2026-07-11), the common two CA plus one exam split. Only ever
      * loaded onto an empty structure, a school that already defined its

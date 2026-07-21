@@ -114,7 +114,7 @@
                           <input name="phone" value="{{ $guardian->phone }}" @required($parentIdentifier === 'phone') />
                         </div>
                         <label style="display:flex;gap:.4rem;align-items:center;margin-bottom:.6rem;font-weight:500">
-                          <input type="checkbox" name="is_primary" value="1" style="width:auto" @checked($guardian->is_primary) /> Primary guardian
+                          <input type="checkbox" name="is_primary" value="1" @checked($guardian->is_primary) /> Primary guardian
                         </label>
                         <button class="btn btn-primary btn-sm" type="submit">Save</button>
                       </form>
@@ -167,7 +167,7 @@
           </div>
         </div>
         <label style="font-weight:500;display:flex;gap:.4rem;align-items:center;margin-bottom:.8rem">
-          <input type="checkbox" name="is_primary" value="1" style="width:auto" /> Primary guardian
+          <input type="checkbox" name="is_primary" value="1" /> Primary guardian
         </label>
         <button class="btn btn-ghost btn-sm" type="submit">Add guardian</button>
       </form>

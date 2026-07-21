@@ -303,6 +303,31 @@ class AssignmentController extends Controller
             ->with('status', 'Assignment removed.');
     }
 
+    /** Bulk version of destroy(), same teacher class-arm scoping applied per row. */
+    public function bulkDestroy(Request $request, TeacherScope $teacherScope): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'assignments.delete');
+        $school = $this->school($request);
+        $user = Auth::user();
+
+        $data = $request->validate([
+            'assignment_ids' => ['required', 'array', 'min:1'],
+            'assignment_ids.*' => ['exists:assignments,id'],
+        ]);
+
+        $armIds = $teacherScope->classArmIds($user, $school);
+        $assignments = Assignment::whereIn('id', $data['assignment_ids'])
+            ->when($armIds !== null, fn ($q) => $q->whereIn('class_arm_id', $armIds))
+            ->get();
+
+        foreach ($assignments as $assignment) {
+            $assignment->delete();
+        }
+
+        return redirect()->route('school.assignments.index', ['school' => $school->slug])
+            ->with('status', "{$assignments->count()} assignment(s) removed.");
+    }
+
     /**
      * Assignment detail (user report 2026-07-18: "a class teacher can see
      * all the details of the assignment for her class, submission, who

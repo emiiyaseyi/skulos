@@ -14,7 +14,7 @@
   <form method="GET" style="margin-bottom:1rem;display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
     <input type="search" name="q" value="{{ $search }}" placeholder="Search by name or admission number" style="max-width:22rem" />
     <label style="font-weight:500;display:flex;gap:.4rem;align-items:center">
-      <input type="checkbox" name="unassigned" value="1" style="width:auto" @checked($unassignedOnly) onchange="this.form.requestSubmit()" />
+      <input type="checkbox" name="unassigned" value="1" @checked($unassignedOnly) onchange="this.form.requestSubmit()" />
       Show only students without a house
     </label>
   </form>

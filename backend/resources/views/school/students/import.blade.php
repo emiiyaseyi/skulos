@@ -61,8 +61,8 @@
       </div>
       <div class="field">
         <label>If some rows have problems</label>
-        <label style="font-weight:500;display:flex;gap:.5rem;align-items:center;margin-bottom:.4rem"><input type="radio" name="mode" value="partial" checked style="width:auto"> Import the good rows, report the rest</label>
-        <label style="font-weight:500;display:flex;gap:.5rem;align-items:center"><input type="radio" name="mode" value="strict" style="width:auto"> Import nothing unless every row is valid</label>
+        <label style="font-weight:500;display:flex;gap:.5rem;align-items:center;margin-bottom:.4rem"><input type="radio" name="mode" value="partial" checked> Import the good rows, report the rest</label>
+        <label style="font-weight:500;display:flex;gap:.5rem;align-items:center"><input type="radio" name="mode" value="strict"> Import nothing unless every row is valid</label>
         @error('mode')<div class="err">{{ $message }}</div>@enderror
       </div>
       <button class="btn btn-primary" type="submit">Import students</button>
