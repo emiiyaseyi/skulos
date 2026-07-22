@@ -169,6 +169,32 @@ class AcademicInsightsAndWorkloadTest extends TestCase
             ->assertSee('JSS 1'); // class label shown for the class teacher
     }
 
+    /** User report 2026-07-22: two teachers tying for heaviest load must both show, not just whichever sorted first, and a Lowest Load card must exist too. */
+    public function test_teacher_workload_shows_every_teacher_tied_for_heaviest_and_lowest_load(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'workloadthree');
+        ['classArm' => $classArm, 'maths' => $maths, 'english' => $english] = $this->seedAcademics($school);
+
+        app(TenantManager::class)->use($school);
+        $teacherA = Staff::create(['staff_id' => 'T2', 'first_name' => 'Tunde', 'last_name' => 'One']);
+        $teacherB = Staff::create(['staff_id' => 'T3', 'first_name' => 'Chika', 'last_name' => 'Two']);
+        // Both teach the same class arm (same student headcount), so
+        // both tie for the heaviest AND the lowest load, the only
+        // students in this school.
+        TeachingAssignment::create(['staff_id' => $teacherA->id, 'subject_id' => $maths->id, 'class_arm_id' => $classArm->id]);
+        TeachingAssignment::create(['staff_id' => $teacherB->id, 'subject_id' => $english->id, 'class_arm_id' => $classArm->id]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/staff-portal/workload");
+
+        $response->assertOk()
+            ->assertSee('Tunde One')
+            ->assertSee('Chika Two')
+            ->assertSee('Heaviest load')
+            ->assertSee('Lowest load')
+            ->assertSee('2 teachers tied');
+    }
+
     public function test_teacher_workload_requires_permission(): void
     {
         [$school, $parent] = $this->schoolWithMember('parent', 'workloadtwo');

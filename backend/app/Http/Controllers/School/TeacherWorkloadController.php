@@ -98,11 +98,19 @@ class TeacherWorkloadController extends Controller
         // changed"): scoped to whichever staff the section filter leaves
         // visible below, not silently stuck at the whole school's totals.
         $insightRows = $sectionFilter ? $rows->filter(fn ($r) => $r['section_ids']->contains($sectionFilter))->values() : $rows;
+        // Every teacher tied for heaviest/lightest, not just the first one
+        // sortByDesc()/first() happened to land on (user report 2026-07-22:
+        // "its not only one teacher that has same number of load as
+        // capture so let's be able to click on each heavy and light load
+        // card to list of those in it as a pop up").
+        $maxStudents = $insightRows->max('students');
+        $minStudents = $insightRows->min('students');
         $insights = [
             'teachers' => $insightRows->count(),
             'avg_subjects' => $insightRows->isNotEmpty() ? round($insightRows->avg('subjects'), 1) : 0,
             'avg_students' => $insightRows->isNotEmpty() ? round($insightRows->avg('students'), 1) : 0,
-            'heaviest' => $insightRows->sortByDesc('students')->first(),
+            'heaviest' => $insightRows->isNotEmpty() ? $insightRows->where('students', $maxStudents)->values() : collect(),
+            'lightest' => $insightRows->isNotEmpty() ? $insightRows->where('students', $minStudents)->values() : collect(),
         ];
 
         $groups = $sections->map(function (Section $section) use ($rows, $sorter) {

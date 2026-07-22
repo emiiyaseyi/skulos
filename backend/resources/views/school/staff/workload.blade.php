@@ -29,12 +29,42 @@
   </form>
 </div>
 
-<div class="grid" style="grid-template-columns:repeat(4, 1fr);gap:1rem;margin-bottom:1.25rem">
+@php
+  $loadCard = function($rows, $title) {
+    $count = $rows->count();
+    $students = $count ? $rows->first()['students'] : 0;
+    $label = $count > 1 ? $count.' teachers tied' : ($rows->first()['name'] ?? 'None');
+    return compact('rows', 'title', 'count', 'students', 'label');
+  };
+  $heaviest = $loadCard($insights['heaviest'], 'Heaviest load');
+  $lightest = $loadCard($insights['lightest'], 'Lowest load');
+@endphp
+
+<div class="grid" style="grid-template-columns:repeat(5, 1fr);gap:1rem;margin-bottom:1.25rem">
   <div class="card stat" style="padding:1rem"><b>{{ $insights['teachers'] }}</b><span>Teaching staff</span></div>
   <div class="card stat" style="padding:1rem"><b>{{ $insights['avg_subjects'] }}</b><span>Average subjects each</span></div>
   <div class="card stat" style="padding:1rem"><b>{{ $insights['avg_students'] }}</b><span>Average students each</span></div>
-  <div class="card stat" style="padding:1rem"><b>{{ $insights['heaviest']['students'] ?? 0 }}</b><span>Heaviest load{{ isset($insights['heaviest']['name']) ? ' ('.$insights['heaviest']['name'].')' : '' }}</span></div>
+  @foreach([$heaviest, $lightest] as $loadStat)
+    <details class="card stat load-card" style="padding:1rem">
+      <summary style="cursor:pointer;list-style:none">
+        <b>{{ $loadStat['students'] }}</b>
+        <span>{{ $loadStat['title'] }} ({{ $loadStat['label'] }})</span>
+      </summary>
+      @if($loadStat['count'] > 0)
+        <ul class="load-card-list">
+          @foreach($loadStat['rows'] as $row)
+            <li><a href="{{ route('school.staff.show', ['school' => $school->slug, 'staffId' => $row['staff_id']]) }}">{{ $row['name'] }}</a> <span class="muted">{{ number_format($row['students']) }} students</span></li>
+          @endforeach
+        </ul>
+      @endif
+    </details>
+  @endforeach
 </div>
+
+<style>
+  .load-card summary::-webkit-details-marker{display:none}
+  .load-card-list{list-style:none;margin:.6rem 0 0;padding-top:.6rem;border-top:1px solid var(--line);font-size:.82rem;display:flex;flex-direction:column;gap:.35rem}
+</style>
 
 @if($groups->isEmpty())
   <div class="card"><p class="muted">No teaching assignments or class teachers have been set up yet.</p></div>
