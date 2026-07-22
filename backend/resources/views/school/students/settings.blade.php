@@ -1,5 +1,5 @@
-@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => 'Student Field Settings'])
-@section('title', 'Student Field Settings')
+@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => 'Student, Parent & Staff Field Settings'])
+@section('title', 'Student, Parent & Staff Field Settings')
 
 @push('head')
 <style>
@@ -13,15 +13,17 @@
 @section('content')
 <div class="page-head">
   <div>
-    <h1 class="title">Student Field Settings</h1>
-    <p class="subtitle">Choose which student fields must be filled in, for both bulk import and single entry. Admission number, first name, and last name are always required; email is never required.</p>
+    <h1 class="title">Student, Parent &amp; Staff Field Settings</h1>
+    <p class="subtitle">Which fields are required, and which contact field uniquely identifies a parent or staff member.</p>
   </div>
   <a class="btn btn-ghost btn-sm" href="{{ route('school.students', ['school' => $school->slug]) }}">Back to Students</a>
 </div>
 
 <form method="POST" action="{{ route('school.students.settings.update', ['school' => $school->slug]) }}">
   @csrf
-  <div class="card">
+  <div class="card" id="student-fields">
+    <h3 style="margin-bottom:.4rem">Student fields</h3>
+    <p class="muted" style="margin-bottom:.8rem">Choose which student fields must be filled in, for both bulk import and single entry. Admission number, first name, and last name are always required; email is never required.</p>
     <div class="field-grid" style="margin-bottom:1.2rem">
       @foreach($fields as $key => $label)
         <label class="field-check">
@@ -32,7 +34,7 @@
     </div>
   </div>
 
-  <div class="card" style="margin-top:1.25rem">
+  <div class="card" style="margin-top:1.25rem" id="identifier-settings">
     <h3 style="margin-bottom:.4rem">Parent and staff identifier</h3>
     <p class="muted" style="margin-bottom:.8rem">Choose which contact field uniquely identifies a parent, and which one identifies a staff member. Pick one per person type and stick with it, this is what links the same person across their children or across schools.</p>
     <div class="grid cols-2">

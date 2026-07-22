@@ -718,6 +718,16 @@ return [
     'identifier_options' => [
         'email' => 'Email address',
         'phone' => 'Phone number',
+        // Added 2026-07-22 (user request: "I want the option of having
+        // both as the unique identifier too, both email and phone
+        // number"), a reversal of the original "the school must stick
+        // to one only" decision: a school choosing "both" accepts
+        // either contact field as satisfying the requirement (at least
+        // one of the two present), rather than forcing a single specific
+        // one. See StudentController::storeGuardian()/updateGuardian()
+        // and StaffController::staffValidationRules() for the
+        // required_without enforcement this adds.
+        'both' => 'Both (either one)',
     ],
 
     /*

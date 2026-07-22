@@ -58,6 +58,24 @@ class PlanFeatureNavTest extends TestCase
         return [$school, $user];
     }
 
+    /**
+     * User report 2026-07-22: "staff and parent field setting keeps
+     * going back to student field settings." All three nav labels
+     * genuinely share one real screen; Parent/Staff Settings must land
+     * on that screen's identifier section by anchor, not just its top.
+     */
+    public function test_parent_and_staff_settings_nav_links_jump_to_the_identifier_section(): void
+    {
+        [$school, $user] = $this->schoolOnPlan([], 'plananchor');
+
+        $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard");
+        $html = $response->getContent();
+
+        $target = route('school.students.settings.edit', ['school' => $school->slug]).'#identifier-settings';
+        $this->assertStringContainsString('href="'.$target.'"', $html);
+        $response->assertSee('Parent Settings')->assertSee('Staff Settings')->assertSee('Student Fields');
+    }
+
     public function test_a_feature_included_in_the_plan_shows_in_the_nav(): void
     {
         [$school, $user] = $this->schoolOnPlan(['school_houses', 'result_management'], 'planone');

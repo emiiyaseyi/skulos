@@ -501,6 +501,42 @@ class StudentScreenTest extends TestCase
         $this->assertNull($guardian->email);
     }
 
+    /** User request 2026-07-22: "I want the option of having both as the unique identifier too, both email and phone number." */
+    public function test_a_school_can_switch_its_parent_identifier_to_both_and_either_contact_field_satisfies_it(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'identifierboth');
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/settings", [
+            'parent_identifier' => 'both',
+            'staff_identifier' => 'email',
+            'guardian_visibility' => 'class_teacher_only',
+            'default_student_password' => 'Student@123',
+            'default_parent_password' => 'Parent@123',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $studentA = Student::create(['admission_number' => 'ADM/960', 'first_name' => 'Ada', 'last_name' => 'Obi']);
+        $studentB = Student::create(['admission_number' => 'ADM/961', 'first_name' => 'Bode', 'last_name' => 'Ade']);
+        $studentIdA = $studentA->id;
+        $studentIdB = $studentB->id;
+        app(TenantManager::class)->forget();
+
+        // Neither given: rejected.
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/{$studentIdA}/guardians", [
+            'name' => 'Mr Obi', 'relationship' => 'Father',
+        ])->assertSessionHasErrors('email');
+
+        // Phone only: accepted.
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/{$studentIdA}/guardians", [
+            'name' => 'Mr Obi', 'relationship' => 'Father', 'phone' => '08011112222',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        // Email only: accepted.
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/{$studentIdB}/guardians", [
+            'name' => 'Mrs Ade', 'relationship' => 'Mother', 'email' => 'mrs.ade@example.com',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+    }
+
     public function test_the_default_parent_identifier_is_email_and_is_enforced(): void
     {
         [$school, $admin] = $this->schoolWithMember('school-owner', 'identifiertwo');

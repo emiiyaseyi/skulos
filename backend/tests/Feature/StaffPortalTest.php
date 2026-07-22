@@ -92,6 +92,31 @@ class StaffPortalTest extends TestCase
         ])->assertRedirect()->assertSessionDoesntHaveErrors();
     }
 
+    /** User request 2026-07-22: "I want the option of having both as the unique identifier too, both email and phone number." */
+    public function test_both_staff_identifier_accepts_either_email_or_phone_but_requires_at_least_one(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'stfboth');
+
+        app(TenantManager::class)->use($school);
+        \App\Models\Tenant\Setting::put('staff_identifier', 'both');
+        app(TenantManager::class)->forget();
+
+        // Neither given: rejected.
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/staff/create", [
+            'first_name' => 'Ada', 'last_name' => 'Obi', 'position' => 'Bursar', 'status' => 'active',
+        ])->assertSessionHasErrors('email');
+
+        // Email only: accepted.
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/staff/create", [
+            'first_name' => 'Bola', 'last_name' => 'Ade', 'position' => 'Bursar', 'status' => 'active', 'email' => 'bola@example.com',
+        ])->assertRedirect()->assertSessionDoesntHaveErrors();
+
+        // Phone only: accepted.
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/staff/create", [
+            'first_name' => 'Chidi', 'last_name' => 'Eze', 'position' => 'Bursar', 'status' => 'active', 'phone' => '08031234567',
+        ])->assertRedirect()->assertSessionDoesntHaveErrors();
+    }
+
     public function test_owner_can_edit_a_staff_member(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'stftwo');

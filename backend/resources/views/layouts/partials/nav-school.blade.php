@@ -605,10 +605,32 @@
       // too, so both stay real, just two entry points into one screen.
       $link('school.calendar.index', 'Academic Calendar', 'calendar'),
     ]);
+    /*
+     * All three of these are one real shared screen ("Student, Parent &
+     * Staff Field Settings"), the same "shared real screen, distinct
+     * labels" pattern Campuses/Health already use above, never three
+     * separate pages. User report 2026-07-22: "staff and parent field
+     * setting keeps going back to student field settings", because the
+     * destination always looked and read like it was ONLY about
+     * students regardless of which of the three labels was clicked. The
+     * page itself is now titled to cover all three and the Parent/Staff
+     * links jump straight to the shared identifier section by anchor
+     * (via $linkWithAnchor, a thin wrapper around $link()), so landing
+     * there no longer reads as a wrong destination.
+     */
+    $linkWithAnchor = function ($routeName, $anchor, $label, $icon) use ($link, $slug) {
+      $entry = $link($routeName, $label, $icon);
+      if ($slug && \Illuminate\Support\Facades\Route::has($routeName)) {
+        $plainUrl = route($routeName, ['school' => $slug]);
+        $entry['html'] = str_replace('href="'.$plainUrl.'"', 'href="'.$plainUrl.'#'.$anchor.'"', $entry['html']);
+      }
+
+      return $entry;
+    };
     $settingsSubgroups['Users'] = array_merge($settingsSubgroups['Users'], [
-      $link('school.students.settings.edit', 'Student Fields', 'students'),
-      $link('school.students.settings.edit', 'Parent Settings', 'students'),
-      $link('school.students.settings.edit', 'Staff Settings', 'staff'),
+      $linkWithAnchor('school.students.settings.edit', 'student-fields', 'Student Fields', 'students'),
+      $linkWithAnchor('school.students.settings.edit', 'identifier-settings', 'Parent Settings', 'students'),
+      $linkWithAnchor('school.students.settings.edit', 'identifier-settings', 'Staff Settings', 'staff'),
       $link('school.settings.custom-fields.index', 'Custom Fields', 'settings'),
     ]);
     $communicationSettingsLinks = [$link('school.settings.mail.edit', 'Mail Settings', 'mail')];

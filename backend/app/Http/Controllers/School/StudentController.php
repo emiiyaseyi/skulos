@@ -570,8 +570,8 @@ class StudentController extends Controller
         $data = $request->validate(array_merge([
             'name' => ['required', 'string', 'max:150'],
             'relationship' => ['nullable', 'string', 'max:60'],
-            'email' => [$identifier === 'email' ? 'required' : 'nullable', 'email', 'max:150'],
-            'phone' => [$identifier === 'phone' ? 'required' : 'nullable', 'string', 'max:40'],
+            'email' => [$identifier === 'phone' ? 'nullable' : ($identifier === 'both' ? 'required_without:phone' : 'required'), 'email', 'max:150'],
+            'phone' => [$identifier === 'email' ? 'nullable' : ($identifier === 'both' ? 'required_without:email' : 'required'), 'string', 'max:40'],
             'is_primary' => ['sometimes', 'boolean'],
         ], $customFields->validationRules('guardian')));
         $custom = Arr::pull($data, 'custom', []);
@@ -616,8 +616,8 @@ class StudentController extends Controller
         $data = $request->validate(array_merge([
             'name' => ['required', 'string', 'max:150'],
             'relationship' => ['nullable', 'string', 'max:60'],
-            'email' => [$identifier === 'email' ? 'required' : 'nullable', 'email', 'max:150'],
-            'phone' => [$identifier === 'phone' ? 'required' : 'nullable', 'string', 'max:40'],
+            'email' => [$identifier === 'phone' ? 'nullable' : ($identifier === 'both' ? 'required_without:phone' : 'required'), 'email', 'max:150'],
+            'phone' => [$identifier === 'email' ? 'nullable' : ($identifier === 'both' ? 'required_without:email' : 'required'), 'string', 'max:40'],
             'is_primary' => ['sometimes', 'boolean'],
         ], $customFields->validationRules('guardian')));
         $custom = Arr::pull($data, 'custom', []);
