@@ -7,14 +7,15 @@
       .rp-list li .rp-text{display:flex;flex-direction:column;gap:.1rem}
       .rp-filter-bar{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.7rem}
       .rp-filter-bar input[type="search"]{max-width:14rem}
+      .rp-pager{display:flex;justify-content:space-between;align-items:center;gap:.6rem;margin-top:.7rem;flex-wrap:wrap}
     </style>
   @endonce
+  @php($widgetId = 'atRisk'.\Illuminate\Support\Str::random(6))
   <div class="card rp-card">
     <h3 style="margin-bottom:.3rem">{{ $title ?? 'Students at risk' }}</h3>
     <p class="muted" style="font-size:.8rem;margin-bottom:.8rem">{{ $subtitle ?? 'Low attendance or low average this term, an early flag, not a formal report.' }}</p>
 
     @if($filterable ?? false)
-      @php($widgetId = 'atRisk'.\Illuminate\Support\Str::random(6))
       <div class="rp-filter-bar">
         <input type="search" id="filter-{{ $widgetId }}" placeholder="Filter by name or class" aria-label="Filter by name or class" />
         <select id="sort-{{ $widgetId }}" aria-label="Sort">
@@ -25,7 +26,7 @@
       </div>
     @endif
 
-    <ul class="rp-list" id="list-{{ $widgetId ?? '' }}">
+    <ul class="rp-list" id="list-{{ $widgetId }}">
       @foreach($items as $item)
         <li data-name="{{ strtolower($item['name']) }}" data-class="{{ strtolower($item['class'] ?? '') }}" data-reason="{{ $loop->index }}">
           <span class="rp-text"><strong>{{ $item['name'] }}</strong><span class="muted">{{ $item['class'] }}</span></span>
@@ -33,22 +34,64 @@
         </li>
       @endforeach
     </ul>
+
+    {{-- User request 2026-07-22: "Add pagination to 'Performance at risk' if data there is more than 10. So we should have 10 per page." Client side, matching this widget's existing all-client-side filter/sort, hidden entirely when there is nothing to page through. --}}
+    @if(count($items) > 10)
+      <div class="rp-pager" id="pager-{{ $widgetId }}">
+        <button type="button" class="btn btn-ghost btn-sm" id="prev-{{ $widgetId }}">Previous</button>
+        <span class="muted" id="pageinfo-{{ $widgetId }}" style="font-size:.8rem"></span>
+        <button type="button" class="btn btn-ghost btn-sm" id="next-{{ $widgetId }}">Next</button>
+      </div>
+    @endif
   </div>
 
-  @if($filterable ?? false)
-    <script>
-    (function(){
-      var list = document.getElementById('list-{{ $widgetId }}');
+  <script>
+  (function(){
+    var widgetId = {{ Js::from($widgetId) }};
+    var perPage = 10;
+    var page = 1;
+    var list = document.getElementById('list-' + widgetId);
+    var pager = document.getElementById('pager-' + widgetId);
+    var pageInfo = document.getElementById('pageinfo-' + widgetId);
+    var prevBtn = document.getElementById('prev-' + widgetId);
+    var nextBtn = document.getElementById('next-' + widgetId);
+    if (! list) return;
+
+    function visibleItems() {
+      return Array.prototype.filter.call(list.querySelectorAll('li'), function(li){ return li.dataset.filteredOut !== '1'; });
+    }
+
+    function paginate() {
+      var items = visibleItems();
+      var totalPages = Math.max(1, Math.ceil(items.length / perPage));
+      if (page > totalPages) page = totalPages;
+      items.forEach(function(li, i){
+        var onPage = Math.floor(i / perPage) + 1;
+        li.style.display = (onPage === page) ? '' : 'none';
+      });
+      if (pager) {
+        pager.style.display = items.length > perPage ? '' : 'none';
+        if (pageInfo) pageInfo.textContent = 'Page ' + page + ' of ' + totalPages;
+        if (prevBtn) prevBtn.disabled = page <= 1;
+        if (nextBtn) nextBtn.disabled = page >= totalPages;
+      }
+    }
+
+    prevBtn && prevBtn.addEventListener('click', function(){ page = Math.max(1, page - 1); paginate(); });
+    nextBtn && nextBtn.addEventListener('click', function(){ page = page + 1; paginate(); });
+
+    @if($filterable ?? false)
       var filterInput = document.getElementById('filter-{{ $widgetId }}');
       var sortSelect = document.getElementById('sort-{{ $widgetId }}');
-      if (! list) return;
 
       filterInput.addEventListener('input', function(){
         var q = this.value.trim().toLowerCase();
         list.querySelectorAll('li').forEach(function(li){
           var matches = li.dataset.name.includes(q) || li.dataset.class.includes(q);
-          li.style.display = matches ? '' : 'none';
+          li.dataset.filteredOut = matches ? '0' : '1';
         });
+        page = 1;
+        paginate();
       });
 
       sortSelect.addEventListener('change', function(){
@@ -59,8 +102,12 @@
           return a.dataset[key].localeCompare(b.dataset[key]);
         });
         items.forEach(function(li){ list.appendChild(li); });
+        page = 1;
+        paginate();
       });
-    })();
-    </script>
-  @endif
+    @endif
+
+    paginate();
+  })();
+  </script>
 @endif

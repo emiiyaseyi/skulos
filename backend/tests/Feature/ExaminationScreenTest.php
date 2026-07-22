@@ -443,6 +443,53 @@ class ExaminationScreenTest extends TestCase
             ->assertDontSee('Ada Obi'); // Ada's 86% average must not be flagged as at risk
     }
 
+    /** User request 2026-07-22: "Add pagination to 'Performance at risk' if data there is more than 10. So we should have 10 per page." */
+    public function test_the_performance_at_risk_list_paginates_at_ten_per_page_when_there_are_more_than_ten(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'perfpaginate');
+        $f = $this->seedAcademics($school);
+        [$first, $second, $exam] = $f['components'];
+
+        app(TenantManager::class)->use($school);
+        // 12 more at-risk students (30% each, below the 40% default threshold), beyond Ada and Bode already seeded.
+        for ($i = 1; $i <= 12; $i++) {
+            $student = Student::create(['admission_number' => "P{$i}", 'first_name' => "Risk{$i}", 'last_name' => 'Student', 'current_class_arm_id' => $f['classArm']->id]);
+            Score::create(['student_id' => $student->id, 'subject_id' => $f['subject']->id, 'class_arm_id' => $f['classArm']->id, 'term_id' => $f['term']->id, 'assessment_component_id' => $first->id, 'score' => 5]);
+            Score::create(['student_id' => $student->id, 'subject_id' => $f['subject']->id, 'class_arm_id' => $f['classArm']->id, 'term_id' => $f['term']->id, 'assessment_component_id' => $second->id, 'score' => 5]);
+            Score::create(['student_id' => $student->id, 'subject_id' => $f['subject']->id, 'class_arm_id' => $f['classArm']->id, 'term_id' => $f['term']->id, 'assessment_component_id' => $exam->id, 'score' => 20]);
+        }
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/examinations/performance-dashboard");
+
+        // The pager controls are server rendered (only the page-number text is filled in client side by JS,
+        // untestable here without a JS runner); presence of the controls confirms pagination kicked in for
+        // more than 10 items, and every item still exists in the markup for the client-side pager to page through.
+        $response->assertOk()
+            ->assertSee('Risk1 Student')
+            ->assertSee('Risk12 Student')
+            ->assertSee('Previous')
+            ->assertSee('Next');
+    }
+
+    /** The pager controls must not appear at all when there are 10 or fewer at-risk students. */
+    public function test_the_performance_at_risk_list_has_no_pager_when_ten_or_fewer(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'perfnopaginate');
+        $f = $this->seedAcademics($school);
+        [$first, $second, $exam] = $f['components'];
+
+        app(TenantManager::class)->use($school);
+        Score::create(['student_id' => $f['bode']->id, 'subject_id' => $f['subject']->id, 'class_arm_id' => $f['classArm']->id, 'term_id' => $f['term']->id, 'assessment_component_id' => $first->id, 'score' => 5]);
+        Score::create(['student_id' => $f['bode']->id, 'subject_id' => $f['subject']->id, 'class_arm_id' => $f['classArm']->id, 'term_id' => $f['term']->id, 'assessment_component_id' => $second->id, 'score' => 5]);
+        Score::create(['student_id' => $f['bode']->id, 'subject_id' => $f['subject']->id, 'class_arm_id' => $f['classArm']->id, 'term_id' => $f['term']->id, 'assessment_component_id' => $exam->id, 'score' => 20]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/examinations/performance-dashboard");
+
+        $response->assertOk()->assertSee('Bode Ade')->assertDontSee('Previous');
+    }
+
     public function test_a_subject_teacher_only_sees_their_own_scoped_class_average(): void
     {
         [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'perftwo');
