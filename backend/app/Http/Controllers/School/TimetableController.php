@@ -239,4 +239,180 @@ class TimetableController extends Controller
             'selectedChildId' => $children->isNotEmpty() ? ($request->integer('student_id') ?: $children->first()?->id) : null,
         ]);
     }
+
+    /**
+     * Examination Timetable (user request 2026-07-21): a genuine
+     * subsection under Timetable, deliberately its own screens/service
+     * (App\Services\Timetable\ExamTimetableService) rather than reusing
+     * the weekly grid above — an exam timetable is dated across a real
+     * calendar window and duration-driven, not a recurring day-of-week
+     * pattern with independently timed rows.
+     */
+    public function examPapers(Request $request, \App\Services\Timetable\ExamTimetableService $exams): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'timetable.update');
+        $school = $this->school($request);
+
+        return view('school.timetable.exam-papers', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'papers' => $exams->papers(),
+        ]);
+    }
+
+    public function examPapersUpdate(Request $request, \App\Services\Timetable\ExamTimetableService $exams): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'timetable.update');
+        $data = $request->validate([
+            'first_start' => ['required', 'date_format:H:i'],
+            'papers' => ['required', 'array', 'min:1'],
+            'papers.*.name' => ['required', 'string', 'max:60'],
+            'papers.*.duration_minutes' => ['required', 'integer', 'min:1', 'max:600'],
+            'papers.*.is_break' => ['nullable', 'boolean'],
+        ]);
+
+        $exams->applyPapers($data['first_start'], $data['papers']);
+
+        return redirect()->route('school.timetable.exam.papers', ['school' => $this->school($request)->slug])
+            ->with('status', 'Exam day structure saved, every paper\'s time updated.');
+    }
+
+    protected function examScopeOptions(): array
+    {
+        return [
+            'sections' => \App\Models\Tenant\Section::orderBy('sequence')->get(),
+            'classes' => \App\Models\Tenant\SchoolClass::with('section')->get()
+                ->sortBy(fn ($c) => sprintf('%05d-%05d', $c->section?->sequence ?? 0, $c->sequence ?? 0)),
+        ];
+    }
+
+    public function examIndex(Request $request, \App\Services\Timetable\ExamTimetableService $exams): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'timetable.update');
+        $school = $this->school($request);
+        $papers = $exams->papers();
+
+        $scopeType = in_array($request->query('scope_type'), [\App\Models\Tenant\ExamTimetableEntry::SCOPE_SECTION, \App\Models\Tenant\ExamTimetableEntry::SCOPE_CLASS], true)
+            ? $request->query('scope_type') : null;
+        $scopeId = $request->integer('scope_id') ?: null;
+        $startDate = $request->query('start_date');
+        $days = max(1, min(30, $request->integer('days') ?: 10));
+
+        $dates = [];
+        $entries = [];
+        if ($scopeType && $scopeId && $startDate) {
+            $cursor = \Illuminate\Support\Carbon::parse($startDate);
+            while (count($dates) < $days) {
+                if (! $cursor->isWeekend()) {
+                    $dates[] = $cursor->toDateString();
+                }
+                $cursor->addDay();
+            }
+            $entries = $exams->entriesFor($scopeType, $scopeId);
+        }
+
+        return view('school.timetable.exam-index', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'papers' => $papers,
+            'teachingPapers' => $papers->where('is_break', false),
+            'subjects' => \App\Models\Tenant\Subject::orderBy('name')->get(),
+            'scopeOptions' => $this->examScopeOptions(),
+            'scopeType' => $scopeType,
+            'scopeId' => $scopeId,
+            'startDate' => $startDate,
+            'days' => $days,
+            'dates' => $dates,
+            'entries' => $entries,
+        ]);
+    }
+
+    public function examSave(Request $request, \App\Services\Timetable\ExamTimetableService $exams): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'timetable.update');
+        $data = $request->validate([
+            'scope_type' => ['required', 'in:section,class'],
+            'scope_id' => ['required', 'integer'],
+            'rows' => ['nullable', 'array'],
+        ]);
+
+        $exams->saveEntries($data['scope_type'], $data['scope_id'], $data['rows'] ?? []);
+
+        return back()->with('status', 'Examination timetable saved.');
+    }
+
+    /**
+     * A blank fill-in template for the currently selected scope/date
+     * window (user request: "the system should provide a template to be
+     * filled and uploaded"), one row per date x teaching paper.
+     */
+    public function examTemplate(Request $request, \App\Services\Timetable\ExamTimetableService $exams): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $this->authorizeAction($request, 'timetable.update');
+        $data = $request->validate([
+            'scope_type' => ['required', 'in:section,class'],
+            'scope_id' => ['required', 'integer'],
+            'start_date' => ['required', 'date'],
+            'days' => ['required', 'integer', 'min:1', 'max:30'],
+        ]);
+
+        $teachingPapers = $exams->papers()->where('is_break', false)->values();
+        $dates = [];
+        $cursor = \Illuminate\Support\Carbon::parse($data['start_date']);
+        while (count($dates) < $data['days']) {
+            if (! $cursor->isWeekend()) {
+                $dates[] = $cursor->toDateString();
+            }
+            $cursor->addDay();
+        }
+
+        return response()->streamDownload(function () use ($dates, $teachingPapers) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Date', 'Paper', 'Time', 'Subject']);
+            foreach ($dates as $date) {
+                foreach ($teachingPapers as $paper) {
+                    fputcsv($out, [$date, $paper->name, $paper->timeLabel(), '']);
+                }
+            }
+            fclose($out);
+        }, 'exam-timetable-template.csv');
+    }
+
+    public function examUpload(Request $request, \App\Services\Timetable\ExamTimetableService $exams): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'timetable.update');
+        $data = $request->validate([
+            'scope_type' => ['required', 'in:section,class'],
+            'scope_id' => ['required', 'integer'],
+            'file' => ['required', 'file', 'mimes:csv,txt'],
+        ]);
+
+        $papersByName = $exams->papers()->keyBy(fn ($p) => strtolower(trim($p->name)));
+        $subjectsByName = \App\Models\Tenant\Subject::get()->keyBy(fn ($s) => strtolower(trim($s->name)));
+
+        $handle = fopen($data['file']->getRealPath(), 'r');
+        fgetcsv($handle); // header row
+        $rows = [];
+        $skipped = 0;
+        while (($line = fgetcsv($handle)) !== false) {
+            [$date, $paperName, , $subjectName] = array_pad($line, 4, null);
+            $paper = $papersByName->get(strtolower(trim((string) $paperName)));
+            $subject = $subjectName ? $subjectsByName->get(strtolower(trim($subjectName))) : null;
+            if (! $paper || ! $date || ! $subject) {
+                if (trim((string) $subjectName) !== '') {
+                    $skipped++;
+                }
+
+                continue;
+            }
+            $rows[trim($date)][$paper->id] = $subject->id;
+        }
+        fclose($handle);
+
+        $exams->saveEntries($data['scope_type'], $data['scope_id'], $rows);
+
+        return back()->with('status', $skipped > 0
+            ? 'Examination timetable uploaded, '.$skipped.' row(s) skipped (unrecognized paper or subject name).'
+            : 'Examination timetable uploaded.');
+    }
 }

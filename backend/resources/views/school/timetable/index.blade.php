@@ -19,7 +19,10 @@
     <h1 class="title">Timetable</h1>
     <p class="subtitle">Pick a class to build or edit its weekly schedule.</p>
   </div>
-  <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.periods', ['school' => $school->slug]) }}">Manage periods</a>
+  <div class="stack" style="flex-direction:row;gap:.6rem">
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.periods', ['school' => $school->slug]) }}">Manage periods</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.exam.index', ['school' => $school->slug]) }}">Examination timetable</a>
+  </div>
 </div>
 
 <div class="card" style="margin-bottom:1.1rem">

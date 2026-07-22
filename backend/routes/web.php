@@ -597,6 +597,14 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/periods/{periodId}', [$timetable, 'updatePeriod'])->name('periods.update');
             Route::delete('/periods/{periodId}', [$timetable, 'destroyPeriod'])->name('periods.destroy');
             Route::get('/mine', [$timetable, 'mine'])->name('mine');
+            Route::prefix('exam')->name('exam.')->group(function () use ($timetable) {
+                Route::get('/papers', [$timetable, 'examPapers'])->name('papers');
+                Route::post('/papers', [$timetable, 'examPapersUpdate'])->name('papers.update');
+                Route::get('/', [$timetable, 'examIndex'])->name('index');
+                Route::post('/', [$timetable, 'examSave'])->name('save');
+                Route::get('/template', [$timetable, 'examTemplate'])->name('template');
+                Route::post('/upload', [$timetable, 'examUpload'])->name('upload');
+            });
             Route::get('/', [$timetable, 'index'])->name('index');
             Route::post('/{classArmId}', [$timetable, 'save'])->name('save');
         });
