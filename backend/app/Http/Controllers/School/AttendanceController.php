@@ -78,6 +78,16 @@ class AttendanceController extends Controller
         if ($classArmId && ! $selectedArm) {
             abort(404);
         }
+        // A teacher assigned to exactly one class should not have to pick
+        // it from a dropdown of one (user report 2026-07-22: "each class
+        // teacher should not have to select their class if its just one
+        // class assigned to them but if its more than one class assigned,
+        // the dropdown option should show"). Only auto-selects when
+        // nothing was explicitly chosen, so switching classes via the
+        // dropdown still works normally for anyone with more than one.
+        if (! $selectedArm && ! $classArmId && $classArms->count() === 1) {
+            $selectedArm = $classArms->first();
+        }
 
         $students = collect();
         $existingMarks = collect();

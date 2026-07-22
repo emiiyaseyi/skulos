@@ -17,15 +17,23 @@
 
 <div class="card" style="margin-bottom:1.25rem">
   <form method="GET" action="{{ route('school.attendance.index', ['school' => $school->slug]) }}" style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap">
-    <div class="field" style="margin:0">
-      <label for="class_arm_id">Class</label>
-      <select id="class_arm_id" name="class_arm_id" onchange="this.form.requestSubmit()">
-        <option value="">Choose a class</option>
-        @foreach($classArms as $arm)
-          <option value="{{ $arm->id }}" @selected($selectedArm && $selectedArm->id === $arm->id)>{{ $arm->label() }}</option>
-        @endforeach
-      </select>
-    </div>
+    @if($classArms->count() > 1)
+      <div class="field" style="margin:0">
+        <label for="class_arm_id">Class</label>
+        <select id="class_arm_id" name="class_arm_id" onchange="this.form.requestSubmit()">
+          <option value="">Choose a class</option>
+          @foreach($classArms as $arm)
+            <option value="{{ $arm->id }}" @selected($selectedArm && $selectedArm->id === $arm->id)>{{ $arm->label() }}</option>
+          @endforeach
+        </select>
+      </div>
+    @elseif($selectedArm)
+      <div class="field" style="margin:0">
+        <label>Class</label>
+        <input value="{{ $selectedArm->label() }}" disabled />
+        <input type="hidden" name="class_arm_id" value="{{ $selectedArm->id }}" />
+      </div>
+    @endif
     <div class="field" style="margin:0">
       <label for="date">Date</label>
       <input id="date" name="date" type="date" value="{{ $date }}" max="{{ now()->toDateString() }}" onchange="this.form.requestSubmit()" />

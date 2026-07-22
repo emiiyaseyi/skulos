@@ -121,6 +121,38 @@ class AttendanceScreenTest extends TestCase
         ])->assertRedirect();
     }
 
+    /** User report 2026-07-22: "each class teacher should not have to select their class if its just one class assigned to them but if its more than one class assigned, the dropdown option should show." */
+    public function test_a_class_teacher_with_only_one_class_has_it_auto_selected(): void
+    {
+        [$school, $teacherUser] = $this->schoolWithMember('class-teacher', 'attauto');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $armA, 'studentA' => $studentA] = $this->twoClassesWithStudents();
+        $staff = Staff::create(['staff_id' => 'STF/0002', 'first_name' => 'Solo', 'last_name' => 'Teacher', 'status' => 'active', 'user_id' => $teacherUser->id]);
+        $armA->update(['class_teacher_staff_id' => $staff->id]);
+        app(TenantManager::class)->forget();
+
+        // No class_arm_id given at all: the one class this teacher owns must already be selected, register visible immediately.
+        $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/attendance")
+            ->assertOk()
+            ->assertSee('Primary 1')
+            ->assertSee($studentA->fullName())
+            ->assertDontSee('Choose a class');
+    }
+
+    /** The dropdown must still show, unaffected, for anyone with more than one class. */
+    public function test_a_class_teacher_with_two_classes_still_sees_the_dropdown(): void
+    {
+        [$school, $teacherUser] = $this->schoolWithMember('school-owner', 'attmulti');
+
+        app(TenantManager::class)->use($school);
+        $this->twoClassesWithStudents();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/attendance")
+            ->assertOk()->assertSee('Choose a class');
+    }
+
     public function test_a_subject_teacher_can_view_but_not_mark(): void
     {
         [$school, $teacherUser] = $this->schoolWithMember('subject-teacher', 'attthree');
