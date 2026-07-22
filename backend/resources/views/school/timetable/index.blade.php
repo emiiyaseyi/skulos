@@ -20,6 +20,7 @@
     <p class="subtitle">Pick a class to build or edit its weekly schedule.</p>
   </div>
   <div class="stack" style="flex-direction:row;gap:.6rem">
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.master', ['school' => $school->slug]) }}">Master timetable</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.periods', ['school' => $school->slug]) }}">Manage periods</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.exam.index', ['school' => $school->slug]) }}">Examination timetable</a>
   </div>

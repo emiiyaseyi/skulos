@@ -241,6 +241,29 @@ class TimetableController extends Controller
     }
 
     /**
+     * Every class's weekly grid on one screen (user request 2026-07-21),
+     * for leadership roles who want to see the whole school at a glance
+     * rather than picking one class at a time. Same timetable.update
+     * gate as the admin grid editor above: exactly the admin-tier/
+     * leadership roles the request named already hold it via their own
+     * blanket grants (school-owner/school-admin/principal/head-teacher
+     * hold '*', vice-principal holds 'timetable.*' explicitly).
+     */
+    public function master(Request $request, TimetableService $timetable): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'timetable.update');
+        $school = $this->school($request);
+
+        return view('school.timetable.master', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'periods' => $timetable->periods(),
+            'weekDays' => $timetable->weekDays(),
+            'classGrids' => $timetable->masterGrid(),
+        ]);
+    }
+
+    /**
      * Examination Timetable (user request 2026-07-21): a genuine
      * subsection under Timetable, deliberately its own screens/service
      * (App\Services\Timetable\ExamTimetableService) rather than reusing

@@ -116,6 +116,36 @@ class TimetableTest extends TestCase
             ->assertSee('Ada Teacher');
     }
 
+    /** User request 2026-07-21: "there should be a timetable like this showing for all classes in the school... at a glance". */
+    public function test_the_master_timetable_shows_every_classs_grid_on_one_screen(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'ttmaster');
+        [$classArmA, $classArmB, $subject, $staffA] = $this->seedAcademics($school);
+        app(TenantManager::class)->use($school);
+        $period = TimetablePeriod::first();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post(route('school.timetable.save', ['school' => $school->slug, 'classArmId' => $classArmA->id]), [
+            'cells' => ['monday' => [$period->id => ['subject_id' => $subject->id, 'staff_id' => $staffA->id]]],
+        ]);
+
+        $response = $this->actingAs($owner)->get(route('school.timetable.master', ['school' => $school->slug]));
+
+        $response->assertOk()
+            ->assertSee('JSS 1 A')
+            ->assertSee('JSS 2 A')
+            ->assertSee('Mathematics')
+            ->assertSee('Ada Teacher')
+            ->assertSee('Free'); // classArmB's Monday period 1 has nothing booked
+    }
+
+    public function test_a_scoped_teacher_cannot_reach_the_master_timetable(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'ttmastertwo');
+
+        $this->actingAs($teacher)->get(route('school.timetable.master', ['school' => $school->slug]))->assertForbidden();
+    }
+
     public function test_a_teacher_double_booked_at_the_same_slot_is_skipped_not_double_booked(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'ttthree');

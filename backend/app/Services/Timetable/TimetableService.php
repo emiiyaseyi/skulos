@@ -141,4 +141,24 @@ class TimetableService
             ->where('class_arm_id', '!=', $excludingClassArmId)
             ->exists();
     }
+
+    /**
+     * Every class arm's own grid, all in one place (user request
+     * 2026-07-21: "there should be a timetable like this showing for all
+     * classes in the school so that the admin, school owner, head
+     * teacher, assistant, principal and vice principals can see it at a
+     * glance"). One entry per class arm rather than one flat table
+     * (which would need a column per period per day, unreadable at any
+     * real class count), the same "table per day, one row per class"
+     * shape the school's own reference sample used.
+     *
+     * @return \Illuminate\Support\Collection<int, array{arm: ClassArm, grid: array<string, TimetableEntry>}>
+     */
+    public function masterGrid(): Collection
+    {
+        return ClassArm::with('schoolClass.section', 'arm')->get()
+            ->sortBy(fn (ClassArm $arm) => $arm->orderKey())
+            ->values()
+            ->map(fn (ClassArm $arm) => ['arm' => $arm, 'grid' => $this->gridForClassArm($arm->id)]);
+    }
 }
