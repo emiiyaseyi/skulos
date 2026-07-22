@@ -77,6 +77,17 @@ class LandingPageTest extends TestCase
         $this->assertSame('school.students', $saved['subject-teacher']);
     }
 
+    /** User request 2026-07-22: "Landing Pages should also have bulk way of getting it done for all users instead of doing it one after the other." */
+    public function test_the_schools_landing_pages_screen_has_bulk_apply_controls(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'landingbulk');
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/settings/landing-pages")
+            ->assertOk()
+            ->assertSee('Apply to selected')
+            ->assertSee('id="lp-select-all"', false);
+    }
+
     public function test_a_subject_teacher_lands_on_the_schools_configured_page_after_login(): void
     {
         [$school] = $this->schoolWithMember('school-owner', 'landingtwo');
@@ -167,6 +178,17 @@ class LandingPageTest extends TestCase
         ])->assertRedirect();
 
         $this->assertSame('school.report-cards.index', PlatformSetting::grab('landing_pages', [])['class-teacher']);
+    }
+
+    /** User request 2026-07-22: "Landing Pages should also have bulk way of getting it done for all users instead of doing it one after the other." */
+    public function test_the_platform_landing_pages_screen_has_bulk_apply_controls(): void
+    {
+        $admin = $this->superAdmin();
+
+        $this->actingAs($admin)->get(route('admin.settings.landing-pages.edit'))
+            ->assertOk()
+            ->assertSee('Apply to selected')
+            ->assertSee('id="lp-select-all"', false);
     }
 
     public function test_a_teacher_without_school_info_manage_settings_cannot_change_landing_pages(): void
