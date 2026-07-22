@@ -1180,6 +1180,176 @@ class ReportCardController extends Controller
     }
 
     /**
+     * A CSV round trip for class entry (user report 2026-07-22: "template
+     * download and upload is missing here for Narrative Evaluation
+     * classes. One should be able to download the template with all
+     * learners details and fill necessary areas"). Pre-filled with every
+     * student's CURRENT values, not blank, so filling it in is "correct
+     * what's missing", not "retype everything from scratch". Columns
+     * mirror the on-screen table exactly (traits, then one column per
+     * subject comment, then remarks), matched back on upload by admission
+     * number, the school's own stable per-student identifier.
+     */
+    public function classEntryTemplate(Request $request): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $this->authorizeAction($request, 'report_cards.update');
+        $school = $this->school($request);
+        $user = Auth::user();
+
+        $class = SchoolClass::with(['arms'])->findOrFail($request->route('classId'));
+        $term = $this->resolveTerm($request);
+        $armIds = $class->arms->pluck('id');
+        $scopedArmIds = app(TeacherScope::class)->classArmIds($user, $school);
+        if ($scopedArmIds !== null) {
+            abort_unless($armIds->intersect($scopedArmIds)->isNotEmpty(), 404);
+        }
+
+        $students = Student::whereIn('current_class_arm_id', $armIds)->active()->orderBy('last_name')->get();
+        $traits = \App\Models\Tenant\BehaviouralTrait::active()->orderBy('sequence')->get();
+        $prefs = app(ReportCardPreferences::class);
+        $narrativeClass = $class->isNarrativeEvaluation();
+        $subjects = ($narrativeClass || $prefs->shows('subject_comments'))
+            ? \App\Models\Tenant\Subject::whereIn('id', \App\Models\Tenant\TeachingAssignment::whereIn('class_arm_id', $armIds)->pluck('subject_id')->unique())->orderBy('name')->get()
+            : collect();
+        $canEnterPrincipalRemark = app(Rbac::class)->check($user, $school, 'report_cards.release');
+
+        $remarks = \App\Models\Tenant\StudentTermRemark::whereIn('student_id', $students->pluck('id'))->where('term_id', $term->id)->get()->keyBy('student_id');
+        $ratings = \App\Models\Tenant\StudentBehaviouralRating::whereIn('student_id', $students->pluck('id'))->where('term_id', $term->id)->get()->groupBy('student_id');
+        $comments = \App\Models\Tenant\StudentSubjectComment::whereIn('student_id', $students->pluck('id'))->where('term_id', $term->id)->get();
+
+        return response()->streamDownload(function () use ($students, $traits, $subjects, $remarks, $ratings, $comments, $canEnterPrincipalRemark) {
+            $out = fopen('php://output', 'w');
+            $header = ['Admission Number', 'Student Name', 'Height', 'Weight', 'Club'];
+            foreach ($traits as $trait) {
+                $header[] = $trait->name;
+            }
+            foreach ($subjects as $subject) {
+                $header[] = $subject->name.' comment';
+            }
+            $header[] = 'Class Teacher Remark';
+            if ($canEnterPrincipalRemark) {
+                $header[] = 'Head of School Remark';
+            }
+            fputcsv($out, $header);
+
+            foreach ($students as $student) {
+                $remark = $remarks->get($student->id);
+                $studentRatings = ($ratings->get($student->id) ?? collect())->keyBy('behavioural_trait_id');
+                $row = [$student->admission_number, $student->fullName(), $remark?->height, $remark?->weight, $remark?->club];
+                foreach ($traits as $trait) {
+                    $row[] = $studentRatings->get($trait->id)?->value;
+                }
+                foreach ($subjects as $subject) {
+                    $row[] = $comments->first(fn ($c) => $c->student_id === $student->id && $c->subject_id === $subject->id)?->comment;
+                }
+                $row[] = $remark?->class_teacher_remark;
+                if ($canEnterPrincipalRemark) {
+                    $row[] = $remark?->principal_remark;
+                }
+                fputcsv($out, $row);
+            }
+            fclose($out);
+        // A class name can legitimately contain "/" (e.g. "Creche/
+        // Reception"), which Symfony's Content-Disposition filename
+        // rejects outright, not just renders oddly.
+        }, 'class-entry-'.\Illuminate\Support\Str::slug($class->name).'.csv');
+    }
+
+    public function classEntryUpload(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.update');
+        $school = $this->school($request);
+        $user = Auth::user();
+
+        $class = SchoolClass::with(['arms'])->findOrFail($request->route('classId'));
+        $term = $this->resolveTerm($request);
+        $armIds = $class->arms->pluck('id');
+        $scopedArmIds = app(TeacherScope::class)->classArmIds($user, $school);
+        if ($scopedArmIds !== null) {
+            abort_unless($armIds->intersect($scopedArmIds)->isNotEmpty(), 404);
+        }
+        $data = $request->validate(['file' => ['required', 'file', 'mimes:csv,txt']]);
+
+        $students = Student::whereIn('current_class_arm_id', $armIds)->active()->get()->keyBy('admission_number');
+        $traits = \App\Models\Tenant\BehaviouralTrait::active()->orderBy('sequence')->get();
+        $prefs = app(ReportCardPreferences::class);
+        $narrativeClass = $class->isNarrativeEvaluation();
+        $subjects = ($narrativeClass || $prefs->shows('subject_comments'))
+            ? \App\Models\Tenant\Subject::whereIn('id', \App\Models\Tenant\TeachingAssignment::whereIn('class_arm_id', $armIds)->pluck('subject_id')->unique())->orderBy('name')->get()
+            : collect();
+        $canEnterPrincipalRemark = app(Rbac::class)->check($user, $school, 'report_cards.release');
+        $remarkScale = config('skulos.behavioural_trait_remark_scale', []);
+
+        $handle = fopen($data['file']->getRealPath(), 'r');
+        fgetcsv($handle); // header row, columns are positional per classEntryTemplate() above
+        $updated = 0;
+        $skipped = 0;
+        while (($line = fgetcsv($handle)) !== false) {
+            $cursor = 0;
+            $admissionNumber = trim((string) ($line[$cursor++] ?? ''));
+            $cursor++; // Student Name, informational only, not written back
+            $student = $students->get($admissionNumber);
+            if (! $student) {
+                $skipped++;
+
+                continue;
+            }
+
+            $remarkData = ['height' => $line[$cursor++] ?? null, 'weight' => $line[$cursor++] ?? null, 'club' => $line[$cursor++] ?? null];
+            \App\Models\Tenant\StudentTermRemark::updateOrCreate(
+                ['student_id' => $student->id, 'term_id' => $term->id],
+                array_filter($remarkData, fn ($v) => $v !== null && $v !== '') + ($canEnterPrincipalRemark ? [] : [])
+            );
+
+            foreach ($traits as $trait) {
+                $value = trim((string) ($line[$cursor++] ?? ''));
+                if ($value === '') {
+                    continue;
+                }
+                if ($trait->type === 'score' && ! is_numeric($value)) {
+                    continue;
+                }
+                if ($trait->type !== 'score' && ! in_array($value, $remarkScale, true)) {
+                    continue;
+                }
+                \App\Models\Tenant\StudentBehaviouralRating::updateOrCreate(
+                    ['student_id' => $student->id, 'term_id' => $term->id, 'behavioural_trait_id' => $trait->id],
+                    ['value' => $value]
+                );
+            }
+
+            foreach ($subjects as $subject) {
+                $comment = trim((string) ($line[$cursor++] ?? ''));
+                if ($comment === '') {
+                    continue;
+                }
+                \App\Models\Tenant\StudentSubjectComment::updateOrCreate(
+                    ['student_id' => $student->id, 'subject_id' => $subject->id, 'term_id' => $term->id],
+                    ['comment' => $comment]
+                );
+            }
+
+            $classTeacherRemark = trim((string) ($line[$cursor++] ?? ''));
+            if ($classTeacherRemark !== '') {
+                \App\Models\Tenant\StudentTermRemark::where('student_id', $student->id)->where('term_id', $term->id)
+                    ->update(['class_teacher_remark' => $classTeacherRemark]);
+            }
+            if ($canEnterPrincipalRemark) {
+                $principalRemark = trim((string) ($line[$cursor++] ?? ''));
+                if ($principalRemark !== '') {
+                    \App\Models\Tenant\StudentTermRemark::where('student_id', $student->id)->where('term_id', $term->id)
+                        ->update(['principal_remark' => $principalRemark]);
+                }
+            }
+
+            $updated++;
+        }
+        fclose($handle);
+
+        return back()->with('status', "Class entry uploaded for {$updated} student(s)".($skipped > 0 ? ", {$skipped} row(s) skipped (unrecognized admission number)." : '.'));
+    }
+
+    /**
      * A class teacher's own stamp/signature override for report cards
      * generated from this class arm (user request 2026-07-18: "the school
      * stamp and signature is to be uploaded for all the school's sections

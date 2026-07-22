@@ -647,6 +647,8 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/classes/{classId}/default-reviewer', [$reportCards, 'updateDefaultReviewer'])->name('class.default-reviewer');
             Route::get('/classes/{classId}/entry', [$reportCards, 'classEntry'])->name('class.entry');
             Route::post('/classes/{classId}/entry', [$reportCards, 'classEntryUpdate'])->name('class.entry.update');
+            Route::get('/classes/{classId}/entry/template', [$reportCards, 'classEntryTemplate'])->name('class.entry.template');
+            Route::post('/classes/{classId}/entry/upload', [$reportCards, 'classEntryUpload'])->name('class.entry.upload');
             Route::post('/arms/{armId}/stamp-signature', [$reportCards, 'updateArmStampSignature'])->name('arm.stamp-signature');
             Route::post('/arms/reset-stamp-signature', [$reportCards, 'resetArmStampSignatures'])->name('arm.stamp-signature.reset-all');
             Route::post('/bulk-approve', [$reportCards, 'bulkApprove'])->name('bulk-approve');

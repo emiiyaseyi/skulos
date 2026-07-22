@@ -204,6 +204,45 @@ class NarrativeEvaluationTest extends TestCase
             ->assertSee('Numeracy');
     }
 
+    /** User report 2026-07-22: "template download and upload is missing here for Narrative Evaluation classes. One should be able to download the template with all learners details and fill necessary areas." */
+    public function test_the_class_entry_template_downloads_with_every_learners_details_and_uploads_back(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'narrativeseven');
+        ['crecheClass' => $crecheClass, 'crecheArm' => $crecheArm, 'term' => $term, 'subject' => $subject, 'crecheStudent' => $student] = $this->seedTwoClasses($school);
+
+        app(TenantManager::class)->use($school);
+        $crecheClass->update(['evaluation_style' => SchoolClass::EVALUATION_STYLE_NARRATIVE]);
+        $staff = Staff::create(['staff_id' => 'T2', 'first_name' => 'Tade', 'last_name' => 'Teacher']);
+        TeachingAssignment::create(['staff_id' => $staff->id, 'subject_id' => $subject->id, 'class_arm_id' => $crecheArm->id]);
+        app(TenantManager::class)->forget();
+
+        $download = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/classes/{$crecheClass->id}/entry/template?term_id={$term->id}");
+        $download->assertOk();
+        $csv = $download->streamedContent();
+        $this->assertStringContainsString('Admission Number', $csv);
+        $this->assertStringContainsString($student->admission_number, $csv);
+        $this->assertStringContainsString('Numeracy comment', $csv);
+
+        $filled = "Admission Number,Student Name,Height,Weight,Club,Numeracy comment,Class Teacher Remark\n"
+            .$student->admission_number.",{$student->fullName()},110cm,18kg,Chess,Counts to ten confidently,Doing well\n";
+        $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('filled.csv', $filled);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/classes/{$crecheClass->id}/entry/upload", [
+            'term_id' => $term->id,
+            'file' => $file,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $remark = \App\Models\Tenant\StudentTermRemark::where('student_id', $student->id)->where('term_id', $term->id)->first();
+        $comment = \App\Models\Tenant\StudentSubjectComment::where('student_id', $student->id)->where('subject_id', $subject->id)->where('term_id', $term->id)->first();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame('110cm', $remark->height);
+        $this->assertSame('Chess', $remark->club);
+        $this->assertSame('Doing well', $remark->class_teacher_remark);
+        $this->assertSame('Counts to ten confidently', $comment->comment);
+    }
+
     public function test_a_narrative_class_students_report_card_renders_narrative_even_when_the_schools_global_template_is_not(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'narrativesix');

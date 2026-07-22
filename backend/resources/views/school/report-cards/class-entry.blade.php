@@ -42,6 +42,18 @@
   @elseif($traits->isEmpty() && $subjects->isEmpty())
     <p class="muted">No active behavioural traits are set up yet. <a href="{{ route('school.report-cards.traits.index', ['school' => $school->slug]) }}">Add some</a>, then come back here.</p>
   @else
+    <div class="row-between" style="margin-bottom:1rem;flex-wrap:wrap;gap:.6rem">
+      <p class="muted" style="margin:0;font-size:.85rem">Prefer a spreadsheet? Download everyone's current details, fill in what's missing, and upload it back.</p>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center">
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.class.entry.template', ['school' => $school->slug, 'classId' => $class->id, 'term_id' => $term->id]) }}">Download template</a>
+        <form method="POST" action="{{ route('school.report-cards.class.entry.upload', ['school' => $school->slug, 'classId' => $class->id]) }}" enctype="multipart/form-data" style="display:flex;gap:.5rem;align-items:center">
+          @csrf
+          <input type="hidden" name="term_id" value="{{ $term->id }}" />
+          <input type="file" name="file" accept=".csv" required />
+          <button class="btn btn-ghost btn-sm" type="submit">Upload</button>
+        </form>
+      </div>
+    </div>
     <form method="POST" action="{{ route('school.report-cards.class.entry.update', ['school' => $school->slug, 'classId' => $class->id]) }}">
       @csrf
       <input type="hidden" name="term_id" value="{{ $term->id }}" />
