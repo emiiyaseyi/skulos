@@ -17,8 +17,37 @@
 </div>
 
 <div class="card" style="margin-bottom:1.1rem">
-  <form method="GET" style="max-width:22rem">
-    <input type="search" name="q" value="{{ $search }}" placeholder="Search by name, staff ID, or position" />
+  <form method="GET" style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap">
+    <div class="field" style="margin:0;flex:1;min-width:14rem">
+      <label for="staff_q">Search</label>
+      <input id="staff_q" type="search" name="q" value="{{ $search }}" placeholder="Search by name, staff ID, or position" />
+    </div>
+    <div class="field" style="margin:0">
+      <label for="staff_status">Status</label>
+      <select id="staff_status" name="status" onchange="this.form.requestSubmit()">
+        <option value="">All</option>
+        @foreach($statusOptions as $option)
+          <option value="{{ $option }}" @selected($status === $option)>{{ ucwords(str_replace('_', ' ', $option)) }}</option>
+        @endforeach
+      </select>
+    </div>
+    <div class="field" style="margin:0">
+      <label for="staff_sort">Sort by</label>
+      <select id="staff_sort" name="sort" onchange="this.form.requestSubmit()">
+        <option value="name" @selected($sort === 'name')>Name</option>
+        <option value="staff_id" @selected($sort === 'staff_id')>Staff ID</option>
+        <option value="position" @selected($sort === 'position')>Position</option>
+        <option value="status" @selected($sort === 'status')>Status</option>
+      </select>
+    </div>
+    <div class="field" style="margin:0">
+      <label for="staff_dir">Direction</label>
+      <select id="staff_dir" name="dir" onchange="this.form.requestSubmit()">
+        <option value="asc" @selected($dir === 'asc')>A to Z</option>
+        <option value="desc" @selected($dir === 'desc')>Z to A</option>
+      </select>
+    </div>
+    <button class="btn btn-ghost btn-sm" type="submit">Apply</button>
   </form>
 </div>
 

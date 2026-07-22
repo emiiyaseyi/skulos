@@ -42,11 +42,28 @@ class StaffController extends Controller
         );
     }
 
+    /** Column a plain "Sort by" dropdown may request, matched to the real underlying column(s). */
+    protected function staffSortColumn(string $sort): array
+    {
+        return match ($sort) {
+            'staff_id' => ['staff_id'],
+            'position' => ['position'],
+            'status' => ['status'],
+            default => ['last_name', 'first_name'],
+        };
+    }
+
     public function index(Request $request): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'staff.view');
         $school = $this->school($request);
         $search = trim((string) $request->query('q'));
+        // Sort and filter (user report 2026-07-21: "Staff and parent list
+        // does not have the sort and filter option"), the same ?sort=/
+        // ?dir= shape the class broadsheet already established.
+        $status = in_array($request->query('status'), Staff::STATUSES, true) ? $request->query('status') : '';
+        $sort = in_array($request->query('sort'), ['name', 'staff_id', 'position', 'status'], true) ? $request->query('sort') : 'name';
+        $dir = $request->query('dir') === 'desc' ? 'desc' : 'asc';
 
         $staff = Staff::query()
             ->when($search, fn ($q) => $q->where(function ($w) use ($search) {
@@ -55,7 +72,12 @@ class StaffController extends Controller
                     ->orWhere('last_name', 'like', "%{$search}%")
                     ->orWhere('position', 'like', "%{$search}%");
             }))
-            ->orderBy('last_name')
+            ->when($status, fn ($q) => $q->where('status', $status))
+            ->tap(function ($q) use ($sort, $dir) {
+                foreach ($this->staffSortColumn($sort) as $column) {
+                    $q->orderBy($column, $dir);
+                }
+            })
             ->paginate(20)
             ->withQueryString();
 
@@ -64,6 +86,10 @@ class StaffController extends Controller
             'accent' => $school->branding()['color'],
             'staff' => $staff,
             'search' => $search,
+            'status' => $status,
+            'sort' => $sort,
+            'dir' => $dir,
+            'statusOptions' => Staff::STATUSES,
             'total' => Staff::count(),
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'staff.update'),
             'canCreate' => app(Rbac::class)->check(Auth::user(), $school, 'staff.create'),

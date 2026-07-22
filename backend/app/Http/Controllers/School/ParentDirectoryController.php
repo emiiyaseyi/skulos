@@ -110,6 +110,11 @@ class ParentDirectoryController extends Controller
         $school = $this->school($request);
         abort_unless(app(Rbac::class)->check(Auth::user(), $school, 'parents.view'), 403, 'You do not have permission for this.');
         $search = trim((string) $request->query('q'));
+        // Sort and filter (user report 2026-07-21: "Staff and parent list
+        // does not have the sort and filter option").
+        $classArmId = $request->integer('class_arm_id') ?: null;
+        $sort = in_array($request->query('sort'), ['name', 'relationship'], true) ? $request->query('sort') : 'name';
+        $dir = $request->query('dir') === 'desc' ? 'desc' : 'asc';
 
         $guardians = StudentGuardian::query()
             ->with('student.currentClassArm.arm')
@@ -120,7 +125,8 @@ class ParentDirectoryController extends Controller
                     ->orWhereHas('student', fn ($sw) => $sw->where('first_name', 'like', "%{$search}%")
                         ->orWhere('last_name', 'like', "%{$search}%"));
             }))
-            ->orderBy('name')
+            ->when($classArmId, fn ($q) => $q->whereHas('student', fn ($sw) => $sw->where('current_class_arm_id', $classArmId)))
+            ->orderBy($sort, $dir)
             ->paginate(20)
             ->withQueryString();
 
@@ -129,6 +135,12 @@ class ParentDirectoryController extends Controller
             'accent' => $school->branding()['color'],
             'guardians' => $guardians,
             'search' => $search,
+            'classArmId' => $classArmId,
+            'sort' => $sort,
+            'dir' => $dir,
+            'classArmsBySection' => \App\Models\Tenant\ClassArm::with('schoolClass.section', 'arm')->get()
+                ->sortBy(fn ($arm) => $arm->orderKey())
+                ->groupBy(fn ($arm) => $arm->schoolClass?->section?->name ?? 'Other'),
             'total' => StudentGuardian::count(),
             'canSeeGuardianDetails' => $this->canSeeGuardianDetails(),
         ]);

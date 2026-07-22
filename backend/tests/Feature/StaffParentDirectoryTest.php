@@ -190,6 +190,26 @@ class StaffParentDirectoryTest extends TestCase
         $noMatch->assertOk()->assertDontSee('Mrs Ade');
     }
 
+    /** User report 2026-07-21: "Staff and parent list does not have the sort and filter option." */
+    public function test_full_parent_list_can_be_filtered_by_class(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'ppeight');
+        [, $classArm] = $this->seedClassStructure($school);
+
+        app(TenantManager::class)->use($school);
+        $otherSection = Section::create(['name' => 'Secondary', 'sequence' => 2]);
+        $otherClass = SchoolClass::create(['section_id' => $otherSection->id, 'name' => 'JSS 1', 'sequence' => 1]);
+        $otherArm = Arm::create(['name' => 'B']);
+        $otherClassArm = ClassArm::create(['school_class_id' => $otherClass->id, 'arm_id' => $otherArm->id]);
+        $otherStudent = Student::create(['admission_number' => 'ADM/2', 'first_name' => 'Tolu', 'last_name' => 'Bala', 'current_class_arm_id' => $otherClassArm->id]);
+        $otherStudent->guardians()->create(['name' => 'Mr Bala', 'relationship' => 'Father', 'phone' => '08099999999']);
+        app(TenantManager::class)->forget();
+
+        $filtered = $this->actingAs($owner)->get(route('school.parents.all', ['school' => $school->slug, 'class_arm_id' => $classArm->id]));
+
+        $filtered->assertOk()->assertSee('Mrs Ade')->assertDontSee('Mr Bala');
+    }
+
     public function test_full_parent_list_respects_the_existing_guardian_visibility_setting(): void
     {
         [$school, $subjectTeacherUser] = $this->schoolWithMember('subject-teacher', 'ppseven');

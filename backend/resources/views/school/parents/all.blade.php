@@ -14,8 +14,39 @@
 @else
 
 <div class="card" style="margin-bottom:1.1rem">
-  <form method="GET" style="max-width:22rem">
-    <input type="search" name="q" value="{{ $search }}" placeholder="Search by name, email, phone, or student" />
+  <form method="GET" style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap">
+    <div class="field" style="margin:0;flex:1;min-width:14rem">
+      <label for="parent_q">Search</label>
+      <input id="parent_q" type="search" name="q" value="{{ $search }}" placeholder="Search by name, email, phone, or student" />
+    </div>
+    <div class="field" style="margin:0;min-width:12rem">
+      <label for="parent_class">Class</label>
+      <select id="parent_class" name="class_arm_id" onchange="this.form.requestSubmit()">
+        <option value="">All classes</option>
+        @foreach($classArmsBySection as $sectionName => $arms)
+          <optgroup label="{{ $sectionName }}">
+            @foreach($arms as $arm)
+              <option value="{{ $arm->id }}" @selected($classArmId === $arm->id)>{{ $arm->label() }}</option>
+            @endforeach
+          </optgroup>
+        @endforeach
+      </select>
+    </div>
+    <div class="field" style="margin:0">
+      <label for="parent_sort">Sort by</label>
+      <select id="parent_sort" name="sort" onchange="this.form.requestSubmit()">
+        <option value="name" @selected($sort === 'name')>Name</option>
+        <option value="relationship" @selected($sort === 'relationship')>Relationship</option>
+      </select>
+    </div>
+    <div class="field" style="margin:0">
+      <label for="parent_dir">Direction</label>
+      <select id="parent_dir" name="dir" onchange="this.form.requestSubmit()">
+        <option value="asc" @selected($dir === 'asc')>A to Z</option>
+        <option value="desc" @selected($dir === 'desc')>Z to A</option>
+      </select>
+    </div>
+    <button class="btn btn-ghost btn-sm" type="submit">Apply</button>
   </form>
 </div>
 

@@ -24,6 +24,8 @@ class Staff extends Model
     public const STATUS_SUSPENDED = 'suspended';
     public const STATUS_RESIGNED = 'resigned';
 
+    public const STATUSES = [self::STATUS_ACTIVE, self::STATUS_ON_LEAVE, self::STATUS_SUSPENDED, self::STATUS_RESIGNED];
+
     protected $connection = 'tenant';
 
     protected $table = 'staff';
