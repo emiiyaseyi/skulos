@@ -44,27 +44,58 @@
   <div class="card stat" style="padding:1rem"><b>{{ $insights['teachers'] }}</b><span>Teaching staff</span></div>
   <div class="card stat" style="padding:1rem"><b>{{ $insights['avg_subjects'] }}</b><span>Average subjects each</span></div>
   <div class="card stat" style="padding:1rem"><b>{{ $insights['avg_students'] }}</b><span>Average students each</span></div>
-  @foreach([$heaviest, $lightest] as $loadStat)
-    <details class="card stat load-card" style="padding:1rem">
-      <summary style="cursor:pointer;list-style:none">
-        <b>{{ $loadStat['students'] }}</b>
-        <span>{{ $loadStat['title'] }} ({{ $loadStat['label'] }})</span>
-      </summary>
-      @if($loadStat['count'] > 0)
-        <ul class="load-card-list">
+  @foreach([$heaviest, $lightest] as $i => $loadStat)
+    <button type="button" class="card stat load-card" style="padding:1rem;text-align:left;{{ $loadStat['count'] === 0 ? 'cursor:default' : 'cursor:pointer' }}" data-open-popup="loadPopup{{ $i }}" @disabled($loadStat['count'] === 0)>
+      <b>{{ $loadStat['students'] }}</b>
+      <span>{{ $loadStat['title'] }} ({{ $loadStat['label'] }})</span>
+    </button>
+  @endforeach
+</div>
+
+{{-- A real popup, not an inline dropdown that just pushes the rest of
+     the page down (user report 2026-07-22: "this should be as pop up
+     and not dropdown list on the card"), the same scrim pattern every
+     other popup in this app already uses. --}}
+@foreach([$heaviest, $lightest] as $i => $loadStat)
+  @if($loadStat['count'] > 0)
+    <div class="load-scrim" id="loadPopup{{ $i }}" role="dialog" aria-modal="true" aria-labelledby="loadPopupTitle{{ $i }}">
+      <div class="load-popup-card">
+        <div class="row-between" style="margin-bottom:.8rem">
+          <h3 id="loadPopupTitle{{ $i }}" style="margin:0">{{ $loadStat['title'] }}</h3>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('loadPopup{{ $i }}').classList.remove('show')">Close</button>
+        </div>
+        <ul class="load-popup-list">
           @foreach($loadStat['rows'] as $row)
             <li><a href="{{ route('school.staff.show', ['school' => $school->slug, 'staffId' => $row['staff_id']]) }}">{{ $row['name'] }}</a> <span class="muted">{{ number_format($row['students']) }} students</span></li>
           @endforeach
         </ul>
-      @endif
-    </details>
-  @endforeach
-</div>
+      </div>
+    </div>
+  @endif
+@endforeach
 
 <style>
-  .load-card summary::-webkit-details-marker{display:none}
-  .load-card-list{list-style:none;margin:.6rem 0 0;padding-top:.6rem;border-top:1px solid var(--line);font-size:.82rem;display:flex;flex-direction:column;gap:.35rem}
+  .load-scrim{display:none;position:fixed;inset:0;background:rgba(8,12,20,.6);z-index:210;place-items:center;padding:1.25rem}
+  .load-scrim.show{display:grid}
+  .load-popup-card{width:100%;max-width:26rem;max-height:80vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:1.4rem;box-shadow:var(--shadow)}
+  .load-popup-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.5rem;font-size:.88rem}
 </style>
+<script>
+  (function(){
+    document.querySelectorAll('[data-open-popup]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        document.getElementById(btn.dataset.openPopup)?.classList.add('show');
+      });
+    });
+    document.querySelectorAll('.load-scrim').forEach(function(scrim){
+      scrim.addEventListener('click', function(e){ if (e.target === scrim) scrim.classList.remove('show'); });
+    });
+    document.addEventListener('keydown', function(e){
+      if (e.key !== 'Escape') return;
+      document.querySelectorAll('.load-scrim.show').forEach(function(scrim){ scrim.classList.remove('show'); });
+    });
+  })();
+</script>
 
 @if($groups->isEmpty())
   <div class="card"><p class="muted">No teaching assignments or class teachers have been set up yet.</p></div>
