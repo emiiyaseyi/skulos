@@ -1,6 +1,17 @@
 @extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => 'Examination Timetable'])
 @section('title', 'Examination Timetable')
 
+@push('head')
+<style>
+  @media print{
+    .appbar,.side,.impersonate-bar,.page-head .btn,form,.hint{display:none !important}
+    .content{padding:0 !important}
+    .card{box-shadow:none;border:none;break-inside:avoid;margin-bottom:.6rem !important}
+    select{border:none;appearance:none;background:none;padding:0}
+  }
+</style>
+@endpush
+
 @section('content')
 <div class="page-head">
   <div>
@@ -8,6 +19,10 @@
     <p class="subtitle">Which subject a section or class sits, for each paper, on each exam date.</p>
   </div>
   <div class="stack" style="flex-direction:row;gap:.6rem">
+    @if(! empty($dates))
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.exam.export', ['school' => $school->slug, 'scope_type' => $scopeType, 'scope_id' => $scopeId, 'start_date' => $startDate, 'days' => $days]) }}">Export CSV</a>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="window.print()">Print / Save as PDF</button>
+    @endif
     <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.exam.papers', ['school' => $school->slug]) }}">Exam day structure</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.index', ['school' => $school->slug]) }}">Back to Timetable</a>
   </div>

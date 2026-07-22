@@ -264,6 +264,46 @@ class TimetableController extends Controller
     }
 
     /**
+     * A CSV export of the master grid (user request 2026-07-22: "Make the
+     * Master Timetable exportable as csv or pdf"). One row per class per
+     * teaching period per day rather than trying to reproduce the on
+     * screen day-by-day tables in CSV, since a flat row-per-slot shape is
+     * what a spreadsheet is actually useful for (filtering, sorting by
+     * teacher, etc). "PDF" is covered by the page's own Print button
+     * (browser print/save-as-PDF), the same generate-on-demand pattern
+     * every other exportable document in this app already uses, per the
+     * standing Dbase recommendation against storing generated PDFs.
+     */
+    public function masterExport(Request $request, TimetableService $timetable): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $this->authorizeAction($request, 'timetable.update');
+        $weekDays = $timetable->weekDays();
+        $teachingPeriods = $timetable->periods()->where('is_teaching_period', true);
+        $classGrids = $timetable->masterGrid();
+
+        return response()->streamDownload(function () use ($weekDays, $teachingPeriods, $classGrids) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Day', 'Class', 'Period', 'Time', 'Subject', 'Teacher']);
+            foreach ($weekDays as $dayKey => $dayLabel) {
+                foreach ($classGrids as $row) {
+                    foreach ($teachingPeriods as $period) {
+                        $entry = $row['grid'][$dayKey.':'.$period->id] ?? null;
+                        fputcsv($out, [
+                            $dayLabel,
+                            $row['arm']->label(),
+                            $period->name,
+                            $period->timeLabel(),
+                            $entry?->subject?->name ?? '',
+                            $entry?->staff?->fullName() ?? '',
+                        ]);
+                    }
+                }
+            }
+            fclose($out);
+        }, 'master-timetable.csv');
+    }
+
+    /**
      * Examination Timetable (user request 2026-07-21): a genuine
      * subsection under Timetable, deliberately its own screens/service
      * (App\Services\Timetable\ExamTimetableService) rather than reusing
@@ -456,5 +496,48 @@ class TimetableController extends Controller
         return back()->with('status', $skipped > 0
             ? 'Examination timetable uploaded, '.$skipped.' row(s) skipped (unrecognized paper or subject name).'
             : 'Examination timetable uploaded.');
+    }
+
+    /**
+     * A CSV export of the currently displayed exam grid (user request
+     * 2026-07-22: "Examination timetable should also appear like the
+     * [Master Timetable, exportable]"). Distinct from examTemplate()
+     * above: that one is always blank, for filling in and uploading back;
+     * this one carries whatever subjects are actually already assigned,
+     * for the same "download and see what we have" use case the Master
+     * Timetable export serves.
+     */
+    public function examExport(Request $request, \App\Services\Timetable\ExamTimetableService $exams): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $this->authorizeAction($request, 'timetable.update');
+        $data = $request->validate([
+            'scope_type' => ['required', 'in:section,class'],
+            'scope_id' => ['required', 'integer'],
+            'start_date' => ['required', 'date'],
+            'days' => ['required', 'integer', 'min:1', 'max:30'],
+        ]);
+
+        $teachingPapers = $exams->papers()->where('is_break', false)->values();
+        $entries = $exams->entriesFor($data['scope_type'], $data['scope_id']);
+        $dates = [];
+        $cursor = \Illuminate\Support\Carbon::parse($data['start_date']);
+        while (count($dates) < $data['days']) {
+            if (! $cursor->isWeekend()) {
+                $dates[] = $cursor->toDateString();
+            }
+            $cursor->addDay();
+        }
+
+        return response()->streamDownload(function () use ($dates, $teachingPapers, $entries) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Date', 'Paper', 'Time', 'Subject']);
+            foreach ($dates as $date) {
+                foreach ($teachingPapers as $paper) {
+                    $entry = $entries[$date.':'.$paper->id] ?? null;
+                    fputcsv($out, [$date, $paper->name, $paper->timeLabel(), $entry?->subject?->name ?? '']);
+                }
+            }
+            fclose($out);
+        }, 'exam-timetable.csv');
     }
 }

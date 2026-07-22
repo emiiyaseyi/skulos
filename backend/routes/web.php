@@ -598,6 +598,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::delete('/periods/{periodId}', [$timetable, 'destroyPeriod'])->name('periods.destroy');
             Route::get('/mine', [$timetable, 'mine'])->name('mine');
             Route::get('/master', [$timetable, 'master'])->name('master');
+            Route::get('/master/export', [$timetable, 'masterExport'])->name('master.export');
             Route::prefix('exam')->name('exam.')->group(function () use ($timetable) {
                 Route::get('/papers', [$timetable, 'examPapers'])->name('papers');
                 Route::post('/papers', [$timetable, 'examPapersUpdate'])->name('papers.update');
@@ -605,6 +606,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
                 Route::post('/', [$timetable, 'examSave'])->name('save');
                 Route::get('/template', [$timetable, 'examTemplate'])->name('template');
                 Route::post('/upload', [$timetable, 'examUpload'])->name('upload');
+                Route::get('/export', [$timetable, 'examExport'])->name('export');
             });
             Route::get('/', [$timetable, 'index'])->name('index');
             Route::post('/{classArmId}', [$timetable, 'save'])->name('save');

@@ -8,6 +8,11 @@
   .mtt-grid th{background:var(--soft);font-size:.68rem;text-transform:uppercase;letter-spacing:.03em}
   .mtt-grid td.mtt-class{font-weight:700;background:var(--panel)}
   .mtt-free{color:var(--mut-dim)}
+  @media print{
+    .appbar,.side,.impersonate-bar,.page-head .btn{display:none !important}
+    .content{padding:0 !important}
+    .card{box-shadow:none;border:none;break-inside:avoid;margin-bottom:.6rem !important}
+  }
 </style>
 @endpush
 
@@ -17,7 +22,11 @@
     <h1 class="title">Master Timetable</h1>
     <p class="subtitle">Every class's weekly schedule, in one place.</p>
   </div>
-  <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.index', ['school' => $school->slug]) }}">Back to Timetable</a>
+  <div class="stack" style="flex-direction:row;gap:.6rem">
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.master.export', ['school' => $school->slug]) }}">Export CSV</a>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="window.print()">Print / Save as PDF</button>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.index', ['school' => $school->slug]) }}">Back to Timetable</a>
+  </div>
 </div>
 
 @if($classGrids->isEmpty())

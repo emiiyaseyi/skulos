@@ -146,6 +146,28 @@ class TimetableTest extends TestCase
         $this->actingAs($teacher)->get(route('school.timetable.master', ['school' => $school->slug]))->assertForbidden();
     }
 
+    /** User request 2026-07-22: "Make the Master Timetable exportable as csv or pdf." */
+    public function test_the_master_timetable_can_be_exported_as_csv(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'ttmasterexport');
+        [$classArmA, , $subject, $staffA] = $this->seedAcademics($school);
+        app(TenantManager::class)->use($school);
+        $period = TimetablePeriod::first();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post(route('school.timetable.save', ['school' => $school->slug, 'classArmId' => $classArmA->id]), [
+            'cells' => ['monday' => [$period->id => ['subject_id' => $subject->id, 'staff_id' => $staffA->id]]],
+        ]);
+
+        $response = $this->actingAs($owner)->get(route('school.timetable.master.export', ['school' => $school->slug]));
+
+        $response->assertOk();
+        $csv = $response->streamedContent();
+        $this->assertStringContainsString('Day,Class,Period,Time,Subject,Teacher', $csv);
+        $this->assertStringContainsString('Mathematics', $csv);
+        $this->assertStringContainsString('Ada Teacher', $csv);
+    }
+
     public function test_a_teacher_double_booked_at_the_same_slot_is_skipped_not_double_booked(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'ttthree');

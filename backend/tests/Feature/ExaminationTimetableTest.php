@@ -159,6 +159,25 @@ class ExaminationTimetableTest extends TestCase
         $this->assertStringContainsString('Paper 1', $content);
     }
 
+    /** User request 2026-07-22: "Examination timetable should also appear like the [Master Timetable, exportable]." */
+    public function test_exporting_the_populated_grid_carries_whatever_is_already_assigned(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'examexport');
+        ['sectionId' => $sectionId, 'subjectId' => $subjectId, 'paperId' => $paperId] = $this->seedPapersAndSection($school);
+
+        app(TenantManager::class)->use($school);
+        ExamTimetableEntry::create(['exam_date' => '2026-11-25', 'exam_paper_id' => $paperId, 'scope_type' => 'section', 'scope_id' => $sectionId, 'subject_id' => $subjectId]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($admin)->get("http://{$school->slug}.localhost/timetable/exam/export?scope_type=section&scope_id={$sectionId}&start_date=2026-11-25&days=1");
+
+        $response->assertOk();
+        $content = $response->streamedContent();
+        $this->assertStringContainsString('Date,Paper,Time,Subject', $content);
+        $this->assertStringContainsString('2026-11-25,"Paper 1"', $content);
+        $this->assertStringContainsString('Mathematics', $content);
+    }
+
     public function test_uploading_a_filled_template_saves_entries(): void
     {
         [$school, $admin] = $this->schoolWithMember('school-owner', 'examfive');
