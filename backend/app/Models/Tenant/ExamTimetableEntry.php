@@ -25,10 +25,16 @@ class ExamTimetableEntry extends Model
 
     protected $fillable = ['exam_date', 'exam_paper_id', 'scope_type', 'scope_id', 'subject_id'];
 
-    protected function casts(): array
-    {
-        return ['exam_date' => 'date'];
-    }
+    // 'exam_date' is intentionally NOT cast to a date/datetime: it is a
+    // date-only column stored as "YYYY-MM-DD", and ExamTimetableService::
+    // saveEntries()'s idempotent updateOrCreate() match relies on that
+    // exact string (a date/datetime cast serializes it to
+    // "YYYY-MM-DD 00:00:00" on save but the WHERE lookup inside
+    // updateOrCreate() never runs the raw plain-string date through that
+    // same cast, so the two never matched, causing a duplicate insert
+    // attempt and a real UNIQUE constraint violation live on greenfield,
+    // 2026-07-22). The exact same bug, same fix, already documented on
+    // the Attendance model above this one in the tenant model tree.
 
     public function paper(): BelongsTo
     {

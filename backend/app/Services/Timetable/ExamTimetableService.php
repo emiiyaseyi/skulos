@@ -58,7 +58,7 @@ class ExamTimetableService
             ->where('scope_id', $scopeId)
             ->with('subject')
             ->get()
-            ->keyBy(fn (ExamTimetableEntry $e) => $e->exam_date->toDateString().':'.$e->exam_paper_id)
+            ->keyBy(fn (ExamTimetableEntry $e) => $e->exam_date.':'.$e->exam_paper_id)
             ->all();
     }
 

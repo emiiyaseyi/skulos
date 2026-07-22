@@ -371,10 +371,10 @@ class TimetableController extends Controller
                 $scopeType = $scopeType ?: $firstEntry->scope_type;
                 $scopeId = $scopeId ?: $firstEntry->scope_id;
                 if (! $startDate) {
-                    $startDate = $firstEntry->exam_date->toDateString();
+                    $startDate = $firstEntry->exam_date;
                     $lastEntry = \App\Models\Tenant\ExamTimetableEntry::where('scope_type', $scopeType)->where('scope_id', $scopeId)
                         ->orderByDesc('exam_date')->first();
-                    $days = $days ?: min(30, max(1, \Illuminate\Support\Carbon::parse($startDate)->diffInDays($lastEntry->exam_date) + 1));
+                    $days = $days ?: min(30, max(1, \Illuminate\Support\Carbon::parse($startDate)->diffInDays(\Illuminate\Support\Carbon::parse($lastEntry->exam_date)) + 1));
                 }
             }
         }

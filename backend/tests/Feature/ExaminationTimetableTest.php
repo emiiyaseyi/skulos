@@ -117,7 +117,7 @@ class ExaminationTimetableTest extends TestCase
 
         $this->assertNotNull($entry);
         $this->assertSame($subjectId, $entry->subject_id);
-        $this->assertSame('2026-11-25', $entry->exam_date->toDateString());
+        $this->assertSame('2026-11-25', $entry->exam_date);
     }
 
     public function test_the_index_shows_the_grid_once_a_scope_and_date_range_are_chosen(): void
@@ -143,6 +143,45 @@ class ExaminationTimetableTest extends TestCase
         $response = $this->actingAs($admin)->get("http://{$school->slug}.localhost/timetable/exam");
 
         $response->assertOk()->assertSee('Paper 1')->assertSee('Mathematics');
+    }
+
+    /**
+     * Live bug found 2026-07-22 (real UniqueConstraintViolationException
+     * on greenfield): exam_date was cast 'date' on the model, which
+     * serializes to "YYYY-MM-DD 00:00:00" on save, but updateOrCreate()'s
+     * WHERE lookup never runs the raw plain-string date through that same
+     * cast, so a second save of the same date/paper/scope never matched
+     * the first save's row and tried to insert a duplicate instead of
+     * updating it, hitting the real unique index. Saving the same slot
+     * twice, changing the subject the second time, must update in place.
+     */
+    public function test_saving_the_same_date_and_paper_twice_updates_in_place_instead_of_duplicating(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'examdupe');
+        ['sectionId' => $sectionId, 'subjectId' => $mathsId, 'paperId' => $paperId] = $this->seedPapersAndSection($school);
+
+        app(TenantManager::class)->use($school);
+        $english = Subject::create(['name' => 'English']);
+        $englishId = $english->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/timetable/exam", [
+            'scope_type' => 'section', 'scope_id' => $sectionId,
+            'rows' => ['2026-11-25' => [$paperId => $mathsId]],
+        ])->assertRedirect();
+
+        // Same date and paper, different subject: must update the existing row, not insert a duplicate.
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/timetable/exam", [
+            'scope_type' => 'section', 'scope_id' => $sectionId,
+            'rows' => ['2026-11-25' => [$paperId => $englishId]],
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $entries = ExamTimetableEntry::where('scope_type', 'section')->where('scope_id', $sectionId)->get();
+        app(TenantManager::class)->forget();
+
+        $this->assertCount(1, $entries, 'the second save must update the existing row, not insert a second one');
+        $this->assertSame($englishId, $entries->first()->subject_id);
     }
 
     public function test_downloading_the_blank_template_lists_every_date_and_paper(): void
