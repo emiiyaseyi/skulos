@@ -12,17 +12,17 @@
   @endif
 </div>
 
-@if($unrestricted)
-  @if($summary)
-    <div class="grid" style="grid-template-columns:repeat(3, 1fr);gap:1rem;margin-bottom:1.25rem">
-      <div class="card stat" style="padding:1rem"><b>{{ (int) $summary->total }}</b><span>Active assignments</span></div>
-      <div class="card stat" style="padding:1rem"><b>{{ (int) $summary->upcoming }}</b><span>Upcoming</span></div>
-      <div class="card stat" style="padding:1rem"><b>{{ (int) $summary->overdue }}</b><span>Overdue</span></div>
-    </div>
-  @endif
+@if($unrestricted && $summary)
+  <div class="grid" style="grid-template-columns:repeat(3, 1fr);gap:1rem;margin-bottom:1.25rem">
+    <div class="card stat" style="padding:1rem"><b>{{ (int) $summary->total }}</b><span>Active assignments</span></div>
+    <div class="card stat" style="padding:1rem"><b>{{ (int) $summary->upcoming }}</b><span>Upcoming</span></div>
+    <div class="card stat" style="padding:1rem"><b>{{ (int) $summary->overdue }}</b><span>Overdue</span></div>
+  </div>
+@endif
 
-  <div class="card" style="margin-bottom:1.25rem">
-    <form method="GET" action="{{ route('school.assignments.index', ['school' => $school->slug]) }}" style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap">
+<div class="card" style="margin-bottom:1.25rem">
+  <form method="GET" action="{{ route('school.assignments.index', ['school' => $school->slug]) }}" style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap">
+    @if($unrestricted)
       <div class="field" style="margin:0">
         <label for="section_id">Section</label>
         <select id="section_id" name="section_id" onchange="this.form.requestSubmit()">
@@ -45,9 +45,21 @@
           @endforeach
         </select>
       </div>
-    </form>
-  </div>
-@endif
+    @endif
+    {{-- User report 2026-07-22: "Assignment pages should have the option of date filters too." --}}
+    <div class="field" style="margin:0">
+      <label for="due_from">Due from</label>
+      <input id="due_from" type="date" name="due_from" value="{{ $dueFrom }}" onchange="this.form.requestSubmit()" />
+    </div>
+    <div class="field" style="margin:0">
+      <label for="due_to">Due to</label>
+      <input id="due_to" type="date" name="due_to" value="{{ $dueTo }}" onchange="this.form.requestSubmit()" />
+    </div>
+    @if($dueFrom || $dueTo)
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.assignments.index', ['school' => $school->slug]) }}">Clear dates</a>
+    @endif
+  </form>
+</div>
 
 <div class="card">
   @if($assignments->isEmpty())

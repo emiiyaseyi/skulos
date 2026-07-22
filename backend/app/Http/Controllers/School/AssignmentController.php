@@ -176,6 +176,19 @@ class AssignmentController extends Controller
             $query->where('class_arm_id', $classArmId);
         }
 
+        // Due date range filter (user report 2026-07-22: "Assignment
+        // pages should have the option of date filters too"), available
+        // to everyone regardless of scope, unlike section/class above
+        // which only mean anything for the unrestricted whole-school view.
+        $dueFrom = $request->query('due_from') ?: null;
+        $dueTo = $request->query('due_to') ?: null;
+        if ($dueFrom) {
+            $query->whereDate('due_on', '>=', $dueFrom);
+        }
+        if ($dueTo) {
+            $query->whereDate('due_on', '<=', $dueTo);
+        }
+
         $summary = $unrestricted ? (clone $query)
             ->selectRaw("count(*) as total, sum(case when due_on is null then 0 when due_on < ? then 1 else 0 end) as overdue, sum(case when due_on >= ? then 1 else 0 end) as upcoming", [now()->toDateString(), now()->toDateString()])
             ->first() : null;
@@ -189,6 +202,8 @@ class AssignmentController extends Controller
             'sections' => $unrestricted ? Section::with(['classes.arms'])->orderBy('sequence')->get() : collect(),
             'selectedSectionId' => $sectionId,
             'selectedClassArmId' => $classArmId,
+            'dueFrom' => $dueFrom,
+            'dueTo' => $dueTo,
             'summary' => $summary,
         ]);
     }

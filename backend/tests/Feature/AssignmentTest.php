@@ -278,6 +278,24 @@ class AssignmentTest extends TestCase
             ->assertOk()->assertSee('Active assignments')->assertSee('Overdue')->assertSee('Upcoming');
     }
 
+    /** User report 2026-07-22: "Assignment pages should have the option of date filters too." */
+    public function test_the_due_date_filter_narrows_the_list_for_everyone_not_just_admins(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'asgdatefilter');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id]);
+        $subject = Subject::create(['name' => 'Maths', 'code' => 'MTH']);
+        Assignment::create(['title' => 'Due soon', 'subject_id' => $subject->id, 'class_arm_id' => $arm->id, 'due_on' => '2026-08-01']);
+        Assignment::create(['title' => 'Due later', 'subject_id' => $subject->id, 'class_arm_id' => $arm->id, 'due_on' => '2026-09-15']);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get(route('school.assignments.index', ['school' => $school->slug, 'due_from' => '2026-07-01', 'due_to' => '2026-08-15']))
+            ->assertOk()->assertSee('Due soon')->assertDontSee('Due later');
+    }
+
     /**
      * User report 2026-07-18: a plain "Teacher" role account (distinct
      * from "Subject Teacher"/"Class Teacher") was seeing every subject in
