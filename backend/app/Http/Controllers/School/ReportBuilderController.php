@@ -141,9 +141,33 @@ class ReportBuilderController extends Controller
                 ->when($status, fn ($q) => $q->where('status', $status))
                 ->orderBy('last_name');
 
-            return $query->get()->map(fn (Student $s) => $this->rowFor($s, $columns, [
+            $students = $query->get();
+            $studentIds = $students->pluck('id')->all();
+            $term = \App\Models\Tenant\Term::current()->first();
+
+            // Bulk computed once for the whole result set, not once per
+            // row, only when the corresponding column was actually
+            // picked (a plain Students report with none of these ticked
+            // costs nothing extra).
+            $attendanceRates = ($term && in_array('attendance_rate', $columns, true))
+                ? app(\App\Services\Attendance\AttendanceService::class)->ratesByStudent($studentIds, $term->starts_on, $term->ends_on ?? now())
+                : [];
+            $averages = ($term && in_array('average_score', $columns, true))
+                ? app(\App\Services\Results\ResultService::class)->averagesByStudent($studentIds, $term->id)
+                : [];
+            $traitsByStudent = ($term && in_array('behavioural_traits', $columns, true))
+                ? \App\Models\Tenant\StudentBehaviouralRating::whereIn('student_id', $studentIds)->where('term_id', $term->id)
+                    ->with('trait_')->get()->groupBy('student_id')
+                : collect();
+
+            return $students->map(fn (Student $s) => $this->rowFor($s, $columns, [
                 'class' => fn () => $s->currentClassArm?->label(),
                 'house' => fn () => $s->house?->name,
+                'attendance_rate' => fn () => isset($attendanceRates[$s->id]) ? "{$attendanceRates[$s->id]}%" : 'No data',
+                'average_score' => fn () => isset($averages[$s->id]) ? "{$averages[$s->id]}%" : 'No data',
+                'behavioural_traits' => fn () => $traitsByStudent->get($s->id, collect())
+                    ->map(fn ($rating) => ($rating->trait_?->name ?? 'Unknown').': '.$rating->value)
+                    ->implode(', ') ?: 'Not rated',
             ]));
         }
 

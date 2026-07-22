@@ -125,6 +125,41 @@ class ReportBuilderTest extends TestCase
             ->assertOk()->assertSee('Femi')->assertSee('Bello')->assertSee('Teacher');
     }
 
+    /** User request 2026-07-22: "report builder should have much more items to combine into a report. Check others things like, attendance, performance, behavioural, etc." */
+    public function test_a_students_report_can_combine_attendance_performance_and_behavioural_columns(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rbcombine');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Secondary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS 1', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => Arm::create(['name' => 'A'])->id]);
+        $student = Student::create(['admission_number' => 'RBC1', 'first_name' => 'Tomi', 'last_name' => 'Lawal', 'current_class_arm_id' => $arm->id, 'status' => 'active']);
+
+        $session = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026']);
+        $term = \App\Models\Tenant\Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1, 'is_current' => true, 'starts_on' => '2025-09-01', 'ends_on' => '2025-12-01']);
+
+        \App\Models\Tenant\Attendance::create(['date' => '2025-09-02', 'person_type' => 'student', 'person_id' => $student->id, 'class_arm_id' => $arm->id, 'status' => 'present']);
+        \App\Models\Tenant\Attendance::create(['date' => '2025-09-03', 'person_type' => 'student', 'person_id' => $student->id, 'class_arm_id' => $arm->id, 'status' => 'absent']);
+
+        $subject = \App\Models\Tenant\Subject::create(['name' => 'Mathematics']);
+        $component = \App\Models\Tenant\AssessmentComponent::create(['name' => 'Exam', 'type' => 'exam', 'max_score' => 100, 'sequence' => 1]);
+        \App\Models\Tenant\Score::create(['student_id' => $student->id, 'subject_id' => $subject->id, 'class_arm_id' => $arm->id, 'term_id' => $term->id, 'assessment_component_id' => $component->id, 'score' => 75]);
+
+        app(\App\Services\Results\BehaviouralTraitCatalog::class)->ensureSeeded();
+        $trait = \App\Models\Tenant\BehaviouralTrait::first();
+        \App\Models\Tenant\StudentBehaviouralRating::create(['student_id' => $student->id, 'term_id' => $term->id, 'behavioural_trait_id' => $trait->id, 'value' => 'Good']);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/reports/builder?source=students&columns[]=first_name&columns[]=attendance_rate&columns[]=average_score&columns[]=behavioural_traits");
+
+        $response->assertOk()
+            ->assertSee('Tomi')
+            ->assertSee('50%') // 1 present out of 2 marked days
+            ->assertSee('75%') // the one subject's score
+            ->assertSee($trait->name.': Good');
+    }
+
     public function test_a_class_teacher_only_sees_their_own_class_students_in_the_builder(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'rbsix');

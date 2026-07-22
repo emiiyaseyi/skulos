@@ -172,4 +172,39 @@ class AttendanceService
             ->pluck('total', 'status')
             ->toArray();
     }
+
+    /**
+     * Every given student's own attendance rate across a date range, in
+     * one bulk grouped query (Report Builder's "Attendance" column, user
+     * request 2026-07-22: "report builder should have much more items to
+     * combine into a report... attendance"), not one query per row.
+     * "Present" counts toward the rate the same way the Attendance
+     * Dashboard's own rate figure already does (present or late, since
+     * both mean the student was actually in attendance); a student with
+     * no marks at all in range is simply absent from the returned map.
+     *
+     * @param array<int, int> $studentIds
+     * @return array<int, float> student id => present rate percentage
+     */
+    public function ratesByStudent(array $studentIds, string|Carbon $from, string|Carbon $to): array
+    {
+        if (empty($studentIds)) {
+            return [];
+        }
+
+        $rows = Attendance::students()
+            ->whereIn('person_id', $studentIds)
+            ->whereBetween('date', [Carbon::parse($from)->toDateString(), Carbon::parse($to)->toDateString()])
+            ->selectRaw('person_id, status, count(*) as total')
+            ->groupBy('person_id', 'status')
+            ->get()
+            ->groupBy('person_id');
+
+        return $rows->map(function ($statuses) {
+            $total = $statuses->sum('total');
+            $present = $statuses->whereIn('status', ['present', 'late'])->sum('total');
+
+            return $total > 0 ? round($present / $total * 100, 1) : 0.0;
+        })->all();
+    }
 }

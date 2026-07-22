@@ -1375,6 +1375,18 @@ return [
                 'house' => 'House',
                 'status' => 'Status',
                 'admitted_on' => 'Admission Date',
+                // Added 2026-07-22 (user request: "report builder should
+                // have much more items to combine into a report. Check
+                // others things like, attendance, performance,
+                // behavioural, etc"). Kept as extra columns on the
+                // existing Students source, not new standalone sources:
+                // each is naturally a per-student, per-current-term fact
+                // meant to sit alongside a student's own record in one
+                // combined report row, not a separate table a school
+                // would browse on its own.
+                'attendance_rate' => 'Attendance Rate (Current Term)',
+                'average_score' => 'Average Score (Current Term)',
+                'behavioural_traits' => 'Behavioural Traits (Current Term)',
             ],
         ],
         'staff' => [

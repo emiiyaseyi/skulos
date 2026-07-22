@@ -431,4 +431,33 @@ class ResultService
 
         return $limit !== null ? array_slice($atRisk, 0, $limit) : $atRisk;
     }
+
+    /**
+     * Every given student's own term average percentage, in one bulk
+     * grouped query (Report Builder's "Performance" column, user request
+     * 2026-07-22: "report builder should have much more items to combine
+     * into a report... performance"), not one studentAveragePercentage()
+     * call per row, which would be an N+1 query for a school-wide report.
+     * A student with no scores yet for the term is simply absent from the
+     * returned map rather than a null entry.
+     *
+     * @param array<int, int> $studentIds
+     * @return array<int, float> student id => average percentage
+     */
+    public function averagesByStudent(array $studentIds, int $termId): array
+    {
+        $totalPossible = AssessmentComponent::totalPossible();
+        if ($totalPossible <= 0 || empty($studentIds)) {
+            return [];
+        }
+
+        return Score::where('term_id', $termId)
+            ->whereIn('student_id', $studentIds)
+            ->selectRaw('student_id, subject_id, SUM(score) as subject_total')
+            ->groupBy('student_id', 'subject_id')
+            ->get()
+            ->groupBy('student_id')
+            ->map(fn ($subjectTotals) => round(((float) $subjectTotals->avg('subject_total')) / $totalPossible * 100, 1))
+            ->all();
+    }
 }
