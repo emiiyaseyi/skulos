@@ -137,7 +137,15 @@ a{color:inherit;text-decoration:none}
 .side-school b{font-size:.9rem;display:block;line-height:1.2}
 .side-school span{font-size:.72rem;color:var(--side-mut)}
 .side-search{position:relative;margin:.1rem 1rem .7rem}
-.side-search input{width:100%;background:var(--side-active);border:1px solid var(--side-line);border-radius:10px;padding:.5rem .7rem .5rem 2.15rem;font-size:.82rem;color:var(--side-ink);font-family:inherit}
+{{-- input[type="search"] here, not just "input" (found 2026-07-22, same
+     root cause already fixed once on .ss-search input): the platform-wide
+     field rule `input:not([type="checkbox"]):not([type="radio"])` has two
+     :not() clauses, each counting as an attribute selector, so its
+     specificity (0,2,1) already beat a plain ".side-search input" (0,1,1),
+     silently winning the padding fight and squashing this search box's
+     text/cursor back into the icon too ("THE SEARCH BAR STILL HAS THE
+     ICON, TEXT BLINKER AND TEXT OVERLAPPING OVER THEMSELVES"). --}}
+.side-search input[type="search"]{width:100%;background:var(--side-active);border:1px solid var(--side-line);border-radius:10px;padding:.5rem .7rem .5rem 2.15rem;font-size:.82rem;color:var(--side-ink);font-family:inherit}
 .side-search input::placeholder{color:var(--side-mut)}
 .side-search input:focus{outline:2px solid var(--accent);outline-offset:1px}
 .side-search input::-webkit-search-cancel-button{cursor:pointer}
@@ -694,11 +702,18 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
   // Keep the selected nav item in view on every full page load (user
   // request 2026-07-11: clicking a menu item further down the list used
   // to lose your place, since each click is a full server navigation and
-  // the sidebar always reopened scrolled to the top). "nearest" only
-  // scrolls if the active item is actually out of view, so it never
-  // jumps unnecessarily when it is already visible.
+  // the sidebar always reopened scrolled to the top).
+  //
+  // Switched from block:'nearest' to block:'start' (user report
+  // 2026-07-22: "when the menu opens, the current menu tab should not go
+  // to the bottom of the menu section but should be at the top"):
+  // 'nearest' only scrolls the minimum distance needed, which for an item
+  // below the fold means it stops the instant the item's bottom edge
+  // touches the container's bottom edge, landing it flush against the
+  // bottom rather than somewhere comfortable to read. 'start' always
+  // aligns the active item's top edge with the top of the scrollable nav.
   var activeLink=document.querySelector('.side-nav .side-link.active');
-  activeLink?.scrollIntoView({block:'nearest'});
+  activeLink?.scrollIntoView({block:'start'});
 })();
 (function(){
   var scrim=document.getElementById('idleScrim');
