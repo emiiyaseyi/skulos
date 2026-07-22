@@ -91,6 +91,14 @@ class ReportCardController extends Controller
             'reviewStageEnabled' => $this->reviewStageEnabled(),
             'reviewChain' => ReportCardReview::reviewChain(),
             'reviewChainRoles' => config('skulos.report_card_review_roles'),
+            // The school wide stamp/signature default lives on the School
+            // model, actually written by BrandingController::update()
+            // (school_info.update), a stricter permission than this page's
+            // own report_cards.view (user request 2026-07-22: "option to
+            // also upload the school wide stamp and signature should
+            // appear here too", so it no longer needs a detour to
+            // Branding just to set it).
+            'canManageBranding' => app(Rbac::class)->check(Auth::user(), $school, 'school_info.update'),
         ]);
     }
 

@@ -160,6 +160,34 @@ class ReportCardEnrichmentTest extends TestCase
         ])->assertForbidden();
     }
 
+    /** User request 2026-07-22: "option to also upload the school wide stamp and signature should appear here too." */
+    public function test_the_school_wide_stamp_and_signature_can_be_uploaded_from_report_settings(): void
+    {
+        Storage::fake('public');
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rc-settings-stamp');
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/settings")
+            ->assertOk()->assertSee('Stamp and signature')->assertSee('Save default stamp');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/settings/branding", [
+            'stamp' => UploadedFile::fake()->image('stamp.png'),
+            'signature' => UploadedFile::fake()->image('signature.png'),
+        ])->assertRedirect();
+
+        $school->refresh();
+        $this->assertNotNull($school->stamp_path);
+        $this->assertNotNull($school->signature_path);
+    }
+
+    /** Uploading requires branding access, a stricter permission than the plain report_cards.view this settings page itself is gated on. */
+    public function test_a_teacher_without_branding_access_cannot_see_the_school_wide_stamp_upload_form(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('class-teacher', 'rc-settings-stamp-noaccess');
+
+        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/report-cards/settings")
+            ->assertOk()->assertDontSee('Save default stamp');
+    }
+
     protected function setUpClassWithStudents(School $school): array
     {
         app(TenantManager::class)->use($school);

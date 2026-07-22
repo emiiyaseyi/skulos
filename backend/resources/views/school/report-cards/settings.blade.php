@@ -128,7 +128,31 @@
 
 <div class="card" style="margin-top:1.25rem">
   <h3 style="margin-bottom:.4rem">Stamp and signature</h3>
-  <p class="muted" style="margin-bottom:.8rem">The school wide default is set on <a href="{{ route('school.branding.edit', ['school' => $school->slug]) }}">Branding</a>. A class teacher can upload their own for their class from the Class Teacher Entry screen, overriding the default for that class only.</p>
+  <p class="muted" style="margin-bottom:.8rem">The school wide default every report card falls back to. A class teacher can upload their own for their class from the Class Teacher Entry screen, overriding the default for that class only.</p>
+
+  @if($canManageBranding)
+    <form method="POST" action="{{ route('school.branding.update', ['school' => $school->slug]) }}" enctype="multipart/form-data" style="display:flex;gap:1.5rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem">
+      @csrf
+      <div class="field" style="margin:0">
+        <label for="rc_stamp">School wide stamp</label>
+        @if($school->stamp_path)
+          <img src="{{ \Illuminate\Support\Facades\Storage::url($school->stamp_path) }}" alt="Current school stamp" style="display:block;max-height:60px;margin-bottom:.4rem" />
+        @endif
+        <input id="rc_stamp" name="stamp" type="file" accept="image/*" />
+      </div>
+      <div class="field" style="margin:0">
+        <label for="rc_signature">School wide signature</label>
+        @if($school->signature_path)
+          <img src="{{ \Illuminate\Support\Facades\Storage::url($school->signature_path) }}" alt="Current school signature" style="display:block;max-height:60px;margin-bottom:.4rem" />
+        @endif
+        <input id="rc_signature" name="signature" type="file" accept="image/*" />
+      </div>
+      <button class="btn btn-primary btn-sm" type="submit">Save default stamp &amp; signature</button>
+    </form>
+  @else
+    <p class="muted" style="margin-bottom:.8rem">Uploading a new default requires branding access. Ask your school admin, or manage it from <a href="{{ route('school.branding.edit', ['school' => $school->slug]) }}">Branding</a> if you have access there.</p>
+  @endif
+
   <form method="POST" action="{{ route('school.report-cards.arm.stamp-signature.reset-all', ['school' => $school->slug]) }}" onsubmit="return confirm('Reset every class to the school default stamp and signature? Any class specific uploads will be cleared.');">
     @csrf
     <button class="btn btn-ghost btn-sm" type="submit">Reset all classes to the school default</button>
