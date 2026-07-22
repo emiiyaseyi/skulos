@@ -109,6 +109,18 @@ class AcademicInsightsAndWorkloadTest extends TestCase
             ->assertSee('90%'); // Ada: 35+55=90
     }
 
+    /** User request 2026-07-22: "Academic Insights page should have the filter and sort option to the data there." */
+    public function test_academic_insights_subject_table_has_filter_and_sort_controls(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'insightsfilter');
+        $this->seedAcademics($school);
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/examinations/academic-insights")
+            ->assertOk()
+            ->assertSee('Filter by subject')
+            ->assertSee('id="ai-subject-sort"', false);
+    }
+
     /** User request 2026-07-19: "should also have another section to view per section or a class only under the term and session." */
     public function test_academic_insights_can_be_scoped_to_one_section_or_one_class(): void
     {
