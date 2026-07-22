@@ -154,6 +154,15 @@ class StudentController extends Controller
         }
 
         if ($search || $scopedArmIds !== null) {
+            // Sort and filter (user report 2026-07-22: "add the sort and
+            // filter option to this page"), the same ?sort=/?dir=/status
+            // shape the Staff and Parent lists already established.
+            $status = in_array($request->query('status'), [Student::STATUS_ACTIVE, Student::STATUS_GRADUATED, Student::STATUS_WITHDRAWN, Student::STATUS_SUSPENDED], true)
+                ? $request->query('status') : null;
+            $sort = in_array($request->query('sort'), ['name', 'admission_number', 'gender', 'status'], true) ? $request->query('sort') : 'name';
+            $dir = $request->query('dir') === 'desc' ? 'desc' : 'asc';
+            $sortColumns = $sort === 'name' ? ['last_name', 'first_name'] : [$sort];
+
             $students = Student::query()
                 ->when($scopedArmIds !== null, fn ($q) => $q->whereIn('current_class_arm_id', $scopedArmIds))
                 ->when($search, fn ($q) => $q->where(function ($w) use ($search) {
@@ -161,15 +170,20 @@ class StudentController extends Controller
                         ->orWhere('first_name', 'like', "%{$search}%")
                         ->orWhere('last_name', 'like', "%{$search}%");
                 }))
-                ->orderBy('last_name')
-                ->paginate(20)
-                ->withQueryString();
+                ->when($status, fn ($q) => $q->where('status', $status));
+            foreach ($sortColumns as $column) {
+                $students->orderBy($column, $dir);
+            }
+            $students = $students->paginate(20)->withQueryString();
 
             return view('school.students.index', [
                 'school' => $school,
                 'accent' => $school->branding()['color'],
                 'students' => $students,
                 'search' => $search,
+                'status' => $status,
+                'sort' => $sort,
+                'dir' => $dir,
                 'total' => $scopedArmIds !== null ? Student::whereIn('current_class_arm_id', $scopedArmIds)->count() : Student::count(),
                 'sections' => null,
                 'subjectGroups' => null,

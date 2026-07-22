@@ -21,8 +21,36 @@
 </div>
 
 <div class="card" style="margin-bottom:1.1rem">
-  <form method="GET" style="max-width:22rem">
-    <input type="search" name="q" value="{{ $search }}" placeholder="Search by name or admission number" />
+  <form method="GET" style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end">
+    <div class="field" style="margin:0;max-width:22rem;flex:1">
+      <input type="search" name="q" value="{{ $search }}" placeholder="Search by name or admission number" />
+    </div>
+    @if($students !== null)
+      {{-- User report 2026-07-22: "add the sort and filter option to this page." --}}
+      <div class="field" style="margin:0">
+        <select name="status" onchange="this.form.requestSubmit()">
+          <option value="">Every status</option>
+          <option value="active" @selected(($status ?? null) === 'active')>Active</option>
+          <option value="graduated" @selected(($status ?? null) === 'graduated')>Graduated</option>
+          <option value="withdrawn" @selected(($status ?? null) === 'withdrawn')>Withdrawn</option>
+          <option value="suspended" @selected(($status ?? null) === 'suspended')>Suspended</option>
+        </select>
+      </div>
+      <div class="field" style="margin:0">
+        <select name="sort" onchange="this.form.requestSubmit()">
+          <option value="name" @selected(($sort ?? 'name') === 'name')>Sort: Name A to Z</option>
+          <option value="admission_number" @selected(($sort ?? null) === 'admission_number')>Sort: Admission No.</option>
+          <option value="gender" @selected(($sort ?? null) === 'gender')>Sort: Gender</option>
+          <option value="status" @selected(($sort ?? null) === 'status')>Sort: Status</option>
+        </select>
+      </div>
+      <div class="field" style="margin:0">
+        <select name="dir" onchange="this.form.requestSubmit()">
+          <option value="asc" @selected(($dir ?? 'asc') === 'asc')>Ascending</option>
+          <option value="desc" @selected(($dir ?? null) === 'desc')>Descending</option>
+        </select>
+      </div>
+    @endif
   </form>
 </div>
 

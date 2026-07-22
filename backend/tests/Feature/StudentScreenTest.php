@@ -67,6 +67,31 @@ class StudentScreenTest extends TestCase
         $filtered->assertOk()->assertSee('ADM/001')->assertDontSee('ADM/002');
     }
 
+    /** User report 2026-07-22: "add the sort and filter option to this page." */
+    public function test_students_index_search_results_can_be_sorted_and_filtered_by_status(): void
+    {
+        [$school, $user] = $this->schoolWithMember('registrar', 'sortfilterone');
+
+        app(TenantManager::class)->use($school);
+        Student::create(['admission_number' => 'ADM/010', 'first_name' => 'Zara', 'last_name' => 'Bello', 'status' => 'active']);
+        Student::create(['admission_number' => 'ADM/011', 'first_name' => 'Amaka', 'last_name' => 'Nnamdi', 'status' => 'graduated']);
+        app(TenantManager::class)->forget();
+
+        // Sorted by name (last name) ascending: Bello before Nnamdi.
+        $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/students?q=ADM&sort=name&dir=asc");
+        $response->assertOk();
+        $content = $response->getContent();
+        $this->assertLessThan(strpos($content, 'Amaka Nnamdi'), strpos($content, 'Zara Bello'), 'Bello must sort before Nnamdi ascending by last name');
+
+        // Reversed with dir=desc.
+        $descContent = $this->actingAs($user)->get("http://{$school->slug}.localhost/students?q=ADM&sort=name&dir=desc")->getContent();
+        $this->assertLessThan(strpos($descContent, 'Zara Bello'), strpos($descContent, 'Amaka Nnamdi'), 'Nnamdi must sort before Bello descending by last name');
+
+        // Status filter narrows to just the active student.
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/students?q=ADM&status=graduated")
+            ->assertOk()->assertSee('Amaka Nnamdi')->assertDontSee('Zara Bello');
+    }
+
     /**
      * Browsing (no search) groups students by section then class (user
      * request 2026-07-11: "all students should be categorized by their
