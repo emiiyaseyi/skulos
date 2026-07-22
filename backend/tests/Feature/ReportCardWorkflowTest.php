@@ -348,6 +348,7 @@ class ReportCardWorkflowTest extends TestCase
         $this->actingAs($teacher)->get("http://{$school->slug}.localhost/report-cards")->assertForbidden();
     }
 
+
     public function test_pending_review_lists_only_pending_and_needs_correction(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'rcten');

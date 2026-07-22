@@ -87,6 +87,46 @@ class PlanFeatureNavTest extends TestCase
             ->assertDontSee('>Storage<', false)->assertDontSee('>Health<', false);
     }
 
+    /**
+     * User report 2026-07-22: "Its shows error 404 for subject teacher
+     * now but it ought not to be a menu option for subject teachers at
+     * all under report and analystics." result_management's own nav
+     * permission mapping was looser (examinations.view, which a subject
+     * teacher genuinely holds for entering scores) than the screen it
+     * points at actually requires (report_cards.view, which they do
+     * not hold), so the link rendered anyway and led nowhere real.
+     */
+    public function test_a_subject_teacher_never_sees_report_cards_in_the_nav(): void
+    {
+        $plan = Plan::create([
+            'name' => 'Test Plan rcnavhide', 'slug' => 'plan-rcnavhide',
+            'price_per_student_per_term' => 500, 'modules' => [], 'features' => ['result_management', 'basic_report_cards'],
+        ]);
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'rcnavhide', 'plan_id' => $plan->id]));
+        $user = User::factory()->create();
+        $role = $this->rbac->cloneTemplateRole($school, 'subject-teacher');
+        $school->users()->attach($user->id, ['role_id' => $role->id, 'status' => 'active']);
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()->assertDontSee('Report Cards');
+    }
+
+    /** A class teacher genuinely holds report_cards.view and must still see the link, unaffected by the fix above. */
+    public function test_a_class_teacher_still_sees_report_cards_in_the_nav(): void
+    {
+        $plan = Plan::create([
+            'name' => 'Test Plan rcnavshow', 'slug' => 'plan-rcnavshow',
+            'price_per_student_per_term' => 500, 'modules' => [], 'features' => ['result_management', 'basic_report_cards'],
+        ]);
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'rcnavshow', 'plan_id' => $plan->id]));
+        $user = User::factory()->create();
+        $role = $this->rbac->cloneTemplateRole($school, 'class-teacher');
+        $school->users()->attach($user->id, ['role_id' => $role->id, 'status' => 'active']);
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()->assertSee('Report Cards');
+    }
+
     public function test_a_feature_included_in_the_plan_shows_in_the_nav(): void
     {
         [$school, $user] = $this->schoolOnPlan(['school_houses', 'result_management'], 'planone');

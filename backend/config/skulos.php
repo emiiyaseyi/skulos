@@ -1748,7 +1748,16 @@ return [
         'subject_management' => 'academics.view',
         'academic_sessions_terms' => 'academics.view',
         'continuous_assessment' => 'examinations.view',
-        'result_management' => 'examinations.view',
+        // Was 'examinations.view' (found live 2026-07-22: a subject
+        // teacher, who holds examinations.view for entering scores but
+        // no report_cards.* grant at all, still saw "Report Cards" in
+        // their nav via this looser mapping, landing on a screen with
+        // nothing they could actually open, "it ought not to be a menu
+        // option for subject teachers at all"). result_management and
+        // basic_report_cards both point at the exact same
+        // school.report-cards.index screen, so they must require the
+        // same real permission that screen itself checks.
+        'result_management' => 'report_cards.view',
         'basic_report_cards' => 'report_cards.view',
         'advanced_report_cards' => 'report_cards.view',
         'student_reports' => 'examinations.view',
