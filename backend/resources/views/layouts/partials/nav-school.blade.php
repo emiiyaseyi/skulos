@@ -291,6 +291,12 @@
     // Student Performance Dashboard above (class/student level, current
     // term only).
     'academic_insights' => ['school.examinations.academic-insights', 'Academic Insights', 'search'],
+    // Foundation plan feature wired 2026-07-22 (user request: "report and
+    // analytics should have subject insights for class teacher and
+    // subject teachers"): a teacher's own scoped view of only the
+    // classes/subjects their TeachingAssignment rows say they teach,
+    // distinct from Academic Insights above (school wide, leadership only).
+    'subject_insights' => ['school.reports.subject-insights.index', 'Subject Insights', 'trend'],
     // Advance tier plan feature wired 2026-07-18: real teaching-load data
     // (TeachingAssignment + class teacher/assistant assignment), not a
     // timetable (Timetable Management stays deferred).

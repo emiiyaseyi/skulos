@@ -35,7 +35,7 @@ class PlanSeeder extends Seeder
             'school_branding', 'dashboard',
             'in_app_notifications', 'announcements', 'birthday_anniversary_notifications',
             'bank_transfer_payment_option', 'payment_evidence_upload', 'payment_verification', 'basic_fee_records',
-            'student_reports', 'attendance_reports', 'basic_analytics_dashboard', 'export_to_pdf',
+            'student_reports', 'attendance_reports', 'basic_analytics_dashboard', 'export_to_pdf', 'subject_insights',
             'export_to_excel', 'bulk_import', 'bulk_export',
             'knowledge_base', 'staff_onboarding_training', 'standard_support',
         ];

@@ -695,6 +695,13 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/export', [$reportBuilder, 'export'])->name('export');
         });
 
+        // Subject Insights (Foundation plan feature 'subject_insights', 2026-07-22):
+        // a class/subject teacher's own scoped view of the (class, subject)
+        // pairs their TeachingAssignment rows say they teach, distinct from
+        // the school wide Academic Insights above.
+        Route::get('/reports/subject-insights', [\App\Http\Controllers\School\SubjectInsightsController::class, 'index'])
+            ->name('school.reports.subject-insights.index');
+
         // Backup and restore.
         Route::prefix('backups')->name('school.backups.')->group(function () {
             $backups = \App\Http\Controllers\School\BackupController::class;

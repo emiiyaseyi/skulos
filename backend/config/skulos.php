@@ -210,6 +210,7 @@ return [
             'student_performance_dashboard' => 'Student Performance Dashboard',
             'attendance_dashboard' => 'Attendance Dashboard',
             'academic_insights' => 'Academic Insights',
+            'subject_insights' => 'Subject Insights',
             'advanced_analytics' => 'Advanced Analytics',
             'executive_dashboard' => 'Executive Dashboard',
             'financial_analytics' => 'Financial Analytics',
@@ -1776,6 +1777,13 @@ return [
         'school_profile' => 'school_info.view',
         'school_branding' => 'school_info.update',
         'academic_insights' => 'examinations.approve_results',
+        // Subject Insights (2026-07-22 user request: "report and analytics
+        // should have subject insights for class teacher and subject
+        // teachers"): scoped to a teacher's own TeachingAssignment pairs,
+        // so the gate is the same examinations.view every class/subject
+        // teacher already holds, distinct from Academic Insights above
+        // which is the school wide, leadership only view.
+        'subject_insights' => 'examinations.view',
         'teacher_workload' => 'staff.view',
         'timetable_management' => 'timetable.view',
     ],
