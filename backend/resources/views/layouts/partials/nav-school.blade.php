@@ -115,11 +115,18 @@
     // immediately trigger a file download with no page behind it.
     'export_to_excel' => ['school.students', 'Student Portal', 'students'],
     'bulk_export' => ['school.students', 'Student Portal', 'students'],
-    // Distinct from the two above: a real, dedicated CSV upload screen
-    // already exists (StudentController::import(), the "Bulk Import"
-    // feature's actual real capability), not the same page as the plain
-    // Students browse screen.
-    'bulk_import' => ['school.students.import', 'Import Students', 'students'],
+    // Used to be its own "Import Students" nav line pointing at
+    // school.students.import (StudentController::import()), a real,
+    // dedicated CSV upload screen distinct from the plain Students
+    // browse screen. User directive 2026-07-22: "students/import should
+    // not be a menu option under reports and analytics since it can be
+    // found under the student portal. Note, you are only removing it
+    // from the menu side, page content and function still remains" — so
+    // this now collapses into "Student Portal" the same way
+    // export_to_excel/bulk_export already do, the route/controller/page
+    // are completely unchanged and untouched, reached from the "Bulk
+    // import" button already on the Students screen itself.
+    'bulk_import' => ['school.students', 'Student Portal', 'students'],
     'academic_calendar' => ['school.calendar.index', 'Calendar', 'calendar'],
     // "Teacher Portal" and "Staff Records" are the same screen, seen from
     // two different plan-feature names (user directive 2026-07-15: "STAFF

@@ -497,6 +497,20 @@ class PlanFeatureNavTest extends TestCase
             ->assertDontSee('Soon');
     }
 
+    /** User directive 2026-07-22: "students/import should not be a menu option under reports and analytics... you are only removing it from the menu side, page content and function still remains." */
+    public function test_bulk_import_no_longer_renders_its_own_nav_line_but_the_import_screen_still_works(): void
+    {
+        [$school, $user] = $this->schoolOnPlan(['bulk_import'], 'planbulkimport');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()
+            ->assertSee('Student Portal')
+            ->assertDontSee('Import Students')
+            ->assertDontSee('Soon');
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/students/import")->assertOk();
+    }
+
     public function test_student_performance_dashboard_renders_as_a_real_link_not_soon(): void
     {
         [$school, $user] = $this->schoolOnPlan(['student_performance_dashboard'], 'planperf');
