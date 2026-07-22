@@ -753,9 +753,20 @@ return [
     | guaranteed email/phone to receive a random one at, and it must be
     | changed at first sign in regardless (AccountProvisioningService::
     | provisionAuto() always sets must_change_password).
+    |
+    | Both fixed to "password123" (corrected 2026-07-22, user report
+    | "part 3" item 142/143: "students are to use their admission numbers
+    | as username and the default pass is password123... for parents, can
+    | use email or phone and the default pass of password123"). Was
+    | "Student@123"/"Parent@123", never actually matching the convention
+    | stated here and in schools:seed-demo-data's own DEMO_PASSWORD, a
+    | real gap for the first login any school creates via the actual
+    | Create login button (every already-provisioned school's demo data
+    | already used "password123", confirmed by audit, so no existing
+    | account needed a reset, only this default going forward).
     */
-    'default_student_password' => 'Student@123',
-    'default_parent_password' => 'Parent@123',
+    'default_student_password' => 'password123',
+    'default_parent_password' => 'password123',
 
     /*
     | Report card review chain (user directive 2026-07-12, "Intelligent

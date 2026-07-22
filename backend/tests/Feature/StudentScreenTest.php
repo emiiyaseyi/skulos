@@ -286,7 +286,7 @@ class StudentScreenTest extends TestCase
             'admission_number' => 'ADM/950', 'first_name' => 'Ada', 'last_name' => 'Obi',
         ]);
         $response->assertRedirect()->assertSessionHas('status');
-        $this->assertStringContainsString('Student@123', session('status'));
+        $this->assertStringContainsString('password123', session('status'));
 
         app(TenantManager::class)->use($school);
         $student = Student::where('admission_number', 'ADM/950')->first();
@@ -299,7 +299,7 @@ class StudentScreenTest extends TestCase
         // default password now works, with no separate "create login" step.
         $this->post('/logout');
         $this->post("http://{$school->slug}.localhost/login", [
-            'email' => 'ADM/950', 'password' => 'Student@123', 'as' => 'student',
+            'email' => 'ADM/950', 'password' => 'password123', 'as' => 'student',
         ])->assertRedirect();
         $this->assertAuthenticatedAs($user);
     }
@@ -409,7 +409,16 @@ class StudentScreenTest extends TestCase
 
         $this->post('/logout');
         $this->post("http://{$school->slug}.localhost/login", [
-            'email' => 'mrsobi@example.com', 'password' => 'Parent@123', 'as' => 'parent',
+            'email' => 'mrsobi@example.com', 'password' => 'password123', 'as' => 'parent',
+        ])->assertRedirect();
+        $this->assertAuthenticatedAs($user);
+
+        // Item 143 of the "part 3" feedback batch: "for parents, can use
+        // email or phone." The same guardian also has a phone on file, so
+        // signing in with that instead of the email must work too.
+        $this->post('/logout');
+        $this->post("http://{$school->slug}.localhost/login", [
+            'email' => '08000000000', 'password' => 'password123', 'as' => 'parent',
         ])->assertRedirect();
         $this->assertAuthenticatedAs($user);
     }
