@@ -73,7 +73,7 @@
           @foreach($guardians as $guardian)
             <tr>
               <td><strong>{{ $guardian->name }}</strong></td>
-              <td class="muted">{{ $guardian->email ?: $guardian->phone }}</td>
+              <td class="muted">{{ $canSeeGuardianDetails ? ($guardian->email ?: $guardian->phone) : 'Restricted' }}</td>
               <td class="muted">{{ $guardian->student?->fullName() }}</td>
               <td>
                 @if($guardian->student)

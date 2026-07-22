@@ -4,6 +4,7 @@ namespace App\Http\Controllers\School;
 
 use App\Http\Controllers\Controller;
 use App\Models\School;
+use App\Models\Tenant\Setting;
 use App\Models\Tenant\Staff;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\StudentGuardian;
@@ -23,6 +24,15 @@ use Illuminate\Support\Facades\Auth;
  * deferred, see tracker). Each category respects its own view permission,
  * a user without students.view never sees a student (or guardian) result
  * even if the text matches, same for staff.view.
+ *
+ * Guardian contact details additionally respect `guardian_visibility`
+ * (user report 2026-07-22: "when subject teacher use the search for
+ * student/staff/parent function, it should blur the parent contact
+ * details if the admin has set it"), the exact same
+ * StudentController::show()/ParentDirectoryController gate, not a second,
+ * competing rule: a class teacher (and assistant) always sees it, a
+ * subject teacher only if the school opted in to "both", every
+ * unrestricted role always could.
  */
 class SearchController extends Controller
 {
@@ -49,6 +59,11 @@ class SearchController extends Controller
         // details, school wide).
         $scopedArmIds = app(TeacherScope::class)->classArmIds($user, $school);
         $familyStudentIds = app(FamilyScope::class)->studentIds($user, $school);
+
+        $roleSlug = optional($user->roleIn($school))->slug;
+        $canSeeGuardianDetails = ! in_array($roleSlug, config('skulos.teacher_scoped_roles', []), true)
+            || in_array($roleSlug, ['class-teacher', 'class-assistant'], true)
+            || (Setting::grab('guardian_visibility', 'class_teacher_only') === 'both');
 
         $students = collect();
         $staff = collect();
@@ -100,6 +115,7 @@ class SearchController extends Controller
             'staff' => $staff,
             'guardians' => $guardians,
             'total' => $students->count() + $staff->count() + $guardians->count(),
+            'canSeeGuardianDetails' => $canSeeGuardianDetails,
         ]);
     }
 }
