@@ -503,6 +503,52 @@ class ReportCardController extends Controller
     }
 
     /**
+     * Every student in a class, one report card per page, for a single
+     * browser print/save-as-PDF pass (user request 2026-07-21: "bulk
+     * printing and exporting of report card for a class in PDF or EXCEL —
+     * admins and class teachers"). The Excel half of that request is
+     * already covered by the existing class broadsheet CSV export
+     * (StudentReportsController); this is the PDF half — reuses the exact
+     * same per-student render as the single report card
+     * (ReportCardController::show()/_sheet.blade.php), just looped, so
+     * this can never visually drift from what a single printed card
+     * already looks like.
+     */
+    public function classPrint(Request $request, ReportCardService $cards, ReportCardPreferences $prefs, ReportCardLayout $layout): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'report_cards.view');
+        $school = $this->school($request);
+        $class = SchoolClass::with(['section', 'arms'])->findOrFail($request->route('classId'));
+        $term = $this->resolveTerm($request);
+
+        $armIds = $class->arms->pluck('id');
+        $scopedArmIds = app(TeacherScope::class)->classArmIds(Auth::user(), $school);
+        if ($scopedArmIds !== null) {
+            abort_unless($armIds->intersect($scopedArmIds)->isNotEmpty(), 404);
+        }
+
+        $students = Student::whereIn('current_class_arm_id', $armIds)->orderBy('last_name')->get();
+        $template = $class->isNarrativeEvaluation() ? 'narrative' : $prefs->template();
+
+        return view('school.report-cards.class-print', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'class' => $class,
+            'term' => $term,
+            'template' => $template,
+            'fields' => $prefs->fields(),
+            'gradeBands' => $this->gradeBands(),
+            'layoutEnabled' => $layout->enabled(),
+            'layoutZones' => $layout->zones(),
+            'bodySections' => $layout->effectiveBodyOrder($layout->enabled()),
+            'headerAlign' => $layout->headerAlign(),
+            'bodyAlign' => $layout->bodyAlign(),
+            'customBlocks' => $this->customBlocksKeyed(),
+            'reportData' => $students->map(fn (Student $student) => $cards->forStudent($student, $term)),
+        ]);
+    }
+
+    /**
      * Builds the initial attributes for a newly generated review: the
      * review stage toggle decides whether it starts pending review or
      * goes straight to released, and the class's default reviewer (if

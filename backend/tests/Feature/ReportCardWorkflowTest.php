@@ -252,6 +252,37 @@ class ReportCardWorkflowTest extends TestCase
         $this->actingAs($teacher)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/generate")->assertRedirect();
     }
 
+    /** User request 2026-07-21: "bulk printing and exporting of report card for a class in PDF or EXCEL — admins and class teachers". */
+    public function test_admin_can_print_every_students_report_card_for_a_class_on_one_page(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rcprintone');
+        [$classId, $studentId] = $this->seedClassWithStudent($school);
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/classes/{$classId}/print")
+            ->assertOk()
+            ->assertSee('Ada Obi')
+            ->assertSee('Print all');
+    }
+
+    public function test_a_class_teacher_outside_the_class_cannot_print_it(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('class-teacher', 'rcprinttwo');
+        [$classId] = $this->seedClassWithStudent($school);
+
+        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/report-cards/classes/{$classId}/print")->assertNotFound();
+    }
+
+    public function test_the_class_index_links_to_print_all_and_the_broadsheet(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rcprintthree');
+        [$classId] = $this->seedClassWithStudent($school);
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/classes/{$classId}")
+            ->assertOk()
+            ->assertSee(route('school.report-cards.class.print', ['school' => $school->slug, 'classId' => $classId]), false)
+            ->assertSee(route('school.reports.students.index', ['school' => $school->slug]), false);
+    }
+
     public function test_a_class_teacher_outside_the_class_cannot_generate_or_view(): void
     {
         [$school, $teacher] = $this->schoolWithMember('class-teacher', 'rcnineteen');
