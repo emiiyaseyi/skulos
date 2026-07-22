@@ -52,15 +52,27 @@
     <form id="bulkReviewApproveForm" method="POST" action="{{ route('school.report-cards.bulk-approve', ['school' => $school->slug]) }}">@csrf</form>
     <form id="bulkReviewSendBackForm" method="POST" action="{{ route('school.report-cards.bulk-send-back', ['school' => $school->slug]) }}">@csrf<input type="hidden" name="notes" value="" /></form>
     <form id="bulkReviewNudgeForm" method="POST" action="{{ route('school.report-cards.bulk-nudge', ['school' => $school->slug]) }}">@csrf</form>
+
+    {{-- User request 2026-07-22: "under pending review section/page, let's also add the filter and sort option there too." --}}
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem">
+      <input type="search" id="pr-filter" placeholder="Filter by student or class" aria-label="Filter by student or class" style="max-width:16rem" />
+      <select id="pr-sort" aria-label="Sort">
+        <option value="student">Sort: Student A to Z</option>
+        <option value="class">Sort: Class</option>
+        <option value="status">Sort: Status</option>
+        <option value="assigned">Sort: Assigned to</option>
+      </select>
+    </div>
+
     <div style="overflow-x:auto">
     <table>
       <thead><tr>
         <th style="width:2.2rem"><input type="checkbox" id="review-select-all" aria-label="Select all report cards" /></th>
         <th>Student</th><th>Class</th><th>Status</th><th>Assigned to</th><th></th>
       </tr></thead>
-      <tbody>
+      <tbody id="pr-rows">
         @foreach($reviews as $review)
-          <tr>
+          <tr data-student="{{ strtolower($review->student?->fullName() ?? '') }}" data-class="{{ strtolower($review->student?->currentClassArm?->schoolClass?->name ?? '') }}" data-status="{{ strtolower(\App\Models\Tenant\ReportCardReview::statusLabel($review->status)) }}" data-assigned="{{ strtolower($review->assignedTo?->fullName() ?? '') }}">
             <td><input type="checkbox" class="review-row-check" value="{{ $review->student_id }}" aria-label="Select {{ $review->student?->fullName() }}" /></td>
             <td><strong>{{ $review->student?->fullName() }}</strong></td>
             <td class="muted">{{ $review->student?->currentClassArm?->schoolClass?->name ?? 'Not set' }}</td>
@@ -132,6 +144,25 @@
         form.querySelector('[name="notes"]').value = notes.trim();
         form.submit();
       });
+    });
+
+    var prFilter = document.getElementById('pr-filter');
+    var prSort = document.getElementById('pr-sort');
+    var prRows = document.getElementById('pr-rows');
+
+    prFilter?.addEventListener('input', function(){
+      var q = this.value.trim().toLowerCase();
+      prRows.querySelectorAll('tr').forEach(function(row){
+        var matches = row.dataset.student.includes(q) || row.dataset.class.includes(q);
+        row.style.display = matches ? '' : 'none';
+      });
+    });
+
+    prSort?.addEventListener('change', function(){
+      var rows = Array.prototype.slice.call(prRows.querySelectorAll('tr'));
+      var key = this.value;
+      rows.sort(function(a, b){ return a.dataset[key].localeCompare(b.dataset[key]); });
+      rows.forEach(function(row){ prRows.appendChild(row); });
     });
 
     var all = document.getElementById('review-select-all');

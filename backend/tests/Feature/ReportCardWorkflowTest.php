@@ -231,6 +231,20 @@ class ReportCardWorkflowTest extends TestCase
             ->assertSee("/report-cards/{$studentId}/{$term->id}", false);
     }
 
+    /** User request 2026-07-22: "under pending review section/page, let's also add the filter and sort option there too." */
+    public function test_pending_review_has_filter_and_sort_controls(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rcpendingfilter');
+        [, $studentId] = $this->seedClassWithStudent($school);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/generate");
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/pending-review")
+            ->assertOk()
+            ->assertSee('Filter by student or class')
+            ->assertSee('id="pr-sort"', false);
+    }
+
     public function test_owner_can_approve_then_release(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'rcsix');
