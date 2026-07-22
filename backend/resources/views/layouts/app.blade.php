@@ -817,9 +817,46 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
   }
 
   function startTicking(){
+    clearBgDeadlineTimer();
     if(tickRunning) return;
     tickRunning=true;
     countdownTimer=setTimeout(tick,1000);
+  }
+
+  // Third pass on this same report (2026-07-21, third time: "got to 0 and
+  // was stuck for a while... only log out when one go back to the tab").
+  // The two fixes above made evaluate() itself correct and made the
+  // on-screen number stop visibly freezing, but the actual logout still
+  // depended on tick()'s 1-second setTimeout LOOP eventually firing again,
+  // and that is exactly what browsers throttle or fully suspend once a
+  // tab is backgrounded (Chrome in particular can delay a repeating short
+  // timer in a hidden tab by a minute or more). A single setTimeout
+  // scheduled for one specific, precise delay is throttled far less
+  // aggressively than a tight repeating loop, so instead of continuing
+  // the 1s tick loop while hidden, one exact-deadline timer is scheduled
+  // the moment the tab goes hidden, cleared and replaced by the normal
+  // visible tick loop the moment it comes back.
+  var bgDeadlineTimer=null;
+
+  function clearBgDeadlineTimer(){
+    if(bgDeadlineTimer){ clearTimeout(bgDeadlineTimer); bgDeadlineTimer=null; }
+  }
+
+  function scheduleBackgroundDeadline(){
+    clearBgDeadlineTimer();
+    if(loggingOut) return;
+    tickRunning=false;
+    if(countdownTimer){ clearTimeout(countdownTimer); countdownTimer=null; }
+    var deadline=warningDeadlineAt!==null ? warningDeadlineAt : (lastActivityAt+idleMs+warnMs);
+    var remaining=Math.max(0, deadline-Date.now());
+    bgDeadlineTimer=setTimeout(function(){
+      bgDeadlineTimer=null;
+      evaluate();
+      // Activity from another tab (the 'storage' listener below) can
+      // push the deadline out again while still hidden; reschedule for
+      // the new one rather than leaving nothing pending.
+      if(! loggingOut && document.visibilityState==='hidden') scheduleBackgroundDeadline();
+    }, remaining);
   }
 
   function resetIdleTimer(){
@@ -831,8 +868,11 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
     closeDialogFocus=null;
     // tick()'s own loop stops rescheduling once loggingOut was set; a
     // resume after that point (Resume clicked, or activity from another
-    // tab) needs to explicitly restart it, not just clear the flag.
-    startTicking();
+    // tab) needs to explicitly restart it, not just clear the flag. While
+    // hidden, restart via the background-safe deadline timer instead of
+    // the visible tick loop, for the same reason startTicking() avoids it.
+    if(document.visibilityState==='hidden') scheduleBackgroundDeadline();
+    else startTicking();
   }
 
   function resume(){
@@ -865,15 +905,38 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
     var ts=parseInt(e.newValue,10);
     if(!isFinite(ts) || ts<=lastActivityAt) return;
     lastActivityAt=ts;
-    if(warningDeadlineAt!==null) resetIdleTimer();
+    if(warningDeadlineAt!==null){ resetIdleTimer(); return; }
+    // Still in the pre-warning phase but a background-safe deadline timer
+    // is already scheduled off the old (now stale, too-early) deadline;
+    // put a fresh one in its place rather than letting it fire early.
+    if(document.visibilityState==='hidden' && bgDeadlineTimer) scheduleBackgroundDeadline();
   });
 
   document.addEventListener('visibilitychange', function(){
-    if(document.visibilityState==='visible') evaluate();
+    if(document.visibilityState==='visible'){
+      clearBgDeadlineTimer();
+      evaluate();
+      if(! loggingOut) startTicking();
+    } else {
+      scheduleBackgroundDeadline();
+    }
   });
-  window.addEventListener('focus', evaluate);
+  // A switch to a different OS application, not just a different browser
+  // tab, does not reliably fire visibilitychange in every browser (the
+  // tab can stay technically "visible" while not actually focused); focus
+  // and blur cover that gap the same way, since the background-timer
+  // throttling this is working around applies to unfocused windows too.
+  window.addEventListener('focus', function(){
+    clearBgDeadlineTimer();
+    evaluate();
+    if(! loggingOut) startTicking();
+  });
+  window.addEventListener('blur', function(){
+    if(document.visibilityState!=='hidden') scheduleBackgroundDeadline();
+  });
 
-  startTicking();
+  if(document.visibilityState==='hidden') scheduleBackgroundDeadline();
+  else startTicking();
 })();
 </script>
 
