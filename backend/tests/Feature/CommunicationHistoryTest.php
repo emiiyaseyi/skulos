@@ -124,4 +124,62 @@ class CommunicationHistoryTest extends TestCase
 
         $this->actingAs($user)->get("http://{$school->slug}.localhost/announcements/history")->assertForbidden();
     }
+
+    /** User request 2026-07-21: "ONE SHOULD BE ABLE TO SEE LIST OF THOSE WHO ACKNOWLEDGE EACH COMMUNICATION SO AS TO ALSO NUDGE THOSE WHO ARE YET TO DO SO". */
+    public function test_the_recipient_drill_down_lists_who_acknowledged_and_who_is_pending(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'commhistsix');
+        $recipientOne = User::factory()->create(['name' => 'Ada Obi']);
+        $recipientTwo = User::factory()->create(['name' => 'Bode Ade']);
+
+        app(TenantManager::class)->use($school);
+        $announcement = Announcement::create(['title' => 'Sports Day', 'body' => 'This Saturday.', 'type' => Announcement::TYPE_ANNOUNCEMENT, 'audience' => 'everyone', 'status' => 'published', 'published_at' => now()]);
+        Notification::create(['user_id' => $recipientOne->id, 'announcement_id' => $announcement->id, 'category' => 'academic', 'type' => 'info', 'title' => 'Sports Day', 'body' => 'This Saturday.', 'read_at' => now()]);
+        Notification::create(['user_id' => $recipientTwo->id, 'announcement_id' => $announcement->id, 'category' => 'academic', 'type' => 'info', 'title' => 'Sports Day', 'body' => 'This Saturday.']);
+        $announcementId = $announcement->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/announcements/history/{$announcementId}")
+            ->assertOk()
+            ->assertSee('Ada Obi')->assertSee('Bode Ade')
+            ->assertSee('Acknowledged')->assertSee('Pending');
+    }
+
+    public function test_nudging_creates_a_reminder_only_for_pending_recipients_and_does_not_inflate_the_ledger_count(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'commhistseven');
+        $acknowledged = User::factory()->create();
+        $pending = User::factory()->create();
+
+        app(TenantManager::class)->use($school);
+        $announcement = Announcement::create(['title' => 'Sports Day', 'body' => 'This Saturday.', 'type' => Announcement::TYPE_ANNOUNCEMENT, 'audience' => 'everyone', 'status' => 'published', 'published_at' => now()]);
+        Notification::create(['user_id' => $acknowledged->id, 'announcement_id' => $announcement->id, 'category' => 'academic', 'type' => 'info', 'title' => 'Sports Day', 'body' => 'This Saturday.', 'read_at' => now()]);
+        Notification::create(['user_id' => $pending->id, 'announcement_id' => $announcement->id, 'category' => 'academic', 'type' => 'info', 'title' => 'Sports Day', 'body' => 'This Saturday.']);
+        $announcementId = $announcement->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/announcements/history/{$announcementId}/nudge")
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertTrue(Notification::where('user_id', $pending->id)->where('read_at', null)->where('announcement_id', null)->exists());
+        $this->assertFalse(Notification::where('user_id', $acknowledged->id)->where('announcement_id', null)->exists());
+        // The reminder must not be counted as a second "delivery" of the original announcement.
+        $this->assertSame(2, Notification::where('announcement_id', $announcementId)->count());
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/announcements/history")->assertOk()->assertSee('1 of 2');
+    }
+
+    public function test_nudging_requires_communication_broadcast_permission(): void
+    {
+        [$school, $registrar] = $this->schoolWithMember('registrar', 'commhisteight');
+
+        app(TenantManager::class)->use($school);
+        $announcement = Announcement::create(['title' => 'Sports Day', 'body' => 'This Saturday.', 'type' => Announcement::TYPE_ANNOUNCEMENT, 'audience' => 'everyone', 'status' => 'published', 'published_at' => now()]);
+        $announcementId = $announcement->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($registrar)->post("http://{$school->slug}.localhost/announcements/history/{$announcementId}/nudge")->assertForbidden();
+    }
 }

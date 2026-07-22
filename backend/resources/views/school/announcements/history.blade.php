@@ -58,7 +58,7 @@
               @if($delivered === 0)
                 <span class="muted">No recipients</span>
               @else
-                <span class="badge {{ $pct >= 66 ? 'badge-ok' : ($pct >= 33 ? 'badge-warn' : 'badge-bad') }}">{{ $read }} of {{ $delivered }}</span>
+                <a class="badge {{ $pct >= 66 ? 'badge-ok' : ($pct >= 33 ? 'badge-warn' : 'badge-bad') }}" style="text-decoration:none" href="{{ route('school.announcements.history.show', ['school' => $school->slug, 'announcementId' => $item->id]) }}">{{ $read }} of {{ $delivered }}</a>
               @endif
             </td>
           </tr>

@@ -104,6 +104,62 @@ class AnnouncementController extends Controller
         ]);
     }
 
+    /**
+     * Who this one announcement/message actually reached, and who has and
+     * hasn't acknowledged it yet (user request 2026-07-21: "ONE SHOULD BE
+     * ABLE TO SEE LIST OF THOSE WHO ACKNOWLEDGE EACH COMMUNICATION SO AS
+     * TO ALSO NUDGE THOSE WHO ARE YET TO DO SO"). The "X of Y" figure on
+     * the history ledger already existed; this is the drill-down behind it.
+     */
+    public function showRecipients(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'communication.view');
+        $school = $this->school($request);
+        $announcement = Announcement::findOrFail($request->route('announcementId'));
+
+        $notifications = \App\Models\Tenant\Notification::where('announcement_id', $announcement->id)
+            ->with('user')
+            ->orderByRaw('read_at is not null')
+            ->orderBy('created_at')
+            ->get();
+
+        return view('school.announcements.recipients', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'announcement' => $announcement,
+            'notifications' => $notifications,
+        ]);
+    }
+
+    /** Nudge every recipient who hasn't acknowledged this announcement yet, one in-app reminder each. */
+    public function nudgeUnacknowledged(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'communication.broadcast');
+        $announcement = Announcement::findOrFail($request->route('announcementId'));
+
+        $pending = \App\Models\Tenant\Notification::where('announcement_id', $announcement->id)
+            ->whereNull('read_at')
+            ->get();
+
+        foreach ($pending as $notification) {
+            // Deliberately no announcement_id here: the history ledger's
+            // "X of Y acknowledged" figure is a withCount() over every
+            // notification carrying this announcement's id, a reminder
+            // must not inflate that as if it were a second delivery.
+            \App\Models\Tenant\Notification::create([
+                'user_id' => $notification->user_id,
+                'title' => 'Reminder: '.$announcement->title,
+                'body' => 'You have not yet acknowledged this. Please review it when you can.',
+                'category' => 'announcement',
+                'type' => \App\Models\Tenant\Notification::typeFor('announcement'),
+            ]);
+        }
+
+        return back()->with('status', $pending->isEmpty()
+            ? 'Everyone has already acknowledged this.'
+            : "{$pending->count()} recipient(s) nudged.");
+    }
+
     public function create(Request $request): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'communication.broadcast');

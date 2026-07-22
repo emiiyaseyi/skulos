@@ -2,7 +2,9 @@
 
 namespace App\Models\Tenant;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * An in-app notification for one user. Powers the notification section on
@@ -18,9 +20,22 @@ class Notification extends Model
         'user_id', 'audience', 'title', 'body', 'category', 'type', 'announcement_id', 'read_at', 'pinned_at', 'archived_at',
     ];
 
-    public function announcement(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function announcement(): BelongsTo
     {
         return $this->belongsTo(Announcement::class);
+    }
+
+    /**
+     * The recipient, a platform User. Built manually, not a plain
+     * belongsTo(): Eloquent otherwise inherits this model's tenant
+     * connection onto User, a platform model, the same "no such table:
+     * users" bug documented on Staff::user()/StudentGuardian::user().
+     */
+    public function user(): BelongsTo
+    {
+        $related = (new User())->setConnection(config('database.default'));
+
+        return $this->newBelongsTo($related->newQuery(), $this, 'user_id', 'id', 'user');
     }
 
     protected function casts(): array

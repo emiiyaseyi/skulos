@@ -407,6 +407,8 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             $announcements = \App\Http\Controllers\School\AnnouncementController::class;
             Route::get('/', [$announcements, 'index'])->name('index');
             Route::get('/history', [$announcements, 'history'])->name('history');
+            Route::get('/history/{announcementId}', [$announcements, 'showRecipients'])->name('history.show');
+            Route::post('/history/{announcementId}/nudge', [$announcements, 'nudgeUnacknowledged'])->name('history.nudge');
             Route::get('/create', [$announcements, 'create'])->name('create');
             Route::post('/create', [$announcements, 'store'])->name('store');
         });
