@@ -8,13 +8,19 @@ use App\Services\Rbac\Rbac;
 use App\Services\Tenancy\TenantManager;
 use Database\Seeders\RbacSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
  * School Profile (2026-07-17, Settings nav reorganization): a school's
  * own institutional details, previously nowhere editable (Branding only
  * ever covered the visual side, Campuses only ever covered locations).
+ * Extended 2026-07-22 (user request: "one should also be able to upload
+ * the school logo there. Also one should be able to add addition
+ * details there if needed") with a logo upload and registration number/
+ * established year/alternate phone/website.
  */
 class SchoolProfileTest extends TestCase
 {
@@ -73,5 +79,44 @@ class SchoolProfileTest extends TestCase
         [$school, $teacher] = $this->schoolWithMember('class-teacher', 'profiletwo');
 
         $this->actingAs($teacher)->get("http://{$school->slug}.localhost/settings/profile")->assertForbidden();
+    }
+
+    /** User request 2026-07-22: "one should also be able to upload the school logo there." */
+    public function test_owner_can_upload_a_logo_from_the_profile_screen(): void
+    {
+        Storage::fake('public');
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'profilethree');
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/settings/profile")->assertOk()->assertSee('Logo');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/settings/profile", [
+            'logo' => UploadedFile::fake()->image('logo.png'),
+        ])->assertRedirect();
+
+        $school->refresh();
+        $this->assertNotNull($school->logo_path);
+        Storage::disk('public')->assertExists($school->logo_path);
+    }
+
+    /** User request 2026-07-22: "one should be able to add addition details there if needed." */
+    public function test_owner_can_save_the_new_additional_detail_fields(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'profilefour');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/settings/profile", [
+            'registration_number' => 'RC-123456',
+            'established_year' => 1998,
+            'alternate_phone' => '08033334444',
+            'website' => 'https://greenfield.example.com',
+        ])->assertRedirect();
+
+        $school->refresh();
+        $this->assertSame('RC-123456', $school->registration_number);
+        $this->assertSame(1998, $school->established_year);
+        $this->assertSame('08033334444', $school->alternate_phone);
+        $this->assertSame('https://greenfield.example.com', $school->website);
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/settings/profile")
+            ->assertOk()->assertSee('RC-123456')->assertSee('1998')->assertSee('greenfield.example.com');
     }
 }

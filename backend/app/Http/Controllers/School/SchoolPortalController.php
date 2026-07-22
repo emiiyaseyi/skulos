@@ -293,6 +293,16 @@ class SchoolPortalController extends Controller
         ]);
     }
 
+    /**
+     * User request 2026-07-22: "one should also be able to upload the
+     * school logo there. Also one should be able to add addition details
+     * there if needed." Logo upload reuses updateBranding()'s own
+     * existing storage logic (this screen is gated on the same
+     * school_info.update permission that already gates it there), rather
+     * than duplicating a second image-processing path; registration
+     * number, established year, alternate phone, and website are
+     * genuinely new optional fields.
+     */
     public function updateProfile(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'school_info.update');
@@ -300,12 +310,21 @@ class SchoolPortalController extends Controller
 
         $data = $request->validate([
             'motto' => ['nullable', 'string', 'max:150'],
+            'registration_number' => ['nullable', 'string', 'max:100'],
+            'established_year' => ['nullable', 'integer', 'min:1800', 'max:'.now()->year],
             'email' => ['nullable', 'email', 'max:150'],
             'phone' => ['nullable', 'string', 'max:40'],
+            'alternate_phone' => ['nullable', 'string', 'max:40'],
             'address' => ['nullable', 'string', 'max:500'],
+            'website' => ['nullable', 'url', 'max:200'],
+            'logo' => ['nullable', 'image', 'max:2048'],
         ]);
 
-        $school->update($data);
+        if ($request->hasFile('logo')) {
+            $school->logo_path = $request->file('logo')->store("schools/{$school->id}", 'public');
+        }
+
+        $school->fill(collect($data)->except('logo')->all())->save();
 
         return back()->with('status', 'Your school profile has been updated.');
     }
