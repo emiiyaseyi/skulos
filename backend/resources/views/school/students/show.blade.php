@@ -73,7 +73,7 @@
               <td class="muted">{{ $guardian->phone ?: $guardian->email ?: 'Not set' }}</td>
               <td>
                 @if(! $guardian->user)
-                  @if($canManage)
+                  @if($canManageLogins)
                     <form method="POST" action="{{ route('school.students.guardians.login.create', ['school' => $school->slug, 'guardianId' => $guardian->id]) }}" style="display:flex;gap:.3rem;align-items:center">
                       @csrf
                       <input type="email" name="email" value="{{ $guardian->email }}" placeholder="Email for login" required style="max-width:11rem" />
@@ -202,11 +202,15 @@
   <h3 style="margin-bottom:.4rem">Student Portal login</h3>
   <p class="muted" style="margin-bottom:.8rem">Lets {{ $student->first_name }} sign in directly to view their own report card.</p>
   @if(! $student->user)
-    <form method="POST" action="{{ route('school.students.login.create', ['school' => $school->slug, 'studentId' => $student->id]) }}" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
-      @csrf
-      <input type="email" name="email" value="{{ $student->email }}" placeholder="Email for login" required style="max-width:14rem" />
-      <button class="btn btn-ghost btn-sm" type="submit">Create login</button>
-    </form>
+    @if($canManageLogins)
+      <form method="POST" action="{{ route('school.students.login.create', ['school' => $school->slug, 'studentId' => $student->id]) }}" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+        @csrf
+        <input type="email" name="email" value="{{ $student->email }}" placeholder="Email for login" required style="max-width:14rem" />
+        <button class="btn btn-ghost btn-sm" type="submit">Create login</button>
+      </form>
+    @else
+      <p class="muted">No login yet. Ask a school admin to create one.</p>
+    @endif
   @else
     @php($sPivotStatus = $school->users()->whereKey($student->user->id)->first()?->pivot->status)
     <span class="badge {{ $sPivotStatus === 'active' ? 'badge-ok' : 'badge-warn' }}" style="margin-bottom:.5rem;display:inline-block">{{ ucfirst($sPivotStatus) }}</span>

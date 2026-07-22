@@ -389,6 +389,53 @@ class StudentScreenTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
+    /**
+     * User report 2026-07-22: "class teacher or subjecter teacher should
+     * not have option to see or access this function under student
+     * portal... teachers should not be able to see or click on the
+     * create login for parent too." Provisioning a login is now scoped
+     * to students.manage_settings, not the plain students.update a class
+     * teacher already holds for editing their own class's records.
+     */
+    public function test_a_class_teacher_cannot_see_or_use_either_create_login_button(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'loginhide1');
+        $teacherUser = \App\Models\User::factory()->create();
+        $teacherRole = $this->rbac->cloneTemplateRole($school, 'class-teacher');
+        $school->users()->attach($teacherUser->id, ['role_id' => $teacherRole->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $arm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $class->id]);
+        $staff = \App\Models\Tenant\Staff::create(['staff_id' => 'STF/9001', 'first_name' => 'T', 'last_name' => 'Eacher', 'user_id' => $teacherUser->id]);
+        $arm->update(['class_teacher_staff_id' => $staff->id]);
+        $student = Student::create(['admission_number' => 'ADM/930', 'first_name' => 'Kemi', 'last_name' => 'Ade', 'current_class_arm_id' => $arm->id]);
+        // A guardian with no login yet, bypassing the normal auto-provisioning controller path, the exact legacy state "Create login" exists for.
+        $guardian = $student->guardians()->create(['name' => 'Mrs Ade', 'relationship' => 'Mother', 'phone' => '08000000001', 'is_primary' => true]);
+        $studentId = $student->id;
+        $guardianId = $guardian->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/students/{$studentId}")
+            ->assertOk()->assertDontSee('Create login');
+
+        $this->actingAs($teacherUser)->post("http://{$school->slug}.localhost/students/{$studentId}/login", [
+            'email' => 'kemi@example.com',
+        ])->assertForbidden();
+
+        $this->actingAs($teacherUser)->post("http://{$school->slug}.localhost/students/guardians/{$guardianId}/login", [
+            'email' => 'mrsade@example.com',
+        ])->assertForbidden();
+
+        // The owner still can, both buttons visible and both routes still work.
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/students/{$studentId}")
+            ->assertOk()->assertSee('Create login');
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/students/{$studentId}/login", [
+            'email' => 'kemi@example.com',
+        ])->assertRedirect();
+    }
+
     /** Two children sharing one real parent must never get two separate logins, or reset each other's password. */
     public function test_two_guardians_sharing_the_same_email_reuse_one_login(): void
     {

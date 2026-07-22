@@ -457,6 +457,17 @@ class StudentController extends Controller
             'term' => $term,
             'report' => $report,
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'students.update'),
+            // Provisioning a login is a school-administration action, not
+            // a routine per-record edit (user report 2026-07-22: "class
+            // teacher or subject teacher should not have option to see or
+            // access this function... teachers should not be able to see
+            // or click on the create login for parent too"). A class
+            // teacher genuinely holds students.update (they edit their
+            // own class's student details), which had been silently
+            // gating this too; scoped to students.manage_settings, the
+            // same admin-tier permission Student Field Settings already
+            // requires, matching in the routes below too.
+            'canManageLogins' => app(Rbac::class)->check(Auth::user(), $school, 'students.manage_settings'),
             'canViewReportCard' => app(Rbac::class)->check(Auth::user(), $school, 'report_cards.view'),
             'canSeeGuardianDetails' => $canSeeGuardianDetails,
             'parentIdentifier' => Setting::grab('parent_identifier', 'email'),
@@ -656,7 +667,7 @@ class StudentController extends Controller
      */
     public function createGuardianLogin(Request $request, AccountProvisioningService $accounts): \Illuminate\Http\RedirectResponse
     {
-        $this->authorizeAction($request, 'students.update');
+        $this->authorizeAction($request, 'students.manage_settings');
         $school = $this->school($request);
         $guardian = StudentGuardian::with('student')->findOrFail($request->route('guardianId'));
         app(StudentAccessGuard::class)->assertVisible(Auth::user(), $school, $guardian->student);
@@ -716,7 +727,7 @@ class StudentController extends Controller
      */
     public function createStudentLogin(Request $request, AccountProvisioningService $accounts): \Illuminate\Http\RedirectResponse
     {
-        $this->authorizeAction($request, 'students.update');
+        $this->authorizeAction($request, 'students.manage_settings');
         $school = $this->school($request);
         $student = Student::findOrFail($request->route('studentId'));
         app(StudentAccessGuard::class)->assertVisible(Auth::user(), $school, $student);
