@@ -205,6 +205,71 @@ class AcademicsScreenTest extends TestCase
     }
 
     /**
+     * User report 2026-07-21: "I renamed the first class stream to
+     * Primary 1 silver and the main class name added silver to it and
+     * the second stream also added silver to it. Each stream should be a
+     * unique class under the main class name." Renaming one class's
+     * stream must never touch the class's own name, and must never
+     * rename another CLASS's same-labelled stream, since Arm rows are
+     * shared/reused across classes by design.
+     */
+    public function test_renaming_one_streams_never_touches_the_class_name_or_another_classs_same_named_stream(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadrenameone');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $classOne = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $classTwo = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 2', 'sequence' => 2]);
+        $armGold = \App\Models\Tenant\Arm::create(['name' => 'Gold']);
+        $classArmOne = ClassArm::create(['school_class_id' => $classOne->id, 'arm_id' => $armGold->id]);
+        // Primary 2's own "Gold" stream, sharing the exact same Arm row,
+        // the normal "reuse the same label across classes" behavior.
+        ClassArm::create(['school_class_id' => $classTwo->id, 'arm_id' => $armGold->id]);
+        $classArmOneId = $classArmOne->id;
+        $classOneId = $classOne->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/arms/{$classArmOneId}/rename", [
+            'name' => 'Silver',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $renamedArm = ClassArm::find($classArmOneId)->arm;
+        $classOneName = SchoolClass::find($classOneId)->name;
+        $classTwoStillGold = ClassArm::where('school_class_id', $classTwo->id)->first()->arm->name;
+        app(TenantManager::class)->forget();
+
+        $this->assertSame('Silver', $renamedArm->name);
+        $this->assertSame('Primary 1', $classOneName); // untouched
+        $this->assertSame('Gold', $classTwoStillGold); // untouched, not silently renamed too
+    }
+
+    public function test_renaming_a_stream_to_an_already_used_name_within_the_same_class_fails_gracefully(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadrenametwo');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $armGold = \App\Models\Tenant\Arm::create(['name' => 'Gold']);
+        $armSilver = \App\Models\Tenant\Arm::create(['name' => 'Silver']);
+        $goldArm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => $armGold->id]);
+        ClassArm::create(['school_class_id' => $class->id, 'arm_id' => $armSilver->id]);
+        $goldArmId = $goldArm->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/arms/{$goldArmId}/rename", [
+            'name' => 'Silver',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $stillGold = ClassArm::find($goldArmId)->arm->name;
+        app(TenantManager::class)->forget();
+        $this->assertSame('Gold', $stillGold);
+    }
+
+    /**
      * Regression test for a 2026-07-11 request: adding the first named
      * stream to a class that only has the default single stream (created
      * automatically by storeClass()) must convert that stream, not

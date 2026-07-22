@@ -733,6 +733,48 @@ class AcademicsController extends Controller
         return back()->with('status', "{$class->name} {$arm->name} added.");
     }
 
+    /**
+     * Renames one specific stream (user report 2026-07-21: "I renamed the
+     * first class stream to Primary 1 silver and the main class name
+     * added silver to it and the second stream also added silver to it.
+     * Each stream should be a unique class under the main class name").
+     * There was previously no way to rename a stream at all, only to add
+     * new ones, so the reported "rename" was actually the user editing
+     * the CLASS's own name field (updateClass() above) hoping it would
+     * scope to one stream — instead correctly renaming the whole class,
+     * which every stream's label is built from.
+     *
+     * This deliberately never mutates arms.name directly: Arm rows are
+     * shared/reused across classes by design (storeArm()'s own
+     * firstOrCreate), so renaming the row in place would silently rename
+     * every OTHER class's stream that happens to share the same label
+     * (e.g. another class's own "Gold" stream) — the exact "second
+     * stream also added silver to it" shape of bug, just from the other
+     * direction. Reassigning this one ClassArm to a find-or-created Arm
+     * matching the new name is the same safe pattern storeArm() already
+     * uses, and never touches any other class's stream.
+     */
+    public function renameArm(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.update');
+        $classArm = ClassArm::findOrFail($request->route('classArmId'));
+        $data = $request->validate(['name' => ['required', 'string', 'max:40']]);
+
+        $newArm = Arm::firstOrCreate(['name' => $data['name']]);
+
+        $duplicate = ClassArm::where('school_class_id', $classArm->school_class_id)
+            ->where('arm_id', $newArm->id)
+            ->where('id', '!=', $classArm->id)
+            ->exists();
+        if ($duplicate) {
+            return back()->with('error', "This class already has a \"{$newArm->name}\" stream.");
+        }
+
+        $classArm->update(['arm_id' => $newArm->id]);
+
+        return back()->with('status', "Stream renamed to {$newArm->name}.");
+    }
+
     public function subjects(Request $request, AcademicDefaults $defaults): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'academics.view');

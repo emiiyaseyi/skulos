@@ -100,7 +100,16 @@
 
 @foreach($class->arms as $arm)
   <div class="card" style="margin-bottom:1.1rem">
-    <h3 style="margin-bottom:.7rem">{{ $arm->label() }}{{ $multiStream ? '' : ' teachers' }}</h3>
+    <div class="row-between" style="margin-bottom:.7rem;flex-wrap:wrap;gap:.5rem">
+      <h3 style="margin:0">{{ $arm->label() }}{{ $multiStream ? '' : ' teachers' }}</h3>
+      @if($canManage && $multiStream)
+        <form method="POST" action="{{ route('school.academics.arms.rename', ['school' => $school->slug, 'classArmId' => $arm->id]) }}" style="display:inline-flex;gap:.3rem">
+          @csrf
+          <input name="name" placeholder="Rename stream" value="{{ $arm->arm?->name }}" style="width:9rem;padding:.3rem .5rem" />
+          <button class="btn btn-ghost btn-sm" type="submit">Rename</button>
+        </form>
+      @endif
+    </div>
     <div class="grid cols-2">
       <div>
         <div class="muted" style="font-size:.8rem;margin-bottom:.3rem">Class teacher</div>

@@ -495,6 +495,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/classes/{classId}/toggle-active', [$academics, 'toggleClassActive'])->name('classes.toggle-active');
             Route::delete('/classes/{classId}', [$academics, 'destroyClass'])->name('classes.destroy');
             Route::post('/arms', [$academics, 'storeArm'])->name('arms.store');
+            Route::post('/arms/{classArmId}/rename', [$academics, 'renameArm'])->name('arms.rename');
             Route::post('/arms/{armId}/assign-teacher', [$academics, 'assignArmTeacher'])->name('arms.assign-teacher');
             Route::get('/classes/{classId}/subjects', [$academics, 'subjects'])->name('subjects');
             Route::post('/classes/{classId}/subjects/apply-defaults', [$academics, 'applyDefaults'])->name('subjects.apply-defaults');
