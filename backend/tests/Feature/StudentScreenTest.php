@@ -248,6 +248,37 @@ class StudentScreenTest extends TestCase
         $this->assertNotNull($student);
     }
 
+    /**
+     * User request 2026-07-21: "Why do we have to manually create login
+     * for students... students can login with their admission number and
+     * the default password which must be change upon first login."
+     */
+    public function test_creating_a_student_auto_provisions_a_login_with_the_default_password(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'autologinone');
+
+        $response = $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/create", [
+            'admission_number' => 'ADM/950', 'first_name' => 'Ada', 'last_name' => 'Obi',
+        ]);
+        $response->assertRedirect()->assertSessionHas('status');
+        $this->assertStringContainsString('Student@123', session('status'));
+
+        app(TenantManager::class)->use($school);
+        $student = Student::where('admission_number', 'ADM/950')->first();
+        $this->assertNotNull($student->user_id);
+        $user = \App\Models\User::find($student->user_id);
+        $this->assertTrue($user->must_change_password);
+        app(TenantManager::class)->forget();
+
+        // The real point: signing in with just the admission number + the
+        // default password now works, with no separate "create login" step.
+        $this->post('/logout');
+        $this->post("http://{$school->slug}.localhost/login", [
+            'email' => 'ADM/950', 'password' => 'Student@123', 'as' => 'student',
+        ])->assertRedirect();
+        $this->assertAuthenticatedAs($user);
+    }
+
     public function test_the_single_form_enforces_admin_configured_required_fields(): void
     {
         [$school, $admin] = $this->schoolWithMember('school-owner', 'createtwo');
@@ -342,6 +373,49 @@ class StudentScreenTest extends TestCase
         app(TenantManager::class)->forget();
         $this->assertSame('Mrs Obi', $guardian->name);
         $this->assertTrue($guardian->is_primary);
+
+        // User request 2026-07-21: "Parents can login with either email
+        // or phone number", auto-provisioned, no separate "create login" step.
+        app(TenantManager::class)->use($school);
+        $this->assertNotNull($guardian->guardian_user_id);
+        $user = \App\Models\User::find($guardian->guardian_user_id);
+        $this->assertTrue($user->must_change_password);
+        app(TenantManager::class)->forget();
+
+        $this->post('/logout');
+        $this->post("http://{$school->slug}.localhost/login", [
+            'email' => 'mrsobi@example.com', 'password' => 'Parent@123', 'as' => 'parent',
+        ])->assertRedirect();
+        $this->assertAuthenticatedAs($user);
+    }
+
+    /** Two children sharing one real parent must never get two separate logins, or reset each other's password. */
+    public function test_two_guardians_sharing_the_same_email_reuse_one_login(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'sharedparent');
+
+        app(TenantManager::class)->use($school);
+        $first = Student::create(['admission_number' => 'ADM/920', 'first_name' => 'Ada', 'last_name' => 'Obi']);
+        $second = Student::create(['admission_number' => 'ADM/921', 'first_name' => 'Bode', 'last_name' => 'Obi']);
+        $firstId = $first->id;
+        $secondId = $second->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/{$firstId}/guardians", [
+            'name' => 'Mr Obi', 'relationship' => 'Father', 'email' => 'mr.obi@example.com',
+        ])->assertRedirect();
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/{$secondId}/guardians", [
+            'name' => 'Mr Obi', 'relationship' => 'Father', 'email' => 'mr.obi@example.com',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $guardianOne = $first->fresh()->guardians()->first();
+        $guardianTwo = $second->fresh()->guardians()->first();
+        $userCount = \App\Models\User::where('email', 'mr.obi@example.com')->count();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame($guardianOne->guardian_user_id, $guardianTwo->guardian_user_id);
+        $this->assertSame(1, $userCount);
     }
 
     /** The other half of guardian CRUD, added later, only "add" existed before this (2026-07-15). */
@@ -406,6 +480,8 @@ class StudentScreenTest extends TestCase
             'parent_identifier' => 'phone',
             'staff_identifier' => 'email',
             'guardian_visibility' => 'class_teacher_only',
+            'default_student_password' => 'Student@123',
+            'default_parent_password' => 'Parent@123',
         ])->assertRedirect();
 
         app(TenantManager::class)->use($school);
@@ -463,6 +539,8 @@ class StudentScreenTest extends TestCase
             'parent_identifier' => 'email',
             'staff_identifier' => 'email',
             'guardian_visibility' => 'class_teacher_only',
+            'default_student_password' => 'Student@123',
+            'default_parent_password' => 'Parent@123',
         ])->assertRedirect();
 
         app(TenantManager::class)->use($school);

@@ -68,6 +68,23 @@
     </div>
   </div>
 
+  <div class="card" style="margin-top:1.25rem">
+    <h3 style="margin-bottom:.4rem">Auto-provisioned login defaults</h3>
+    <p class="muted" style="margin-bottom:.8rem">A student or parent gets a login the moment they're added, no separate "create login" step. A student signs in with their admission number; a parent with their email or phone. Both must change this password the first time they sign in.</p>
+    <div class="grid cols-2">
+      <div class="field">
+        <label for="default_student_password">Default student password</label>
+        <input id="default_student_password" name="default_student_password" value="{{ old('default_student_password', $defaultStudentPassword) }}" required minlength="6" />
+        @error('default_student_password')<div class="err">{{ $message }}</div>@enderror
+      </div>
+      <div class="field">
+        <label for="default_parent_password">Default parent password</label>
+        <input id="default_parent_password" name="default_parent_password" value="{{ old('default_parent_password', $defaultParentPassword) }}" required minlength="6" />
+        @error('default_parent_password')<div class="err">{{ $message }}</div>@enderror
+      </div>
+    </div>
+  </div>
+
   <button class="btn btn-primary btn-sm" type="submit" style="margin-top:1rem">Save</button>
 </form>
 @endsection

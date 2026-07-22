@@ -27,6 +27,7 @@ use App\Services\Results\ResultService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 /**
@@ -488,7 +489,7 @@ class StudentController extends Controller
         ]);
     }
 
-    public function store(Request $request, CustomFieldService $customFields): \Illuminate\Http\RedirectResponse
+    public function store(Request $request, CustomFieldService $customFields, AccountProvisioningService $accounts): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'students.create');
         $school = $this->school($request);
@@ -498,8 +499,22 @@ class StudentController extends Controller
         $student = Student::create($data);
         $customFields->saveValues('student', $student->id, $custom);
 
+        // Auto-provisioned login (user request 2026-07-21: "Why do we have
+        // to manually create login for students... students can login
+        // with their admission number and the default password which
+        // must be change upon first login"). A student has no guaranteed
+        // email, so this always uses a synthetic, never-contacted
+        // placeholder purely to satisfy the platform's unique-email
+        // constraint; the real sign-in path is admission number, already
+        // handled by LoginController regardless of what the User's own
+        // email column holds.
+        $password = Setting::grab('default_student_password', config('skulos.default_student_password'));
+        $syntheticEmail = Str::slug($student->admission_number, '-').'@students.'.$school->slug.'.skulos.local';
+        $result = $accounts->provisionAuto($school, $student->fullName(), null, null, 'student', $password, $syntheticEmail);
+        $student->update(['user_id' => $result['user']->id]);
+
         return redirect()->route('school.students.show', ['school' => $school->slug, 'studentId' => $student->id])
-            ->with('status', "{$student->fullName()} added.");
+            ->with('status', "{$student->fullName()} added. Login: admission number {$student->admission_number}, password {$password} (must be changed at first sign in).");
     }
 
     public function edit(Request $request, CustomFieldService $customFields): \Illuminate\View\View
@@ -544,7 +559,7 @@ class StudentController extends Controller
      * admin can determine what the unique ID is... the school must stick
      * to one only"), the other stays optional contact info.
      */
-    public function storeGuardian(Request $request, CustomFieldService $customFields): \Illuminate\Http\RedirectResponse
+    public function storeGuardian(Request $request, CustomFieldService $customFields, AccountProvisioningService $accounts): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'students.update');
         $school = $this->school($request);
@@ -564,7 +579,22 @@ class StudentController extends Controller
         $guardian = $student->guardians()->create($data + ['is_primary' => $request->boolean('is_primary')]);
         $customFields->saveValues('guardian', $guardian->id, $custom);
 
-        return back()->with('status', 'Guardian added.');
+        // Auto-provisioned Parent Portal login (user request 2026-07-21:
+        // "Parents can login with either email or phone number"), no
+        // manual "create login" step. A guardian always has a real email
+        // or phone at this point (whichever parent_identifier requires),
+        // so unlike the student path above this never needs a synthetic
+        // placeholder identity.
+        $password = Setting::grab('default_parent_password', config('skulos.default_parent_password'));
+        $syntheticEmail = 'guardian-'.$guardian->id.'@parents.'.$school->slug.'.skulos.local';
+        $result = $accounts->provisionAuto($school, $guardian->name, $guardian->email, $guardian->phone, 'parent', $password, $syntheticEmail);
+        $guardian->update(['guardian_user_id' => $result['user']->id]);
+
+        $loginIdentifier = $guardian->email ?: $guardian->phone;
+
+        return back()->with('status', $result['isNew']
+            ? "Guardian added. Login: {$loginIdentifier}, password {$password} (must be changed at first sign in)."
+            : 'Guardian added. They already have a Parent Portal login from another child, unchanged.');
     }
 
     /**
@@ -790,6 +820,8 @@ class StudentController extends Controller
             'staffIdentifier' => Setting::grab('staff_identifier', 'email'),
             'guardianVisibilityOptions' => config('skulos.guardian_visibility_options'),
             'guardianVisibility' => Setting::grab('guardian_visibility', 'class_teacher_only'),
+            'defaultStudentPassword' => Setting::grab('default_student_password', config('skulos.default_student_password')),
+            'defaultParentPassword' => Setting::grab('default_parent_password', config('skulos.default_parent_password')),
         ]);
     }
 
@@ -803,12 +835,16 @@ class StudentController extends Controller
             'parent_identifier' => ['required', 'string', 'in:'.$identifierKeys],
             'staff_identifier' => ['required', 'string', 'in:'.$identifierKeys],
             'guardian_visibility' => ['required', 'string', 'in:'.implode(',', array_keys(config('skulos.guardian_visibility_options')))],
+            'default_student_password' => ['required', 'string', 'min:6', 'max:60'],
+            'default_parent_password' => ['required', 'string', 'min:6', 'max:60'],
         ]);
 
         Setting::put('student_required_fields', $data['required_fields'] ?? []);
         Setting::put('parent_identifier', $data['parent_identifier']);
         Setting::put('staff_identifier', $data['staff_identifier']);
         Setting::put('guardian_visibility', $data['guardian_visibility']);
+        Setting::put('default_student_password', $data['default_student_password']);
+        Setting::put('default_parent_password', $data['default_parent_password']);
 
         return back()->with('status', 'Student field settings updated.');
     }

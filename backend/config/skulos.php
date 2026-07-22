@@ -534,6 +534,22 @@ return [
     ],
 
     /*
+    | Auto-provisioned login defaults (user request 2026-07-21: "Why do we
+    | have to manually create login for students and parents... students
+    | can login with their admission number and the default password
+    | which must be change upon first login. Parents can login with
+    | either email or phone number"). Seeds tenant Settings
+    | "default_student_password" / "default_parent_password", each
+    | school-editable from Student Field Settings — a known, told-to-them
+    | password rather than a random one, since a student has no
+    | guaranteed email/phone to receive a random one at, and it must be
+    | changed at first sign in regardless (AccountProvisioningService::
+    | provisionAuto() always sets must_change_password).
+    */
+    'default_student_password' => 'Student@123',
+    'default_parent_password' => 'Parent@123',
+
+    /*
     | Report card review chain (user directive 2026-07-12, "Intelligent
     | Assessment & Report Card Workflow.docx": "Admin configures
     | Workflow... Entirely configurable", worked examples given: Teacher

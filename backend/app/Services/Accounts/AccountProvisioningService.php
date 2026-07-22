@@ -57,6 +57,60 @@ class AccountProvisioningService
         return ['user' => $user, 'password' => $password];
     }
 
+    /**
+     * Auto-provisions a login with a known, admin-set default password
+     * (user request 2026-07-21: no manual "create login" step, a student
+     * signs in with their admission number and a default password they
+     * must change at first sign in). Deliberately not provision() above:
+     * that method's random password only works because it is always
+     * emailed somewhere, but a student has no guaranteed email or phone
+     * to send anything to, and the whole point here is the password is
+     * already known/told to them out of band, not a secret to deliver.
+     * $identityEmail/$identityPhone is whichever real contact this person
+     * actually has (a guardian always has at least one, per the school's
+     * own parent_identifier requirement, but that could be phone only);
+     * $syntheticEmail is stored (never contacted) whenever no real email
+     * exists, since users.email is a NOT NULL platform column regardless
+     * of whether a phone number is also on file.
+     *
+     * @return array{user: User, isNew: bool}
+     */
+    public function provisionAuto(
+        School $school,
+        string $name,
+        ?string $identityEmail,
+        ?string $identityPhone,
+        string $roleSlug,
+        string $defaultPassword,
+        string $syntheticEmail
+    ): array {
+        $realEmail = $identityEmail ? Str::lower($identityEmail) : null;
+        // Lookup prefers whichever real contact exists, so a person with
+        // an account already (a guardian linked to a sibling, most
+        // commonly) is found and reused rather than duplicated; the
+        // synthetic email is the lookup key only as a last resort.
+        $lookup = $realEmail ? ['email' => $realEmail] : ($identityPhone ? ['phone' => $identityPhone] : ['email' => $syntheticEmail]);
+
+        $user = User::firstOrNew($lookup);
+        $isNew = ! $user->exists;
+        $user->name = $user->name ?: $name;
+        $user->email = $user->email ?: ($realEmail ?: $syntheticEmail);
+        if ($identityPhone) {
+            $user->phone = $user->phone ?: $identityPhone;
+        }
+        if ($isNew) {
+            $user->password = Hash::make($defaultPassword);
+            $user->email_verified_at = $realEmail ? now() : null;
+            $user->must_change_password = true;
+        }
+        $user->save();
+
+        $role = app(Rbac::class)->cloneTemplateRole($school, $roleSlug);
+        $school->users()->syncWithoutDetaching([$user->id => ['role_id' => $role->id, 'status' => 'active']]);
+
+        return ['user' => $user, 'isNew' => $isNew];
+    }
+
     public function resetPassword(School $school, User $user): string
     {
         $password = Str::password(12);
