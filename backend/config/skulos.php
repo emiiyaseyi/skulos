@@ -517,25 +517,35 @@ return [
     | resolves to whichever school subdomain is currently viewing the
     | article. Extend this list whenever a new article needs to point
     | somewhere not yet covered here.
+    |
+    | "permission" (added 2026-07-22, user report: "Knowdlge base showing
+    | under other staff should be related to the things the user can do
+    | only") is the exact same permission the destination screen's own
+    | controller checks (kept in sync by hand, not derived automatically,
+    | since Laravel has no reliable way to introspect a route's
+    | authorization from config alone) — School\KnowledgeBaseController
+    | filters an article out of a user's own Help list when they lack it.
+    | An article with no start_route (general orientation, "Finding your
+    | way around") has no permission to check and always shows.
     */
     'knowledge_base_start_routes' => [
-        'school.roles.index' => 'User & Role Management',
-        'school.students.create' => 'Add a Student',
-        'school.students.import' => 'Import Students',
-        'school.students.settings.edit' => 'Student Field Settings',
-        'school.houses.index' => 'Houses',
-        'school.settings.custom-fields.index' => 'Custom Fields',
-        'school.attendance.index' => 'Take Attendance',
-        'school.timetable.periods' => 'Timetable Periods',
-        'school.timetable.exam.index' => 'Examination Timetable',
-        'school.examinations.structure' => 'Assessment Structure',
-        'school.examinations.grading' => 'Grading',
-        'school.report-cards.layout.edit' => 'Report Card Layout Designer',
-        'school.report-cards.pending-review' => 'Report Cards Pending Review',
-        'school.announcements.create' => 'Compose an Announcement',
-        'school.announcements.history' => 'Communication History',
-        'school.reports.builder.index' => 'Report Builder',
-        'school.examinations.academic-insights' => 'Academic Insights',
+        'school.roles.index' => ['label' => 'User & Role Management', 'permission' => 'staff.update'],
+        'school.students.create' => ['label' => 'Add a Student', 'permission' => 'students.create'],
+        'school.students.import' => ['label' => 'Import Students', 'permission' => 'students.bulk'],
+        'school.students.settings.edit' => ['label' => 'Student Field Settings', 'permission' => 'students.manage_settings'],
+        'school.houses.index' => ['label' => 'Houses', 'permission' => 'students.view'],
+        'school.settings.custom-fields.index' => ['label' => 'Custom Fields', 'permission' => 'school_info.manage_settings'],
+        'school.attendance.index' => ['label' => 'Take Attendance', 'permission' => 'attendance.view'],
+        'school.timetable.periods' => ['label' => 'Timetable Periods', 'permission' => 'timetable.update'],
+        'school.timetable.exam.index' => ['label' => 'Examination Timetable', 'permission' => 'timetable.update'],
+        'school.examinations.structure' => ['label' => 'Assessment Structure', 'permission' => 'examinations.view'],
+        'school.examinations.grading' => ['label' => 'Grading', 'permission' => 'examinations.view'],
+        'school.report-cards.layout.edit' => ['label' => 'Report Card Layout Designer', 'permission' => 'report_cards.view'],
+        'school.report-cards.pending-review' => ['label' => 'Report Cards Pending Review', 'permission' => 'report_cards.assign_review'],
+        'school.announcements.create' => ['label' => 'Compose an Announcement', 'permission' => 'communication.broadcast'],
+        'school.announcements.history' => ['label' => 'Communication History', 'permission' => 'communication.view'],
+        'school.reports.builder.index' => ['label' => 'Report Builder', 'permission' => 'analytics.view'],
+        'school.examinations.academic-insights' => ['label' => 'Academic Insights', 'permission' => 'examinations.approve_results'],
     ],
 
     /*

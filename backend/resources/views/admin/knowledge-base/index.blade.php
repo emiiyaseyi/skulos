@@ -88,8 +88,8 @@
       <label for="start_route">Start here button (optional)</label>
       <select id="start_route" name="start_route">
         <option value="">No button</option>
-        @foreach(config('skulos.knowledge_base_start_routes') as $routeName => $label)
-          <option value="{{ $routeName }}">{{ $label }}</option>
+        @foreach(config('skulos.knowledge_base_start_routes') as $routeName => $meta)
+          <option value="{{ $routeName }}">{{ $meta['label'] }}</option>
         @endforeach
       </select>
     </div>

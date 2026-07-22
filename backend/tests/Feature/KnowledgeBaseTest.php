@@ -170,6 +170,43 @@ class KnowledgeBaseTest extends TestCase
             ->assertSee(route('school.students.create', ['school' => $school->slug]), false);
     }
 
+    /** User report 2026-07-22: "Knowdlge base showing under other staff should be related to the things the user can do only." */
+    public function test_a_restricted_role_only_sees_articles_it_actually_has_access_to(): void
+    {
+        [$school, $subjectTeacher] = $this->schoolWithMember('subject-teacher', 'kbrestricted');
+
+        $category = KnowledgeBaseCategory::create(['name' => 'General', 'slug' => 'general', 'sequence' => 0]);
+        KnowledgeBaseArticle::create([
+            'knowledge_base_category_id' => $category->id, 'title' => 'Finding your way around', 'slug' => 'orientation',
+            'body' => 'General help visible to everyone.', 'sequence' => 0, 'is_published' => true,
+        ]);
+        KnowledgeBaseArticle::create([
+            'knowledge_base_category_id' => $category->id, 'title' => 'Adding a student', 'slug' => 'adding-a-student-gated',
+            'body' => 'Requires students.create.', 'start_route' => 'school.students.create', 'sequence' => 1, 'is_published' => true,
+        ]);
+
+        // Subject teacher has students.view but not students.create, so the gated article must be hidden.
+        $this->actingAs($subjectTeacher)->get("http://{$school->slug}.localhost/help")
+            ->assertOk()
+            ->assertSee('Finding your way around')
+            ->assertDontSee('Adding a student');
+
+        // A subject teacher navigating straight to the gated article's URL must not reach it either.
+        $this->actingAs($subjectTeacher)->get("http://{$school->slug}.localhost/help/adding-a-student-gated")
+            ->assertNotFound();
+
+        [$school2, $owner] = $this->schoolWithMember('school-owner', 'kbrestrictedowner');
+        $category2 = KnowledgeBaseCategory::create(['name' => 'General', 'slug' => 'general2', 'sequence' => 0]);
+        KnowledgeBaseArticle::create([
+            'knowledge_base_category_id' => $category2->id, 'title' => 'Adding a student', 'slug' => 'adding-a-student-owner',
+            'body' => 'Requires students.create.', 'start_route' => 'school.students.create', 'sequence' => 0, 'is_published' => true,
+        ]);
+
+        // A school owner (wildcard grants) must still see it.
+        $this->actingAs($owner)->get("http://{$school2->slug}.localhost/help")
+            ->assertOk()->assertSee('Adding a student');
+    }
+
     public function test_deleting_a_category_removes_its_articles(): void
     {
         $admin = $this->superAdmin();
