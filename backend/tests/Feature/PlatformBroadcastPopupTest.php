@@ -172,8 +172,19 @@ class PlatformBroadcastPopupTest extends TestCase
         app(TenantManager::class)->forget();
         $this->actingAs($owner)->post(route('school.notifications.read', ['school' => $school->slug, 'id' => $notification->id]));
 
+        // assertDontSee() on the raw page is no longer precise enough here:
+        // the header notification bell (2026-07-21) now legitimately shows
+        // this school's own recent notifications, read or not, on every
+        // page including this one, so the platform broadcast's title can
+        // correctly appear there. What this test actually checks is that
+        // the broadcast never enters the SENT MESSAGES LIST itself, i.e.
+        // the underlying "broadcasts" view data, not the whole page's text.
         $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/messages");
-        $response->assertOk()->assertDontSee('Not the schools own message');
+        $response->assertOk();
+        $this->assertFalse(
+            $response->viewData('broadcasts')->contains(fn ($a) => $a->subject === 'Not the schools own message'),
+            'A platform broadcast leaked into the schools own sent messages list.'
+        );
     }
 
     public function test_a_light_image_is_converted_to_webp_and_appears_in_the_pop_up(): void

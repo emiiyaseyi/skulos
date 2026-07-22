@@ -84,8 +84,17 @@ class NotificationCenterTest extends TestCase
         $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/notifications");
         $response->assertOk()->assertSee('Announcement one')->assertSee('Review needed')->assertDontSee('Someone elses');
 
+        // assertDontSee() on the raw page is no longer precise enough:
+        // the header notification bell (2026-07-21) shows this user's
+        // recent notifications everywhere, unfiltered by this page's own
+        // ?type= filter, so "Announcement one" can correctly appear there
+        // even while correctly absent from the filtered list itself.
         $filtered = $this->actingAs($user)->get("http://{$school->slug}.localhost/notifications?type=academic");
-        $filtered->assertOk()->assertSee('Review needed')->assertDontSee('Announcement one');
+        $filtered->assertOk()->assertSee('Review needed');
+        $this->assertFalse(
+            $filtered->viewData('notifications')->contains(fn ($n) => $n->title === 'Announcement one'),
+            'The type filter did not exclude a non-matching notification from the list.'
+        );
     }
 
     public function test_a_notification_can_be_pinned_then_appears_in_the_pinned_view(): void

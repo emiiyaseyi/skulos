@@ -1,4 +1,4 @@
-@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'notifCount' => $feed['unread'], 'pageTitle' => 'Dashboard'])
+@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => 'Dashboard'])
 @section('title', $school->name.' Dashboard')
 
 @push('head')

@@ -182,10 +182,21 @@ class SchoolPortalController extends Controller
         return back()->with('status', 'Your dashboard look has been updated.');
     }
 
-    public function markNotificationRead(Request $request, string $school, int $id): \Illuminate\Http\RedirectResponse
+    /**
+     * The header bell dropdown and dashboard widget both mark a
+     * notification read via fetch() rather than a plain form submit (user
+     * report 2026-07-21: "CLICKING ON THE MARK READ BUTTON DOES NOT NEED
+     * TO RELOAD THE PAGE"), so this responds with JSON for that case and
+     * falls back to the original redirect for any plain-form caller.
+     */
+    public function markNotificationRead(Request $request, string $school, int $id): \Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $n = Notification::forUser(Auth::id())->findOrFail($id);
         $n->markRead();
+
+        if ($request->wantsJson()) {
+            return response()->json(['status' => 'ok']);
+        }
 
         return back();
     }

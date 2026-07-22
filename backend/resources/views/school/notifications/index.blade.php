@@ -74,7 +74,7 @@
     <div class="row-between" style="margin-top:.8rem;flex-wrap:wrap;gap:.6rem">
       <span class="muted" style="font-size:.85rem">Tick any number above, then choose an action.</span>
       <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-        <button form="bulkNotificationsForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="read">Mark read</button>
+        <button form="bulkNotificationsForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="read">Mark as read</button>
         @if($view === 'archived')
           <button form="bulkNotificationsForm" class="btn btn-primary btn-sm" type="submit" name="action" value="unarchive">Unarchive selected</button>
         @else

@@ -15,9 +15,7 @@
         <small>{{ $n->created_at->diffForHumans() }}</small>
       </div>
       @unless($n->read_at)
-        <form method="POST" action="{{ route('school.notifications.read', ['school' => $school->slug, 'id' => $n->id]) }}">
-          @csrf<button class="btn btn-ghost btn-sm">Mark read</button>
-        </form>
+        <button type="button" class="btn btn-ghost btn-sm" data-mark-read-url="{{ route('school.notifications.read', ['school' => $school->slug, 'id' => $n->id]) }}">Mark as read</button>
       @endunless
     </div>
   @empty

@@ -193,6 +193,11 @@ a{color:inherit;text-decoration:none}
 .iconbtn{width:2.75rem;height:2.75rem;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;display:inline-grid;place-items:center;position:relative}
 .iconbtn:hover{background:var(--soft)}
 .iconbtn .badge-dot{position:absolute;top:6px;right:7px;width:8px;height:8px;border-radius:50%;background:var(--bad);border:2px solid var(--panel)}
+.notif-bell{position:relative}
+.notif-bell > summary{list-style:none;cursor:pointer}
+.notif-bell > summary::-webkit-details-marker{display:none}
+.notif-bell-panel{position:absolute;top:calc(100% + 8px);right:0;width:20rem;max-width:calc(100vw - 2rem);max-height:24rem;overflow-y:auto;z-index:80;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:.7rem}
+.notif-bell-panel .notif{padding:.55rem 0}
 .menu-toggle{display:none}
 .content{padding:1.9rem 1.6rem 3rem}
 
@@ -502,12 +507,9 @@ tr:last-child td{border-bottom:none}
           <input type="search" name="q" placeholder="Search students, staff, parents" aria-label="Search" style="width:15rem;padding:.5rem .7rem;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:.85rem" />
         </form>
       @endif
-      @isset($notifCount)
-        <span class="iconbtn" title="Notifications">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-          @if($notifCount > 0)<span class="badge-dot"></span>@endif
-        </span>
-      @endisset
+      @if(($portal ?? null) === 'school' && isset($school) && $school && auth()->check())
+        @include('layouts.partials.notification-bell', ['school' => $school])
+      @endif
       <button class="iconbtn" id="themeToggle" aria-label="Theme">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
       </button>
@@ -1118,6 +1120,41 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
 
   document.addEventListener('DOMContentLoaded', function(){ enhanceAll(document); });
   window.SkulosSearchable = {enhanceAll: enhanceAll};
+})();
+</script>
+
+{{-- Shared "mark notification read" handler (user report 2026-07-21:
+     "CLICKING ON THE MARK READ BUTTON DOES NOT NEED TO RELOAD THE PAGE"),
+     one delegated listener for both the header bell dropdown and the
+     dashboard's own Notifications widget, both a plain
+     <button data-mark-read-url="..."> rather than a submitting <form>. --}}
+<script>
+(function(){
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest('[data-mark-read-url]');
+    if (! btn) return;
+    e.preventDefault();
+    var row = btn.closest('.notif');
+    fetch(btn.dataset.markReadUrl, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+      },
+    }).then(function(res){
+      if (! res.ok) return;
+      if (row) row.querySelector('.dot')?.classList.add('read');
+      btn.remove();
+    });
+  });
+
+  // The bell panel is a <details>, closed on any click outside it,
+  // matching how every other dropdown/panel in this app behaves.
+  document.addEventListener('click', function(e){
+    document.querySelectorAll('.notif-bell[open]').forEach(function(bell){
+      if (! bell.contains(e.target)) bell.removeAttribute('open');
+    });
+  });
 })();
 </script>
 @stack('scripts')
