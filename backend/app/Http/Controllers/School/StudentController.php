@@ -589,6 +589,7 @@ class StudentController extends Controller
 
         $guardian = $student->guardians()->create($data + ['is_primary' => $request->boolean('is_primary')]);
         $customFields->saveValues('guardian', $guardian->id, $custom);
+        $this->syncParentMobile($student);
 
         // Auto-provisioned Parent Portal login (user request 2026-07-21:
         // "Parents can login with either email or phone number"), no
@@ -635,6 +636,7 @@ class StudentController extends Controller
 
         $guardian->update($data + ['is_primary' => $request->boolean('is_primary')]);
         $customFields->saveValues('guardian', $guardian->id, $custom);
+        $this->syncParentMobile($guardian->student);
 
         return back()->with('status', 'Guardian updated.');
     }
@@ -652,9 +654,29 @@ class StudentController extends Controller
         $guardian = StudentGuardian::with('student')->findOrFail($request->route('guardianId'));
         app(StudentAccessGuard::class)->assertVisible(Auth::user(), $school, $guardian->student);
         $name = $guardian->name;
+        $student = $guardian->student;
         $guardian->delete();
+        $this->syncParentMobile($student);
 
         return back()->with('status', "{$name} removed as a guardian.");
+    }
+
+    /**
+     * Keeps the student's own "Parent Mobile" field (a plain legacy
+     * column, distinct from StudentGuardian.phone, shown on the Details
+     * card) in sync with the primary guardian's phone (or, absent one, the
+     * first guardian's), rather than requiring it to be typed twice.
+     * User report 2026-07-22: "there's a contact phone for parents but
+     * its showing not set under the child details, once parent details
+     * are populated, it update the student record" — adding a guardian
+     * never touched this column at all before this fix.
+     */
+    protected function syncParentMobile(Student $student): void
+    {
+        $student->refresh();
+        $guardian = $student->guardians()->where('is_primary', true)->first()
+            ?? $student->guardians()->orderBy('id')->first();
+        $student->update(['parent_mobile' => $guardian?->phone]);
     }
 
     /**

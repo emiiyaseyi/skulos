@@ -436,6 +436,46 @@ class StudentScreenTest extends TestCase
         ])->assertRedirect();
     }
 
+    /** User report 2026-07-22: "there's a contact phone for parents but its showing not set under the child details, once parent details are populated, it update the student record." */
+    public function test_the_students_own_parent_mobile_field_syncs_from_the_primary_guardians_phone(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'parentmobile1');
+
+        app(TenantManager::class)->use($school);
+        $student = Student::create(['admission_number' => 'ADM/940', 'first_name' => 'Tomi', 'last_name' => 'Lawal']);
+        $studentId = $student->id;
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(null, $student->fresh()->parent_mobile);
+
+        // Adding the primary guardian must sync it.
+        $response = $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/{$studentId}/guardians", [
+            'name' => 'Mrs Lawal', 'relationship' => 'Mother', 'phone' => '08012345678', 'email' => 'mrslawal@example.com', 'is_primary' => '1',
+        ]);
+        $response->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame('08012345678', $student->fresh()->parent_mobile);
+        $guardianId = $student->guardians()->first()->id;
+        app(TenantManager::class)->forget();
+
+        // Editing the primary guardian's phone must re-sync it.
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/guardians/{$guardianId}/edit", [
+            'name' => 'Mrs Lawal', 'relationship' => 'Mother', 'phone' => '08099998888', 'email' => 'mrslawal@example.com', 'is_primary' => '1',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame('08099998888', $student->fresh()->parent_mobile);
+        app(TenantManager::class)->forget();
+
+        // Removing the only guardian must clear it, not leave a stale number behind.
+        $this->actingAs($admin)->delete("http://{$school->slug}.localhost/students/guardians/{$guardianId}")->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertNull($student->fresh()->parent_mobile);
+        app(TenantManager::class)->forget();
+    }
+
     /** Two children sharing one real parent must never get two separate logins, or reset each other's password. */
     public function test_two_guardians_sharing_the_same_email_reuse_one_login(): void
     {
