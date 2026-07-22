@@ -7,6 +7,7 @@ use App\Models\School;
 use App\Models\Tenant\AssessmentComponent;
 use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\ReportCardReview;
+use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Score;
 use App\Models\Tenant\Staff;
 use App\Models\Tenant\Student;
@@ -193,12 +194,44 @@ class ExaminationController extends Controller
         ]);
     }
 
+    /**
+     * Narrative Evaluation classes are deliberately excluded from
+     * allowedPairs() above (they have no scores to enter), which used to
+     * mean they simply vanished from this screen with no explanation
+     * (user report 2026-07-21: "this kind of class is not seen under the
+     * enter score page so one can enter the remarks for each subject
+     * under the Narrative Evaluation option"). Their comment entry
+     * genuinely lives on a different screen (ReportCardController::
+     * classEntry(), gated on report_cards.update, not examinations.*),
+     * so rather than duplicating that screen here, this surfaces a direct
+     * link to it for whichever narrative classes this viewer may enter,
+     * scoped by TeacherScope the same way every other list on this page is.
+     */
+    protected function narrativeClasses(Request $request): \Illuminate\Support\Collection
+    {
+        $school = $this->school($request);
+        if (! app(Rbac::class)->check(Auth::user(), $school, 'report_cards.update')) {
+            return collect();
+        }
+
+        $scopedArmIds = app(TeacherScope::class)->classArmIds(Auth::user(), $school);
+
+        return SchoolClass::active()
+            ->where('evaluation_style', SchoolClass::EVALUATION_STYLE_NARRATIVE)
+            ->with('section', 'arms')
+            ->get()
+            ->filter(fn (SchoolClass $c) => $scopedArmIds === null || $c->arms->pluck('id')->intersect($scopedArmIds)->isNotEmpty())
+            ->sortBy(fn (SchoolClass $c) => sprintf('%05d-%05d', $c->section?->sequence ?? 0, $c->sequence ?? 0))
+            ->values();
+    }
+
     public function index(Request $request, ResultService $results, CommentBank $commentBank, AssessmentWindowService $windows): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'examinations.view');
         $school = $this->school($request);
 
         $pairs = $this->allowedPairs($request);
+        $narrativeClasses = $this->narrativeClasses($request);
         $terms = Term::with('session')->orderByDesc('starts_on')->get();
 
         $termId = (int) $request->query('term_id', Term::current()->value('id'));
@@ -272,6 +305,7 @@ class ExaminationController extends Controller
             'remarks' => $remarks,
             'suggestions' => $suggestions,
             'subjectsInThisClass' => $subjectsInThisClass,
+            'narrativeClasses' => $narrativeClasses,
             'canSave' => app(Rbac::class)->check(Auth::user(), $school, 'examinations.create'),
             'componentOpen' => $componentOpen,
         ]);

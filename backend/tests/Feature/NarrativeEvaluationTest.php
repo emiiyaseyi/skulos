@@ -134,7 +134,7 @@ class NarrativeEvaluationTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_a_narrative_class_is_excluded_from_the_score_entry_screen(): void
+    public function test_a_narrative_class_is_excluded_from_the_score_entry_picker(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'narrativefour');
         ['crecheClass' => $crecheClass, 'jssClass' => $jssClass] = $this->seedTwoClasses($school);
@@ -145,7 +145,46 @@ class NarrativeEvaluationTest extends TestCase
 
         $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/examinations");
 
-        $response->assertOk()->assertSee('JSS 1')->assertDontSee('Creche/Reception');
+        $response->assertOk()->assertSee('JSS 1');
+        // It has no scores to enter, so it must not appear as a choice in
+        // the class/subject <select>, but per the 2026-07-21 fix below it
+        // still needs to be visible SOMEWHERE on this page (as a link out
+        // to its own comment-entry screen), so this checks the actual
+        // <option> list, not the whole page.
+        preg_match('/<select id="pair".*?<\/select>/s', $response->getContent(), $picker);
+        $this->assertStringNotContainsString('Creche/Reception', $picker[0] ?? '');
+    }
+
+    /** User report 2026-07-21: "this kind of class is not seen under the enter score page so one can enter the remarks for each subject under the Narrative Evaluation option." */
+    public function test_a_narrative_class_is_surfaced_on_the_score_entry_page_with_a_link_to_its_comment_entry_screen(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'narrativenine');
+        ['crecheClass' => $crecheClass] = $this->seedTwoClasses($school);
+
+        app(TenantManager::class)->use($school);
+        $crecheClass->update(['evaluation_style' => SchoolClass::EVALUATION_STYLE_NARRATIVE]);
+        $crecheClassId = $crecheClass->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/examinations")
+            ->assertOk()
+            ->assertSee('Narrative Evaluation classes')
+            ->assertSee('Creche/Reception')
+            ->assertSee(route('school.report-cards.class.entry', ['school' => $school->slug, 'classId' => $crecheClassId]), false);
+    }
+
+    public function test_a_teacher_without_report_cards_update_does_not_see_the_narrative_classes_section(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'narrativeten');
+        ['crecheClass' => $crecheClass] = $this->seedTwoClasses($school);
+
+        app(TenantManager::class)->use($school);
+        $crecheClass->update(['evaluation_style' => SchoolClass::EVALUATION_STYLE_NARRATIVE]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/examinations")
+            ->assertOk()
+            ->assertDontSee('Narrative Evaluation classes');
     }
 
     public function test_the_class_entry_screen_shows_comments_for_a_narrative_class_even_when_the_schools_global_template_is_not_narrative(): void

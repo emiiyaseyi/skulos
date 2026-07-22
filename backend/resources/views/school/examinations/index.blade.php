@@ -52,6 +52,18 @@
   </form>
 </div>
 
+@if($narrativeClasses->isNotEmpty())
+  <div class="card" style="margin-bottom:1.25rem">
+    <h3 style="margin-bottom:.4rem">Narrative Evaluation classes</h3>
+    <p class="muted" style="margin-bottom:.7rem">These classes use written comments instead of scores, so they don't appear in the picker above. Enter each subject's remark from here instead.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:.5rem">
+      @foreach($narrativeClasses as $narrativeClass)
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.class.entry', ['school' => $school->slug, 'classId' => $narrativeClass->id]) }}">{{ $narrativeClass->name }}</a>
+      @endforeach
+    </div>
+  </div>
+@endif
+
 @if($pairs->isEmpty())
   <div class="card">
     <p class="muted">You are not assigned to teach any class or subject yet. Ask your school administrator to add a teaching assignment for you under Classes &amp; Subjects.</p>
