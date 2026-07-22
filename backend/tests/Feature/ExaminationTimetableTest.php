@@ -130,6 +130,21 @@ class ExaminationTimetableTest extends TestCase
         $response->assertOk()->assertSee('Paper 1')->assertSee('Mathematics');
     }
 
+    /** User report 2026-07-22: visiting the page with nothing picked showed no data even though it had already been populated. */
+    public function test_the_index_defaults_to_whatever_already_has_real_entries(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'examseven');
+        ['sectionId' => $sectionId, 'subjectId' => $subjectId, 'paperId' => $paperId] = $this->seedPapersAndSection($school);
+
+        app(TenantManager::class)->use($school);
+        ExamTimetableEntry::create(['exam_date' => '2026-11-25', 'exam_paper_id' => $paperId, 'scope_type' => 'section', 'scope_id' => $sectionId, 'subject_id' => $subjectId]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($admin)->get("http://{$school->slug}.localhost/timetable/exam");
+
+        $response->assertOk()->assertSee('Paper 1')->assertSee('Mathematics');
+    }
+
     public function test_downloading_the_blank_template_lists_every_date_and_paper(): void
     {
         [$school, $admin] = $this->schoolWithMember('school-owner', 'examfour');

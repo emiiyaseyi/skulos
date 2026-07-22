@@ -319,7 +319,26 @@ class TimetableController extends Controller
             ? $request->query('scope_type') : null;
         $scopeId = $request->integer('scope_id') ?: null;
         $startDate = $request->query('start_date');
-        $days = max(1, min(30, $request->integer('days') ?: 10));
+        $days = $request->integer('days') ?: null;
+
+        // Default to whatever already has real entries, rather than an
+        // empty picker with nothing selected (user report 2026-07-22:
+        // visiting this page showed no data even though it had already
+        // been populated — the picker just never had anything chosen).
+        if (! $scopeType || ! $scopeId || ! $startDate) {
+            $firstEntry = \App\Models\Tenant\ExamTimetableEntry::orderBy('exam_date')->first();
+            if ($firstEntry) {
+                $scopeType = $scopeType ?: $firstEntry->scope_type;
+                $scopeId = $scopeId ?: $firstEntry->scope_id;
+                if (! $startDate) {
+                    $startDate = $firstEntry->exam_date->toDateString();
+                    $lastEntry = \App\Models\Tenant\ExamTimetableEntry::where('scope_type', $scopeType)->where('scope_id', $scopeId)
+                        ->orderByDesc('exam_date')->first();
+                    $days = $days ?: min(30, max(1, \Illuminate\Support\Carbon::parse($startDate)->diffInDays($lastEntry->exam_date) + 1));
+                }
+            }
+        }
+        $days = max(1, min(30, $days ?: 10));
 
         $dates = [];
         $entries = [];
