@@ -17,8 +17,8 @@
   <div class="card"><p class="muted">No classes yet. Set up your class structure under Classes &amp; Subjects first.</p></div>
 @else
   @foreach($sections as $section)
-    <div class="card" style="margin-bottom:1.1rem">
-      <h3 style="margin-bottom:.7rem">{{ $section->name }}</h3>
+    <details class="card" open style="margin-bottom:1.1rem">
+      <summary style="cursor:pointer;font-weight:800;font-size:1rem;margin-bottom:.7rem">{{ $section->name }}</summary>
       @if($section->classes->isEmpty())
         <p class="muted">No classes in this section yet.</p>
       @else
@@ -41,7 +41,7 @@
         </table>
         </div>
       @endif
-    </div>
+    </details>
   @endforeach
 @endif
 @endsection
