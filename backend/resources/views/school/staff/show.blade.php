@@ -37,6 +37,18 @@
         <tr><td class="muted">Employed on</td><td>{{ optional($staffMember->employed_on)->toFormattedDateString() ?: 'Not set' }}</td></tr>
         <tr><td class="muted">Qualification</td><td>{{ $staffMember->qualification ?: 'Not set' }}</td></tr>
         <tr><td class="muted">Address</td><td>{{ $staffMember->address ?: 'Not set' }}</td></tr>
+        @foreach($staffCustomFields as $customField)
+          <tr>
+            <td class="muted">{{ $customField->label }}</td>
+            <td>
+              @if($customField->type === 'checkbox')
+                {{ ($staffCustomValues[$customField->field_key] ?? null) ? 'Yes' : 'No' }}
+              @else
+                {{ $staffCustomValues[$customField->field_key] ?? 'Not set' }}
+              @endif
+            </td>
+          </tr>
+        @endforeach
       </tbody>
     </table>
     </div>

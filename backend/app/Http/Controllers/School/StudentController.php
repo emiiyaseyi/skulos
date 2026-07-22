@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\Accounts\AccountProvisioningService;
 use App\Services\Bulk\CsvReader;
 use App\Services\Communication\ChatService;
+use App\Services\CustomFields\CustomFieldService;
 use App\Services\Bulk\Importer;
 use App\Services\Bulk\Importers\StudentImporter;
 use App\Services\Rbac\FamilyScope;
@@ -24,6 +25,7 @@ use App\Services\Rbac\StudentAccessGuard;
 use App\Services\Rbac\TeacherScope;
 use App\Services\Results\ResultService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
@@ -408,7 +410,7 @@ class StudentController extends Controller
      * term via the already-built ResultService::studentReport(), which
      * had no screen using it until now.
      */
-    public function show(Request $request): \Illuminate\View\View
+    public function show(Request $request, CustomFieldService $customFields): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'students.view');
         $school = $this->school($request);
@@ -460,10 +462,16 @@ class StudentController extends Controller
             'canMessageGuardians' => $canMessageGuardians,
             'teacherTargetsForFamily' => $teacherTargetsForFamily,
             'teacherParentMessagingEnabled' => $chat->teacherParentMessagingEnabled(),
+            'studentCustomFields' => $customFields->forEntity('student'),
+            'studentCustomValues' => $customFields->valuesFor('student', $student->id),
+            'guardianCustomFields' => $customFields->forEntity('guardian'),
+            'guardianCustomValues' => $student->guardians->mapWithKeys(
+                fn ($guardian) => [$guardian->id => $customFields->valuesFor('guardian', $guardian->id)]
+            ),
         ]);
     }
 
-    public function create(Request $request): \Illuminate\View\View
+    public function create(Request $request, CustomFieldService $customFields): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'students.create');
         $school = $this->school($request);
@@ -475,22 +483,26 @@ class StudentController extends Controller
             'classArms' => ClassArm::with('schoolClass.section', 'arm')->whereHas('schoolClass', fn($q) => $q->where('is_active', true))->get()->sortBy(fn ($ca) => $ca->orderKey()),
             'houses' => House::active()->orderBy('name')->get(),
             'requiredFields' => Setting::grab('student_required_fields', []),
+            'customFields' => $customFields->forEntity('student'),
+            'customValues' => [],
         ]);
     }
 
-    public function store(Request $request): \Illuminate\Http\RedirectResponse
+    public function store(Request $request, CustomFieldService $customFields): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'students.create');
         $school = $this->school($request);
-        $data = $request->validate($this->studentValidationRules());
+        $data = $request->validate(array_merge($this->studentValidationRules(), $customFields->validationRules('student')));
+        $custom = Arr::pull($data, 'custom', []);
 
         $student = Student::create($data);
+        $customFields->saveValues('student', $student->id, $custom);
 
         return redirect()->route('school.students.show', ['school' => $school->slug, 'studentId' => $student->id])
             ->with('status', "{$student->fullName()} added.");
     }
 
-    public function edit(Request $request): \Illuminate\View\View
+    public function edit(Request $request, CustomFieldService $customFields): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'students.update');
         $school = $this->school($request);
@@ -504,18 +516,22 @@ class StudentController extends Controller
             'classArms' => ClassArm::with('schoolClass.section', 'arm')->whereHas('schoolClass', fn($q) => $q->where('is_active', true))->get()->sortBy(fn ($ca) => $ca->orderKey()),
             'houses' => House::active()->orderBy('name')->get(),
             'requiredFields' => Setting::grab('student_required_fields', []),
+            'customFields' => $customFields->forEntity('student'),
+            'customValues' => $customFields->valuesFor('student', $student->id),
         ]);
     }
 
-    public function update(Request $request): \Illuminate\Http\RedirectResponse
+    public function update(Request $request, CustomFieldService $customFields): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'students.update');
         $school = $this->school($request);
         $student = Student::findOrFail($request->route('studentId'));
         app(StudentAccessGuard::class)->assertVisible(Auth::user(), $school, $student);
-        $data = $request->validate($this->studentValidationRules($student));
+        $data = $request->validate(array_merge($this->studentValidationRules($student), $customFields->validationRules('student')));
+        $custom = Arr::pull($data, 'custom', []);
 
         $student->update($data);
+        $customFields->saveValues('student', $student->id, $custom);
 
         return redirect()->route('school.students.show', ['school' => $school->slug, 'studentId' => $student->id])
             ->with('status', "{$student->fullName()} updated.");
@@ -528,7 +544,7 @@ class StudentController extends Controller
      * admin can determine what the unique ID is... the school must stick
      * to one only"), the other stays optional contact info.
      */
-    public function storeGuardian(Request $request): \Illuminate\Http\RedirectResponse
+    public function storeGuardian(Request $request, CustomFieldService $customFields): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'students.update');
         $school = $this->school($request);
@@ -536,15 +552,17 @@ class StudentController extends Controller
         app(StudentAccessGuard::class)->assertVisible(Auth::user(), $school, $student);
 
         $identifier = Setting::grab('parent_identifier', 'email');
-        $data = $request->validate([
+        $data = $request->validate(array_merge([
             'name' => ['required', 'string', 'max:150'],
             'relationship' => ['nullable', 'string', 'max:60'],
             'email' => [$identifier === 'email' ? 'required' : 'nullable', 'email', 'max:150'],
             'phone' => [$identifier === 'phone' ? 'required' : 'nullable', 'string', 'max:40'],
             'is_primary' => ['sometimes', 'boolean'],
-        ]);
+        ], $customFields->validationRules('guardian')));
+        $custom = Arr::pull($data, 'custom', []);
 
-        $student->guardians()->create($data + ['is_primary' => $request->boolean('is_primary')]);
+        $guardian = $student->guardians()->create($data + ['is_primary' => $request->boolean('is_primary')]);
+        $customFields->saveValues('guardian', $guardian->id, $custom);
 
         return back()->with('status', 'Guardian added.');
     }
@@ -557,7 +575,7 @@ class StudentController extends Controller
      * separate pass since the request is now specifically for the missing
      * edit/delete half.
      */
-    public function updateGuardian(Request $request): \Illuminate\Http\RedirectResponse
+    public function updateGuardian(Request $request, CustomFieldService $customFields): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'students.update');
         $school = $this->school($request);
@@ -565,15 +583,17 @@ class StudentController extends Controller
         app(StudentAccessGuard::class)->assertVisible(Auth::user(), $school, $guardian->student);
 
         $identifier = Setting::grab('parent_identifier', 'email');
-        $data = $request->validate([
+        $data = $request->validate(array_merge([
             'name' => ['required', 'string', 'max:150'],
             'relationship' => ['nullable', 'string', 'max:60'],
             'email' => [$identifier === 'email' ? 'required' : 'nullable', 'email', 'max:150'],
             'phone' => [$identifier === 'phone' ? 'required' : 'nullable', 'string', 'max:40'],
             'is_primary' => ['sometimes', 'boolean'],
-        ]);
+        ], $customFields->validationRules('guardian')));
+        $custom = Arr::pull($data, 'custom', []);
 
         $guardian->update($data + ['is_primary' => $request->boolean('is_primary')]);
+        $customFields->saveValues('guardian', $guardian->id, $custom);
 
         return back()->with('status', 'Guardian updated.');
     }

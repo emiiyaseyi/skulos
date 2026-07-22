@@ -722,5 +722,16 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/', [$retention, 'edit'])->name('edit');
             Route::post('/', [$retention, 'update'])->name('update');
         });
+
+        // Admin-defined fields, assignable to Student/Staff/Guardian forms
+        // (user request 2026-07-22).
+        Route::prefix('settings/custom-fields')->name('school.settings.custom-fields.')->group(function () {
+            $customFields = \App\Http\Controllers\School\CustomFieldController::class;
+            Route::get('/', [$customFields, 'index'])->name('index');
+            Route::post('/', [$customFields, 'store'])->name('store');
+            Route::post('/{fieldId}/edit', [$customFields, 'update'])->name('update');
+            Route::delete('/{fieldId}', [$customFields, 'destroy'])->name('destroy');
+            Route::post('/bulk-action', [$customFields, 'bulkAction'])->name('bulk-action');
+        });
     });
 });

@@ -95,6 +95,7 @@
         :state-required="in_array('state_of_origin', $requiredFields)"
         :lga-required="in_array('lga', $requiredFields)"
       />
+      @include('school.partials.custom-fields', ['customFields' => $customFields, 'customValues' => $customValues])
     </div>
     <div class="field">
       <label @class(['req' => in_array('address', $requiredFields)]) for="address">Address</label>

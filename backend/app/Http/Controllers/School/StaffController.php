@@ -11,8 +11,10 @@ use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Setting;
 use App\Models\Tenant\Staff;
 use App\Services\Accounts\AccountProvisioningService;
+use App\Services\CustomFields\CustomFieldService;
 use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
@@ -166,7 +168,7 @@ class StaffController extends Controller
         return back()->with('status', $message);
     }
 
-    public function show(Request $request): \Illuminate\View\View
+    public function show(Request $request, CustomFieldService $customFields): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'staff.view');
         $school = $this->school($request);
@@ -192,10 +194,12 @@ class StaffController extends Controller
             'roles' => $this->assignableRoles(),
             'staffIdentifier' => Setting::grab('staff_identifier', 'email'),
             'canManage' => $rbac->check(Auth::user(), $school, 'staff.update'),
+            'staffCustomFields' => $customFields->forEntity('staff'),
+            'staffCustomValues' => $customFields->valuesFor('staff', $staffMember->id),
         ]);
     }
 
-    public function create(Request $request): \Illuminate\View\View
+    public function create(Request $request, CustomFieldService $customFields): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'staff.create');
         $school = $this->school($request);
@@ -205,25 +209,29 @@ class StaffController extends Controller
             'accent' => $school->branding()['color'],
             'staffMember' => new Staff(),
             'staffIdentifier' => Setting::grab('staff_identifier', 'email'),
+            'customFields' => $customFields->forEntity('staff'),
+            'customValues' => [],
         ]);
     }
 
-    public function store(Request $request): \Illuminate\Http\RedirectResponse
+    public function store(Request $request, CustomFieldService $customFields): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'staff.create');
         $school = $this->school($request);
-        $data = $request->validate($this->staffValidationRules());
+        $data = $request->validate(array_merge($this->staffValidationRules(), $customFields->validationRules('staff')));
+        $custom = Arr::pull($data, 'custom', []);
 
         $nextSeq = Staff::withTrashed()->count() + 1;
         $data['staff_id'] = sprintf('STF/%04d', $nextSeq);
 
         $staffMember = Staff::create($data);
+        $customFields->saveValues('staff', $staffMember->id, $custom);
 
         return redirect()->route('school.staff.show', ['school' => $school->slug, 'staffId' => $staffMember->id])
             ->with('status', "{$staffMember->fullName()} added.");
     }
 
-    public function edit(Request $request): \Illuminate\View\View
+    public function edit(Request $request, CustomFieldService $customFields): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'staff.update');
         $school = $this->school($request);
@@ -234,17 +242,21 @@ class StaffController extends Controller
             'accent' => $school->branding()['color'],
             'staffMember' => $staffMember,
             'staffIdentifier' => Setting::grab('staff_identifier', 'email'),
+            'customFields' => $customFields->forEntity('staff'),
+            'customValues' => $customFields->valuesFor('staff', $staffMember->id),
         ]);
     }
 
-    public function update(Request $request): \Illuminate\Http\RedirectResponse
+    public function update(Request $request, CustomFieldService $customFields): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'staff.update');
         $school = $this->school($request);
         $staffMember = Staff::findOrFail($request->route('staffId'));
-        $data = $request->validate($this->staffValidationRules($staffMember));
+        $data = $request->validate(array_merge($this->staffValidationRules($staffMember), $customFields->validationRules('staff')));
+        $custom = Arr::pull($data, 'custom', []);
 
         $staffMember->update($data);
+        $customFields->saveValues('staff', $staffMember->id, $custom);
 
         return redirect()->route('school.staff.show', ['school' => $school->slug, 'staffId' => $staffMember->id])
             ->with('status', "{$staffMember->fullName()} updated.");

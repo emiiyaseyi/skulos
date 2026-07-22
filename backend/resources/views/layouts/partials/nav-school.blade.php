@@ -602,6 +602,7 @@
       $link('school.students.settings.edit', 'Student Fields', 'students'),
       $link('school.students.settings.edit', 'Parent Settings', 'students'),
       $link('school.students.settings.edit', 'Staff Settings', 'staff'),
+      $link('school.settings.custom-fields.index', 'Custom Fields', 'settings'),
     ]);
     $communicationSettingsLinks = [$link('school.settings.mail.edit', 'Mail Settings', 'mail')];
     // "Notifications" here is the exact same route the email_notifications

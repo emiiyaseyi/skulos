@@ -34,6 +34,18 @@
         <tr><th>State of Origin</th><td>{{ $student->state_of_origin ?: 'Not set' }}</td></tr>
         <tr><th>LGA</th><td>{{ $student->lga ?: 'Not set' }}</td></tr>
         <tr><th>Address</th><td>{{ $student->address ?: 'Not set' }}</td></tr>
+        @foreach($studentCustomFields as $customField)
+          <tr>
+            <th>{{ $customField->label }}</th>
+            <td>
+              @if($customField->type === 'checkbox')
+                {{ ($studentCustomValues[$customField->field_key] ?? null) ? 'Yes' : 'No' }}
+              @else
+                {{ $studentCustomValues[$customField->field_key] ?? 'Not set' }}
+              @endif
+            </td>
+          </tr>
+        @endforeach
       </tbody>
     </table>
   </div>
@@ -51,7 +63,12 @@
         <tbody>
           @foreach($student->guardians as $guardian)
             <tr>
-              <td><strong>{{ $guardian->name }}</strong>@if($guardian->is_primary)<span class="badge badge-ok" style="margin-left:.4rem">Primary</span>@endif</td>
+              <td>
+                <strong>{{ $guardian->name }}</strong>@if($guardian->is_primary)<span class="badge badge-ok" style="margin-left:.4rem">Primary</span>@endif
+                @foreach($guardianCustomFields as $customField)
+                  <div class="muted" style="font-size:.78rem">{{ $customField->label }}: {{ ($guardianCustomValues[$guardian->id][$customField->field_key] ?? null) ?: 'Not set' }}</div>
+                @endforeach
+              </td>
               <td class="muted">{{ $guardian->relationship ?: 'Not set' }}</td>
               <td class="muted">{{ $guardian->phone ?: $guardian->email ?: 'Not set' }}</td>
               <td>
@@ -119,6 +136,7 @@
                         <label style="display:flex;gap:.4rem;align-items:center;margin-bottom:.6rem;font-weight:500">
                           <input type="checkbox" name="is_primary" value="1" @checked($guardian->is_primary) /> Primary guardian
                         </label>
+                        @include('school.partials.custom-fields', ['customFields' => $guardianCustomFields, 'customValues' => $guardianCustomValues[$guardian->id] ?? [], 'idPrefix' => 'g'.$guardian->id])
                         <button class="btn btn-primary btn-sm" type="submit">Save</button>
                       </form>
                       <form method="POST" action="{{ route('school.students.guardians.destroy', ['school' => $school->slug, 'guardianId' => $guardian->id]) }}" onsubmit="return confirm('Remove {{ $guardian->name }} as a guardian? Their login, if any, is not deleted.')">
@@ -172,6 +190,7 @@
         <label style="font-weight:500;display:flex;gap:.4rem;align-items:center;margin-bottom:.8rem">
           <input type="checkbox" name="is_primary" value="1" /> Primary guardian
         </label>
+        @include('school.partials.custom-fields', ['customFields' => $guardianCustomFields, 'customValues' => [], 'idPrefix' => 'new'])
         <button class="btn btn-ghost btn-sm" type="submit">Add guardian</button>
       </form>
     @endif

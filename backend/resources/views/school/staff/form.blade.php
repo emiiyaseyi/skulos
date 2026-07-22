@@ -77,6 +77,7 @@
         <label for="qualification">Qualification</label>
         <input id="qualification" name="qualification" value="{{ old('qualification', $staffMember->qualification) }}" />
       </div>
+      @include('school.partials.custom-fields', ['customFields' => $customFields, 'customValues' => $customValues])
     </div>
     <div class="field">
       <label for="address">Address</label>
