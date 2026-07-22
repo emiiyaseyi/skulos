@@ -893,6 +893,26 @@ return [
     'default_login_layout' => 'split',
 
     /*
+    | Chart style a school can choose for every trend chart platform wide
+    | (user request 2026-07-22: "let's have alterative style ot charts to
+    | select for this current ones, apply to all areas that the chart
+    | is"). Stored as tenant Setting "chart_style" (not a schools column,
+    | same reasoning as guardian_visibility: a small, rarely-changed
+    | display preference, not something every request needs eager loaded
+    | on the School model), read by the shared _trend-line partial and
+    | the report card Score Trend chart alike. Scoped to trend (time
+    | series) charts only, since a magnitude chart like the report card's
+    | own Subject Breakdown is already a bar chart by necessity (per
+    | subject categories, not a series over time) and has no "line"
+    | equivalent that would make sense.
+    */
+    'chart_styles' => [
+        'line' => ['label' => 'Line', 'description' => 'A connected line through each point, axis zoomed to the data.'],
+        'bar' => ['label' => 'Bar', 'description' => 'A bar per point, axis anchored at zero.'],
+    ],
+    'default_chart_style' => 'line',
+
+    /*
     | Quick pick swatches for the brand colour picker (user request
     | 2026-07-11: "swatch grid of basic colours plus a native hex/drag
     | colour picker fallback"). A school can still type or drag pick any

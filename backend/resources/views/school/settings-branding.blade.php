@@ -145,6 +145,31 @@
         </div>
       </div>
 
+      <div class="field">
+        <label>Chart style</label>
+        <div class="hint" style="margin-bottom:.6rem">How trend charts across the app are drawn (dashboard, Attendance Dashboard, report card score trend).</div>
+        <div class="login-picker" style="grid-template-columns:repeat(2,1fr)">
+          @foreach(config('skulos.chart_styles') as $key => $meta)
+            <label class="lpick">
+              <input type="radio" name="chart_style" value="{{ $key }}" @checked($chartStyle === $key) />
+              <div class="lpick-card">
+                <div class="lpick-mini" style="align-items:flex-end;padding:.4rem;gap:3px">
+                  @if($key === 'bar')
+                    <span style="flex:1;height:35%;background:var(--accent);border-radius:2px"></span>
+                    <span style="flex:1;height:60%;background:var(--accent);border-radius:2px"></span>
+                    <span style="flex:1;height:45%;background:var(--accent);border-radius:2px"></span>
+                    <span style="flex:1;height:75%;background:var(--accent);border-radius:2px"></span>
+                  @else
+                    <svg viewBox="0 0 100 40" style="width:100%;height:100%"><polyline points="5,30 35,15 65,22 95,5" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                  @endif
+                </div>
+                <div class="lpick-name">{{ $meta['label'] }}</div>
+              </div>
+            </label>
+          @endforeach
+        </div>
+      </div>
+
       <button class="btn btn-primary" type="submit">Save branding</button>
     </form>
   </div>

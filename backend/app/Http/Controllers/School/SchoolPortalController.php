@@ -218,6 +218,7 @@ class SchoolPortalController extends Controller
         return view('school.settings-branding', [
             'school' => $school,
             'accent' => $school->branding()['color'],
+            'chartStyle' => \App\Models\Tenant\Setting::grab('chart_style', config('skulos.default_chart_style', 'line')),
         ]);
     }
 
@@ -240,7 +241,12 @@ class SchoolPortalController extends Controller
             // change it").
             'stamp' => ['nullable', 'image', 'max:2048'],
             'signature' => ['nullable', 'image', 'max:2048'],
+            'chart_style' => ['nullable', Rule::in(array_keys(config('skulos.chart_styles')))],
         ]);
+
+        if (isset($data['chart_style'])) {
+            \App\Models\Tenant\Setting::put('chart_style', $data['chart_style']);
+        }
 
         if ($request->hasFile('logo')) {
             $path = $request->file('logo')->store("schools/{$school->id}", 'public');

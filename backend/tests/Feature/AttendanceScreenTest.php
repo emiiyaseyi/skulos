@@ -397,6 +397,22 @@ class AttendanceScreenTest extends TestCase
             ->assertSee('By class');
     }
 
+    /** User request 2026-07-22: "let's have alterative style ot charts to select for this current ones, apply to all areas that the chart is." */
+    public function test_the_attendance_trend_switches_to_bars_when_the_school_chooses_that_chart_style(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'attdashbar');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $arm, 'studentA' => $student] = $this->twoClassesWithStudents();
+        Attendance::create(['date' => now()->toDateString(), 'person_type' => 'student', 'person_id' => $student->id, 'class_arm_id' => $arm->id, 'status' => 'present']);
+        \App\Models\Tenant\Setting::put('chart_style', 'bar');
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/attendance/dashboard");
+
+        $response->assertOk()->assertSee('<rect', false);
+    }
+
     /** User report 2026-07-22: "one should be able to switch between staff attendance and student attendance here". */
     public function test_the_dashboard_can_switch_to_staff_attendance(): void
     {

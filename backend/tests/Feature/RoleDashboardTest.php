@@ -782,6 +782,34 @@ class RoleDashboardTest extends TestCase
         return substr($html, $start, $end - $start);
     }
 
+    /** User request 2026-07-22: "let's have alterative style ot charts to select for this current ones, apply to all areas that the chart is." */
+    public function test_the_result_performance_chart_switches_to_bars_when_the_school_chooses_that_chart_style(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'rdchartbar');
+        app(TenantManager::class)->use($school);
+
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id]);
+        $subject = Subject::create(['name' => 'Mathematics', 'code' => 'MTH']);
+        $student = Student::create(['admission_number' => 'RT5', 'first_name' => 'A', 'last_name' => 'B', 'current_class_arm_id' => $arm->id]);
+        $component = \App\Models\Tenant\AssessmentComponent::create(['name' => 'Exam', 'type' => 'exam', 'max_score' => 100, 'sequence' => 1]);
+
+        $session = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026']);
+        $term = \App\Models\Tenant\Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1, 'is_current' => true]);
+        \App\Models\Tenant\Score::create(['student_id' => $student->id, 'subject_id' => $subject->id, 'class_arm_id' => $arm->id, 'term_id' => $term->id, 'assessment_component_id' => $component->id, 'score' => 70]);
+        app(TenantManager::class)->forget();
+
+        // Through the real branding settings form, not a direct Setting::put(), proving the picker's own save path actually reaches the chart.
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/settings/branding", ['chart_style' => 'bar'])->assertRedirect();
+
+        $response = $this->actingAs($admin)->get(route('school.dashboard', ['school' => $school->slug]));
+
+        $chartSvg = $this->extractResultTrendSvg($response->getContent());
+        $this->assertStringContainsString('<rect', $chartSvg, 'the bar style must render <rect> bars, not a <polyline>');
+        $this->assertStringNotContainsString('<polyline', $chartSvg);
+    }
+
     public function test_students_at_risk_flags_low_attendance_and_low_average_but_not_a_healthy_student(): void
     {
         [$school, $admin] = $this->schoolWithMember('school-owner', 'rdrisk');
