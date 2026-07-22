@@ -76,6 +76,17 @@ class PlanFeatureNavTest extends TestCase
         $response->assertSee('Parent Settings')->assertSee('Staff Settings')->assertSee('Student Fields');
     }
 
+    /** User report 2026-07-22: "storage and health should be merge as one menu since its same data there." */
+    public function test_storage_and_health_are_one_merged_nav_line_not_two(): void
+    {
+        [$school, $user] = $this->schoolOnPlan([], 'planstoragehealth');
+
+        $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard");
+
+        $response->assertOk()->assertSee('Storage &amp; Health', false)
+            ->assertDontSee('>Storage<', false)->assertDontSee('>Health<', false);
+    }
+
     public function test_a_feature_included_in_the_plan_shows_in_the_nav(): void
     {
         [$school, $user] = $this->schoolOnPlan(['school_houses', 'result_management'], 'planone');

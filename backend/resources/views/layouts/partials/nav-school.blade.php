@@ -657,8 +657,13 @@
     $settingsSubgroups['System'] = array_merge($settingsSubgroups['System'], [
       $link('school.backups.index', 'Backups', 'backup'),
       $link('school.settings.retention.edit', 'Retention', 'retention'),
-      $link('school.maintenance.index', 'Storage', 'health'),
-      $link('school.maintenance.index', 'Health', 'health'),
+      // Storage and Health were two separate nav lines both pointing at
+      // the exact same real screen (school.maintenance.index, "School
+      // Health & Storage", built 2026-07-12 as one combined screen from
+      // the start), user report 2026-07-22: "storage and health should
+      // be merge as one menu since its same data there." Merged into
+      // one line matching the page's own title.
+      $link('school.maintenance.index', 'Storage &amp; Health', 'health'),
     ]);
     $settingsSubgroups['Analytics'] = array_merge($settingsSubgroups['Analytics'], [
       $link('school.settings.at-risk-thresholds.edit', 'At Risk Thresholds', 'results'),
