@@ -10,10 +10,31 @@
   <a class="btn btn-ghost btn-sm" href="{{ route('school.attendance.index', ['school' => $school->slug]) }}">Mark attendance</a>
 </div>
 
+<div class="card" style="margin-bottom:1.1rem">
+  <form method="GET" style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap">
+    @if($canViewStaff)
+      <div class="field" style="margin:0">
+        <label for="att_type">Whose attendance</label>
+        <select id="att_type" name="type" onchange="this.form.requestSubmit()">
+          <option value="student" @selected($type === 'student')>Students</option>
+          <option value="staff" @selected($type === 'staff')>Staff</option>
+        </select>
+      </div>
+    @endif
+    <div class="field" style="margin:0">
+      <label for="att_date">Date</label>
+      <input id="att_date" type="date" name="date" value="{{ $selectedDate }}" max="{{ now()->toDateString() }}" onchange="this.form.requestSubmit()" />
+    </div>
+    @if(! $isToday)
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.attendance.dashboard', ['school' => $school->slug, 'type' => $type]) }}">Back to today</a>
+    @endif
+  </form>
+</div>
+
 <div class="grid" style="grid-template-columns:repeat(4, 1fr);gap:1rem;margin-bottom:1.25rem">
-  <div class="card stat" style="padding:1rem"><b>{{ $todayRate !== null ? "{$todayRate}%" : 'N/A' }}</b><span>Today's rate</span></div>
+  <div class="card stat" style="padding:1rem"><b>{{ $todayRate !== null ? "{$todayRate}%" : 'N/A' }}</b><span>{!! $isToday ? "Today's rate" : 'Rate on '.e(\Illuminate\Support\Carbon::parse($selectedDate)->format('j M')) !!}</span></div>
   @foreach($statuses as $status)
-    <div class="card stat" style="padding:1rem"><b>{{ $todayCounts[$status] ?? 0 }}</b><span>{{ ucfirst($status) }} today</span></div>
+    <div class="card stat" style="padding:1rem"><b>{{ $todayCounts[$status] ?? 0 }}</b><span>{{ ucfirst($status) }} {{ $isToday ? 'today' : 'that day' }}</span></div>
   @endforeach
 </div>
 

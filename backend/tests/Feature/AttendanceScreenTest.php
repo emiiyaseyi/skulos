@@ -397,6 +397,51 @@ class AttendanceScreenTest extends TestCase
             ->assertSee('By class');
     }
 
+    /** User report 2026-07-22: "one should be able to switch between staff attendance and student attendance here". */
+    public function test_the_dashboard_can_switch_to_staff_attendance(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'attdashthree');
+
+        app(TenantManager::class)->use($school);
+        $staff = Staff::create(['staff_id' => 'STF/0009', 'first_name' => 'Femi', 'last_name' => 'Bello', 'status' => 'active']);
+        Attendance::create(['date' => now()->toDateString(), 'person_type' => 'staff', 'person_id' => $staff->id, 'status' => 'present']);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/attendance/dashboard?type=staff");
+
+        $response->assertOk()->assertSee("Today's rate", false)->assertDontSee('By class');
+    }
+
+    /** User report 2026-07-22: "one should have a date/calendar at the top which allows one to go to a date and see the data there". */
+    public function test_the_dashboard_can_show_a_specific_past_date(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'attdashfour');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $arm, 'studentA' => $student] = $this->twoClassesWithStudents();
+        $pastDate = now()->subDays(3);
+        while ($pastDate->isWeekend()) {
+            $pastDate->subDay();
+        }
+        Attendance::create(['date' => $pastDate->toDateString(), 'person_type' => 'student', 'person_id' => $student->id, 'class_arm_id' => $arm->id, 'status' => 'absent']);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/attendance/dashboard?date={$pastDate->toDateString()}");
+
+        $response->assertOk()->assertSee('1', false); // 1 absent that day
+        $this->assertStringNotContainsString('Today&#039;s rate', $response->getContent());
+    }
+
+    /** "Should only allows previous dates only": a future date is not honored, the dashboard falls back to today. */
+    public function test_a_future_date_is_ignored_in_favor_of_today(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'attdashfive');
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/attendance/dashboard?date=".now()->addYear()->toDateString());
+
+        $response->assertOk()->assertSee("Today's rate", false);
+    }
+
     /** A class teacher only ever sees their own class's numbers, the school wide "By class" comparison is admin only. */
     public function test_a_class_teacher_does_not_see_the_by_class_comparison_on_the_dashboard(): void
     {

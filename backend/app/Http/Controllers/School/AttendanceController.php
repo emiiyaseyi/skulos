@@ -129,9 +129,26 @@ class AttendanceController extends Controller
         $user = Auth::user();
         $armIds = $teacherScope->classArmIds($user, $school);
 
+        // Staff/student toggle and a specific-date picker (user report
+        // 2026-07-22: "one should be able to switch between staff
+        // attendance and student attendance here... one should have a
+        // date/calendar at the top which allows one to go to a date and
+        // see the data there which should only allows previous dates
+        // only"). Staff attendance already had its own mark screen
+        // (staffIndex()/markStaff()), it just never surfaced here.
+        // Staff.view also gates the staff type, the same pairing
+        // staffIndex() itself already requires.
+        $type = $request->query('type') === 'staff' && app(Rbac::class)->check($user, $school, 'staff.view')
+            ? Attendance::PERSON_STAFF : Attendance::PERSON_STUDENT;
+        $scope = fn ($q) => $type === Attendance::PERSON_STAFF ? $q->staff() : $q->students();
+
+        $requestedDate = $request->query('date');
+        $selectedDate = ($requestedDate && Carbon::parse($requestedDate)->lte(now()))
+            ? Carbon::parse($requestedDate) : now();
+
         $service = app(AttendanceService::class);
-        $to = now();
-        $from = now()->subDays(45);
+        $to = $selectedDate->copy();
+        $from = $selectedDate->copy()->subDays(60);
         $nonSchoolDates = $service->nonSchoolDatesWithin($from, $to);
 
         $schoolDates = collect();
@@ -142,8 +159,8 @@ class AttendanceController extends Controller
         }
         $schoolDates = $schoolDates->sort()->values();
 
-        $marksQuery = Attendance::students()->whereIn('date', $schoolDates->all());
-        if ($armIds !== null) {
+        $marksQuery = Attendance::query()->tap($scope)->whereIn('date', $schoolDates->all());
+        if ($type === Attendance::PERSON_STUDENT && $armIds !== null) {
             $marksQuery->whereIn('class_arm_id', $armIds);
         }
         $marksByDate = $marksQuery->selectRaw('date, status, count(*) as total')
@@ -162,8 +179,10 @@ class AttendanceController extends Controller
             ];
         })->values();
 
+        // Per class comparison only makes sense for students; staff are
+        // not tied to a class arm at all.
         $classRates = collect();
-        if ($armIds === null) {
+        if ($type === Attendance::PERSON_STUDENT && $armIds === null) {
             $classArms = ClassArm::with('schoolClass.section', 'arm')->get();
             $classMarks = Attendance::students()->whereIn('date', $schoolDates->all())
                 ->selectRaw('class_arm_id, status, count(*) as total')
@@ -181,9 +200,10 @@ class AttendanceController extends Controller
             $classRates = $classRates->sortByDesc('rate')->values();
         }
 
-        $todayCounts = Attendance::students()->when($armIds !== null, fn ($q) => $q->whereIn('class_arm_id', $armIds))
-            ->forDate(now())->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
-        $todayMarked = $todayCounts->sum();
+        $selectedCounts = Attendance::query()->tap($scope)
+            ->when($type === Attendance::PERSON_STUDENT && $armIds !== null, fn ($q) => $q->whereIn('class_arm_id', $armIds))
+            ->forDate($selectedDate)->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+        $selectedMarked = $selectedCounts->sum();
 
         return view('school.attendance.dashboard', [
             'school' => $school,
@@ -191,9 +211,13 @@ class AttendanceController extends Controller
             'trend' => $trend,
             'classRates' => $classRates,
             'statuses' => Attendance::statuses(),
-            'todayCounts' => $todayCounts,
-            'todayMarked' => $todayMarked,
-            'todayRate' => $todayMarked > 0 ? round((($todayCounts['present'] ?? 0) / $todayMarked) * 100, 1) : null,
+            'type' => $type,
+            'canViewStaff' => app(Rbac::class)->check($user, $school, 'staff.view'),
+            'selectedDate' => $selectedDate->toDateString(),
+            'isToday' => $selectedDate->isToday(),
+            'todayCounts' => $selectedCounts,
+            'todayMarked' => $selectedMarked,
+            'todayRate' => $selectedMarked > 0 ? round((($selectedCounts['present'] ?? 0) / $selectedMarked) * 100, 1) : null,
         ]);
     }
 
