@@ -10,15 +10,13 @@
   <a class="btn btn-ghost btn-sm" href="{{ route('school.announcements.history', ['school' => $school->slug]) }}">Back to Communication History</a>
 </div>
 
-@php($pending = $notifications->whereNull('read_at'))
-
 <div class="card" style="margin-bottom:1.1rem">
   <div class="row-between" style="flex-wrap:wrap;gap:.6rem">
-    <p class="muted" style="margin:0">{{ $notifications->count() - $pending->count() }} of {{ $notifications->count() }} have acknowledged.</p>
-    @if($pending->isNotEmpty())
+    <p class="muted" style="margin:0">{{ $acknowledgedCount }} of {{ $totalCount }} have acknowledged.</p>
+    @if($pendingCount > 0)
       <form method="POST" action="{{ route('school.announcements.history.nudge', ['school' => $school->slug, 'announcementId' => $announcement->id]) }}" onsubmit="return confirm('Send a reminder to everyone who hasn\'t acknowledged this yet?')">
         @csrf
-        <button class="btn btn-primary btn-sm" type="submit">Nudge everyone pending ({{ $pending->count() }})</button>
+        <button class="btn btn-primary btn-sm" type="submit">Nudge everyone pending ({{ $pendingCount }})</button>
       </form>
     @endif
   </div>
@@ -48,6 +46,9 @@
       </tbody>
     </table>
     </div>
+    @if($notifications->hasPages())
+      <div style="margin-top:1rem">{{ $notifications->links() }}</div>
+    @endif
   @endif
 </div>
 @endsection

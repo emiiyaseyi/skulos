@@ -182,4 +182,25 @@ class CommunicationHistoryTest extends TestCase
 
         $this->actingAs($registrar)->post("http://{$school->slug}.localhost/announcements/history/{$announcementId}/nudge")->assertForbidden();
     }
+
+    /** Dbase recommendation: paginate every list screen — a "whole school" broadcast can mean hundreds of recipients. */
+    public function test_the_recipient_drill_down_is_paginated_for_a_large_recipient_list(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'commhistnine');
+
+        app(TenantManager::class)->use($school);
+        $announcement = Announcement::create(['title' => 'Sports Day', 'body' => 'This Saturday.', 'type' => Announcement::TYPE_ANNOUNCEMENT, 'audience' => 'everyone', 'status' => 'published', 'published_at' => now()]);
+        for ($i = 0; $i < 35; $i++) {
+            $recipient = User::factory()->create();
+            Notification::create(['user_id' => $recipient->id, 'announcement_id' => $announcement->id, 'category' => 'academic', 'type' => 'info', 'title' => 'Sports Day', 'body' => 'This Saturday.']);
+        }
+        $announcementId = $announcement->id;
+        app(TenantManager::class)->forget();
+
+        $page1 = $this->actingAs($owner)->get("http://{$school->slug}.localhost/announcements/history/{$announcementId}");
+        $page1->assertOk()->assertSee('0 of 35 have acknowledged')->assertViewHas('notifications', fn ($p) => $p->count() === 30 && $p->total() === 35);
+
+        $page2 = $this->actingAs($owner)->get("http://{$school->slug}.localhost/announcements/history/{$announcementId}?page=2");
+        $page2->assertOk()->assertViewHas('notifications', fn ($p) => $p->count() === 5);
+    }
 }

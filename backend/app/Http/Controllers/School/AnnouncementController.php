@@ -117,17 +117,31 @@ class AnnouncementController extends Controller
         $school = $this->school($request);
         $announcement = Announcement::findOrFail($request->route('announcementId'));
 
-        $notifications = \App\Models\Tenant\Notification::where('announcement_id', $announcement->id)
-            ->with('user')
+        // Paginated, with only the columns the view actually renders
+        // (Dbase recommendation: paginate every list screen, select only
+        // needed columns) — a "whole school" broadcast can mean hundreds
+        // of recipients, this previously loaded every one of them, full
+        // User row included, in a single unbounded query.
+        $base = \App\Models\Tenant\Notification::where('announcement_id', $announcement->id);
+        $totalCount = (clone $base)->count();
+        $acknowledgedCount = (clone $base)->whereNotNull('read_at')->count();
+        $pendingCount = $totalCount - $acknowledgedCount;
+
+        $notifications = $base->select(['id', 'user_id', 'read_at', 'created_at'])
+            ->with('user:id,name,email')
             ->orderByRaw('read_at is not null')
             ->orderBy('created_at')
-            ->get();
+            ->paginate(30)
+            ->withQueryString();
 
         return view('school.announcements.recipients', [
             'school' => $school,
             'accent' => $school->branding()['color'],
             'announcement' => $announcement,
             'notifications' => $notifications,
+            'totalCount' => $totalCount,
+            'acknowledgedCount' => $acknowledgedCount,
+            'pendingCount' => $pendingCount,
         ]);
     }
 
