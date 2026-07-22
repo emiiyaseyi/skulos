@@ -229,6 +229,49 @@ class TimetableTest extends TestCase
             ->assertSee('Mathematics');
     }
 
+    /**
+     * User request 2026-07-22: "when the teacher clicks the timetable
+     * menu, he should be able to select class timetable or the My
+     * timetable option." A class teacher gets a toggle, defaulting to
+     * their own class's full grid.
+     */
+    public function test_a_class_teacher_can_toggle_between_class_and_personal_timetable(): void
+    {
+        [$school, $teacherUser] = $this->schoolWithMember('class-teacher', 'ttclasstoggle');
+        [$classArmA, $classArmB, $subject, $staffA, $staffB, $period] = $this->seedAcademics($school);
+
+        app(TenantManager::class)->use($school);
+        $staffA->update(['user_id' => $teacherUser->id]);
+        $classArmA->update(['class_teacher_staff_id' => $staffA->id]);
+        // One entry on the class teacher's own class taught by someone else, and one on a different class the teacher personally teaches, so class view and personal view are provably different.
+        TimetableEntry::create(['class_arm_id' => $classArmA->id, 'timetable_period_id' => $period->id, 'day_of_week' => 'monday', 'subject_id' => $subject->id, 'staff_id' => $staffB->id]);
+        TimetableEntry::create(['class_arm_id' => $classArmB->id, 'timetable_period_id' => $period->id, 'day_of_week' => 'tuesday', 'subject_id' => $subject->id, 'staff_id' => $staffA->id]);
+        app(TenantManager::class)->forget();
+
+        // Default (no ?view=) shows the class teacher's own class, including the OTHER teacher's Monday slot.
+        $default = $this->actingAs($teacherUser)->get(route('school.timetable.mine', ['school' => $school->slug]));
+        $default->assertOk()->assertSee('Class Timetable')->assertSee('My Timetable')->assertSee('Femi Teacher');
+
+        // ?view=personal switches to their own cross-class teaching schedule instead.
+        $this->actingAs($teacherUser)->get(route('school.timetable.mine', ['school' => $school->slug, 'view' => 'personal']))
+            ->assertOk()->assertSee('JSS 2'); // taught there Tuesday, not on their own class
+    }
+
+    /** A subject teacher (never a class teacher) must never see the toggle at all, straight to their own schedule. */
+    public function test_a_subject_teacher_never_sees_the_class_timetable_toggle(): void
+    {
+        [$school, $teacherUser] = $this->schoolWithMember('subject-teacher', 'ttnotoggle');
+        [$classArmA, , $subject, $staffA, , $period] = $this->seedAcademics($school);
+
+        app(TenantManager::class)->use($school);
+        $staffA->update(['user_id' => $teacherUser->id]);
+        TimetableEntry::create(['class_arm_id' => $classArmA->id, 'timetable_period_id' => $period->id, 'day_of_week' => 'monday', 'subject_id' => $subject->id, 'staff_id' => $staffA->id]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacherUser)->get(route('school.timetable.mine', ['school' => $school->slug]))
+            ->assertOk()->assertDontSee('Class Timetable');
+    }
+
     public function test_the_nav_shows_timetable_for_an_admin_and_my_timetable_for_a_scoped_role(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'ttseven');

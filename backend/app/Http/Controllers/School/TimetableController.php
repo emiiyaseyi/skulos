@@ -200,7 +200,16 @@ class TimetableController extends Controller
 
     /**
      * A teacher's own weekly schedule, or a student/parent's own class
-     * schedule, always read only, never another person's.
+     * schedule, always read only, never another person's. User request
+     * 2026-07-22: "when the teacher clicks the timetable menu, he should
+     * be able to select class timetable or the My timetable option. Note
+     * that subject teachers wont see the class timetable option, it just
+     * goes direct to their own personal timetable since they are not
+     * class teacher" — a class teacher (holding class_teacher_staff_id
+     * on at least one ClassArm) gets a toggle between their own class's
+     * full grid and their personal cross-class teaching schedule, on
+     * this same screen; a subject teacher (or any staff member who is
+     * not a class teacher) has nothing to toggle, so none is shown.
      */
     public function mine(Request $request, TimetableService $timetable): \Illuminate\View\View
     {
@@ -214,10 +223,20 @@ class TimetableController extends Controller
         $grid = [];
         $subtitle = 'No schedule linked to your account yet.';
         $children = collect();
+        $ownClassArm = null;
+        $view = 'personal';
 
         if ($staff) {
-            $grid = $timetable->gridForStaff($staff->id);
-            $subtitle = 'Your own teaching schedule, every class you are booked into.';
+            $ownClassArm = ClassArm::with('schoolClass.section', 'arm')->where('class_teacher_staff_id', $staff->id)->first();
+            $view = ($ownClassArm && $request->query('view') !== 'personal') ? 'class' : 'personal';
+
+            if ($view === 'class') {
+                $grid = $timetable->gridForClassArm($ownClassArm->id);
+                $subtitle = $ownClassArm->label().'\'s full weekly schedule, every subject and teacher.';
+            } else {
+                $grid = $timetable->gridForStaff($staff->id);
+                $subtitle = 'Your own teaching schedule, every class you are booked into.';
+            }
         } elseif ($studentIds !== null && $studentIds->isNotEmpty()) {
             $children = Student::whereIn('id', $studentIds)->with('currentClassArm.schoolClass.section', 'currentClassArm.arm')->get();
             $studentId = $request->integer('student_id') ?: $children->first()?->id;
@@ -237,6 +256,8 @@ class TimetableController extends Controller
             'subtitle' => $subtitle,
             'children' => $children,
             'selectedChildId' => $children->isNotEmpty() ? ($request->integer('student_id') ?: $children->first()?->id) : null,
+            'ownClassArm' => $ownClassArm,
+            'view' => $view,
         ]);
     }
 

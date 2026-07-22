@@ -252,8 +252,13 @@
     // role only ever holds timetable.view and sees their own schedule
     // instead (user request 2026-07-18, un-deferred and built the same
     // day: "only admin can set this").
+    // Label reads "Timetable" for everyone now (user report 2026-07-22:
+    // "let's change the menu name to Timetable and not My timetable"),
+    // the "my own" framing lived in the screen's own subtitle/toggle
+    // instead once a class teacher can also see their own class's full
+    // grid from here, not just their personal schedule.
     'timetable_management' => $isRestrictedNav
-        ? ['school.timetable.mine', 'My Timetable', 'calendar']
+        ? ['school.timetable.mine', 'Timetable', 'calendar']
         : ['school.timetable.index', 'Timetable', 'calendar'],
     'student_promotion' => ['school.settings.calendar.edit', 'Sessions &amp; Terms', 'calendar'],
     // Repointed from school.campuses (2026-07-18): a real, dedicated

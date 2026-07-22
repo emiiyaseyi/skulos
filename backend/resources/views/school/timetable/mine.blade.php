@@ -1,5 +1,5 @@
-@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => 'My Timetable'])
-@section('title', 'My Timetable')
+@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => 'Timetable'])
+@section('title', 'Timetable')
 
 @push('head')
 <style>
@@ -18,7 +18,7 @@
 @section('content')
 <div class="page-head">
   <div>
-    <h1 class="title">My Timetable</h1>
+    <h1 class="title">Timetable</h1>
     <p class="subtitle">{{ $subtitle }}</p>
   </div>
   @if($children->count() > 1)
@@ -31,6 +31,25 @@
     </form>
   @endif
 </div>
+
+{{--
+  User request 2026-07-22: "when the teacher clicks the timetable menu,
+  he should be able to select class timetable or the My timetable
+  option. Note that subject teachers wont see the class timetable
+  option." Only rendered when this staff member is actually a class
+  teacher for a class ($ownClassArm set); a subject teacher (or any
+  other staff role) has no class of their own to toggle to, so this
+  entire block is absent for them and the page just always shows their
+  personal schedule, exactly as it did before this change.
+--}}
+@isset($ownClassArm)
+  <div class="card" style="margin-bottom:1.1rem;padding:.6rem">
+    <div style="display:flex;gap:.5rem">
+      <a class="btn btn-sm {{ $view === 'class' ? 'btn-primary' : 'btn-ghost' }}" href="{{ route('school.timetable.mine', ['school' => $school->slug, 'view' => 'class']) }}">Class Timetable</a>
+      <a class="btn btn-sm {{ $view === 'personal' ? 'btn-primary' : 'btn-ghost' }}" href="{{ route('school.timetable.mine', ['school' => $school->slug, 'view' => 'personal']) }}">My Timetable</a>
+    </div>
+  </div>
+@endisset
 
 @if($periods->isEmpty())
   <div class="card"><p class="muted">No timetable has been set up yet.</p></div>
