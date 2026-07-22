@@ -306,49 +306,236 @@ return [
         'Getting Started' => [
             [
                 'title' => 'Finding your way around',
-                'body' => "Every screen lives behind the menu on the left (tap the menu icon on a phone to open it). Use the search box above the menu to jump straight to a feature by name instead of hunting through the list.\n\nYour dashboard is the home screen after signing in: it shows figures relevant to your role (students, attendance, results, and so on) and a set of quick actions for the things you do most often.",
+                'body' => 'Every screen lives behind the menu on the left (tap the menu icon on a phone to open it).',
+                'steps' => [
+                    'Tap or click the menu icon to open the sidebar, then tap it again to collapse it back down.',
+                    'Use the search box above the menu to jump straight to a feature by name instead of hunting through the list.',
+                    'Your dashboard is the home screen after signing in: it shows figures relevant to your role (students, attendance, results, and so on).',
+                    'A set of quick action buttons on the dashboard covers the things your role does most often, so you rarely need to hunt for the first click.',
+                ],
             ],
             [
                 'title' => 'Who can see and do what',
-                'body' => "Every person who signs in has a role (Owner, Principal, Teacher, Parent, and so on), and each role grants access to specific screens and actions. An administrator manages this under Settings > User & Role Management: pick a role, tick the sections and features it should have, and save. A role change takes effect immediately for anyone holding that role.",
+                'body' => 'Every person who signs in has a role, and each role grants access to specific screens and actions.',
+                'steps' => [
+                    'Go to Settings > User & Role Management.',
+                    'Pick an existing role, or create a new one and name it.',
+                    'Open each section and tick every permission that role should have.',
+                    'Save. The change takes effect immediately for everyone currently holding that role.',
+                ],
+                'start_route' => 'school.roles.index',
             ],
         ],
         'Students & Staff' => [
             [
                 'title' => 'Adding a student',
-                'body' => "Go to Students > Add Student for a single entry, or Students > Import to bring in many at once from a spreadsheet (download the template first, it lists every column the importer understands). A student's Admission Number is their permanent identifier here, it is set by the school and used everywhere a student is referenced, so double check it before saving. Email is optional and never required.",
+                'body' => "A student's Admission Number is their permanent identifier here, set by the school and used everywhere a student is referenced. Email is optional and never required.",
+                'steps' => [
+                    'Go to Students > Add Student for a single entry.',
+                    'For many students at once, use Students > Import instead: download the template first, it lists every column the importer understands.',
+                    "Fill in the student's Admission Number, name, class, and any other details your school requires.",
+                    'Double check the Admission Number before saving, it cannot be changed as easily once other records start referencing it.',
+                    'Save. A login is provisioned automatically using the admission number and your school\'s configured default password.',
+                ],
+                'start_route' => 'school.students.create',
             ],
             [
-                'title' => 'Setting a student or staff member\'s unique sign-in identifier',
-                'body' => "Under Settings > Student Field Settings, an administrator chooses whether email address or phone number is the required unique identifier for parents and, separately, for staff. Whichever is chosen, sign-in itself still accepts either an email or a phone number in the same field.",
+                'title' => "Setting a student or staff member's unique sign-in identifier",
+                'body' => 'An administrator chooses whether email address or phone number is the required unique identifier for parents and, separately, for staff.',
+                'steps' => [
+                    'Go to Settings > Student Field Settings.',
+                    'Under Parent identifier, choose email address or phone number.',
+                    'Under Staff identifier, choose email address or phone number (independently of the parent choice).',
+                    'Save. Sign in itself still accepts either an email or a phone number in the same field either way.',
+                ],
+                'start_route' => 'school.students.settings.edit',
+            ],
+            [
+                'title' => 'Setting up school houses',
+                'body' => 'Houses group students for inter house competitions and events, independent of class.',
+                'steps' => [
+                    'Go to Houses.',
+                    'Load the default 4-house catalog in one click, or add your own houses one at a time.',
+                    "Open a house to see its member list, assign students to it, or download the member list as a CSV.",
+                    'Use the bulk assign screen to place many students into houses at once, with a "show only unassigned" filter.',
+                ],
+                'start_route' => 'school.houses.index',
+            ],
+            [
+                'title' => 'Adding a custom field for students, staff, or parents',
+                'body' => 'A genuinely new field your school needs, not already covered by the standard record.',
+                'steps' => [
+                    'Go to Settings > Custom Fields.',
+                    'Add a field: give it a label, a type (text, number, date, dropdown, checkbox, and so on), and mark it required if every record must have a value.',
+                    'Choose which of Student, Staff, or Parent it applies to.',
+                    'It now appears on that entity\'s create/edit form and profile page automatically.',
+                ],
+                'start_route' => 'school.settings.custom-fields.index',
             ],
         ],
         'Attendance & Timetable' => [
             [
                 'title' => 'Taking attendance',
-                'body' => "Attendance > Take Attendance, pick a class and date, mark each student present, absent, or late, then save. Attendance cannot be recorded for a weekend or a day marked as a holiday or break on the school calendar, those are not real school days.",
+                'body' => 'Attendance cannot be recorded for a weekend or a day marked as a holiday or break on the school calendar, those are not real school days.',
+                'steps' => [
+                    'Go to Attendance > Take Attendance.',
+                    'Pick a class and a date.',
+                    'Mark each student present, absent, late, or excused.',
+                    'Save. Re-opening the same class and date later lets you correct any mark rather than creating a duplicate.',
+                ],
+                'start_route' => 'school.attendance.index',
             ],
             [
                 'title' => 'Building a class timetable',
-                'body' => "Timetable Management is available on the Advance plan and above. An administrator first sets up the school's period slots once (Timetable > Periods, or load the suggested default day), then builds each class's weekly grid under Timetable, assigning a subject and teacher to each period. The same teacher cannot be placed in two different classes at the same day and period, a conflicting cell is skipped and reported rather than silently double booking someone.",
+                'body' => 'Timetable Management is available on the Advance plan and above.',
+                'steps' => [
+                    'Go to Timetable > Periods and set up the school\'s period slots once, or load the suggested default day.',
+                    'Go to Timetable, pick a class, and assign a subject and teacher to each period across the week.',
+                    'A conflicting cell (the same teacher already booked in another class at that day and period) is skipped and reported, never silently double booked.',
+                    'Use Master Timetable to see every class\'s weekly grid on one screen at a glance.',
+                ],
+                'start_route' => 'school.timetable.periods',
+            ],
+            [
+                'title' => 'Building the examination timetable',
+                'body' => 'Dated across a real calendar window, distinct from the recurring weekly class timetable above.',
+                'steps' => [
+                    'Go to Timetable > Examination Timetable, then Exam day structure first.',
+                    'Enter each paper (Paper 1, Break, Paper 2, and so on), its duration, and when the first paper starts; every other paper\'s time is computed automatically.',
+                    'Back on the Examination Timetable screen, pick a section or one specific class, and a date range.',
+                    'Assign a subject to each paper on each date, or download the blank template, fill it in, and upload it back.',
+                    'Export the finished timetable as CSV, or use Print / Save as PDF.',
+                ],
+                'start_route' => 'school.timetable.exam.index',
             ],
         ],
         'Results & Report Cards' => [
             [
                 'title' => 'Setting up how results are scored',
-                'body' => "Under Results > Assessment Structure, define the components scores are made of (for example two Continuous Assessments plus one Examination) and how many marks each is out of. Under Results > Grading, define the grade bands (A, B, C, and so on) and the score range each covers. Both can be loaded from a sensible default and adjusted afterward.",
+                'body' => 'Both can be loaded from a sensible default and adjusted afterward.',
+                'steps' => [
+                    'Go to Results > Assessment Structure.',
+                    'Define the components scores are made of, for example two Continuous Assessments plus one Examination, and how many marks each is out of.',
+                    'Go to Results > Grading.',
+                    'Define the grade bands (A, B, C, and so on) and the score range each one covers.',
+                ],
+                'start_route' => 'school.examinations.structure',
             ],
             [
                 'title' => 'Designing a report card',
-                'body' => "The Report Card Designer (Advance plan and above) lets an administrator drag sections, blocks, and even custom text or charts around a live preview of the real report card, then save it as the school's layout. Every school starts on a sensible default layout even before anyone opens the designer.",
+                'body' => 'Every school starts on a sensible default layout even before anyone opens the designer.',
+                'steps' => [
+                    'Go to Report Cards > Report settings > open the Layout Designer.',
+                    'Drag sections and blocks around a live preview of the real report card.',
+                    'Add custom text blocks or charts if your school wants something beyond the fixed catalog.',
+                    'Save. The new layout applies to every report card generated afterward.',
+                ],
+                'start_route' => 'school.report-cards.layout.edit',
+            ],
+            [
+                'title' => 'Reviewing and releasing report cards',
+                'body' => 'A report card generated for a class is automatically assigned to that class\'s reviewer.',
+                'steps' => [
+                    'Go to Report Cards > Pending review.',
+                    'Open a report card to check it, then Approve, or Reject with a comment explaining what needs correcting.',
+                    'Tick several at once and use the bulk Approve, Reject, or Nudge actions to act on many together.',
+                    'Once approved through every stage of the review chain, release it so the parent or student can see it.',
+                ],
+                'start_route' => 'school.report-cards.pending-review',
             ],
         ],
         'Communication' => [
             [
                 'title' => 'Sending an announcement',
-                'body' => "Communication > Announcements lets you write a message and choose who receives it (parents, teachers, staff, students, or a mix). Everyone the announcement is sent to always gets an in-app notification; email is a separate, optional toggle per audience, set under Settings > Communication.",
+                'body' => 'Everyone the announcement is sent to always gets an in-app notification.',
+                'steps' => [
+                    'Go to Communication > Announcements > Compose.',
+                    'Write the message and choose who receives it: parents, teachers, staff, students, or a mix.',
+                    'Publish. Email is a separate, optional toggle per audience, set under Settings > Communication.',
+                ],
+                'start_route' => 'school.announcements.create',
+            ],
+            [
+                'title' => 'Seeing who has acknowledged an announcement',
+                'body' => 'Every announcement and message shares one chronological ledger.',
+                'steps' => [
+                    'Go to Communication > Communication History.',
+                    'Open any item to see exactly who has acknowledged it and who is still pending.',
+                    'Use Nudge everyone pending to send a fresh in-app reminder to only the ones who have not yet acknowledged it.',
+                ],
+                'start_route' => 'school.announcements.history',
             ],
         ],
+        'Reports & Analytics' => [
+            [
+                'title' => 'Building a custom report',
+                'body' => 'Pick a data source, choose your columns, filter, then preview or export.',
+                'steps' => [
+                    'Go to Reports > Report Builder.',
+                    'Pick a data source (Students or Staff).',
+                    'Tick which columns to include, for example attendance rate, average score, or behavioural traits alongside the usual student details.',
+                    'Filter by class or status if needed, preview the table, then export it as CSV.',
+                ],
+                'start_route' => 'school.reports.builder.index',
+            ],
+            [
+                'title' => 'Seeing whole school academic insights',
+                'body' => 'Subject strength, weak spots, and grade spread across the whole school, one term at a time.',
+                'steps' => [
+                    'Go to Reports > Academic Insights.',
+                    'Pick a session and term, and optionally scope it down to one section or one class.',
+                    'Read the subject performance table (strongest first) and the grade distribution below it.',
+                    'Use the filter and sort controls on the subject table to find a specific subject quickly.',
+                ],
+                'start_route' => 'school.examinations.academic-insights',
+            ],
+        ],
+    ],
+
+    /*
+    | Which sidebar icon (see layouts/partials/icon.blade.php's catalog)
+    | represents each Knowledge Base category on the redesigned Help
+    | index (user request 2026-07-22: "let's make this section much more
+    | presentable and great"). Falls back to the generic 'support' icon
+    | for any category name not listed here (e.g. an admin-added one).
+    */
+    'knowledge_base_category_icons' => [
+        'Getting Started' => 'dashboard',
+        'Students & Staff' => 'students',
+        'Attendance & Timetable' => 'attendance',
+        'Results & Report Cards' => 'results',
+        'Communication' => 'comms',
+        'Reports & Analytics' => 'trend',
+    ],
+
+    /*
+    | Curated dropdown of "start here" destinations a Knowledge Base
+    | article can link to (user request 2026-07-22: "add a button that
+    | takes them to where to start the process or knowledge under help").
+    | A route NAME, not admin-typed freeform text or a raw URL, so a typo
+    | cannot silently produce a broken link and the destination correctly
+    | resolves to whichever school subdomain is currently viewing the
+    | article. Extend this list whenever a new article needs to point
+    | somewhere not yet covered here.
+    */
+    'knowledge_base_start_routes' => [
+        'school.roles.index' => 'User & Role Management',
+        'school.students.create' => 'Add a Student',
+        'school.students.import' => 'Import Students',
+        'school.students.settings.edit' => 'Student Field Settings',
+        'school.houses.index' => 'Houses',
+        'school.settings.custom-fields.index' => 'Custom Fields',
+        'school.attendance.index' => 'Take Attendance',
+        'school.timetable.periods' => 'Timetable Periods',
+        'school.timetable.exam.index' => 'Examination Timetable',
+        'school.examinations.structure' => 'Assessment Structure',
+        'school.examinations.grading' => 'Grading',
+        'school.report-cards.layout.edit' => 'Report Card Layout Designer',
+        'school.report-cards.pending-review' => 'Report Cards Pending Review',
+        'school.announcements.create' => 'Compose an Announcement',
+        'school.announcements.history' => 'Communication History',
+        'school.reports.builder.index' => 'Report Builder',
+        'school.examinations.academic-insights' => 'Academic Insights',
     ],
 
     /*

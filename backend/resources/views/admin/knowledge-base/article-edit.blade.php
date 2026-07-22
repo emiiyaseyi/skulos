@@ -20,8 +20,21 @@
       <input id="title" name="title" value="{{ $article->title }}" required />
     </div>
     <div class="field">
-      <label for="body">Content</label>
-      <textarea id="body" name="body" rows="12" required>{{ $article->body }}</textarea>
+      <label for="body">Short intro (optional)</label>
+      <textarea id="body" name="body" rows="2" placeholder="One or two sentences shown above the steps.">{{ $article->body }}</textarea>
+    </div>
+    <div class="field">
+      <label for="steps">Steps (one per line)</label>
+      <textarea id="steps" name="steps" rows="8" placeholder="Go to Students &gt; Add Student.&#10;Fill in the required fields.&#10;Save.">{{ implode("\n", $article->steps ?? []) }}</textarea>
+    </div>
+    <div class="field">
+      <label for="start_route">Start here button (optional)</label>
+      <select id="start_route" name="start_route">
+        <option value="">No button</option>
+        @foreach(config('skulos.knowledge_base_start_routes') as $routeName => $label)
+          <option value="{{ $routeName }}" @selected($article->start_route === $routeName)>{{ $label }}</option>
+        @endforeach
+      </select>
     </div>
     <label style="display:flex;align-items:center;gap:.4rem;font-weight:400;margin-bottom:1rem">
       <input type="hidden" name="is_published" value="0" />

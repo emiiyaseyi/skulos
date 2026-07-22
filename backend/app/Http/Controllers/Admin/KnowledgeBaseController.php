@@ -7,6 +7,7 @@ use App\Models\KnowledgeBaseArticle;
 use App\Models\KnowledgeBaseCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 /**
  * Platform admin CMS for the in-app Knowledge Base (2026-07-21, resolving
@@ -95,14 +96,33 @@ class KnowledgeBaseController extends Controller
         return back()->with('status', "\"{$title}\" removed.");
     }
 
+    /**
+     * "steps" arrives as one plain textarea (one step per line), the
+     * simplest authoring UI that still produces a real structured array
+     * rather than a single free-text blob (user request 2026-07-22:
+     * "this should be presented more as a procedure or step"). "body" is
+     * now an optional short intro shown above the steps, not the whole
+     * article, so it is no longer required. "start_route" is picked from
+     * a curated catalog (config('skulos.knowledge_base_start_routes')),
+     * never admin-typed freeform text, so a typo cannot silently produce
+     * a broken link.
+     */
     protected function validatedArticle(Request $request, ?int $ignoreId = null): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'knowledge_base_category_id' => ['required', 'exists:knowledge_base_categories,id'],
             'title' => ['required', 'string', 'max:150'],
-            'body' => ['required', 'string', 'max:20000'],
+            'body' => ['nullable', 'string', 'max:2000'],
+            'steps' => ['nullable', 'string', 'max:20000'],
+            'start_route' => ['nullable', Rule::in(array_keys(config('skulos.knowledge_base_start_routes', [])))],
             'is_published' => ['nullable', 'boolean'],
         ]) + ['is_published' => $request->boolean('is_published', true)];
+
+        $data['steps'] = ! empty($data['steps'])
+            ? array_values(array_filter(array_map('trim', explode("\n", $data['steps']))))
+            : null;
+
+        return $data;
     }
 
     protected function uniqueSlug(string $model, string $title): string

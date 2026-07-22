@@ -10,11 +10,11 @@ class KnowledgeBaseArticle extends Model
 {
     use Auditable;
 
-    protected $fillable = ['knowledge_base_category_id', 'title', 'slug', 'body', 'sequence', 'is_published'];
+    protected $fillable = ['knowledge_base_category_id', 'title', 'slug', 'body', 'steps', 'start_route', 'sequence', 'is_published'];
 
     protected function casts(): array
     {
-        return ['is_published' => 'boolean'];
+        return ['is_published' => 'boolean', 'steps' => 'array'];
     }
 
     public function category(): BelongsTo

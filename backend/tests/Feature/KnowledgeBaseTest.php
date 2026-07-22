@@ -62,6 +62,20 @@ class KnowledgeBaseTest extends TestCase
         return [$school, $user];
     }
 
+    public function test_the_admin_index_and_article_edit_pages_render_with_the_new_steps_and_start_route_fields(): void
+    {
+        $admin = $this->superAdmin();
+        $category = KnowledgeBaseCategory::create(['name' => 'General', 'slug' => 'general', 'sequence' => 0]);
+        $article = KnowledgeBaseArticle::create([
+            'knowledge_base_category_id' => $category->id, 'title' => 'Sample', 'slug' => 'sample',
+            'body' => 'x', 'steps' => ['One', 'Two'], 'start_route' => 'school.students.create', 'sequence' => 0, 'is_published' => true,
+        ]);
+
+        $this->actingAs($admin)->get(route('admin.knowledge-base.index'))->assertOk()->assertSee('Steps (one per line)');
+        $this->actingAs($admin)->get(route('admin.knowledge-base.articles.edit', ['articleId' => $article->id]))
+            ->assertOk()->assertSee('One')->assertSee('Two');
+    }
+
     public function test_admin_can_add_a_category_and_an_article(): void
     {
         $admin = $this->superAdmin();
@@ -103,6 +117,57 @@ class KnowledgeBaseTest extends TestCase
         $this->assertSame('New title', $article->title);
         $this->assertSame('New body', $article->body);
         $this->assertFalse($article->is_published);
+    }
+
+    /** User request 2026-07-22: "this should be presented more as a procedure or step... add a button that takes them to where to start the process." */
+    public function test_admin_can_add_an_article_with_steps_and_a_start_here_button(): void
+    {
+        $admin = $this->superAdmin();
+        $category = KnowledgeBaseCategory::create(['name' => 'General', 'slug' => 'general', 'sequence' => 0]);
+
+        $this->actingAs($admin)->post(route('admin.knowledge-base.articles.store'), [
+            'knowledge_base_category_id' => $category->id,
+            'title' => 'Adding a student',
+            'body' => 'Short intro.',
+            'steps' => "Go to Students.\nClick Add Student.\nSave.",
+            'start_route' => 'school.students.create',
+            'is_published' => '1',
+        ])->assertRedirect();
+
+        $article = KnowledgeBaseArticle::where('title', 'Adding a student')->firstOrFail();
+        $this->assertSame(['Go to Students.', 'Click Add Student.', 'Save.'], $article->steps);
+        $this->assertSame('school.students.create', $article->start_route);
+    }
+
+    public function test_an_unknown_start_route_is_rejected(): void
+    {
+        $admin = $this->superAdmin();
+        $category = KnowledgeBaseCategory::create(['name' => 'General', 'slug' => 'general', 'sequence' => 0]);
+
+        $this->actingAs($admin)->post(route('admin.knowledge-base.articles.store'), [
+            'knowledge_base_category_id' => $category->id,
+            'title' => 'Bad route article',
+            'start_route' => 'not.a.real.route',
+            'is_published' => '1',
+        ])->assertSessionHasErrors('start_route');
+    }
+
+    public function test_the_article_page_renders_steps_and_a_start_here_button(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'kbsteps');
+        $category = KnowledgeBaseCategory::create(['name' => 'General', 'slug' => 'general', 'sequence' => 0]);
+        $article = KnowledgeBaseArticle::create([
+            'knowledge_base_category_id' => $category->id, 'title' => 'Adding a student', 'slug' => 'adding-a-student',
+            'body' => 'Short intro.', 'steps' => ['Go to Students.', 'Click Add Student.', 'Save.'],
+            'start_route' => 'school.students.create', 'sequence' => 0, 'is_published' => true,
+        ]);
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/help/{$article->slug}")
+            ->assertOk()
+            ->assertSee('Go to Students.')
+            ->assertSee('Click Add Student.')
+            ->assertSee('Start here')
+            ->assertSee(route('school.students.create', ['school' => $school->slug]), false);
     }
 
     public function test_deleting_a_category_removes_its_articles(): void
@@ -178,5 +243,39 @@ class KnowledgeBaseTest extends TestCase
 
         $this->actingAs($parent)->get("http://{$school->slug}.localhost/dashboard")
             ->assertOk()->assertSee('Knowledge Base');
+    }
+
+    /** User request 2026-07-22: "let's make this section much more presentable and great. Also lets add more help or knowledge to it." */
+    public function test_the_default_catalog_seeds_the_new_articles_with_real_steps_and_start_routes(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'kbseeded');
+        $this->seed(\Database\Seeders\KnowledgeBaseSeeder::class);
+
+        $newArticle = KnowledgeBaseArticle::where('slug', 'building-a-custom-report')->first();
+        $this->assertNotNull($newArticle, 'a new article this batch added must exist after seeding');
+        $this->assertNotEmpty($newArticle->steps);
+        $this->assertSame('school.reports.builder.index', $newArticle->start_route);
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/help")
+            ->assertOk()
+            ->assertSee('What do you need help with?')
+            ->assertSee('Building a custom report')
+            ->assertSee('Reports &amp; Analytics', false);
+    }
+
+    /** Re-running the seeder must backfill steps/start_route onto an already-seeded article without touching its existing body. */
+    public function test_reseeding_backfills_steps_onto_an_already_existing_article_without_overwriting_its_body(): void
+    {
+        $category = KnowledgeBaseCategory::create(['name' => 'Getting Started', 'slug' => 'getting-started', 'sequence' => 0]);
+        KnowledgeBaseArticle::create([
+            'knowledge_base_category_id' => $category->id, 'title' => 'Finding your way around', 'slug' => 'finding-your-way-around',
+            'body' => 'A custom intro an admin already wrote.', 'sequence' => 0, 'is_published' => true,
+        ]);
+
+        $this->seed(\Database\Seeders\KnowledgeBaseSeeder::class);
+
+        $article = KnowledgeBaseArticle::where('slug', 'finding-your-way-around')->firstOrFail();
+        $this->assertSame('A custom intro an admin already wrote.', $article->body, 'an existing body must never be overwritten by re-seeding');
+        $this->assertNotEmpty($article->steps, 'steps must still be backfilled since they were genuinely missing before');
     }
 }
