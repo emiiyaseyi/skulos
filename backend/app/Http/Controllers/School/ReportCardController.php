@@ -410,7 +410,7 @@ class ReportCardController extends Controller
         return view('school.report-cards.index', [
             'school' => $school,
             'accent' => $school->branding()['color'],
-            'sections' => Section::with(['classes' => fn ($q) => $q->orderBy('sequence')])->orderBy('sequence')->get(),
+            'sections' => Section::with(['classes' => fn ($q) => $q->orderBy('sequence'), 'classes.arms.arm'])->orderBy('sequence')->get(),
             'canAssign' => app(Rbac::class)->check(Auth::user(), $school, 'report_cards.assign_review'),
             // "Results" and "Report Cards" merged into one nav line (user
             // directive 2026-07-15), so the results/score entry screen
@@ -481,7 +481,17 @@ class ReportCardController extends Controller
             abort_unless($armIds->intersect($scopedArmIds)->isNotEmpty(), 404);
         }
 
-        $students = Student::whereIn('current_class_arm_id', $armIds)->orderBy('last_name')->get();
+        // Eager loaded and grouped by stream, not just by last name, so a
+        // class split into streams (user directive 2026-07-22: "the class
+        // stream should be separated here... under the report card page
+        // too") stays visually distinguishable on one shared list rather
+        // than mixing every stream's students together with no way to
+        // tell them apart.
+        $students = Student::whereIn('current_class_arm_id', $armIds)->with('currentClassArm.arm')->orderBy('last_name')->get();
+        if ($class->arms->count() > 1) {
+            $armOrder = $class->arms->sortBy(fn ($arm) => $arm->orderKey())->pluck('id')->flip();
+            $students = $students->sortBy(fn ($student) => $armOrder->get($student->current_class_arm_id, 0))->values();
+        }
         $reviews = ReportCardReview::whereIn('student_id', $students->pluck('id'))
             ->where('term_id', $term->id)
             ->with('assignedTo')

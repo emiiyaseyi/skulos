@@ -33,7 +33,9 @@
     <table>
       <thead><tr>
         @if($canAssign)<th style="width:2.2rem"><input type="checkbox" id="rc-select-all" aria-label="Select all students" /></th>@endif
-        <th>Admission No.</th><th>Name</th><th>Status</th><th>Promotion</th><th>Assigned to</th><th></th>
+        <th>Admission No.</th><th>Name</th>
+        @if($class->arms->count() > 1)<th>Stream</th>@endif
+        <th>Status</th><th>Promotion</th><th>Assigned to</th><th></th>
       </tr></thead>
       <tbody>
         @foreach($students as $student)
@@ -45,6 +47,9 @@
             @endif
             <td class="muted" style="font-variant-numeric:tabular-nums">{{ $student->admission_number }}</td>
             <td><strong>{{ $student->fullName() }}</strong></td>
+            @if($class->arms->count() > 1)
+              <td class="muted">{{ $student->currentClassArm?->label() }}</td>
+            @endif
             <td>
               @if(! $review)
                 <span class="badge badge-warn">Not generated</span>

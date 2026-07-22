@@ -52,13 +52,37 @@
           <thead><tr><th>Class</th><th></th></tr></thead>
           <tbody>
             @foreach($section->classes as $class)
-              <tr>
-                <td>
-                  <strong>{{ $class->name }}</strong>
-                  @unless($class->is_active)<span class="badge badge-warn" style="margin-left:.4rem">Retired</span>@endunless
-                </td>
-                <td><a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.class-index', ['school' => $school->slug, 'classId' => $class->id, 'term_id' => $selectedTerm?->id]) }}">View report cards</a></td>
-              </tr>
+              {{-- Same "stream sub-row" convention already used on Classes
+                   & Subjects, Student Portal, Staff Portal and Parent
+                   Portal (user directive 2026-07-22: "same under the
+                   report card page too"). The destination page itself
+                   (class-index) still covers every stream in the class,
+                   now with its own Class/Stream column so the streams
+                   stay distinguishable once there, rather than adding a
+                   second, narrower route just for this listing. --}}
+              @if($class->arms->count() > 1)
+                <tr>
+                  <td>
+                    <strong>{{ $class->name }}</strong>
+                    @unless($class->is_active)<span class="badge badge-warn" style="margin-left:.4rem">Retired</span>@endunless
+                  </td>
+                  <td></td>
+                </tr>
+                @foreach($class->arms->sortBy(fn($arm) => $arm->orderKey()) as $arm)
+                  <tr>
+                    <td style="padding-left:1.6rem" class="muted">{{ $arm->label() }}</td>
+                    <td><a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.class-index', ['school' => $school->slug, 'classId' => $class->id, 'term_id' => $selectedTerm?->id]) }}">View report cards</a></td>
+                  </tr>
+                @endforeach
+              @else
+                <tr>
+                  <td>
+                    <strong>{{ $class->name }}</strong>
+                    @unless($class->is_active)<span class="badge badge-warn" style="margin-left:.4rem">Retired</span>@endunless
+                  </td>
+                  <td><a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.class-index', ['school' => $school->slug, 'classId' => $class->id, 'term_id' => $selectedTerm?->id]) }}">View report cards</a></td>
+                </tr>
+              @endif
             @endforeach
           </tbody>
         </table>

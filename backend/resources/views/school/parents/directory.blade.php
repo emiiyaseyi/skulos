@@ -27,15 +27,38 @@
           <thead><tr><th>Class</th><th>Students</th><th></th></tr></thead>
           <tbody>
             @foreach($section->classes as $class)
-              @php($classTotal = $class->arms->sum(fn($arm) => $counts[$arm->id] ?? 0))
-              <tr>
-                <td>
-                  <strong>{{ $class->name }}</strong>
-                  @unless($class->is_active)<span class="badge badge-warn" style="margin-left:.4rem">Retired</span>@endunless
-                </td>
-                <td class="muted">{{ $classTotal }}</td>
-                <td><a class="btn btn-ghost btn-sm" href="{{ route('school.parents.directory-class', ['school' => $school->slug, 'classId' => $class->id]) }}">View</a></td>
-              </tr>
+              {{-- Same "stream sub-row" convention already used on Classes
+                   & Subjects, Student Portal, and now Staff Portal (user
+                   directive 2026-07-22: "the class stream should be
+                   separated here under staff portal and parent portal
+                   too"). --}}
+              @if($class->arms->count() > 1)
+                <tr>
+                  <td>
+                    <strong>{{ $class->name }}</strong>
+                    @unless($class->is_active)<span class="badge badge-warn" style="margin-left:.4rem">Retired</span>@endunless
+                  </td>
+                  <td></td>
+                  <td></td>
+                </tr>
+                @foreach($class->arms->sortBy(fn($arm) => $arm->orderKey()) as $arm)
+                  <tr>
+                    <td style="padding-left:1.6rem" class="muted">{{ $arm->label() }}</td>
+                    <td class="muted">{{ $counts[$arm->id] ?? 0 }}</td>
+                    <td><a class="btn btn-ghost btn-sm" href="{{ route('school.parents.directory-class', ['school' => $school->slug, 'classId' => $class->id]) }}">View</a></td>
+                  </tr>
+                @endforeach
+              @else
+                @php($classTotal = $class->arms->sum(fn($arm) => $counts[$arm->id] ?? 0))
+                <tr>
+                  <td>
+                    <strong>{{ $class->name }}</strong>
+                    @unless($class->is_active)<span class="badge badge-warn" style="margin-left:.4rem">Retired</span>@endunless
+                  </td>
+                  <td class="muted">{{ $classTotal }}</td>
+                  <td><a class="btn btn-ghost btn-sm" href="{{ route('school.parents.directory-class', ['school' => $school->slug, 'classId' => $class->id]) }}">View</a></td>
+                </tr>
+              @endif
             @endforeach
           </tbody>
         </table>

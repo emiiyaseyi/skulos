@@ -120,6 +120,51 @@ class StaffParentDirectoryTest extends TestCase
             ->assertSee(route('school.staff.show', ['school' => $school->slug, 'staffId' => $classTeacher->id]), false);
     }
 
+    /** User directive 2026-07-22: "the class stream should be separated here under staff portal and parent portal too." */
+    protected function seedTwoStreamClass(School $school): array
+    {
+        app(TenantManager::class)->use($school);
+
+        $goldTeacher = Staff::create(['staff_id' => 'STF/010', 'first_name' => 'Gold', 'last_name' => 'Teacher', 'status' => 'active']);
+        $silverTeacher = Staff::create(['staff_id' => 'STF/011', 'first_name' => 'Silver', 'last_name' => 'Teacher', 'status' => 'active']);
+
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $gold = Arm::create(['name' => 'Gold']);
+        $silver = Arm::create(['name' => 'Silver']);
+        $goldArm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => $gold->id, 'class_teacher_staff_id' => $goldTeacher->id]);
+        $silverArm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => $silver->id, 'class_teacher_staff_id' => $silverTeacher->id]);
+
+        Student::create(['admission_number' => 'ADM/G1', 'first_name' => 'Goldie', 'last_name' => 'One', 'current_class_arm_id' => $goldArm->id]);
+        Student::create(['admission_number' => 'ADM/S1', 'first_name' => 'Silva', 'last_name' => 'One', 'current_class_arm_id' => $silverArm->id]);
+
+        app(TenantManager::class)->forget();
+
+        return [$class, $goldArm, $silverArm];
+    }
+
+    public function test_staff_portal_index_shows_each_stream_as_its_own_row(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'spstream');
+        $this->seedTwoStreamClass($school);
+
+        $response = $this->actingAs($owner)->get(route('school.staff.directory', ['school' => $school->slug]));
+
+        $response->assertOk()
+            ->assertSee('Primary 1 Gold')->assertSee('Primary 1 Silver')
+            ->assertSee('Gold Teacher')->assertSee('Silver Teacher');
+    }
+
+    public function test_parent_portal_index_shows_each_stream_as_its_own_row_with_its_own_count(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'ppstream');
+        $this->seedTwoStreamClass($school);
+
+        $response = $this->actingAs($owner)->get(route('school.parents.directory', ['school' => $school->slug]));
+
+        $response->assertOk()->assertSee('Primary 1 Gold')->assertSee('Primary 1 Silver');
+    }
+
     public function test_parent_portal_index_lists_classes_with_student_counts(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'ppone');

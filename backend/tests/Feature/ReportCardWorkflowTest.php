@@ -88,6 +88,38 @@ class ReportCardWorkflowTest extends TestCase
             ->assertSee('Primary 1');
     }
 
+    /** User directive 2026-07-22: "the class stream should be separated here... same under the report card page too." */
+    public function test_a_multi_stream_class_shows_each_stream_separately_on_the_index_and_a_stream_column_on_its_class_page(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rcstream');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $gold = \App\Models\Tenant\Arm::create(['name' => 'Gold']);
+        $silver = \App\Models\Tenant\Arm::create(['name' => 'Silver']);
+        $goldArm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => $gold->id]);
+        $silverArm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => $silver->id]);
+        Student::create(['admission_number' => 'G1', 'first_name' => 'Goldie', 'last_name' => 'One', 'current_class_arm_id' => $goldArm->id]);
+        Student::create(['admission_number' => 'S1', 'first_name' => 'Silva', 'last_name' => 'One', 'current_class_arm_id' => $silverArm->id]);
+        $session = AcademicSession::create(['name' => '2025/2026 Session']);
+        Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1, 'is_current' => true]);
+        $classId = $class->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards")
+            ->assertOk()
+            ->assertSee('Primary 1 Gold')
+            ->assertSee('Primary 1 Silver');
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/classes/{$classId}")
+            ->assertOk()
+            ->assertSee('Goldie One')
+            ->assertSee('Silva One')
+            ->assertSee('Primary 1 Gold')
+            ->assertSee('Primary 1 Silver');
+    }
+
     public function test_owner_can_generate_a_report_card_for_one_student(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'rctwo');

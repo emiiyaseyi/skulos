@@ -23,20 +23,48 @@
           <thead><tr><th>Class</th><th>Class Teacher(s)</th><th></th></tr></thead>
           <tbody>
             @foreach($section->classes as $class)
-              <tr>
-                <td>
-                  <strong>{{ $class->name }}</strong>
-                  @unless($class->is_active)<span class="badge badge-warn" style="margin-left:.4rem">Retired</span>@endunless
-                </td>
-                <td class="muted">
-                  @if($class->arms->isEmpty())
-                    Not set
-                  @else
-                    {{ $class->arms->map(fn($arm) => $arm->classTeacher?->fullName() ?: 'Not set')->unique()->implode(', ') }}
-                  @endif
-                </td>
-                <td><a class="btn btn-ghost btn-sm" href="{{ route('school.staff.directory-class', ['school' => $school->slug, 'classId' => $class->id]) }}">View</a></td>
-              </tr>
+              {{-- A class actually split into streams carries no data of
+                   its own on this row (same convention as Classes &
+                   Subjects and the Student Portal browse screen, user
+                   directive 2026-07-22: "the class stream should be
+                   separated here under staff portal and parent portal
+                   too"): it is a heading only, each real stream
+                   underneath carries its own class teacher(s). Triggered
+                   on arm count, not on whether an arm happens to be
+                   named, so a legacy unnamed arm still surfaces as its
+                   own row. --}}
+              @if($class->arms->count() > 1)
+                <tr>
+                  <td>
+                    <strong>{{ $class->name }}</strong>
+                    @unless($class->is_active)<span class="badge badge-warn" style="margin-left:.4rem">Retired</span>@endunless
+                  </td>
+                  <td></td>
+                  <td></td>
+                </tr>
+                @foreach($class->arms->sortBy(fn($arm) => $arm->orderKey()) as $arm)
+                  <tr>
+                    <td style="padding-left:1.6rem" class="muted">{{ $arm->label() }}</td>
+                    <td class="muted">{{ $arm->classTeacher?->fullName() ?: 'Not set' }}</td>
+                    <td><a class="btn btn-ghost btn-sm" href="{{ route('school.staff.directory-class', ['school' => $school->slug, 'classId' => $class->id]) }}">View</a></td>
+                  </tr>
+                @endforeach
+              @else
+                <tr>
+                  <td>
+                    <strong>{{ $class->name }}</strong>
+                    @unless($class->is_active)<span class="badge badge-warn" style="margin-left:.4rem">Retired</span>@endunless
+                  </td>
+                  <td class="muted">
+                    @if($class->arms->isEmpty())
+                      Not set
+                    @else
+                      {{ $class->arms->map(fn($arm) => $arm->classTeacher?->fullName() ?: 'Not set')->unique()->implode(', ') }}
+                    @endif
+                  </td>
+                  <td><a class="btn btn-ghost btn-sm" href="{{ route('school.staff.directory-class', ['school' => $school->slug, 'classId' => $class->id]) }}">View</a></td>
+                </tr>
+              @endif
             @endforeach
           </tbody>
         </table>
