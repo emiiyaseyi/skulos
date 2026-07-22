@@ -57,7 +57,39 @@
   .rc-signoff img{max-height:52px;max-width:140px;object-fit:contain;display:block;margin:0 auto .3rem}
   .rc-signoff .line{border-top:1px solid #999;margin-top:.4rem;padding-top:.3rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.03em;color:#777}
   @media (max-width:640px){ .rc-twocol{grid-template-columns:1fr} .rc-eval .rc-strip{grid-template-columns:1fr} }
-  @media print{ body{background:#fff} .rc-bar{display:none} .rc-sheet{box-shadow:none} }
+  {{--
+    Fit on one A4 page (user report 2026-07-21: "Report cards need to be
+    fitted into one A4 page without it spilling into other pages and
+    lines"). Two separate problems: no @page rule at all meant every
+    browser fell back to its own default print margins (often 12-19mm a
+    side, compounding with .rc-wrap/.rc-sheet's own screen padding meant
+    for a card floating on a grey background, not a printed sheet), and
+    nothing stopped a table row, block, or the sign-off strip from
+    splitting mid-element across a page boundary once content did run
+    long. Explicit @page sizing/margins plus tighter print-only spacing
+    covers realistic single-term data on one page; break-inside:avoid on
+    every row/section is the fallback for whatever still doesn't, so an
+    unusually long class (many subjects, long comments) breaks cleanly
+    between sections instead of mid-row.
+  --}}
+  @page{ size:A4; margin:10mm 12mm; }
+  @media print{
+    body{background:#fff}
+    .rc-bar,.appbar,.side,.impersonate-bar{display:none !important}
+    .content{padding:0 !important}
+    .rc-wrap{max-width:none;margin:0;padding:0}
+    .rc-sheet{box-shadow:none;border-radius:0;padding:0;font-size:.92em}
+    .rc-head{padding-bottom:.5rem;margin-bottom:.6rem}
+    .rc-id{margin-bottom:.6rem}
+    .rc-table{margin-bottom:.6rem}
+    .rc-table th,.rc-table td{padding:.3rem .4rem}
+    .rc-summary{margin:.6rem 0}
+    .rc-block{margin-bottom:.6rem}
+    .rc-signoff{margin-top:.8rem;padding-top:.6rem}
+    .rc-table,.rc-summary,.rc-block,.rc-signoff,.rc-tally,.rc-strip{break-inside:avoid}
+    .rc-table tr{break-inside:avoid}
+    .rc-remarks div{break-inside:avoid}
+  }
 </style>
 @endpush
 
