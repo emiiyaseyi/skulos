@@ -125,6 +125,32 @@ class ReportCardEnrichmentTest extends TestCase
         app(TenantManager::class)->forget();
     }
 
+    /** User request 2026-07-22: "one should be able to edit current behavioural/psychomotor traits that appears for each child reports." */
+    public function test_admin_can_edit_an_existing_trait(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'trait-edit');
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/traits")->assertSee('Edit');
+
+        app(TenantManager::class)->use($school);
+        $trait = BehaviouralTrait::where('name', 'Punctuality')->firstOrFail();
+        $traitId = $trait->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/traits/{$traitId}", [
+            'name' => 'Timeliness', 'type' => 'score', 'max_score' => 10,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $updated = BehaviouralTrait::findOrFail($traitId);
+        $this->assertSame('Timeliness', $updated->name);
+        $this->assertSame('score', $updated->type);
+        $this->assertSame(10, $updated->max_score);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/traits")->assertSee('Timeliness');
+    }
+
     public function test_a_teacher_without_review_permission_cannot_manage_traits(): void
     {
         [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'trait-noaccess');

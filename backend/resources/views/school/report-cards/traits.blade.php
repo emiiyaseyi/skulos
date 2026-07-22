@@ -60,6 +60,28 @@
             <td><span class="badge {{ $trait->is_active ? 'badge-ok' : 'badge-warn' }}">{{ $trait->is_active ? 'Active' : 'Retired' }}</span></td>
             @if($canManage)
               <td style="white-space:nowrap">
+                <details style="display:inline-block">
+                  <summary class="btn btn-ghost btn-sm" style="display:inline-block;cursor:pointer">Edit</summary>
+                  <form method="POST" action="{{ route('school.report-cards.traits.update', ['school' => $school->slug, 'traitId' => $trait->id]) }}" style="margin-top:.6rem;min-width:16rem;text-align:left">
+                    @csrf
+                    <div class="field">
+                      <label for="name_{{ $trait->id }}">Name</label>
+                      <input id="name_{{ $trait->id }}" name="name" required maxlength="120" value="{{ $trait->name }}" />
+                    </div>
+                    <div class="field">
+                      <label for="type_{{ $trait->id }}">Type</label>
+                      <select id="type_{{ $trait->id }}" name="type" required onchange="document.getElementById('maxScoreField_{{ $trait->id }}').style.display = this.value === 'score' ? '' : 'none'">
+                        <option value="remark" @selected($trait->type === 'remark')>Remark ({{ implode(', ', $remarkScale) }})</option>
+                        <option value="score" @selected($trait->type === 'score')>Score</option>
+                      </select>
+                    </div>
+                    <div class="field" id="maxScoreField_{{ $trait->id }}" style="{{ $trait->type === 'score' ? '' : 'display:none' }}">
+                      <label for="max_score_{{ $trait->id }}">Maximum score</label>
+                      <input id="max_score_{{ $trait->id }}" name="max_score" type="number" min="1" max="1000" value="{{ $trait->max_score ?: 5 }}" />
+                    </div>
+                    <button class="btn btn-primary btn-sm" type="submit">Save</button>
+                  </form>
+                </details>
                 <form method="POST" action="{{ route('school.report-cards.traits.toggle-active', ['school' => $school->slug, 'traitId' => $trait->id]) }}" style="display:inline">
                   @csrf
                   <button class="btn btn-ghost btn-sm" type="submit">{{ $trait->is_active ? 'Retire' : 'Reactivate' }}</button>
