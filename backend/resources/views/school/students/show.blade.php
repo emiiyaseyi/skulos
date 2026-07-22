@@ -8,6 +8,9 @@
     <p class="subtitle">{{ $student->admission_number }} &middot; {{ $student->currentClassArm?->label() ?? 'No class set' }} &middot; <span class="badge {{ $student->status === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucfirst($student->status) }}</span></p>
   </div>
   <div class="stack" style="flex-direction:row;gap:.6rem">
+    @if($canViewReportCard && $term)
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.show', ['school' => $school->slug, 'studentId' => $student->id, 'termId' => $term->id]) }}">Report card</a>
+    @endif
     @if($canManage)
       <a class="btn btn-primary btn-sm" href="{{ route('school.students.edit', ['school' => $school->slug, 'studentId' => $student->id]) }}">Edit</a>
     @endif

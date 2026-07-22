@@ -454,6 +454,7 @@ class StudentController extends Controller
             'term' => $term,
             'report' => $report,
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'students.update'),
+            'canViewReportCard' => app(Rbac::class)->check(Auth::user(), $school, 'report_cards.view'),
             'canSeeGuardianDetails' => $canSeeGuardianDetails,
             'parentIdentifier' => Setting::grab('parent_identifier', 'email'),
             'canMessageGuardians' => $canMessageGuardians,

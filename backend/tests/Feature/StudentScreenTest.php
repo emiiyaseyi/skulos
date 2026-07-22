@@ -293,6 +293,35 @@ class StudentScreenTest extends TestCase
         $this->assertSame('Obinna', $updated->last_name);
     }
 
+    /**
+     * User report 2026-07-21 audit finding: the consolidated per-student
+     * report (grades, attendance, comments) already existed via
+     * ReportCardController::show(), but nothing on the student profile
+     * page linked to it.
+     */
+    public function test_the_profile_page_links_to_the_report_card_when_a_current_term_exists(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'profilereport');
+
+        app(TenantManager::class)->use($school);
+        $student = Student::create(['admission_number' => 'ADM/904', 'first_name' => 'Ada', 'last_name' => 'Obi']);
+        $studentId = $student->id;
+        app(TenantManager::class)->forget();
+
+        $noTerm = $this->actingAs($admin)->get("http://{$school->slug}.localhost/students/{$studentId}");
+        $noTerm->assertOk()->assertDontSee('Report card');
+
+        app(TenantManager::class)->use($school);
+        $session = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026']);
+        $term = \App\Models\Tenant\Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1]);
+        $term->makeCurrent();
+        app(TenantManager::class)->forget();
+
+        $withTerm = $this->actingAs($admin)->get("http://{$school->slug}.localhost/students/{$studentId}");
+        $withTerm->assertOk()->assertSee('Report card')
+            ->assertSee(route('school.report-cards.show', ['school' => $school->slug, 'studentId' => $studentId, 'termId' => $term->id]), false);
+    }
+
     public function test_a_guardian_can_be_added_from_the_profile_page(): void
     {
         [$school, $admin] = $this->schoolWithMember('school-owner', 'profiletwo');
