@@ -72,7 +72,12 @@
     .rc-summary{margin:.6rem 0}
     .rc-block{margin-bottom:.6rem}
     .rc-signoff{margin-top:.8rem;padding-top:.6rem}
-    .rc-table,.rc-summary,.rc-block,.rc-signoff,.rc-tally,.rc-strip{break-inside:avoid}
+    /* .rc-table deliberately excluded, see render.blade.php's identical
+       fix (2026-07-23): break-inside:avoid on the whole table pushes it
+       entirely onto the next page rather than starting right after the
+       header, leaving a long blank page 1 for any class with many
+       subjects. Only rows need to stay intact. */
+    .rc-summary,.rc-block,.rc-signoff,.rc-tally,.rc-strip{break-inside:avoid}
     .rc-table tr{break-inside:avoid}
     .rc-remarks div{break-inside:avoid}
   }

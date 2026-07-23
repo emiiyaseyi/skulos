@@ -79,9 +79,9 @@ class ReportCardLayout
     public function bodyOrder(): array
     {
         $saved = Setting::grab(self::KEY_BODY_ORDER);
-        $valid = array_keys(config('skulos.report_card_body_sections', []));
+        $default = config('skulos.report_card_default_body_sections', array_keys(config('skulos.report_card_body_sections', [])));
 
-        return is_array($saved) ? array_values(array_filter($saved, fn ($k) => $this->isValidBodyKey($k))) : $valid;
+        return is_array($saved) ? array_values(array_filter($saved, fn ($k) => $this->isValidBodyKey($k))) : $default;
     }
 
     /**
@@ -113,7 +113,7 @@ class ReportCardLayout
     public function effectiveBodyOrder(bool $enabled): array
     {
         if (! $enabled) {
-            return array_keys(config('skulos.report_card_body_sections', []));
+            return config('skulos.report_card_default_body_sections', array_keys(config('skulos.report_card_body_sections', [])));
         }
 
         return $this->bodyOrder();

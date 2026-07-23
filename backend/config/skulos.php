@@ -1561,8 +1561,26 @@ return [
         // Charts (user request 2026-07-19: "add option to add text,
         // charts etc to the report card"). Print safe inline SVG, no JS,
         // so they render identically on screen and in a printed/PDF copy.
+        // Not in 'report_card_default_body_sections' below (2026-07-23,
+        // real user report: a 24 subject SSS report's Subject Breakdown
+        // chart rendered as an unreadable wall of overlapping bars/labels)
+        // — neither chart is a mandatory report card element, so both
+        // stay opt-in, available to drag in from the layout designer's
+        // "Available sections" tray, not shown until a school actually
+        // adds one.
         'score_trend' => 'Score Trend Chart',
         'subject_chart' => 'Subject Breakdown Chart',
+    ],
+
+    /*
+    | The body sections a report card shows before any school has ever
+    | touched the Layout Designer, and what a school's own custom layout
+    | starts pre-filled with the first time they turn it on. Deliberately
+    | a curated subset of report_card_body_sections above, not every key
+    | in that catalog — see the score_trend/subject_chart comment there.
+    */
+    'report_card_default_body_sections' => [
+        'subjects_table', 'subject_comments', 'summary', 'traits_physical', 'grade_key', 'remarks', 'signoff',
     ],
 
     /*

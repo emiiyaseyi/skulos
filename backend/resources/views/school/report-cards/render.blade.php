@@ -86,7 +86,17 @@
     .rc-summary{margin:.6rem 0}
     .rc-block{margin-bottom:.6rem}
     .rc-signoff{margin-top:.8rem;padding-top:.6rem}
-    .rc-table,.rc-summary,.rc-block,.rc-signoff,.rc-tally,.rc-strip{break-inside:avoid}
+    /* .rc-table itself is deliberately NOT in this list (fixed
+       2026-07-23, real user report: a page 1 left almost entirely blank
+       below the header on a 24 subject SSS report). break-inside:avoid
+       on the table as a whole tells the browser "never start this
+       element unless it fits entirely in what's left of the page", so a
+       table taller than a full remaining page gets pushed whole onto the
+       next page instead of starting right after the header and
+       continuing across the page break, exactly like every other
+       report card template already does. Only individual rows need to
+       stay intact, already covered by .rc-table tr below. */
+    .rc-summary,.rc-block,.rc-signoff,.rc-tally,.rc-strip{break-inside:avoid}
     .rc-table tr{break-inside:avoid}
     .rc-remarks div{break-inside:avoid}
   }
