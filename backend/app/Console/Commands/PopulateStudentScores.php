@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Models\School;
 use App\Models\Tenant\AcademicSession;
 use App\Models\Tenant\AssessmentComponent;
+use App\Models\Tenant\BehaviouralTrait;
 use App\Models\Tenant\ClassArm;
+use App\Models\Tenant\GradingScale;
 use App\Models\Tenant\Score;
 use App\Models\Tenant\Student;
+use App\Models\Tenant\StudentBehaviouralRating;
 use App\Models\Tenant\StudentTermRemark;
 use App\Models\Tenant\SubjectRemark;
 use App\Models\Tenant\Term;
@@ -29,29 +32,44 @@ use Illuminate\Support\Facades\DB;
  * instruction: "leave some for us to review the workflow, approval
  * etc"), this command only ever writes `AcademicSession`/`Term` (to
  * reach two sessions, if a school only has one), `Score`,
- * `SubjectRemark`, and `StudentTermRemark.class_teacher_remark` rows,
- * nothing that advances a report card through review.
+ * `SubjectRemark`, `StudentTermRemark` (both `class_teacher_remark` and
+ * `principal_remark`), and `StudentBehaviouralRating` rows, nothing
+ * that advances a report card through review.
  *
  * Safe to re-run: a subject that already has any Score row for a
  * student in a given term is left completely alone (skipped whole, not
  * topped up component by component), so this never overwrites a real
  * teacher's already-entered marks, only fills in what is genuinely
- * blank. Same "only if blank" rule for SubjectRemark and
- * StudentTermRemark.class_teacher_remark. A school already at two (or
- * more) sessions is left as-is, only a school with exactly one gets a
- * second added.
+ * blank. Same "only if blank" rule for SubjectRemark,
+ * StudentTermRemark's two remark columns (independently, one already
+ * set does not block the other from being filled), and
+ * StudentBehaviouralRating. A school already at two (or more) sessions
+ * is left as-is, only a school with exactly one gets a second added.
  *
- * A student's subjects are always read from their *current* class arm,
- * for every term including past ones: nothing in the product tracks a
- * student's historical class placement per session (`Enrollment` exists
- * as a model but nothing anywhere creates or reads it yet), so this is
- * the same simplification the rest of the app already makes.
+ * A student's subjects are always read from ClassArm::offeredSubjects()
+ * (2026-07-23: a class arm with its own per-stream subject overrides,
+ * SSS's Science & Technology/Arts & Humanities/Commercial streams most
+ * commonly, must only ever be scored on its own real subject list, not
+ * every subject the whole class collectively teaches across every
+ * stream), read from their *current* class arm, for every term
+ * including past ones: nothing in the product tracks a student's
+ * historical class placement per session (`Enrollment` exists as a
+ * model but nothing anywhere creates or reads it yet), so this is the
+ * same simplification the rest of the app already makes.
+ *
+ * Behavioural trait ratings are only ever populated for a trait whose
+ * type is "remark" (a free text value like "Excellent"): reused from
+ * the same grading scale band the student's own subject average falls
+ * into, real school-configured vocabulary, not invented text. A
+ * "score" type trait (a number out of the school's own configured max)
+ * is left for a real class teacher to enter, no sensible default number
+ * to synthesize for it the way a grade band remark already exists for.
  */
 class PopulateStudentScores extends Command
 {
     protected $signature = 'schools:populate-scores {school? : A specific school slug, otherwise every provisioned school}';
 
-    protected $description = 'Populate every student with realistic live scores and comments across every term of every session, leaving the report card review workflow untouched';
+    protected $description = 'Populate every student with realistic live scores, subject/term remarks, and behavioural trait ratings across every term of every session, leaving the report card review workflow untouched';
 
     public function handle(TenantManager $tenants, CommentBank $commentBank): int
     {
@@ -96,14 +114,17 @@ class PopulateStudentScores extends Command
             $scoresWritten = 0;
             $remarksWritten = 0;
             $termRemarksWritten = 0;
+            $traitRatingsWritten = 0;
+            $gradingScale = GradingScale::default();
+            $traits = BehaviouralTrait::active()->where('type', BehaviouralTrait::TYPE_REMARK)->get();
 
             foreach ($terms as $term) {
-                DB::connection('tenant')->transaction(function () use ($term, $components, $commentBank, &$scoresWritten, &$remarksWritten, &$termRemarksWritten) {
-                    $this->populateTerm($term, $components, $commentBank, $scoresWritten, $remarksWritten, $termRemarksWritten);
+                DB::connection('tenant')->transaction(function () use ($term, $components, $commentBank, $gradingScale, $traits, &$scoresWritten, &$remarksWritten, &$termRemarksWritten, &$traitRatingsWritten) {
+                    $this->populateTerm($term, $components, $commentBank, $gradingScale, $traits, $scoresWritten, $remarksWritten, $termRemarksWritten, $traitRatingsWritten);
                 });
             }
 
-            $this->line("  {$scoresWritten} score(s), {$remarksWritten} subject remark(s), {$termRemarksWritten} term remark(s) written.");
+            $this->line("  {$scoresWritten} score(s), {$remarksWritten} subject remark(s), {$termRemarksWritten} term remark(s), {$traitRatingsWritten} behavioural rating(s) written.");
             $tenants->forget();
         }
 
@@ -145,10 +166,10 @@ class PopulateStudentScores extends Command
         $this->line("  Added a second session, {$name}, for {$school->slug}.");
     }
 
-    protected function populateTerm(Term $term, $components, CommentBank $commentBank, int &$scoresWritten, int &$remarksWritten, int &$termRemarksWritten): void
+    protected function populateTerm(Term $term, $components, CommentBank $commentBank, ?GradingScale $gradingScale, $traits, int &$scoresWritten, int &$remarksWritten, int &$termRemarksWritten, int &$traitRatingsWritten): void
     {
-        foreach (ClassArm::with('schoolClass.subjects')->get() as $arm) {
-            $subjects = $arm->schoolClass?->subjects ?? collect();
+        foreach (ClassArm::with('schoolClass.subjects', 'subjects')->get() as $arm) {
+            $subjects = $arm->offeredSubjects();
             if ($subjects->isEmpty()) {
                 continue;
             }
@@ -170,32 +191,45 @@ class PopulateStudentScores extends Command
                 $subjectTotals = [];
 
                 foreach ($subjects as $subject) {
-                    $alreadyScored = Score::where('student_id', $student->id)
+                    $existingScores = Score::where('student_id', $student->id)
                         ->where('subject_id', $subject->id)
                         ->where('term_id', $term->id)
-                        ->exists();
-                    if ($alreadyScored) {
-                        continue;
-                    }
+                        ->get();
 
-                    $subjectAbility = max(15, min(98, $ability + mt_rand(-8, 8)));
-                    $total = 0.0;
+                    if ($existingScores->isNotEmpty()) {
+                        // A subject already scored (a real teacher's entry,
+                        // or a prior run of this command) is never topped
+                        // up, but its real total still counts toward this
+                        // student's term average below — previously it was
+                        // skipped entirely here, silently leaving
+                        // $subjectTotals empty (and this student's term
+                        // remark/behavioural ratings unfilled) for any
+                        // student whose scores were already complete,
+                        // found live on greenfield, 2026-07-23: every one
+                        // of its 320 students already had full scores, so
+                        // this command had been silently doing nothing for
+                        // them since the very first run.
+                        $total = (float) $existingScores->sum('score');
+                    } else {
+                        $subjectAbility = max(15, min(98, $ability + mt_rand(-8, 8)));
+                        $total = 0.0;
 
-                    foreach ($components as $component) {
-                        $max = (float) $component->max_score;
-                        $raw = $max * ($subjectAbility / 100) + mt_rand(-2, 2);
-                        $score = max(0, min($max, round($raw)));
+                        foreach ($components as $component) {
+                            $max = (float) $component->max_score;
+                            $raw = $max * ($subjectAbility / 100) + mt_rand(-2, 2);
+                            $score = max(0, min($max, round($raw)));
 
-                        Score::create([
-                            'student_id' => $student->id,
-                            'subject_id' => $subject->id,
-                            'class_arm_id' => $arm->id,
-                            'term_id' => $term->id,
-                            'assessment_component_id' => $component->id,
-                            'score' => $score,
-                        ]);
-                        $scoresWritten++;
-                        $total += $score;
+                            Score::create([
+                                'student_id' => $student->id,
+                                'subject_id' => $subject->id,
+                                'class_arm_id' => $arm->id,
+                                'term_id' => $term->id,
+                                'assessment_component_id' => $component->id,
+                                'score' => $score,
+                            ]);
+                            $scoresWritten++;
+                            $total += $score;
+                        }
                     }
 
                     $subjectTotals[] = $total;
@@ -221,24 +255,62 @@ class PopulateStudentScores extends Command
                     continue;
                 }
 
+                $average = array_sum($subjectTotals) / count($subjectTotals);
                 $existingTermRemark = StudentTermRemark::where('student_id', $student->id)
                     ->where('term_id', $term->id)
                     ->first();
-                if ($existingTermRemark && $existingTermRemark->class_teacher_remark) {
-                    continue;
+
+                // class_teacher_remark and principal_remark are filled
+                // independently: a student already having one must never
+                // block the other from being filled (found live on
+                // greenfield, 2026-07-23: 301/320 students already had a
+                // class teacher remark from an earlier run of this
+                // command, but principal_remark had never been touched at
+                // all, 0/320, since the original single combined "already
+                // has a remark, skip everything" check treated them as one).
+                $termRemarkUpdates = [];
+                if (! $existingTermRemark?->class_teacher_remark) {
+                    $suggestion = $commentBank->suggestionFor($average);
+                    if ($suggestion) {
+                        $termRemarkUpdates['class_teacher_remark'] = $suggestion;
+                    }
+                }
+                if (! $existingTermRemark?->principal_remark) {
+                    $suggestion = $commentBank->suggestionFor($average);
+                    if ($suggestion) {
+                        $termRemarkUpdates['principal_remark'] = $suggestion;
+                    }
+                }
+                if ($termRemarkUpdates) {
+                    StudentTermRemark::updateOrCreate(
+                        ['student_id' => $student->id, 'term_id' => $term->id],
+                        $termRemarkUpdates
+                    );
+                    $termRemarksWritten++;
                 }
 
-                $average = array_sum($subjectTotals) / count($subjectTotals);
-                $overallSuggestion = $commentBank->suggestionFor($average);
-                if (! $overallSuggestion) {
-                    continue;
-                }
+                if ($gradingScale && $traits->isNotEmpty()) {
+                    $band = $gradingScale->bandFor($average);
+                    if ($band) {
+                        foreach ($traits as $trait) {
+                            $existingRating = StudentBehaviouralRating::where('student_id', $student->id)
+                                ->where('term_id', $term->id)
+                                ->where('behavioural_trait_id', $trait->id)
+                                ->exists();
+                            if ($existingRating) {
+                                continue;
+                            }
 
-                StudentTermRemark::updateOrCreate(
-                    ['student_id' => $student->id, 'term_id' => $term->id],
-                    ['class_teacher_remark' => $overallSuggestion]
-                );
-                $termRemarksWritten++;
+                            StudentBehaviouralRating::create([
+                                'student_id' => $student->id,
+                                'term_id' => $term->id,
+                                'behavioural_trait_id' => $trait->id,
+                                'value' => $band->grade,
+                            ]);
+                            $traitRatingsWritten++;
+                        }
+                    }
+                }
             }
         }
     }

@@ -6,12 +6,14 @@ use App\Models\School;
 use App\Models\Tenant\AcademicSession;
 use App\Models\Tenant\Arm;
 use App\Models\Tenant\AssessmentComponent;
+use App\Models\Tenant\BehaviouralTrait;
 use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\ReportCardReview;
 use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Score;
 use App\Models\Tenant\Section;
 use App\Models\Tenant\Student;
+use App\Models\Tenant\StudentBehaviouralRating;
 use App\Models\Tenant\StudentTermRemark;
 use App\Models\Tenant\Subject;
 use App\Models\Tenant\SubjectRemark;
@@ -194,6 +196,95 @@ class PopulateStudentScoresTest extends TestCase
         $this->assertSame('2024/2025 Session', $sessions->last()->name, 'the added session should be the year immediately before the existing one');
         $this->assertGreaterThanOrEqual(4, $allTerms->count(), 'the original term plus the new session\'s three terms');
         $this->assertCount($allTerms->count(), $scoresPerTerm, 'every term, including the newly added session\'s, should have scores for this subject');
+    }
+
+    /**
+     * Live greenfield finding, 2026-07-23: 301/320 students already had a
+     * class_teacher_remark from an earlier run, but principal_remark had
+     * never been touched at all, since the original combined check ("a
+     * term remark row with a class teacher remark already exists, skip")
+     * treated the two columns as one, blocking principal_remark from ever
+     * being filled for a student who already had the other.
+     */
+    public function test_principal_remark_is_filled_independently_of_an_already_set_class_teacher_remark(): void
+    {
+        [$school, , , $term, $student] = $this->seedSchool('popscoreeight');
+
+        app(TenantManager::class)->use($school);
+        StudentTermRemark::create(['student_id' => $student->id, 'term_id' => $term->id, 'class_teacher_remark' => 'Already entered by a real teacher.']);
+        app(TenantManager::class)->forget();
+
+        $this->artisan('schools:populate-scores', ['school' => 'popscoreeight'])->assertSuccessful();
+
+        app(TenantManager::class)->use($school);
+        $remark = StudentTermRemark::where('student_id', $student->id)->where('term_id', $term->id)->first();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame('Already entered by a real teacher.', $remark->class_teacher_remark, 'a real, already entered remark must never be overwritten');
+        $this->assertNotEmpty($remark->principal_remark, 'principal_remark must still be filled even though class_teacher_remark already existed');
+    }
+
+    /** User request 2026-07-23: "Let's populate remarks for all students", covering behavioural trait ratings too, not just the two term-level remark fields. */
+    public function test_behavioural_trait_ratings_are_populated_from_the_students_own_grade_band(): void
+    {
+        [$school, , , $term, $student] = $this->seedSchool('popscorenine');
+
+        app(TenantManager::class)->use($school);
+        $scale = \App\Models\Tenant\GradingScale::create(['name' => 'Scale', 'is_default' => true, 'sequence' => 1]);
+        \App\Models\Tenant\GradingBand::create(['grading_scale_id' => $scale->id, 'min_score' => 75, 'max_score' => 100, 'grade' => 'Excellent']);
+        \App\Models\Tenant\GradingBand::create(['grading_scale_id' => $scale->id, 'min_score' => 0, 'max_score' => 74, 'grade' => 'Fair']);
+        $remarkTrait = BehaviouralTrait::create(['name' => 'Punctuality', 'type' => BehaviouralTrait::TYPE_REMARK, 'sequence' => 1, 'is_active' => true]);
+        $scoreTrait = BehaviouralTrait::create(['name' => 'Sports', 'type' => BehaviouralTrait::TYPE_SCORE, 'max_score' => 5, 'sequence' => 2, 'is_active' => true]);
+        $inactiveTrait = BehaviouralTrait::create(['name' => 'Retired Trait', 'type' => BehaviouralTrait::TYPE_REMARK, 'sequence' => 3, 'is_active' => false]);
+        app(TenantManager::class)->forget();
+
+        $this->artisan('schools:populate-scores', ['school' => 'popscorenine'])->assertSuccessful();
+
+        app(TenantManager::class)->use($school);
+        $remarkRating = StudentBehaviouralRating::where('student_id', $student->id)->where('term_id', $term->id)->where('behavioural_trait_id', $remarkTrait->id)->first();
+        $scoreRatingExists = StudentBehaviouralRating::where('student_id', $student->id)->where('term_id', $term->id)->where('behavioural_trait_id', $scoreTrait->id)->exists();
+        $inactiveRatingExists = StudentBehaviouralRating::where('student_id', $student->id)->where('term_id', $term->id)->where('behavioural_trait_id', $inactiveTrait->id)->exists();
+        app(TenantManager::class)->forget();
+
+        $this->assertNotNull($remarkRating, 'a remark type trait should be auto rated');
+        $this->assertContains($remarkRating->value, ['Excellent', 'Fair'], 'the rating should be a real grade band label, not invented text');
+        $this->assertFalse($scoreRatingExists, 'a score type trait has no sensible default number and must be left for a real class teacher to enter');
+        $this->assertFalse($inactiveRatingExists, 'a retired trait must never receive a rating');
+    }
+
+    /**
+     * The exact bug found live on greenfield, 2026-07-23: all 320 real
+     * students already had every subject scored (from an earlier run of
+     * this same command), so $subjectTotals was built only from subjects
+     * scored IN THIS RUN, staying empty for a student with nothing left
+     * to score, which then skipped term remark/behavioural rating
+     * population entirely for every one of them, a silent no-op the
+     * command's own "0 written" summary line did not make obvious.
+     */
+    public function test_term_remarks_and_trait_ratings_still_populate_for_a_student_whose_subjects_are_all_already_scored(): void
+    {
+        [$school, $classArm, $subject, $term, $student] = $this->seedSchool('popscoreten');
+
+        app(TenantManager::class)->use($school);
+        foreach (AssessmentComponent::all() as $component) {
+            Score::create([
+                'student_id' => $student->id, 'subject_id' => $subject->id, 'class_arm_id' => $classArm->id,
+                'term_id' => $term->id, 'assessment_component_id' => $component->id, 'score' => 15,
+            ]);
+        }
+        app(TenantManager::class)->forget();
+
+        $this->artisan('schools:populate-scores', ['school' => 'popscoreten'])->assertSuccessful();
+
+        app(TenantManager::class)->use($school);
+        $termRemark = StudentTermRemark::where('student_id', $student->id)->where('term_id', $term->id)->first();
+        $scoreCount = Score::where('student_id', $student->id)->where('subject_id', $subject->id)->where('term_id', $term->id)->count();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(3, $scoreCount, 'no extra scores should be written for an already fully scored subject');
+        $this->assertNotNull($termRemark, 'a term remark must still be generated from the already existing score total');
+        $this->assertNotEmpty($termRemark->class_teacher_remark);
+        $this->assertNotEmpty($termRemark->principal_remark);
     }
 
     public function test_it_skips_a_school_with_no_assessment_components(): void
