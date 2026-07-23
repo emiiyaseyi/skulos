@@ -521,6 +521,20 @@
     $academicSubgroups['Examinations']['narrative_evaluation'] = $link('school.examinations.narrative-evaluation', 'Narrative Evaluation', 'chat');
   }
 
+  // Bulk Generate Report Cards (user request 2026-07-23: "add a bulk way
+  // for the admin to trigger bulk generate report card for all classes...
+  // should be a submenu under examination only for the school admin who
+  // can decide to give it to other users"). Its own
+  // report_cards.bulk_generate_all permission, not the plain
+  // report_cards.create every class/subject teacher already holds for
+  // their own single class, so this stays admin-tier only until a school
+  // deliberately grants it further via Roles & Permissions.
+  if (! $isRestrictedNav && $navRbac->check($navUser, $school, 'report_cards.bulk_generate_all')
+      && ! isset($renderedRoutes['school.report-cards.bulk-generate'])) {
+    $renderedRoutes['school.report-cards.bulk-generate'] = true;
+    $academicSubgroups['Examinations']['bulk_generate'] = $link('school.report-cards.bulk-generate', 'Bulk Generate Report Cards', 'results');
+  }
+
   // "Report settings" (template and field choices for the report card
   // look) is not gated by any plan feature (user decision 2026-07-11:
   // every plan should be able to reach it), so unlike everything else in
@@ -727,7 +741,7 @@
   // scoped to Settings specifically), pushed into the otherwise-flat
   // Academic group rather than making the whole group nested.
   $examEntries = [];
-  foreach (['enter_scores', 'term_broadsheets', 'grading', 'narrative_evaluation'] as $examKey) {
+  foreach (['enter_scores', 'term_broadsheets', 'grading', 'narrative_evaluation', 'bulk_generate'] as $examKey) {
     if (isset($academicSubgroups['Examinations'][$examKey])) {
       $examEntries[] = $academicSubgroups['Examinations'][$examKey];
     }

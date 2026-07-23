@@ -1856,7 +1856,18 @@ return [
         // 2026-07-11: "the admin, head teacher, principal or school
         // owner"), not something a plain class or subject teacher does,
         // matching the same tier as examinations.approve_results.
-        'report_cards' => ['assign_review', 'release'],
+        // bulk_generate_all (2026-07-23, user request: "add a bulk way for
+        // the admin to trigger bulk generate report card for all classes
+        // so that it can go to the reviewers for review... should be a
+        // submenu under examination only for the school admin who can
+        // decide to give it to other users"): deliberately its own
+        // permission, not reusing report_cards.create (which a class
+        // teacher already holds for their own single class) — generating
+        // for the WHOLE SCHOOL at once is a bigger, institution wide
+        // action a school admin should explicitly opt other roles into via
+        // Roles & Permissions, not something that comes bundled with
+        // everyday per-class report card creation.
+        'report_cards' => ['assign_review', 'release', 'bulk_generate_all'],
     ],
 
     /*

@@ -701,4 +701,69 @@ class ReportCardWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('No session or term set up yet');
     }
+
+    /**
+     * User request 2026-07-23: "add a bulk way for the admin to trigger
+     * bulk generate report card for all classes so that it can go to the
+     * reviewers for review."
+     */
+    public function test_owner_can_bulk_generate_report_cards_across_every_class_at_once(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rcbulkone');
+        [$classId, $studentId] = $this->seedClassWithStudent($school);
+
+        app(TenantManager::class)->use($school);
+        // A second class, so this is a genuine multi class test, not
+        // indistinguishable from the existing single class generate.
+        $section = Section::create(['name' => 'Secondary', 'sequence' => 2]);
+        $secondClass = SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS 1', 'sequence' => 1]);
+        $secondArm = ClassArm::create(['school_class_id' => $secondClass->id]);
+        $secondStudent = Student::create(['admission_number' => 'B1', 'first_name' => 'Bode', 'last_name' => 'Ade', 'current_class_arm_id' => $secondArm->id]);
+        $term = Term::current()->first();
+        $termId = $term->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/bulk-generate")
+            ->assertOk()->assertSee('Primary 1')->assertSee('JSS 1');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/bulk-generate", ['term_id' => $termId])
+            ->assertRedirect()->assertSessionHas('status');
+
+        app(TenantManager::class)->use($school);
+        $reviewCount = ReportCardReview::where('term_id', $termId)->count();
+        $hasFirst = ReportCardReview::where('term_id', $termId)->where('student_id', $studentId)->exists();
+        $hasSecond = ReportCardReview::where('term_id', $termId)->where('student_id', $secondStudent->id)->exists();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(2, $reviewCount, 'both classes\' students should be covered in one action');
+        $this->assertTrue($hasFirst);
+        $this->assertTrue($hasSecond);
+    }
+
+    /** A class teacher's ordinary report_cards.create grant must never extend to bulk generating the whole school at once. */
+    public function test_a_class_teacher_cannot_bulk_generate_across_every_class(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('class-teacher', 'rcbulktwo');
+        $this->seedClassWithStudent($school);
+
+        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/report-cards/bulk-generate")->assertForbidden();
+        $this->actingAs($teacher)->post("http://{$school->slug}.localhost/report-cards/bulk-generate")->assertForbidden();
+    }
+
+    /** The whole point of it being its own permission: a school can grant it to a role that would not otherwise have it. */
+    public function test_bulk_generate_can_be_granted_to_another_role_via_role_management(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('class-teacher', 'rcbulkthree');
+        [$classId, $studentId] = $this->seedClassWithStudent($school);
+
+        app(TenantManager::class)->use($school);
+        $role = $this->rbac->cloneTemplateRole($school, 'class-teacher');
+        $permission = \App\Models\Permission::where('code', 'report_cards.bulk_generate_all')->firstOrFail();
+        $role->permissions()->syncWithoutDetaching([$permission->id]);
+        $termId = Term::current()->first()->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacher)->post("http://{$school->slug}.localhost/report-cards/bulk-generate", ['term_id' => $termId])
+            ->assertRedirect()->assertSessionHas('status');
+    }
 }

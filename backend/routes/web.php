@@ -642,6 +642,8 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/review-chain', [$reportCards, 'updateReviewChain'])->name('review-chain');
             Route::get('/preview/{template?}', [$reportCards, 'preview'])->name('preview');
             Route::get('/pending-review', [$reportCards, 'pendingReview'])->name('pending-review');
+            Route::get('/bulk-generate', [$reportCards, 'bulkGenerateAllForm'])->name('bulk-generate');
+            Route::post('/bulk-generate', [$reportCards, 'bulkGenerateAll'])->name('bulk-generate.submit');
             Route::get('/classes/{classId}', [$reportCards, 'classIndex'])->name('class-index');
             Route::get('/classes/{classId}/print', [$reportCards, 'classPrint'])->name('class.print');
             Route::post('/classes/{classId}/generate', [$reportCards, 'generateClass'])->name('class.generate');

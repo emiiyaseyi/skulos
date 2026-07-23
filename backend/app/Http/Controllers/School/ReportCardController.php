@@ -622,6 +622,80 @@ class ReportCardController extends Controller
         return back()->with('status', "{$created} report card(s) generated.");
     }
 
+    /**
+     * A whole-school "generate every class at once, straight to the
+     * reviewers" screen (user request 2026-07-23: "add a bulk way for the
+     * admin to trigger bulk generate report card for all classes so that
+     * it can go to the reviewers for review"), gated on its own
+     * report_cards.bulk_generate_all permission rather than the plain
+     * report_cards.create every class/subject teacher already holds for
+     * their own single class — generating for every class in the school
+     * at once is a bigger, institution wide action.
+     */
+    public function bulkGenerateAllForm(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'report_cards.bulk_generate_all');
+        $school = $this->school($request);
+
+        $terms = Term::with('session')->orderByDesc('starts_on')->get();
+        $termId = $request->integer('term_id') ?: null;
+        $term = ($termId ? $terms->firstWhere('id', $termId) : null) ?? $terms->firstWhere('is_current', true) ?? $terms->first();
+
+        $classes = SchoolClass::with(['section', 'arms'])->get()
+            ->sortBy(fn (SchoolClass $c) => sprintf('%05d-%05d', $c->section?->sequence ?? 0, $c->sequence ?? 0))
+            ->map(function (SchoolClass $class) use ($term) {
+                $armIds = $class->arms->pluck('id');
+                $studentIds = Student::whereIn('current_class_arm_id', $armIds)->pluck('id');
+                $alreadyGenerated = $term ? ReportCardReview::where('term_id', $term->id)->whereIn('student_id', $studentIds)->count() : 0;
+
+                return [
+                    'name' => $class->name,
+                    'section' => $class->section?->name,
+                    'student_count' => $studentIds->count(),
+                    'already_generated' => $alreadyGenerated,
+                ];
+            })
+            ->filter(fn ($row) => $row['student_count'] > 0)
+            ->values();
+
+        return view('school.report-cards.bulk-generate', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'terms' => $terms,
+            'term' => $term,
+            'classes' => $classes,
+        ]);
+    }
+
+    public function bulkGenerateAll(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.bulk_generate_all');
+        $term = $this->resolveTerm($request);
+
+        $created = 0;
+        $classesCovered = 0;
+        foreach (SchoolClass::with('arms')->get() as $class) {
+            $armIds = $class->arms->pluck('id');
+            $studentIds = Student::whereIn('current_class_arm_id', $armIds)->pluck('id');
+            if ($studentIds->isEmpty()) {
+                continue;
+            }
+            $classesCovered++;
+
+            foreach ($studentIds as $studentId) {
+                $review = ReportCardReview::firstOrNew(['student_id' => $studentId, 'term_id' => $term->id]);
+                if (! $review->exists) {
+                    $review->fill($this->newReviewAttributes($class->default_reviewer_staff_id));
+                    $review->save();
+                    $created++;
+                }
+            }
+        }
+
+        return redirect()->route('school.report-cards.pending-review', ['school' => $this->school($request)->slug])
+            ->with('status', "{$created} report card(s) generated across {$classesCovered} class(es), ready for review.");
+    }
+
     /** Which staff member auto reviews every report card generated for this class (user request 2026-07-11). */
     public function updateDefaultReviewer(Request $request): \Illuminate\Http\RedirectResponse
     {
