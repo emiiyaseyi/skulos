@@ -1261,11 +1261,21 @@ return [
             'sequence_base' => 300,
             'match' => ['sss1', 'sss2', 'sss3', 'sss 1', 'sss 2', 'sss 3', 'ss1', 'ss2', 'ss3', 'ss 1', 'ss 2', 'ss 3', 'senior secondary', 'grade 10', 'grade 11', 'grade 12'],
             'subjects' => [
+                // Corrected 2026-07-23, real user directive: "the only
+                // mandatory subjects are Maths, English and Civic... after
+                // the mandatory subjects, others are not mandatory" — was
+                // 5 mandatory subjects (this list plus Digital
+                // Technologies/Trade Subject), narrower than the source
+                // doc's own fuller WAEC compulsory-core listing, per this
+                // school's explicit correction. Digital Technologies and
+                // Trade Subject stay offered, at the whole class level
+                // (every stream sees them, not stream specific), just no
+                // longer required.
                 ['name' => 'English Language', 'mandatory' => true, 'examinable' => true],
                 ['name' => 'Mathematics', 'mandatory' => true, 'examinable' => true],
                 ['name' => 'Civic Education', 'mandatory' => true, 'examinable' => true],
-                ['name' => 'Digital Technologies', 'mandatory' => true, 'examinable' => true],
-                ['name' => 'Trade Subject', 'mandatory' => true, 'examinable' => true],
+                ['name' => 'Digital Technologies', 'mandatory' => false, 'examinable' => true],
+                ['name' => 'Trade Subject', 'mandatory' => false, 'examinable' => true],
                 ['name' => 'Biology', 'mandatory' => false, 'examinable' => true],
                 ['name' => 'Chemistry', 'mandatory' => false, 'examinable' => true],
                 ['name' => 'Physics', 'mandatory' => false, 'examinable' => true],
@@ -1287,6 +1297,25 @@ return [
                 ['name' => 'Marketing', 'mandatory' => false, 'examinable' => true],
             ],
         ],
+    ],
+
+    /*
+    | Which of the 'ss' catalog's own subjects belong to which Senior
+    | Secondary stream (user directive 2026-07-23: "update the classes
+    | streams in Greenfield for SSS to have the three streams... after
+    | the mandatory subjects, others are not mandatory", cross checked
+    | against "List of subjects and Grading system.docx"'s WAEC
+    | departmental breakdown). Seed data only, consumed once by
+    | `php artisan sss:setup-streams {school}` to create real
+    | class_arm_subjects rows an admin can then edit freely from the
+    | Classes & Subjects screen's own per stream tabs — never read live
+    | at request time, the same "config feeds a one time seed action"
+    | shape as default_subjects/default_grading_scales.
+    */
+    'sss_stream_subjects' => [
+        'Science & Technology' => ['Biology', 'Chemistry', 'Physics', 'Agricultural Science', 'Further Mathematics', 'Geography'],
+        'Arts & Humanities' => ['Government', 'Literature in English', 'History', 'Christian Religious Studies', 'Islamic Studies', 'Visual Arts', 'Music', 'French', 'Arabic'],
+        'Commercial' => ['Economics', 'Commerce', 'Financial Accounting', 'Marketing'],
     ],
 
     /*
