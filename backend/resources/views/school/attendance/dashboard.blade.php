@@ -31,7 +31,7 @@
   </form>
 </div>
 
-<div class="grid" style="grid-template-columns:repeat(4, 1fr);gap:1rem;margin-bottom:1.25rem">
+<div class="grid cols-4" style="gap:1rem;margin-bottom:1.25rem">
   <div class="card stat" style="padding:1rem"><b>{{ $todayRate !== null ? "{$todayRate}%" : 'N/A' }}</b><span>{!! $isToday ? "Today's rate" : 'Rate on '.e(\Illuminate\Support\Carbon::parse($selectedDate)->format('j M')) !!}</span></div>
   @foreach($statuses as $status)
     <div class="card stat" style="padding:1rem"><b>{{ $todayCounts[$status] ?? 0 }}</b><span>{{ ucfirst($status) }} {{ $isToday ? 'today' : 'that day' }}</span></div>

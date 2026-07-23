@@ -160,7 +160,11 @@ class StudentReportsTest extends TestCase
             ->assertSee('Students assessed')
             ->assertSee('Class average')
             ->assertSee('Top of the class')
-            ->assertSee('Top Student');
+            ->assertSee('Top Student')
+            // Mobile friendly stat cards: a longer value like a student's
+            // name used to wrap badly in a cramped 2 column layout, .cols-4
+            // now collapses these to one column each at true phone width.
+            ->assertSee('class="grid cols-4"', false);
     }
 
     public function test_the_broadsheet_can_be_sorted_by_name(): void

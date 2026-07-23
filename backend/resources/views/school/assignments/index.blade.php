@@ -13,7 +13,7 @@
 </div>
 
 @if($unrestricted && $summary)
-  <div class="grid" style="grid-template-columns:repeat(3, 1fr);gap:1rem;margin-bottom:1.25rem">
+  <div class="grid cols-3" style="gap:1rem;margin-bottom:1.25rem">
     <div class="card stat" style="padding:1rem"><b>{{ (int) $summary->total }}</b><span>Active assignments</span></div>
     <div class="card stat" style="padding:1rem"><b>{{ (int) $summary->upcoming }}</b><span>Upcoming</span></div>
     <div class="card stat" style="padding:1rem"><b>{{ (int) $summary->overdue }}</b><span>Overdue</span></div>

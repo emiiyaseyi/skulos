@@ -47,7 +47,7 @@
 @elseif(! $selectedArm)
   <div class="card"><p class="muted">Choose a class above to see or take its register.</p></div>
 @else
-  <div class="grid" style="grid-template-columns:repeat(4, 1fr);gap:1rem;margin-bottom:1.25rem">
+  <div class="grid cols-4" style="gap:1rem;margin-bottom:1.25rem">
     @foreach($statuses as $status)
       <div class="card stat" style="padding:1rem"><b>{{ $summary[$status] ?? 0 }}</b><span>{{ ucfirst($status) }}</span></div>
     @endforeach

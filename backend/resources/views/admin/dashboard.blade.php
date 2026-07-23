@@ -6,6 +6,8 @@
 @push('head')
 <style>
   .pd-figs{display:grid;grid-template-columns:repeat(4,1fr);gap:1.1rem;margin-bottom:1.5rem}
+  @media(max-width:1000px){.pd-figs{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:640px){.pd-figs{grid-template-columns:1fr}}
   .pd-fig{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:1.2rem 1.3rem;box-shadow:var(--shadow)}
   .pd-fig b{font-size:1.7rem;font-weight:800;display:block}
   .pd-fig span{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim)}

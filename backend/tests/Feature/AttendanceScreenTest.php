@@ -87,7 +87,8 @@ class AttendanceScreenTest extends TestCase
         $this->actingAs($owner)->get("http://{$school->slug}.localhost/attendance?class_arm_id={$arm->id}&date=2026-01-15")
             ->assertOk()->assertSee('Ada Obi')
             ->assertSee('class="table-stack"', false)
-            ->assertSee('data-label="Status"', false);
+            ->assertSee('data-label="Status"', false)
+            ->assertSee('class="grid cols-4"', false);
 
         $this->actingAs($owner)->post("http://{$school->slug}.localhost/attendance/mark", [
             'class_arm_id' => $arm->id, 'date' => '2026-01-15',
@@ -432,7 +433,11 @@ class AttendanceScreenTest extends TestCase
             ->assertOk()
             ->assertSee("Today's rate", false)
             ->assertSee('Attendance rate trend')
-            ->assertSee('By class');
+            ->assertSee('By class')
+            // Mobile friendly stat cards (standing rule: "genuinely usable
+            // on a phone"): a bare inline grid-template-columns never
+            // picks up the shared responsive collapse, .cols-4 does.
+            ->assertSee('class="grid cols-4"', false);
     }
 
     /** User request 2026-07-22: "let's have alterative style ot charts to select for this current ones, apply to all areas that the chart is." */

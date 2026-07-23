@@ -49,7 +49,7 @@
 </div>
 
 @if($insights)
-  <div class="grid" style="grid-template-columns:repeat(4, 1fr);gap:1rem;margin-bottom:1.25rem">
+  <div class="grid cols-4" style="gap:1rem;margin-bottom:1.25rem">
     <div class="card stat" style="padding:1rem"><b>{{ $insights['students'] }}</b><span>Students assessed</span></div>
     <div class="card stat" style="padding:1rem"><b>{{ $insights['average'] }}%</b><span>Class average</span></div>
     <div class="card stat" style="padding:1rem"><b>{{ number_format($insights['highest']) }}</b><span>Highest total</span></div>

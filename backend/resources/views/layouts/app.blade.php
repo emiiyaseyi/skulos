@@ -398,6 +398,22 @@ tr:last-child td{border-bottom:none}
    where a table is genuinely wide, a plain 2-3 column table already
    reads fine as a normal scrollable table and does not need this. */
 @media(max-width:640px){
+  /* A 4 card stat row still crams down to an awkward 2x2 at the 1000px
+     rule above (2 narrow columns, a longer value like a student's name
+     wraps across several lines, screenshot-verified 2026-07-22 on the
+     Term Broadsheets insight cards). One column each below true phone
+     width, matching the same collapse .cols-3/.cols-2 already get. */
+  .cols-4{grid-template-columns:1fr}
+  /* The messaging FAB (messaging-widget.blade.php's .mw-fab) is a fixed
+     bottom-right circle, 2.8rem tall with a 1rem offset from the viewport
+     edge at this same breakpoint, a ~3.8rem footprint the page's own
+     3rem bottom padding does not fully clear, screenshot-verified
+     2026-07-22 sitting on top of the first card on a long scrolled page.
+     Extra clearance here, not a change to the FAB itself, since every
+     page's content area sharing this one padding rule is a more durable
+     fix than chasing down every screen whose last element could land in
+     that corner. */
+  .content{padding-bottom:5.5rem}
   .table-stack, .table-stack tbody, .table-stack tr, .table-stack td{display:block;width:100%}
   .table-stack thead{display:none}
   .table-stack tr{border:1px solid var(--line);border-radius:12px;padding:.8rem;margin-bottom:.8rem}
