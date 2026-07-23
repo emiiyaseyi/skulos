@@ -69,14 +69,14 @@
         <input type="hidden" name="class_arm_id" value="{{ $selectedArm->id }}" />
         <input type="hidden" name="date" value="{{ $date }}" />
         <div style="overflow-x:auto">
-        <table>
+        <table class="table-stack">
           <thead><tr><th>Admission No.</th><th>Name</th><th>Status</th></tr></thead>
           <tbody>
             @foreach($students as $student)
               <tr>
-                <td class="muted" style="font-variant-numeric:tabular-nums">{{ $student->admission_number }}</td>
-                <td><strong>{{ $student->fullName() }}</strong></td>
-                <td>
+                <td class="muted" style="font-variant-numeric:tabular-nums" data-label="Admission No.">{{ $student->admission_number }}</td>
+                <td data-label="Name"><strong>{{ $student->fullName() }}</strong></td>
+                <td data-label="Status">
                   @if($canMark)
                     <select name="marks[{{ $student->id }}]" class="attendance-status">
                       @foreach($statuses as $status)

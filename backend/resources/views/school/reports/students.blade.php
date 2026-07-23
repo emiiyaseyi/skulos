@@ -67,7 +67,7 @@
       <input type="search" id="studentFilter" placeholder="Filter by student name" aria-label="Filter by student name" />
     </div>
     <div style="overflow-x:auto">
-    <table id="broadsheetTable">
+    <table id="broadsheetTable" class="table-stack">
       <thead><tr>
         <th>Position</th><th>{!! $sortLink('name', 'Student') !!}</th>
         @foreach($subjects as $name)<th>{{ $name }}</th>@endforeach
@@ -76,13 +76,13 @@
       <tbody>
         @foreach($rows as $row)
           <tr data-name="{{ strtolower($row['name']) }}">
-            <td class="muted" style="font-variant-numeric:tabular-nums">{{ $row['position'] }}</td>
+            <td class="muted" style="font-variant-numeric:tabular-nums" data-label="Position">{{ $row['position'] }}</td>
             <td><strong>{{ $row['name'] }}</strong></td>
             @foreach($subjects as $subjectId => $name)
-              <td>{{ number_format($row['subjects'][$subjectId] ?? 0, 1) }}</td>
+              <td data-label="{{ $name }}">{{ number_format($row['subjects'][$subjectId] ?? 0, 1) }}</td>
             @endforeach
-            <td>{{ number_format($row['total'], 1) }}</td>
-            <td>{{ number_format($row['average'], 1) }}</td>
+            <td data-label="Total">{{ number_format($row['total'], 1) }}</td>
+            <td data-label="Average">{{ number_format($row['average'], 1) }}</td>
           </tr>
         @endforeach
       </tbody>

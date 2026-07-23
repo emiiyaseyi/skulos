@@ -251,8 +251,14 @@ class TeacherScopeTest extends TestCase
         $this->actingAs($teacherUser)->post("{$base}/students/{$studentBId}/guardians", ['name' => 'Injected Guardian', 'email' => 'injected@example.com'])->assertNotFound();
         $this->actingAs($teacherUser)->post("{$base}/students/guardians/{$guardianId}/edit", ['name' => 'Renamed', 'email' => 'mrsade@example.com'])->assertNotFound();
         $this->actingAs($teacherUser)->delete("{$base}/students/guardians/{$guardianId}")->assertNotFound();
-        $this->actingAs($teacherUser)->post("{$base}/students/guardians/{$guardianId}/login", ['email' => 'attacker@example.com'])->assertNotFound();
-        $this->actingAs($teacherUser)->post("{$base}/students/{$studentBId}/login", ['email' => 'attacker2@example.com'])->assertNotFound();
+        // Create login is gated on students.manage_settings, not
+        // students.update (2026-07-22 fix: a class/subject teacher
+        // should not see or use either Create login button at all). A
+        // class teacher holds neither, so this is blocked at the
+        // permission layer for every student, in or out of scope, hence
+        // 403 rather than the scope-based 404 the other actions above get.
+        $this->actingAs($teacherUser)->post("{$base}/students/guardians/{$guardianId}/login", ['email' => 'attacker@example.com'])->assertForbidden();
+        $this->actingAs($teacherUser)->post("{$base}/students/{$studentBId}/login", ['email' => 'attacker2@example.com'])->assertForbidden();
 
         // Confirm none of it actually took effect.
         app(TenantManager::class)->use($school);

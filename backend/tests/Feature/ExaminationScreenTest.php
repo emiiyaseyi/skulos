@@ -251,6 +251,16 @@ class ExaminationScreenTest extends TestCase
             ->assertSee('Ada Obi')
             ->assertSee('value="18.00"', false)
             ->assertDontSee('Choose a term, class, and subject above');
+
+        // Mobile friendly table (standing rule: "genuinely usable on a
+        // phone"): this is the widest data table in the product (one
+        // column per assessment component plus total/grade/remark), the
+        // clearest case for the .table-stack collapse, each component's
+        // own name carries through as the mobile card's data-label.
+        $response->assertSee('class="scores-table table-stack"', false)
+            ->assertSee('data-label="'.$first->name.'"', false)
+            ->assertSee('data-label="Total"', false)
+            ->assertSee('data-label="Remark"', false);
     }
 
     public function test_a_teacher_with_no_teaching_assignments_sees_a_helpful_empty_state(): void

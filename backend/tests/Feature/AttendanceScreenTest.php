@@ -80,8 +80,14 @@ class AttendanceScreenTest extends TestCase
         ['armA' => $arm, 'studentA' => $student] = $this->twoClassesWithStudents();
         app(TenantManager::class)->forget();
 
+        // Mobile friendly table (standing rule: "genuinely usable on a
+        // phone"): the register table opts into .table-stack, and every
+        // cell besides the student's own name carries a data-label so the
+        // column header is not lost once thead hides below phone width.
         $this->actingAs($owner)->get("http://{$school->slug}.localhost/attendance?class_arm_id={$arm->id}&date=2026-01-15")
-            ->assertOk()->assertSee('Ada Obi');
+            ->assertOk()->assertSee('Ada Obi')
+            ->assertSee('class="table-stack"', false)
+            ->assertSee('data-label="Status"', false);
 
         $this->actingAs($owner)->post("http://{$school->slug}.localhost/attendance/mark", [
             'class_arm_id' => $arm->id, 'date' => '2026-01-15',

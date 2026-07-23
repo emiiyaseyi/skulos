@@ -99,6 +99,15 @@ class StudentReportsTest extends TestCase
             ->assertSeeInOrder(['Top Student', '175.0']) // 90 + 85, ranked first
             ->assertSee('Second Student')
             ->assertSee('115.0'); // 60 + 55
+
+        // Mobile friendly table (standing rule: "genuinely usable on a
+        // phone"): one column per subject makes this table grow with the
+        // school's own curriculum, a real case for the .table-stack
+        // collapse, each subject's own name carries through as the
+        // mobile card's data-label.
+        $response->assertSee('id="broadsheetTable" class="table-stack"', false)
+            ->assertSee('data-label="Mathematics"', false)
+            ->assertSee('data-label="Total"', false);
     }
 
     public function test_export_matches_the_screen(): void

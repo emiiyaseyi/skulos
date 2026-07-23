@@ -387,6 +387,26 @@ tr:last-child td{border-bottom:none}
   .scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:55;display:none}
   .scrim.show{display:block}
 }
+/* Mobile friendly data tables ("genuinely usable on a phone, not just
+   responsive-looking" standing rule): a wide, many-column table (score
+   entry, class broadsheets, ...) is a real chore to use one-handed even
+   with a horizontal scroll wrapper. Below true phone width, a table
+   opted into .table-stack collapses from a side-scrolled grid into one
+   card per row, each cell read top to bottom labelled by the column its
+   header would have shown (thead is hidden, so that label has to come
+   from data-label="..." set per <td> in the view instead). Opt in only
+   where a table is genuinely wide, a plain 2-3 column table already
+   reads fine as a normal scrollable table and does not need this. */
+@media(max-width:640px){
+  .table-stack, .table-stack tbody, .table-stack tr, .table-stack td{display:block;width:100%}
+  .table-stack thead{display:none}
+  .table-stack tr{border:1px solid var(--line);border-radius:12px;padding:.8rem;margin-bottom:.8rem}
+  .table-stack tr:last-child{margin-bottom:0}
+  .table-stack td{border-bottom:none;padding:.35rem 0;display:flex;align-items:center;justify-content:flex-end;gap:.6rem;text-align:right}
+  .table-stack td[data-label]::before{content:attr(data-label);font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim);font-weight:800;text-align:left;margin-right:auto}
+  .table-stack td:not([data-label]){justify-content:flex-start}
+  .table-stack td select, .table-stack td input, .table-stack td textarea{max-width:11rem}
+}
 </style>
 @stack('head')
 </head>

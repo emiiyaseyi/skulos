@@ -134,7 +134,7 @@
       <input type="hidden" name="subject_id" value="{{ $subjectId }}" />
 
       <div style="overflow-x:auto">
-      <table class="scores-table">
+      <table class="scores-table table-stack">
         <thead>
           <tr>
             <th>Student</th>
@@ -165,7 +165,7 @@
               <td><strong>{{ $student->fullName() }}</strong><div class="muted" style="font-size:.78rem">{{ $student->admission_number }}</div></td>
               @foreach($components as $component)
                 @php $open = $componentOpen[$component->id] ?? true; @endphp
-                <td>
+                <td data-label="{{ $component->name }}">
                   @if($canSave && $open)
                     <input type="number" step="0.01" min="0" max="{{ $component->max_score }}"
                       name="scores[{{ $student->id }}][{{ $component->id }}]"
@@ -177,9 +177,9 @@
                   @endif
                 </td>
               @endforeach
-              <td class="scores-total">{{ $summaries[$student->id]['total'] ?? 0 }}</td>
-              <td>{{ $summaries[$student->id]['grade'] ?? 'Not graded' }}</td>
-              <td>
+              <td class="scores-total" data-label="Total">{{ $summaries[$student->id]['total'] ?? 0 }}</td>
+              <td data-label="Grade">{{ $summaries[$student->id]['grade'] ?? 'Not graded' }}</td>
+              <td data-label="Remark">
                 @if($canSave)
                   <textarea name="remarks[{{ $student->id }}]" placeholder="No suggestion yet" class="{{ $savedRemark ? '' : 'remark-suggested' }}">{{ old('remarks.'.$student->id, $savedRemark ?? ($suggestions[$student->id] ?? '')) }}</textarea>
                 @else
