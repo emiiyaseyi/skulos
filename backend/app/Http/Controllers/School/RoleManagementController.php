@@ -224,6 +224,13 @@ class RoleManagementController extends Controller
 
         $outsideCatalog = $role->permissions()->whereNotIn('permissions.id', $this->validPermissionIds())->pluck('permissions.id');
         $role->permissions()->sync($outsideCatalog->merge($checked)->unique());
+        // Marks "the last time a human deliberately chose this role's
+        // permission set" (Console\Commands\SkulosResync reads this: a
+        // wildcard role's additive resync only ever re-grants a permission
+        // created AFTER this timestamp, so a permission the school
+        // explicitly unchecked here is never silently re-added by a later
+        // resync, only a genuinely new one that did not exist yet is).
+        $role->touch();
 
         return back()->with('status', "\"{$role->name}\" updated.");
     }
