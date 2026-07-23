@@ -2126,6 +2126,180 @@ The user's "FEEDBACK LIST.docx" got a first "16 issues" pass and a newly appende
 - Status: Done
 - Notes: `FEEDBACK LIST.docx` and `REPORT CARD TEMPLATES 5 AND 6.pdf` are documents the user keeps actively editing and wanted under version control so changes are captured automatically going forward. Added a `.gitignore` (previously empty) covering Word's own transient lock/temp files (`~$*`, `*.tmp`, regenerated every time the document is opened and meaningless in history) and `.claude/settings.local.json`/`.claude/scheduled_tasks.lock` (personal tool-permission state and a runtime lock, not project source); committed `.claude/settings.json` (the shared, non-local Claude Code config) alongside the two source documents.
 
+### Timetable Export: Master and Examination Timetables downloadable as CSV or PDF (2026-07-22)
+- Status: Done
+- Notes: `TimetableController::masterExport()` (one CSV row per class/period/day) and `examExport()` (the current populated grid, distinct from the always-blank `examTemplate()`) added alongside Export CSV / Print buttons and `@media print` CSS on both screens; "PDF" is the browser's own Print destination, not a server-generated file, consistent with the standing Dbase rule against storing generated documents.
+- QA: new cases in `TimetableTest` and `ExaminationTimetableTest`.
+
+### Stream separation: Staff Portal, Parent Portal, and Report Cards now split by stream, not just by class (2026-07-22)
+- Status: Done
+- Notes: a class with more than one stream (arm) now renders one sub-row per stream on the Staff and Parent directory browse screens, matching the pattern Classes & Subjects and Students already used; Report Cards' class index gained its own Stream column with students sorted by arm order.
+- QA: directory and report card index tests extended for the multi-stream case.
+
+### Behavioural Traits: editing an existing trait, not just create/retire (2026-07-22)
+- Status: Done
+- Notes: the update route already existed and was unused; added an inline `<details>` edit form per trait row on the traits catalog screen so a mislabelled or miscategorised trait no longer has to be retired and recreated.
+
+### Report Card Settings: a school wide stamp and signature upload (2026-07-22)
+- Status: Done
+- Notes: upload form on Report Card Settings posting to the existing `school.branding.update` route, gated on `school_info.update` (stricter than the page's own `report_cards.view`) since this is a school-administration action, not a routine report-card edit.
+
+### Selectable chart style, line or bar, applied to every trend chart (2026-07-22)
+- Status: Done
+- Notes: new `chart_style` tenant Setting (`line`/`bar`, default `line`) picked on the Branding screen, read by a single shared `_trend-line.blade.php` partial every trend chart in the product now routes through (Attendance Dashboard, the dashboard role panel, the report card score trend), rather than each screen computing its own chart math. A bar chart's axis stays anchored at zero (magnitude encoding); a line chart's axis zooms to the data's own range (relative encoding) — a distinction preserved as a hard rule in the new bar branch.
+- Issues/Bugs: hit the recurring Blade `@php($expr)` single-line-form compiler bug (documented earlier this tracker for a different view) a second time, inside a `@foreach` in the report card's own score-trend partial.
+- Resolution: converted to block form (`@php ... @endphp`), the same fix as its prior occurrence.
+
+### Student Performance Dashboard: at-risk lists paginate at 10 per page (2026-07-22)
+- Status: Done
+- Notes: the "students at risk" widget is shared between a capped dashboard preview (max 8, rarely needs paging) and the uncapped full list on the Performance Dashboard (can run past 50). Added client side pagination layered on top of the widget's existing filter/sort, coordinated via a `data-filtered-out` attribute so a filtered-out row is never counted toward a page.
+
+### Nav cleanup: Import Students no longer a separate Reports & Analytics line (2026-07-22)
+- Status: Done
+- Notes: `bulk_import` now aliases to the same Student Portal route `export_to_excel`/`bulk_export` already collapse into, reachable from the Bulk Import button already on the Students screen; the dedicated import page itself is untouched, only the extra nav line is gone.
+
+### Report Builder: attendance, performance, and behavioural columns on the Students source (2026-07-22)
+- Status: Done
+- Notes: rather than adding new standalone "data sources," extended the existing Students source with three resolver-based columns (`attendance_rate`, `average_score`, `behavioural_traits`), each bulk-computed once per report rather than per row via new `AttendanceService::ratesByStudent()` and `ResultService::averagesByStudent()`, mirroring the bulk-query shape `studentsBelowAverageThreshold()` already established.
+
+### Filter and sort added to Academic Insights and Pending Review (2026-07-22)
+- Status: Done
+- Notes: client-side filter/sort controls added to the Academic Insights subject performance table and the Report Cards Pending Review list, the same treatment already given to Staff/Parent lists and class broadsheets.
+
+### Help & Knowledge Base redesign: real step lists, start-here buttons, more articles (2026-07-22)
+- Status: Done
+- Notes: user request: "this should be presented more as a procedure or step... add a button that takes them to where to start the process." `knowledge_base_articles` gained `steps` (JSON array) and `start_route` (a route name picked from a curated `config('skulos.knowledge_base_start_routes')` dropdown, never admin-typed freeform text so a typo cannot produce a broken link) columns; `KnowledgeBaseSeeder` rewritten to backfill these onto already-seeded articles without ever overwriting an existing `body`, the same "config change needs a resync pass onto already-seeded rows" pattern already established for `grading_scales`/`comments`. 7 new articles added (16 total). School-facing index redesigned with an icon-per-category grid and search header; article page renders `steps` as a numbered list with a "Start here" button when `start_route` resolves to a real route.
+- Issues/Bugs: `KnowledgeBaseController::validatedArticle()` threw "Undefined array key" for optional fields, since a `nullable`-validated field with nothing submitted is omitted from the validated array entirely, not set to null.
+- Resolution: switched to an `empty()`/`??` check instead of direct array access.
+- QA: `KnowledgeBaseTest` extended for the new fields and the reseed-without-overwrite behaviour.
+
+### School Profile: logo upload and more optional details (2026-07-22)
+- Status: Done
+- Notes: `website`, `alternate_phone`, `registration_number`, `established_year` added to the School Profile screen; logo upload reuses `updateBranding()`'s existing storage/WebP-conversion logic rather than a second upload path.
+
+### Parent/staff identifier "Both" option, plus its nav link landing on the wrong looking page (2026-07-22)
+- Status: Done
+- Notes: `identifier_options` gained a `both` choice (`required_without:phone`/`required_without:email` validation) alongside the existing `email`/`phone` options, applied consistently in `StudentController::storeGuardian()`/`updateGuardian()` and `StaffController::staffValidationRules()`. Separately, the "Parent Settings"/"Staff Settings" nav links pointed at the top of the shared Student, Parent & Staff Field Settings page with no way to tell which section they meant; both now jump straight to an `#identifier-settings` anchor on that same page via a small `$linkWithAnchor` nav closure.
+
+### Landing Pages: bulk apply across roles (2026-07-22)
+- Status: Done
+- Notes: checkbox-per-role plus an "Apply to selected" bulk-fill control added to both the platform and school level Landing Pages screens, a client side convenience over the existing `pages[]` form submit; no new route needed.
+
+### Storage and Health merged into one Settings > System nav line (2026-07-22)
+- Status: Done
+- Notes: both pointed at the same `school.maintenance.index` screen under two separate labels; collapsed into one "Storage & Health" line, the same merge pattern already used for Results/Report Cards and Staff/Teacher Portal.
+
+### Live bug: duplicate exam timetable entry threw UniqueConstraintViolationException (2026-07-22)
+- Status: Done
+- Notes: reported live on the real greenfield school via a full Laravel error page (`POST /timetable/exam`). Root cause was the same date-cast serialization mismatch bug class already documented in this tracker for the `Attendance` model: `ExamTimetableEntry`'s `'exam_date' => 'date'` cast serializes to `Y-m-d H:i:s` on save, but `updateOrCreate()`'s WHERE-lookup array is never run through that same cast, so a plain `Y-m-d` string never matched an already-saved `Y-m-d 00:00:00` row, and the second save of the same logical key always attempted an INSERT instead of an UPDATE. Fixed the same way as the earlier occurrence: cast removed, stored/compared as a plain string, every call site that relied on a Carbon instance updated to `Carbon::parse()` explicitly.
+- Issues/Bugs: the live greenfield database already had 24 exam timetable rows corrupted by the pre-fix behaviour.
+- Resolution: normalized directly via tinker (`substr($row->exam_date, 0, 10)`), not left as stale data.
+- QA: new `ExaminationTimetableTest` case proving the same date/paper saved twice updates in place instead of duplicating.
+
+---
+
+## "Part 3" feedback batch (16 items, found 2026-07-22; items 1–7 and part of the timetable/report card items were already written up above as part of the same day's work; the remainder below)
+
+### Attendance: auto-select the class when a teacher has only one (2026-07-22)
+- Status: Done
+- Notes: `AttendanceController::index()` now auto-selects `$selectedArm` when a teacher's `$classArms->count() === 1` with no explicit `class_arm_id`; the dropdown only renders when there's an actual choice to make, a disabled input plus hidden field otherwise.
+- QA: new `AttendanceScreenTest` cases for the single-class auto-select and the still-shows-a-dropdown two-class case.
+
+### Create login (Student and Parent Portal) hidden from class/subject teachers (2026-07-22)
+- Status: Done
+- Notes: user report: "class teacher or subjecter teacher should not have option to see or access this function under student portal," confirmed for the parent login button too. Both `createGuardianLogin()`/`createStudentLogin()` re-gated from `students.update` to `students.manage_settings` (an administrative action, not a routine per-record edit a class teacher's normal grant should cover), and `StudentController::show()` now passes a separate `canManageLogins` the view checks instead of the general `canManage` flag.
+- QA: new `StudentScreenTest` case proving a class teacher can neither see nor use either button.
+
+### Parent Mobile field now syncs from the primary guardian's phone (2026-07-22)
+- Status: Done
+- Notes: user report: a parent's contact phone showed "Not set" under student details even after it was populated on the guardian record. New `StudentController::syncParentMobile()` (finds the primary-or-first guardian, updates the legacy `Student.parent_mobile` column, re-fetching guardians fresh to avoid stale relation caching) called from `storeGuardian()`, `updateGuardian()`, and `destroyGuardian()`.
+- Resolution: real data backfilled across 6 already-provisioned schools via a tinker loop, not left stale until the next guardian edit happened to trigger it.
+- QA: new `StudentScreenTest` case.
+
+### Sort and filter added to the Students list page (2026-07-22)
+- Status: Done
+- Notes: the flat-roster branch of `StudentController::index()` gained `status`/`sort`/`dir` query params, matching the shape already established for Staff/Parent lists.
+
+### Timetable nav renamed, and a Class/My Timetable toggle for class teachers (2026-07-22)
+- Status: Done
+- Notes: "My Timetable" nav label changed to plain "Timetable." `TimetableController::mine()` now detects whether the requesting staff member is a class teacher (`ClassArm::where('class_teacher_staff_id', ...)`); if so it offers a `?view=class`/`?view=personal` toggle (default class); a subject teacher, not being a class teacher, sees no toggle at all and goes straight to their own personal schedule, unchanged from before.
+
+### Assignment pages: a due date range filter (2026-07-22)
+- Status: Done
+- Notes: `AssignmentController::index()` gained `due_from`/`due_to` query params applied via `whereDate('due_on', ...)`, available to every role (not just admins), the section/class filters staying admin-only as before.
+
+### Report Cards restricted to a class/subject teacher's own class, hidden entirely from subject teachers (2026-07-22, commit `018b315`)
+- Status: Done
+- Notes: user report: "Class teacher or subject teachers should not be seeing other classes report cards but only the class assigned to them. Subject teachers should not see any class report card at all. Its shows error 404 for subject teacher now but it ought not to be a menu option for subject teachers at all." Root cause: `nav_permission_map['result_management']` was gated on `examinations.view` while the actual screen it points at (`school.report-cards.index`, shared with `basic_report_cards`) checks `report_cards.view` — a subject teacher holds the looser permission (needed for score entry) but not the stricter one, so the nav rendered a link to a screen they'd immediately 404 on. Fixed by matching both feature keys to the same real permission the screen itself checks.
+- Issues/Bugs: while debugging, discovered the two tests originally written for this in `ReportCardWorkflowTest.php` were unreliable: that file's `schoolWithMember()` helper never seeds a `Plan`, so `School::hasFeature()` is always false there regardless of the fix, making any nav-visibility assertion in that file meaningless. Traced via temporary `Log::info()` instrumentation directly in the nav partial (removed before commit) after several static-analysis hypotheses about RBAC module-gating turned out to be red herrings.
+- Resolution: moved both tests to `PlanFeatureNavTest.php`, which has proper `Plan`-seeding infrastructure, using its existing `schoolOnPlan()` helper. Both pass; full `PlanFeatureNavTest` (40 passed) and `ReportCardWorkflowTest` (35 passed) re-run clean.
+
+### Knowledge Base scoped to what each viewing role can actually do (2026-07-22, commit `9e3ceed`)
+- Status: Done
+- Notes: user report: "Knowdlge base showing under other staff should be related to the things the user can do only." `config('skulos.knowledge_base_start_routes')` restructured from `route => label` to `route => ['label' => ..., 'permission' => ...]`, each entry's permission hand-matched to the exact one its destination controller checks (17 entries cross-checked). `School\KnowledgeBaseController::index()` now filters an article out of a user's own Help list when they lack the associated permission, and `show()` 404s (not 403, matching the standing "don't leak existence" rule) on a direct link to a restricted article. An article with no `start_route` (general orientation content) always shows.
+- Issues/Bugs: the natural `config("skulos.knowledge_base_start_routes.{$article->start_route}.permission")` dot-notation lookup in `show()` silently broke, since `start_route` values like `school.students.create` contain dots themselves, which Laravel's `Arr::get()` misparses as nested keys.
+- Resolution: switched to plain array access (`config(...)[$article->start_route]['permission'] ?? null`) instead of dot notation.
+- QA: `KnowledgeBaseTest` extended, 14 passed including a new case proving a subject teacher sees general orientation content but not a permission-gated article, by URL or by listing.
+
+### Subject Insights: a scoped Reports & Analytics screen for class/subject teachers (2026-07-22, commit `4f85b8b`)
+- Status: Done
+- Notes: user request: "report and analytics should have subject insights for class teacher and subject teachers with the necessary date, filter and sort options and calendar date option and term option." New `SubjectInsightsController`/`school.reports.subject-insights.index`, distinct from the existing Academic Insights (whole school, leadership only): scoped to only the (class, subject) pairs a teacher's own `TeachingAssignment` rows say they actually teach, the identical scoping `ExaminationController::allowedPairs()` already uses for score entry, so what a teacher can see here always matches what they can enter scores for. Term, class, and subject filters, sortable columns, gated on the same `examinations.view` every class/subject teacher already holds.
+- New Foundation plan feature `subject_insights`: added to the plan feature catalog, `nav_permission_map`, and `PlanSeeder`'s `$foundationFeatures`; every already-provisioned school's `Plan.features` array resynced directly via tinker so the nav link shows immediately rather than only for schools provisioned after this change (the same "plan feature never reaches an already-provisioned school on its own" gotcha shape as tenant migrations/permissions/module states).
+- QA: new `SubjectInsightsTest`, 5 passed, including scoping (a teacher never sees a class/subject they don't teach), filters, and the empty state for a teacher with no teaching assignment.
+
+### Guardian contact details in global search now respect guardian_visibility (2026-07-22, commit `f30fb86`)
+- Status: Done
+- Notes: user report: "when subject teacher use the search for student/staff/parent function, it should blur the parent contact details if the admin has set it." `SearchController` previously returned a matching guardian's raw email/phone to any user holding `students.view`, including a scoped subject teacher, regardless of the school's `guardian_visibility` setting. Now computes the exact same `canSeeGuardianDetails` rule already used by `StudentController::show()`/`ParentDirectoryController` (a class teacher/assistant always sees it; a subject teacher only if the school opted into "both"), server side, and the search view masks the Contact column to "Restricted" when it doesn't apply. The guardian query itself was already scoped by `TeacherScope`/`FamilyScope` from an earlier audit finding, so this only closes the contact-detail leak, not a broader access leak.
+- QA: `GlobalSearchTest` extended, 3 new cases: a subject teacher sees a guardian's name but not their contact by default, sees it when the school allows "both," and a class teacher always sees it regardless of the setting.
+
+### Auto-provisioned login default password corrected to match the stated convention (2026-07-22, commit `3022a76`)
+- Status: Done
+- Notes: user report (items 142/143 of this batch): "students are to use their admission numbers as username and the default pass is password123... for parents, can use email or phone and the default pass of password123." `config('skulos.default_student_password')`/`default_parent_password'` were actually `Student@123`/`Parent@123`, never matching the stated convention or `schools:seed-demo-data`'s own `DEMO_PASSWORD`.
+- Issues/Bugs: before changing the default, audited every already-provisioned school's real student/guardian logins (`Hash::check()` against both the old and new default across all 9 provisioned schools) to check whether a live reset was also needed.
+- Resolution: every existing account was created via the demo seeder and already used `password123`, so only the config default itself needed correcting, nothing to reset. Also proved parent sign in works with either the guardian's email or phone against the same account, not just whichever was used to create it.
+- QA: `StudentScreenTest` updated (two pre-existing tests asserted the old default literally), plus a new phone-login assertion. Full suite re-run clean, 33 passed.
+
+### "Downloaded items still showing host not found" — still open, needs more detail
+- Status: Blocked, needs user input
+- Notes: user report (item 136 of this batch), reworded from an even earlier one ("Recheck, downloaded items still showing host not found"). Investigated `Storage::url()`/`config('filesystems.php')` (`'url' => env('APP_URL').'/storage'`), confirmed `APP_URL=http://localhost:8000` in `.env` matches the dev server, checked for hardcoded domain strings and CSV export content for embedded links; found no reproducible lead or concrete failing case. Explicitly not guessed at or faked a fix per the standing "no faked fixes" rule — needs a screenshot or the specific download link that triggers it before this can be diagnosed further.
+
+---
+
+## Architecture, deployment, and mobile UX pass (2026-07-22, user-directed: "any recommendation(s) for me based on architecture, design, ui ux, etc" → "proceed with all")
+
+### `php artisan skulos:resync`: one command for three previously-manual "reach every school" gotchas (2026-07-22, commit `9f5af51`)
+- Status: Done
+- Notes: this tracker documents three separate incidents where a catalog change (a tenant migration, an `extra_permissions` entry, a `module_states` row) never reached an already-provisioned school on its own, each requiring a specific manual command or tinker script remembered after the fact. New `php artisan skulos:resync` wraps all three: tenant migrations and a wildcard-role permission resync run by default (both purely additive), module state resync from each school's current plan is opt-in via `--modules` since it can revert state, matching `BillingController::assignPlan()`'s own reset-to-plan-defaults behaviour.
+- The wildcard-role resync closes a real gap in the original documented fix pattern: a plain "template has it, school role doesn't" diff cannot tell a genuinely new permission apart from one a school admin intentionally unchecked via Roles & Permissions, both look identical as a missing row. `RoleManagementController::updateRolePermissions()` now `touch()`es the role on every save, and the resync only ever adds a permission whose own `created_at` is strictly after the role's last deliberate edit, so an intentional removal is never silently undone.
+- Also, unlike `assignPlan()`'s own logic, the `--modules` resync checks for an active `SchoolAddOn` before disabling a module not in the current plan, so a module granted as an add-on beyond the plan survives the resync rather than being silently revoked, closing a latent bug `assignPlan()` itself still has.
+- QA: new `SkulosResyncCommandTest`, 5 passed, including the additive-vs-intentional-removal case and the add-on-preservation case.
+
+### Deployment readiness audit: two real gaps found and documented (2026-07-22)
+- Status: Done
+- Notes: `DEPLOYMENT.md` was already thorough (cron, tenant migrations, self-hosted licensing) but never mentioned `php artisan storage:link`, despite school branding logos, report card stamps/signatures, and chat attachments all depending on it (`FILESYSTEM_DISK=local`, the `public` disk, no S3 configured). Added to both the main cPanel section and the self-hosted install runbook, including the fallback if a host disables PHP's `symlink()`. Also confirmed no queue worker/daemon is currently needed (nothing in the app implements `ShouldQueue` yet, every mail send runs synchronously inline) and documented that as a known scaling ceiling to revisit later, not a gap to fix now.
+
+### Attendance, Score entry, and Term Broadsheets made genuinely usable on a phone (2026-07-22, commit `b15e7ec`)
+- Status: Done
+- Notes: added a shared `.table-stack` CSS pattern (below true phone width, a wide table collapses from a horizontally-scrolled grid into one bordered card per row, each cell labelled from its own column header via a `data-label` attribute since `thead` hides) and applied it to the three widest, most frequently used data tables in the product: the attendance register, the score entry grid (one column per assessment component), and Term Broadsheets (one column per subject). Verified with real Playwright screenshots at 375px viewport width against seeded demo data on a throwaway school, not just reasoned about from the CSS, then the throwaway school was fully cleaned up.
+- Issues/Bugs: the full, unfiltered regression suite this work triggered (run as its own standing recommendation, see below) surfaced one real leftover: `TeacherScopeTest` still expected a 404 from the Create login routes for an out-of-scope student, but the `students.manage_settings` gate added earlier this same day now blocks a class teacher from those routes entirely regardless of scope, so 403 is the correct response.
+- Resolution: updated the two affected assertions; not a regression, a stale expectation from an earlier fix the same session.
+- QA: new assertions in `AttendanceScreenTest`, `ExaminationScreenTest`, `StudentReportsTest` confirming the `.table-stack` markup and `data-label` attributes render; full suite re-run clean.
+
+### Stat card grids fixed for phone width; messaging FAB given real bottom clearance (2026-07-22, commit `8430123`)
+- Status: Done
+- Notes: screenshot review of the mobile work above surfaced two further, real issues. Several 4/3-card stat rows (Attendance index and dashboard, Term Broadsheets, Assignments, Performance Dashboard, the platform admin dashboard) used a hardcoded inline `grid-template-columns` instead of the shared `.cols-4`/`.cols-3` utility classes, so they never picked up the app's own existing responsive collapse at all and stayed cramped at 2 narrow columns even at phone width, wrapping a longer value like a student's name across several lines. Converted all of them to the shared classes and extended `.cols-4` to collapse to one column each below true phone width, matching the collapse `.cols-3`/`.cols-2` already had.
+- Also gave the fixed bottom-right messaging FAB real clearance from a page's own bottom content (extra `.content` bottom padding at phone width), confirmed via screenshot that a form's final Save/Upload button no longer renders underneath it. A transient overlap with whatever content happens to scroll past during an active scroll remains, the same ordinary tradeoff any persistent floating action button has (Gmail's compose button, WhatsApp's chat bubble behave identically); not engineered around further.
+- Checked broadly (~60 files containing a `<table>`) for other genuinely wide, many-column, daily-browsing tables that would benefit from the same `.table-stack` treatment as the three above; found none — the rest are either several separate narrow tables in one file, report card print/PDF templates (a fixed document layout that should not collapse), or already narrow enough not to need it.
+- QA: new `class="grid cols-4"` assertions in `AttendanceScreenTest`, `StudentReportsTest`.
+
+### Security review of the day's Knowledge Base / Subject Insights / Search / password changes (2026-07-22)
+- Status: Done, no findings
+- Notes: ran the project's `/security-review` flow against the diff for Knowledge Base scoping, Subject Insights, search guardian masking, and the login default password fix. One candidate (the password default itself as a weak/shared credential) was investigated in depth and ruled out at confidence 2/10: the diff only changes the literal string, the underlying design (a shared, admin-editable, out-of-band default with a real `must_change_password` enforcement gate verified to block every route until cleared) predates this change and was equally guessable before it. Everything else checked out clean: `KnowledgeBaseController::show()` correctly 404s rather than leaking existence, `SubjectInsightsController`'s filters only narrow an already-scoped collection with no IDOR path, and the search masking is enforced server side on top of an already-scoped query.
+
+### Full, unfiltered regression suite run as the closing gate for this whole pass (2026-07-22)
+- Status: Done
+- Notes: user-directed standing recommendation ("a full, unfiltered regression run before your next real deployment"), run twice: once as a baseline before the architecture/deployment/mobile work started (surfaced the `TeacherScopeTest` issue above), once again after every fix in this section landed. Final result: **1014 passed, 0 failed, 3977 assertions**, covering the entire product, not a filtered subset.
+
 ---
 
 ---
