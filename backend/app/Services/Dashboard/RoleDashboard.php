@@ -485,7 +485,7 @@ class RoleDashboard
 
         $students = Student::where('current_class_arm_id', $classArm->id)->active()->get();
         [$boys, $girls] = $this->genderCounts($students);
-        $subjectsCount = $classArm->schoolClass?->subjects()->count() ?? 0;
+        $subjectsCount = $classArm?->offeredSubjects()->count() ?? 0;
 
         $term = Term::current()->first();
         $average = null;
@@ -938,7 +938,7 @@ class RoleDashboard
         }
 
         $classArm = $student->currentClassArm;
-        $subjectsCount = $classArm?->schoolClass?->subjects()->count() ?? 0;
+        $subjectsCount = $classArm?->offeredSubjects()->count() ?? 0;
 
         $term = Term::current()->first();
         $average = null;

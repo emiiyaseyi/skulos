@@ -5,6 +5,7 @@ namespace App\Models\Tenant;
 use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * The enrollable unit, e.g. "Basic 1 A". A class with no arms has a single
@@ -43,6 +44,42 @@ class ClassArm extends Model
     public function assistantTeacher(): BelongsTo
     {
         return $this->belongsTo(Staff::class, 'assistant_teacher_staff_id');
+    }
+
+    /**
+     * This stream's own subject overrides, if any (2026-07-23, per stream
+     * subject offerings for SSS's Arts/Science/Commercial streams). Rarely
+     * queried directly, see offeredSubjects() below for the resolver every
+     * caller should actually use.
+     */
+    public function subjects(): BelongsToMany
+    {
+        return $this->belongsToMany(Subject::class, 'class_arm_subjects')
+            ->withPivot(['is_mandatory', 'is_examinable'])
+            ->withTimestamps()
+            ->orderBy('subjects.sequence')
+            ->orderBy('subjects.name');
+    }
+
+    /**
+     * The subjects a student in this specific class arm actually studies:
+     * the whole class's own shared list (its mandatory subjects, Maths/
+     * English/Civic for an SSS class) PLUS this arm's own additional
+     * subjects if it has any (an SSS stream's Science/Arts/Commercial
+     * electives) — additive, not a replacement, since a stream's students
+     * still take the class's mandatory subjects on top of their stream's
+     * own. A class arm with no overrides of its own (every class in
+     * practice besides SSS's 3 streams) is completely unaffected: nothing
+     * to add on top of the class's existing shared list, exactly what it
+     * already returned before per stream overrides existed.
+     */
+    public function offeredSubjects(): \Illuminate\Support\Collection
+    {
+        $classSubjects = $this->schoolClass?->subjects ?? collect();
+        $ownSubjects = $this->subjects;
+
+        return $classSubjects->concat($ownSubjects)->unique('id')
+            ->sortBy([['sequence', 'asc'], ['name', 'asc']])->values();
     }
 
     /**

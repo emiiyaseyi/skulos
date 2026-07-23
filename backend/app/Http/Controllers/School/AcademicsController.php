@@ -775,19 +775,44 @@ class AcademicsController extends Controller
         return back()->with('status', "Stream renamed to {$newArm->name}.");
     }
 
+    /**
+     * A class with more than one named stream (SSS's Arts & Humanities /
+     * Science & Technology / Commercial, most commonly) needs its own
+     * subject list per stream, not one list every student in the class
+     * sees regardless of which stream they are actually in — see
+     * ClassArm::offeredSubjects(). $classArmId (query param on the GET,
+     * hidden field on every form here) switches every operation below
+     * onto that one stream's own class_arm_subjects list instead of the
+     * whole class's class_subject list; omitted entirely, this screen
+     * behaves exactly as it always has for the vast majority of classes
+     * that only ever have one stream.
+     */
+    protected function subjectScope(Request $request, SchoolClass $class): array
+    {
+        $armId = $request->integer('class_arm_id') ?: null;
+        $arm = $armId ? ClassArm::where('school_class_id', $class->id)->with('arm')->findOrFail($armId) : null;
+
+        return [$arm, $arm ? $arm->subjects() : $class->subjects()];
+    }
+
     public function subjects(Request $request, AcademicDefaults $defaults): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'academics.view');
         $school = $this->school($request);
         $class = SchoolClass::with('section')->findOrFail($request->route('classId'));
+        $streams = ClassArm::where('school_class_id', $class->id)->whereNotNull('arm_id')->with('arm')->get()
+            ->sortBy(fn (ClassArm $a) => $a->orderKey());
+        [$selectedArm, $subjectsRelation] = $this->subjectScope($request, $class);
 
         return view('school.academics.subjects', [
             'school' => $school,
             'accent' => $school->branding()['color'],
             'class' => $class,
-            'offered' => $class->subjects()->get(),
-            'available' => Subject::whereNotIn('id', $class->subjects()->pluck('subjects.id'))->orderBy('sequence')->orderBy('name')->get(),
-            'suggestedCatalog' => $defaults->suggestCatalogFor($class->section),
+            'streams' => $streams,
+            'selectedArm' => $selectedArm,
+            'offered' => $subjectsRelation->get(),
+            'available' => Subject::whereNotIn('id', $subjectsRelation->pluck('subjects.id'))->orderBy('sequence')->orderBy('name')->get(),
+            'suggestedCatalog' => $selectedArm ? null : $defaults->suggestCatalogFor($class->section),
             'catalogs' => config('skulos.default_subjects'),
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'academics.update'),
         ]);
@@ -812,14 +837,15 @@ class AcademicsController extends Controller
         ]);
 
         $class = SchoolClass::findOrFail($request->route('classId'));
-        $class->subjects()->syncWithoutDetaching([
+        [, $subjectsRelation] = $this->subjectScope($request, $class);
+        $subjectsRelation->syncWithoutDetaching([
             $data['subject_id'] => [
                 'is_mandatory' => $request->boolean('is_mandatory', true),
                 'is_examinable' => $request->boolean('is_examinable', true),
             ],
         ]);
 
-        return back()->with('status', 'Subject added to this class.');
+        return back()->with('status', 'Subject added.');
     }
 
     public function newSubject(Request $request): \Illuminate\Http\RedirectResponse
@@ -831,15 +857,16 @@ class AcademicsController extends Controller
         ]);
 
         $class = SchoolClass::findOrFail($request->route('classId'));
+        [, $subjectsRelation] = $this->subjectScope($request, $class);
         $subject = Subject::firstOrCreate(
             ['name' => $data['name']],
             ['code' => $data['code'] ?? null, 'sequence' => (int) Subject::max('sequence') + 1]
         );
-        $class->subjects()->syncWithoutDetaching([
+        $subjectsRelation->syncWithoutDetaching([
             $subject->id => ['is_mandatory' => true, 'is_examinable' => true],
         ]);
 
-        return back()->with('status', "\"{$subject->name}\" added to this class.");
+        return back()->with('status', "\"{$subject->name}\" added.");
     }
 
     /** Also lets an admin manually move a subject to a different position in its list (user request 2026-07-12, "Class Order & Structure.docx"), the same "rename or move" pattern as updateClass(). */
@@ -847,11 +874,12 @@ class AcademicsController extends Controller
     {
         $this->authorizeAction($request, 'academics.update');
         $class = SchoolClass::findOrFail($request->route('classId'));
+        [, $subjectsRelation] = $this->subjectScope($request, $class);
         $subject = Subject::findOrFail($request->route('subjectId'));
 
         $data = $request->validate(['sequence' => ['nullable', 'integer', 'min:1']]);
 
-        $class->subjects()->updateExistingPivot($subject->id, [
+        $subjectsRelation->updateExistingPivot($subject->id, [
             'is_mandatory' => $request->boolean('is_mandatory'),
             'is_examinable' => $request->boolean('is_examinable'),
         ]);
@@ -866,10 +894,11 @@ class AcademicsController extends Controller
     {
         $this->authorizeAction($request, 'academics.update');
         $class = SchoolClass::findOrFail($request->route('classId'));
+        [, $subjectsRelation] = $this->subjectScope($request, $class);
         $subject = Subject::findOrFail($request->route('subjectId'));
-        $class->subjects()->detach($subject->id);
+        $subjectsRelation->detach($subject->id);
 
-        return back()->with('status', "Removed {$subject->name} from this class.");
+        return back()->with('status', "Removed {$subject->name}.");
     }
 
     /** Bulk version of detachSubject(), same list-screen bulk-action pattern used across the app. */
@@ -882,8 +911,9 @@ class AcademicsController extends Controller
         ]);
 
         $class = SchoolClass::findOrFail($request->route('classId'));
-        $class->subjects()->detach($data['subject_ids']);
+        [, $subjectsRelation] = $this->subjectScope($request, $class);
+        $subjectsRelation->detach($data['subject_ids']);
 
-        return back()->with('status', count($data['subject_ids']).' subject(s) removed from this class.');
+        return back()->with('status', count($data['subject_ids']).' subject(s) removed.');
     }
 }

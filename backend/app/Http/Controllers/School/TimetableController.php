@@ -159,7 +159,7 @@ class TimetableController extends Controller
         }
 
         $grid = $selectedArm ? $timetable->gridForClassArm($selectedArm->id) : [];
-        $subjects = $selectedArm ? ($selectedArm->schoolClass?->subjects()->orderBy('name')->get() ?? collect()) : collect();
+        $subjects = $selectedArm ? $selectedArm->offeredSubjects()->sortBy('name')->values() : collect();
         // Every active staff member, not just those already teaching this
         // class, a timetable is exactly where an admin adds a teacher to
         // a class for the first time.

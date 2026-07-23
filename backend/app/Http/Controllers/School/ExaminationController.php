@@ -80,7 +80,7 @@ class ExaminationController extends Controller
     {
         if ($this->hasBlanketAccess($request)) {
             $pairs = collect();
-            ClassArm::with(['schoolClass.section', 'schoolClass.subjects', 'arm'])->get()->each(function (ClassArm $classArm) use (&$pairs) {
+            ClassArm::with(['schoolClass.section', 'schoolClass.subjects', 'subjects', 'arm'])->get()->each(function (ClassArm $classArm) use (&$pairs) {
                 // Narrative Evaluation (2026-07-18): scores are not entered
                 // for a class using the comment based report, see
                 // NarrativeEvaluationController; that class's report card
@@ -90,7 +90,12 @@ class ExaminationController extends Controller
                     return;
                 }
                 $order = $classArm->orderKey();
-                foreach ($classArm->schoolClass?->subjects ?? [] as $subject) {
+                // offeredSubjects() (2026-07-23): a stream with its own
+                // subject overrides (SSS's Arts/Science/Commercial arms)
+                // only offers scoring pairs for its own list, not every
+                // subject the whole class collectively teaches across all
+                // its streams.
+                foreach ($classArm->offeredSubjects() as $subject) {
                     $pairs->push([
                         'class_arm_id' => (int) $classArm->id,
                         'subject_id' => (int) $subject->id,

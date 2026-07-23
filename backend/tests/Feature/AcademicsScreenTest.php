@@ -137,6 +137,83 @@ class AcademicsScreenTest extends TestCase
     }
 
     /**
+     * SSS's Arts & Humanities / Science & Technology / Commercial streams
+     * (user report 2026-07-23: "in SSS, all subjects are not done by the
+     * all students as we have 3 streams per class"), each with its own
+     * subject list, not one list every student in the class shares
+     * regardless of stream.
+     */
+    public function test_each_stream_of_a_multi_stream_class_manages_its_own_subject_list(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadstreams');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Senior Secondary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'SSS 1', 'sequence' => 1]);
+        $scienceArm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => \App\Models\Tenant\Arm::create(['name' => 'Science & Technology'])->id]);
+        $commercialArm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => \App\Models\Tenant\Arm::create(['name' => 'Commercial'])->id]);
+        $maths = Subject::create(['name' => 'Mathematics']);
+        $biology = Subject::create(['name' => 'Biology']);
+        $commerce = Subject::create(['name' => 'Commerce']);
+        // Mandatory for the whole class, at the old class level, still
+        // works as the fallback for a stream with no overrides of its own.
+        $class->subjects()->attach($maths->id, ['is_mandatory' => true, 'is_examinable' => true]);
+        $classId = $class->id;
+        $scienceArmId = $scienceArm->id;
+        $commercialArmId = $commercialArm->id;
+        $mathsId = $maths->id;
+        $biologyId = $biology->id;
+        $commerceId = $commerce->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/classes/{$classId}/subjects/attach", [
+            'subject_id' => $biologyId, 'is_mandatory' => '1', 'is_examinable' => '1', 'class_arm_id' => $scienceArmId,
+        ])->assertRedirect();
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/academics/classes/{$classId}/subjects/attach", [
+            'subject_id' => $commerceId, 'is_mandatory' => '1', 'is_examinable' => '1', 'class_arm_id' => $commercialArmId,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $scienceSubjects = ClassArm::find($scienceArmId)->offeredSubjects()->pluck('name');
+        $commercialSubjects = ClassArm::find($commercialArmId)->offeredSubjects()->pluck('name');
+        app(TenantManager::class)->forget();
+
+        $this->assertTrue($scienceSubjects->contains('Biology'));
+        $this->assertFalse($scienceSubjects->contains('Commerce'), 'the science stream must never inherit the commercial stream\'s own subjects');
+        $this->assertTrue($commercialSubjects->contains('Commerce'));
+        $this->assertFalse($commercialSubjects->contains('Biology'), 'the commercial stream must never inherit the science stream\'s own subjects');
+        // Mathematics was only ever attached at the class level, and
+        // neither stream has touched it directly, so both correctly fall
+        // back to the class's own list for it rather than losing it.
+        $this->assertTrue($scienceSubjects->contains('Mathematics'));
+        $this->assertTrue($commercialSubjects->contains('Mathematics'));
+    }
+
+    /** A class with no named streams at all (the vast majority) must be completely unaffected by the per stream override mechanism. */
+    public function test_a_single_stream_class_is_unaffected_by_per_stream_subject_overrides(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadstreamsnone');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Junior Secondary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS 1', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id]);
+        $subject = Subject::create(['name' => 'Basic Science']);
+        $class->subjects()->attach($subject->id, ['is_mandatory' => true, 'is_examinable' => true]);
+        $classId = $class->id;
+        $armId = $arm->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->get("http://{$school->slug}.localhost/academics/classes/{$classId}/subjects")
+            ->assertOk()->assertSee('Basic Science')->assertDontSee('Pick a stream above');
+
+        app(TenantManager::class)->use($school);
+        $offered = ClassArm::find($armId)->offeredSubjects()->pluck('name');
+        app(TenantManager::class)->forget();
+        $this->assertTrue($offered->contains('Basic Science'));
+    }
+
+    /**
      * Regression test: a class created via the UI used to only ever
      * produce a SchoolClass, never a ClassArm, so it could not actually
      * hold a student (Student.current_class_arm_id points at a ClassArm).

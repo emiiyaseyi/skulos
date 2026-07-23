@@ -14,10 +14,45 @@
 <div class="page-head">
   <div>
     <h1 class="title">{{ $class->name }} Subjects</h1>
-    <p class="subtitle">{{ $class->section?->name }}. Choose which subjects this class offers, and whether each is mandatory and examinable.</p>
+    <p class="subtitle">
+      {{ $class->section?->name }}.
+      @if($selectedArm)
+        Choose which subjects {{ $selectedArm->label() }} offers, and whether each is mandatory and examinable. Only this stream's own students see these.
+      @else
+        Choose which subjects this class offers, and whether each is mandatory and examinable.
+      @endif
+    </p>
   </div>
   <a class="btn btn-ghost btn-sm" href="{{ route('school.academics.index', ['school' => $school->slug]) }}">Back to Classes &amp; Subjects</a>
 </div>
+
+@if($streams->count() > 1)
+  {{--
+    A class with more than one named stream (SSS's Arts & Humanities /
+    Science & Technology / Commercial, most commonly) manages each
+    stream's own subject list separately, since a Science student and a
+    Commercial student in the same class do not take the same subjects.
+    No tab links to "the whole class" on purpose: once a class has real
+    streams, every student belongs to exactly one of them, so there is no
+    student a class wide list would actually describe.
+  --}}
+  <div class="card" style="margin-bottom:1.1rem;padding:.6rem">
+    <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+      @foreach($streams as $stream)
+        <a class="btn {{ $selectedArm?->id === $stream->id ? 'btn-primary' : 'btn-ghost' }} btn-sm"
+           href="{{ route('school.academics.subjects', ['school' => $school->slug, 'classId' => $class->id, 'class_arm_id' => $stream->id]) }}">
+          {{ $stream->arm?->name }}
+        </a>
+      @endforeach
+    </div>
+  </div>
+@endif
+
+@if($streams->count() > 1 && ! $selectedArm)
+  <div class="card" style="margin-bottom:1.1rem">
+    <p class="muted" style="margin:0">Pick a stream above to manage its own subject list.</p>
+  </div>
+@else
 
 @if($canManage && $suggestedCatalog)
   <div class="card" style="margin-bottom:1.1rem;border-color:var(--accent)">
@@ -53,10 +88,12 @@
 <div class="card" style="margin-bottom:1.1rem">
   <h3 style="margin-bottom:.8rem">Subjects offered</h3>
   @if($offered->isEmpty())
-    <p class="muted">No subjects added to this class yet.</p>
+    <p class="muted">No subjects added to {{ $selectedArm ? $selectedArm->label() : 'this class' }} yet.</p>
   @else
     @if($canManage)
-      <form id="bulkSubjectsForm" method="POST" action="{{ route('school.academics.subjects.bulk-detach', ['school' => $school->slug, 'classId' => $class->id]) }}"></form>
+      <form id="bulkSubjectsForm" method="POST" action="{{ route('school.academics.subjects.bulk-detach', ['school' => $school->slug, 'classId' => $class->id]) }}">
+        @if($selectedArm)<input type="hidden" name="class_arm_id" value="{{ $selectedArm->id }}" />@endif
+      </form>
     @endif
     <div style="overflow-x:auto">
     <table>
@@ -72,14 +109,16 @@
               <td colspan="2">
                 <form method="POST" action="{{ route('school.academics.subjects.update', ['school' => $school->slug, 'classId' => $class->id, 'subjectId' => $subject->id]) }}" class="flagbox">
                   @csrf
+                  @if($selectedArm)<input type="hidden" name="class_arm_id" value="{{ $selectedArm->id }}" />@endif
                   <label><input type="checkbox" name="is_mandatory" value="1" @checked($subject->pivot->is_mandatory) onchange="this.form.requestSubmit()" /> Mandatory</label>
                   <label><input type="checkbox" name="is_examinable" value="1" @checked($subject->pivot->is_examinable) onchange="this.form.requestSubmit()" /> Examinable</label>
                   <label>Position <input class="seq" type="number" name="sequence" min="1" value="{{ $subject->sequence }}" onchange="this.form.requestSubmit()" aria-label="Position of {{ $subject->name }} in the list" /></label>
                 </form>
               </td>
               <td>
-                <form method="POST" action="{{ route('school.academics.subjects.detach', ['school' => $school->slug, 'classId' => $class->id, 'subjectId' => $subject->id]) }}" onsubmit="return confirm('Remove {{ $subject->name }} from this class?')">
+                <form method="POST" action="{{ route('school.academics.subjects.detach', ['school' => $school->slug, 'classId' => $class->id, 'subjectId' => $subject->id]) }}" onsubmit="return confirm('Remove {{ $subject->name }}?')">
                   @csrf @method('DELETE')
+                  @if($selectedArm)<input type="hidden" name="class_arm_id" value="{{ $selectedArm->id }}" />@endif
                   <button class="btn btn-ghost btn-sm" type="submit">Remove</button>
                 </form>
               </td>
@@ -96,7 +135,7 @@
     @if($canManage)
       <div class="row-between" style="margin-top:.8rem;flex-wrap:wrap;gap:.6rem">
         <span class="muted" style="font-size:.85rem">Tick any number of subjects above, then remove them all at once.</span>
-        <button form="bulkSubjectsForm" class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit" onclick="return confirm('Remove the selected subjects from this class?')">Remove selected</button>
+        <button form="bulkSubjectsForm" class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit" onclick="return confirm('Remove the selected subjects?')">Remove selected</button>
       </div>
       <script>
         (function(){
@@ -118,10 +157,11 @@
   <div class="card">
     <h3 style="margin-bottom:.8rem">Add an existing subject</h3>
     @if($available->isEmpty())
-      <p class="muted">Every subject in your school's catalog is already on this class.</p>
+      <p class="muted">Every subject in your school's catalog is already {{ $selectedArm ? 'on this stream' : 'on this class' }}.</p>
     @else
       <form method="POST" action="{{ route('school.academics.subjects.attach', ['school' => $school->slug, 'classId' => $class->id]) }}">
         @csrf
+        @if($selectedArm)<input type="hidden" name="class_arm_id" value="{{ $selectedArm->id }}" />@endif
         <div class="field">
           <label for="subject_id">Subject</label>
           <select id="subject_id" name="subject_id" required>
@@ -134,7 +174,7 @@
           <label><input type="checkbox" name="is_mandatory" value="1" checked /> Mandatory</label>
           <label><input type="checkbox" name="is_examinable" value="1" checked /> Examinable</label>
         </div>
-        <button class="btn btn-primary btn-sm" type="submit">Add to class</button>
+        <button class="btn btn-primary btn-sm" type="submit">Add{{ $selectedArm ? '' : ' to class' }}</button>
       </form>
     @endif
   </div>
@@ -143,6 +183,7 @@
     <h3 style="margin-bottom:.8rem">Add a brand new subject</h3>
     <form method="POST" action="{{ route('school.academics.subjects.new', ['school' => $school->slug, 'classId' => $class->id]) }}">
       @csrf
+      @if($selectedArm)<input type="hidden" name="class_arm_id" value="{{ $selectedArm->id }}" />@endif
       <div class="field">
         <label for="new_name">Subject name</label>
         <input id="new_name" name="name" placeholder="e.g. Robotics" required />
@@ -151,9 +192,11 @@
         <label for="new_code">Code (optional)</label>
         <input id="new_code" name="code" placeholder="e.g. ROB" />
       </div>
-      <button class="btn btn-primary btn-sm" type="submit">Create &amp; add to class</button>
+      <button class="btn btn-primary btn-sm" type="submit">Create &amp; add{{ $selectedArm ? '' : ' to class' }}</button>
     </form>
   </div>
 </div>
+@endif
+
 @endif
 @endsection
