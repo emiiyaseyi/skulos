@@ -65,20 +65,46 @@
   </div>
   @endif
 
-  @foreach($bodySections as $sectionKey)
-    @if((($bodyAlign ?? [])[$sectionKey] ?? 'stretch') === 'stretch')
-      @if(str_starts_with($sectionKey, 'custom_'))
-        @include('school.report-cards._body-custom', ['customBlock' => ($customBlocks ?? [])[$sectionKey] ?? null])
-      @else
-        @includeIf('school.report-cards._body-'.$sectionKey)
-      @endif
-    @else
-      <div style="max-width:75%;{{ ['left' => 'margin-right:auto', 'right' => 'margin-left:auto', 'center' => 'margin-left:auto;margin-right:auto'][$bodyAlign[$sectionKey]] }}">
+  {{--
+    Rows of one or more sections (user request 2026-07-24: "let the
+    report card designer also allow one to insert columns into a
+    section of the report card so one can have items side by side...
+    admin selects the rows and columns needed"). $bodyRows is
+    ReportCardLayout::groupIntoRows($bodySections), computed once in the
+    controller so the real report card here and the designer's own live
+    preview (layout.blade.php) build identical rows from the same rule.
+    Falls back to one section per row if a caller has not passed it.
+  --}}
+  @php($rows = $bodyRows ?? collect($bodySections)->map(fn ($k) => [$k])->all())
+  @foreach($rows as $row)
+    @if(count($row) === 1)
+      @php($sectionKey = $row[0])
+      @if((($bodyAlign ?? [])[$sectionKey] ?? 'stretch') === 'stretch')
         @if(str_starts_with($sectionKey, 'custom_'))
           @include('school.report-cards._body-custom', ['customBlock' => ($customBlocks ?? [])[$sectionKey] ?? null])
         @else
           @includeIf('school.report-cards._body-'.$sectionKey)
         @endif
+      @else
+        <div style="max-width:75%;{{ ['left' => 'margin-right:auto', 'right' => 'margin-left:auto', 'center' => 'margin-left:auto;margin-right:auto'][$bodyAlign[$sectionKey]] }}">
+          @if(str_starts_with($sectionKey, 'custom_'))
+            @include('school.report-cards._body-custom', ['customBlock' => ($customBlocks ?? [])[$sectionKey] ?? null])
+          @else
+            @includeIf('school.report-cards._body-'.$sectionKey)
+          @endif
+        </div>
+      @endif
+    @else
+      <div class="rc-cols" style="--rc-cols:{{ count($row) }}">
+        @foreach($row as $sectionKey)
+          <div>
+            @if(str_starts_with($sectionKey, 'custom_'))
+              @include('school.report-cards._body-custom', ['customBlock' => ($customBlocks ?? [])[$sectionKey] ?? null])
+            @else
+              @includeIf('school.report-cards._body-'.$sectionKey)
+            @endif
+          </div>
+        @endforeach
       </div>
     @endif
   @endforeach

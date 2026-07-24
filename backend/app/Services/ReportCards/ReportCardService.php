@@ -36,8 +36,13 @@ class ReportCardService
      */
     public function forStudent(Student $student, Term $term, ?GradingScale $scale = null): array
     {
-        $scale ??= GradingScale::default();
         $classArm = $student->currentClassArm;
+        // A section's own grading scale wins over the school wide
+        // default (user request 2026-07-24: "check the section grade
+        // structure to get the grade to be placed here... it changes
+        // based on the section and grade set"), falling back exactly
+        // as before for a section that has never had one assigned.
+        $scale ??= $classArm?->schoolClass?->section?->gradingScale ?? GradingScale::default();
 
         // A school configurable choice per term sequence (Examinations >
         // Term Calculation, 2026-07-24), not a blanket on/off: 'average'
@@ -104,6 +109,12 @@ class ReportCardService
 
         $overallTotal = array_sum(array_column($subjectRows, 'total'));
         $overallAverage = count($subjectRows) ? round($overallTotal / count($subjectRows), 2) : 0.0;
+        // Overall Grade (user request 2026-07-24: "add a Grade to this
+        // section which is based on the overall average gotten by the
+        // student... it changes based on the section and grade set"),
+        // the same section scoped $scale every per subject grade above
+        // already uses.
+        $overallGrade = $scale?->bandFor($overallAverage)?->grade;
 
         $overallPosition = null;
         $classSize = null;
@@ -177,6 +188,7 @@ class ReportCardService
             'overall' => [
                 'total' => $overallTotal,
                 'average' => $overallAverage,
+                'grade' => $overallGrade,
                 'position' => $overallPosition,
                 'class_size' => $classSize,
             ],
@@ -256,7 +268,7 @@ class ReportCardService
                 ['name' => 'Civic Education', 'components' => ['First CA' => 14, 'Second CA' => 15, 'Exam' => 40], 'total' => 69, 'grade' => 'B', 'remark' => 'Upper Credit / Very Good', 'position' => 5, 'class_average' => 62.0, 'highest' => 85, 'lowest' => 30, 'previous_terms' => ['First Term' => 65.0, 'Second Term' => 67.0], 'cumulative_average' => 67.0],
             ],
             'attendance' => ['present' => 58, 'total' => 62],
-            'overall' => ['total' => 313, 'average' => 78.25, 'position' => 2, 'class_size' => 28],
+            'overall' => ['total' => 313, 'average' => 78.25, 'grade' => 'A', 'position' => 2, 'class_size' => 28],
             'remarks' => [
                 'class_teacher' => 'A hardworking and consistent student this term. Keep it up.',
                 'principal' => 'Impressive result. Well done.',

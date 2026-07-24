@@ -27,6 +27,8 @@ class ReportCardLayout
 
     public const KEY_BODY_ALIGN = 'report_card_body_align';
 
+    public const KEY_BODY_COLUMNS = 'report_card_body_columns';
+
     public const ZONES = ['header', 'info'];
 
     public function enabled(): bool
@@ -186,5 +188,86 @@ class ReportCardLayout
             }
         }
         Setting::put(self::KEY_BODY_ALIGN, $clean);
+    }
+
+    /**
+     * How many columns a body section shares its row with (user request
+     * 2026-07-24: "let the report card designer also allow one to insert
+     * columns into a section of the report card so one can have items
+     * side by side... 1 row by 1 column or the admin selects the rows
+     * and columns needed"). A section left at 1 (the default) renders on
+     * its own full width row exactly as before this existed. Two (or
+     * more) consecutive sections in bodyOrder() that both say 2 share
+     * one row, split evenly; a 2 next to a section that says 1 just
+     * renders full width on its own, there is no partner to share with.
+     *
+     * @return array<string, int> section key => column count
+     */
+    public function bodyColumns(): array
+    {
+        $saved = Setting::grab(self::KEY_BODY_COLUMNS);
+
+        return is_array($saved) ? $saved : config('skulos.default_report_card_body_columns', []);
+    }
+
+    /**
+     * @param array<string, int|string> $columns
+     */
+    public function setBodyColumns(array $columns): void
+    {
+        $clean = [];
+        foreach ($columns as $key => $count) {
+            $count = (int) $count;
+            if ($this->isValidBodyKey($key) && $count >= 1 && $count <= 3) {
+                $clean[$key] = $count;
+            }
+        }
+        Setting::put(self::KEY_BODY_COLUMNS, $clean);
+    }
+
+    /**
+     * bodyOrder() grouped into rows for rendering: consecutive sections
+     * that all declare the SAME column count > 1 (a school's own
+     * grouping, "insert columns... 1 row by 1 column or the admin
+     * selects the rows and columns needed") share one row up to that
+     * count, everything else is its own single section row. Computed
+     * here, not in the view, so both the real report card
+     * (render.blade.php/class-print.blade.php) and the designer's own
+     * live preview build identical rows from the same rule (user report
+     * 2026-07-24: "let the report designer in view match the current
+     * live report card view").
+     *
+     * @param  array<int, string>  $order
+     * @return array<int, array<int, string>> rows of section keys
+     */
+    public function groupIntoRows(array $order): array
+    {
+        $columns = $this->bodyColumns();
+        $rows = [];
+        $i = 0;
+        $count = count($order);
+
+        while ($i < $count) {
+            $key = $order[$i];
+            $span = $columns[$key] ?? 1;
+
+            if ($span <= 1) {
+                $rows[] = [$key];
+                $i++;
+
+                continue;
+            }
+
+            $row = [$key];
+            $j = $i + 1;
+            while ($j < $count && count($row) < $span && ($columns[$order[$j]] ?? 1) === $span) {
+                $row[] = $order[$j];
+                $j++;
+            }
+            $rows[] = $row;
+            $i = $j;
+        }
+
+        return $rows;
     }
 }

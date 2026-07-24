@@ -7,6 +7,7 @@ use App\Models\School;
 use App\Models\Tenant\GradingBand;
 use App\Models\Tenant\GradingScale;
 use App\Models\Tenant\Score;
+use App\Models\Tenant\Section;
 use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -49,9 +50,31 @@ class GradingController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'scales' => GradingScale::with('bands')->orderBy('sequence')->orderBy('name')->get(),
+            'sections' => Section::orderBy('sequence')->get(),
             'defaultCatalog' => config('skulos.default_grading_scales'),
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'examinations.approve_results'),
         ]);
+    }
+
+    /**
+     * Which scale a section's report cards grade against (user request
+     * 2026-07-24: "check the section grade structure to get the grade
+     * to be placed here... it changes based on the section and grade
+     * set"). Left unset (null), a section falls back to whichever scale
+     * is the school wide default, exactly today's behaviour.
+     */
+    public function assignSection(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'examinations.approve_results');
+        $section = Section::findOrFail($request->route('sectionId'));
+
+        $data = $request->validate([
+            'grading_scale_id' => ['nullable', 'exists:tenant.grading_scales,id'],
+        ]);
+
+        $section->update(['grading_scale_id' => $data['grading_scale_id'] ?? null]);
+
+        return back()->with('status', "Grading scale updated for {$section->name}.");
     }
 
     /**

@@ -1688,7 +1688,20 @@ return [
         'subjects_table' => 'Scores Table',
         'subject_comments' => 'Subject Comments',
         'summary' => 'Summary Boxes',
-        'traits_physical' => 'Behavioural Traits & Physical Stats',
+        // Two standalone sections, not one merged "Behavioural Traits &
+        // Physical Stats" block (user correction 2026-07-24: "Help me
+        // separate this... in the report card designer to standalone
+        // each"). Keys match their own report_card_fields toggle name
+        // directly, the same dual purpose naming subject_comments
+        // already uses.
+        'behavioural_traits' => 'Behavioural / Psychomotor Traits',
+        'physical_stats' => 'Physical & Attendance',
+        // Its own standalone section, not merged into Physical &
+        // Attendance (user correction 2026-07-24: "should have its own
+        // stand alone section... placed by default below the 'Physical
+        // & Attendance' section"), see report_card_default_body_sections
+        // below for the actual default position.
+        'class_teacher_contact' => 'Class Teacher Contact',
         'grade_key' => 'Grade Key',
         'remarks' => 'Remarks (Class Teacher / Head of School)',
         'signoff' => 'Stamp & Signature',
@@ -1714,7 +1727,22 @@ return [
     | in that catalog — see the score_trend/subject_chart comment there.
     */
     'report_card_default_body_sections' => [
-        'subjects_table', 'subject_comments', 'summary', 'traits_physical', 'grade_key', 'remarks', 'signoff',
+        'subjects_table', 'subject_comments', 'summary', 'behavioural_traits', 'physical_stats', 'class_teacher_contact', 'grade_key', 'remarks', 'signoff',
+    ],
+
+    /*
+    | Which sections share a row by default (user request 2026-07-24:
+    | "let the report designer in view match the current live report
+    | card view showing some sections side by side and not all in linear
+    | method"). Behavioural Traits and Physical & Attendance always sat
+    | side by side before they were split into two standalone sections
+    | the same day, this default keeps that look without forcing every
+    | future section into a fixed pairing, an admin can change or remove
+    | it from the Layout Designer like anything else there.
+    */
+    'default_report_card_body_columns' => [
+        'behavioural_traits' => 2,
+        'physical_stats' => 2,
     ],
 
     /*
@@ -1830,7 +1858,18 @@ return [
         // could not express "average for third term, comparison only
         // for second term" (user request), a real per term choice, not
         // a report card field toggle.
-        'overall_position' => ['label' => 'Overall position in class', 'group' => 'academic', 'default' => true],
+        // The 5 summary boxes (Total Score, Average, Grade, Position,
+        // Class Size), each independently toggleable (user request
+        // 2026-07-24: "let have the admin report setting to include
+        // this section where admin can toggle any of the 5 items under
+        // summary on or off"). Total Score/Average were previously
+        // unconditional (no toggle existed at all); Position and Class
+        // Size previously shared the one 'overall_position' toggle.
+        'summary_total' => ['label' => 'Summary: Total Score', 'group' => 'academic', 'default' => true],
+        'summary_average' => ['label' => 'Summary: Average', 'group' => 'academic', 'default' => true],
+        'summary_grade' => ['label' => 'Summary: Grade', 'group' => 'academic', 'default' => true],
+        'overall_position' => ['label' => 'Summary: Position', 'group' => 'academic', 'default' => true],
+        'summary_class_size' => ['label' => 'Summary: Class Size', 'group' => 'academic', 'default' => true],
         'class_teacher_remark' => ['label' => 'Class teacher remark', 'group' => 'remarks', 'default' => true],
         'principal_remark' => ['label' => 'Head of school remark', 'group' => 'remarks', 'default' => true],
         'next_term_begins' => ['label' => 'Next term begins on', 'group' => 'remarks', 'default' => true],

@@ -190,6 +190,7 @@ class ReportCardController extends Controller
             'layoutEnabled' => $layout->enabled(),
             'layoutZones' => $layout->zones(),
             'bodySections' => $layout->effectiveBodyOrder($layout->enabled()),
+            'bodyRows' => $layout->groupIntoRows($layout->effectiveBodyOrder($layout->enabled())),
             'headerAlign' => $layout->headerAlign(),
             'bodyAlign' => $layout->bodyAlign(),
             'customBlocks' => $this->customBlocksKeyed(),
@@ -220,6 +221,7 @@ class ReportCardController extends Controller
             'layoutEnabled' => $layout->enabled(),
             'layoutZones' => $layout->zones(),
             'bodySections' => $layout->effectiveBodyOrder($layout->enabled()),
+            'bodyRows' => $layout->groupIntoRows($layout->effectiveBodyOrder($layout->enabled())),
             'headerAlign' => $layout->headerAlign(),
             'bodyAlign' => $layout->bodyAlign(),
             'customBlocks' => $this->customBlocksKeyed(),
@@ -308,6 +310,7 @@ class ReportCardController extends Controller
             'bodyLabels' => $bodyLabels,
             'bodyHtml' => $bodyHtml,
             'bodyAlign' => $layout->bodyAlign(),
+            'bodyColumns' => $layout->bodyColumns(),
             'customBlocks' => $customBlocks,
         ]);
     }
@@ -382,6 +385,8 @@ class ReportCardController extends Controller
             'body.*' => ['string'],
             'body_align' => ['array'],
             'body_align.*' => [Rule::in(['left', 'center', 'right', 'stretch'])],
+            'body_columns' => ['array'],
+            'body_columns.*' => ['integer', 'min:1', 'max:3'],
         ]);
 
         $layout->setEnabled((bool) ($data['enabled'] ?? false));
@@ -389,6 +394,7 @@ class ReportCardController extends Controller
         $layout->setHeaderAlign($data['header_align'] ?? []);
         $layout->setBodyOrder($data['body'] ?? []);
         $layout->setBodyAlign($data['body_align'] ?? []);
+        $layout->setBodyColumns($data['body_columns'] ?? []);
 
         return back()->with('status', 'Report card layout saved.');
     }
@@ -559,6 +565,7 @@ class ReportCardController extends Controller
             'layoutEnabled' => $layout->enabled(),
             'layoutZones' => $layout->zones(),
             'bodySections' => $layout->effectiveBodyOrder($layout->enabled()),
+            'bodyRows' => $layout->groupIntoRows($layout->effectiveBodyOrder($layout->enabled())),
             'headerAlign' => $layout->headerAlign(),
             'bodyAlign' => $layout->bodyAlign(),
             'customBlocks' => $this->customBlocksKeyed(),

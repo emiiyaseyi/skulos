@@ -25,7 +25,12 @@
   .rc-table th,.rc-table td{border:1px solid #d8d8d8;padding:.32rem .4rem;text-align:left}
   .rc-table th{background:#f3f4f6;font-size:.62rem;text-transform:uppercase;letter-spacing:.03em}
   .rc-table td.num,.rc-table th.num{text-align:center;font-variant-numeric:tabular-nums}
-  .rc-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin:.7rem 0}
+  {{-- auto-fit, not a fixed 4 column count: each of the 5 boxes here is
+       now independently toggleable (2026-07-24), so the real count on
+       any given report card varies from 1 to 5, this keeps every count
+       resolving to one tidy row instead of a fixed grid leaving a gap
+       or an orphaned box. --}}
+  .rc-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(5.5rem,1fr));gap:.5rem;margin:.7rem 0}
   .rc-summary .box{background:#f7f7f8;border-radius:8px;padding:.5rem;text-align:center}
   .rc-summary .box b{font-size:1rem;display:block}
   .rc-summary .box span{font-size:.6rem;text-transform:uppercase;color:#777;font-weight:700}
@@ -39,7 +44,6 @@
   .rc-modern .photo{width:52px;height:52px;border-radius:12px;background:#eee;margin:0 auto .5rem;display:grid;place-items:center;font-weight:800;color:#888}
   /* compact */
   .rc-compact .rc-table{font-size:.64rem}
-  .rc-compact .rc-summary{grid-template-columns:repeat(3,1fr)}
   .rc-logo{width:48px;height:48px;object-fit:contain;display:block;margin:0 auto .4rem}
   /* Student Photo layout designer block (2026-07-23) */
   .rc-photo{width:64px;height:64px;object-fit:cover;border-radius:10px;display:block;margin:0 auto .4rem;border:1px solid #d8d8d8}
@@ -62,6 +66,11 @@
        "Grade Key", etc, all rendered left aligned before this). --}}
   .rc-block h3{font-size:.66rem;text-align:center;text-transform:uppercase;letter-spacing:.04em;color:#555;border-bottom:1px solid #e2e2e2;padding-bottom:.25rem;margin-bottom:.4rem}
   .rc-twocol{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+  {{-- Designer chosen row/column grouping (user request 2026-07-24:
+       "insert columns into a section... 1 row by 1 column or the admin
+       selects the rows and columns needed"), --rc-cols set inline per
+       row from ReportCardLayout::groupIntoRows(). --}}
+  .rc-cols{display:grid;grid-template-columns:repeat(var(--rc-cols,2),1fr);gap:1rem}
   .rc-traits{width:100%;border-collapse:collapse;font-size:.68rem}
   .rc-traits td{padding:.22rem 0;border-bottom:1px dashed #e2e2e2}
   .rc-traits td.val{text-align:right;font-weight:700}
@@ -70,7 +79,7 @@
   .rc-signoff{display:flex;justify-content:space-around;gap:1.2rem;text-align:center;margin-top:1rem;padding-top:.7rem;border-top:1px solid #e2e2e2}
   .rc-signoff img{max-height:44px;max-width:120px;object-fit:contain;display:block;margin:0 auto .25rem}
   .rc-signoff .line{border-top:1px solid #999;margin-top:.3rem;padding-top:.25rem;font-size:.58rem;text-transform:uppercase;letter-spacing:.03em;color:#777}
-  @media (max-width:640px){ .rc-twocol{grid-template-columns:1fr} .rc-eval .rc-strip{grid-template-columns:1fr} }
+  @media (max-width:640px){ .rc-twocol{grid-template-columns:1fr} .rc-cols{grid-template-columns:1fr} .rc-eval .rc-strip{grid-template-columns:1fr} }
   {{--
     Fit on one A4 page (user report 2026-07-21: "Report cards need to be
     fitted into one A4 page without it spilling into other pages and

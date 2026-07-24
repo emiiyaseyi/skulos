@@ -4,6 +4,7 @@ namespace App\Models\Tenant;
 
 use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -16,7 +17,7 @@ class Section extends Model
 
     protected $connection = 'tenant';
 
-    protected $fillable = ['name', 'sequence'];
+    protected $fillable = ['name', 'sequence', 'grading_scale_id'];
 
     protected function casts(): array
     {
@@ -28,5 +29,11 @@ class Section extends Model
     public function classes(): HasMany
     {
         return $this->hasMany(SchoolClass::class);
+    }
+
+    /** Which grading scale a report card should use for a student in this section, unset falls back to GradingScale::default() (user request 2026-07-24). */
+    public function gradingScale(): BelongsTo
+    {
+        return $this->belongsTo(GradingScale::class);
     }
 }

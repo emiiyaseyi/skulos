@@ -10,6 +10,40 @@
   <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.index', ['school' => $school->slug]) }}">Back to Results</a>
 </div>
 
+@if($sections->isNotEmpty() && $scales->isNotEmpty())
+  <div class="card" style="margin-bottom:1.1rem">
+    <h3 style="margin-bottom:.4rem">Which scale each section grades against</h3>
+    <p class="muted" style="margin-bottom:.8rem">A section left on "School default" uses whichever scale above is marked Default. Report cards (Grade Key, and any overall Grade shown on the summary) always use the scale for the student's own section.</p>
+    <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Section</th><th>Grading scale</th></tr></thead>
+      <tbody>
+        @foreach($sections as $section)
+          <tr>
+            <td><strong>{{ $section->name }}</strong></td>
+            <td>
+              @if($canManage)
+                <form method="POST" action="{{ route('school.examinations.grading.sections.assign', ['school' => $school->slug, 'sectionId' => $section->id]) }}">
+                  @csrf
+                  <select name="grading_scale_id" onchange="this.form.submit()">
+                    <option value="">School default</option>
+                    @foreach($scales as $scale)
+                      <option value="{{ $scale->id }}" @selected($section->grading_scale_id === $scale->id)>{{ $scale->name }}</option>
+                    @endforeach
+                  </select>
+                </form>
+              @else
+                {{ $section->gradingScale?->name ?? 'School default' }}
+              @endif
+            </td>
+          </tr>
+        @endforeach
+      </tbody>
+    </table>
+    </div>
+  </div>
+@endif
+
 @if($canManage && $scales->isEmpty())
   <div class="card" style="margin-bottom:1.1rem">
     <h3 style="margin-bottom:.4rem">Load default grading scales</h3>

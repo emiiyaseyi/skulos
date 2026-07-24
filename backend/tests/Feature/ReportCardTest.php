@@ -143,6 +143,91 @@ class ReportCardTest extends TestCase
     }
 
     /**
+     * User request 2026-07-24: "add a Grade to this section which is
+     * based on the overall average gotten by the student... check the
+     * section grade structure to get the grade to be placed here... it
+     * changes based on the section and grade set." Two students in two
+     * different sections, each section assigned its own scale, must be
+     * graded against their own section's scale, not one school wide
+     * default for both.
+     */
+    public function test_the_overall_grade_uses_the_students_own_section_grading_scale(): void
+    {
+        [$school] = $this->schoolWithMember('school-owner', 'rcgrade');
+        app(TenantManager::class)->use($school);
+
+        $session = AcademicSession::create(['name' => '2025/2026']);
+        $term = Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1]);
+        $subject = Subject::create(['name' => 'Mathematics']);
+        $component = AssessmentComponent::create(['name' => 'Exam', 'max_score' => 100, 'sequence' => 1]);
+
+        $strictScale = GradingScale::create(['name' => 'Strict Scale', 'is_default' => true]);
+        GradingBand::create(['grading_scale_id' => $strictScale->id, 'min_score' => 0, 'max_score' => 100, 'grade' => 'B']);
+
+        $generousScale = GradingScale::create(['name' => 'Generous Scale']);
+        GradingBand::create(['grading_scale_id' => $generousScale->id, 'min_score' => 0, 'max_score' => 100, 'grade' => 'A']);
+
+        $sectionWithScale = Section::create(['name' => 'Secondary', 'sequence' => 1, 'grading_scale_id' => $generousScale->id]);
+        $sectionWithoutScale = Section::create(['name' => 'Primary', 'sequence' => 2]);
+
+        $classWithScale = SchoolClass::create(['section_id' => $sectionWithScale->id, 'name' => 'JSS 1', 'sequence' => 1]);
+        $classWithoutScale = SchoolClass::create(['section_id' => $sectionWithoutScale->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $armWithScale = ClassArm::create(['school_class_id' => $classWithScale->id, 'arm_id' => Arm::create(['name' => 'A'])->id]);
+        $armWithoutScale = ClassArm::create(['school_class_id' => $classWithoutScale->id, 'arm_id' => Arm::create(['name' => 'B'])->id]);
+
+        $studentInScopedSection = Student::create(['admission_number' => 'G1', 'first_name' => 'Ada', 'last_name' => 'Obi', 'current_class_arm_id' => $armWithScale->id]);
+        $studentInDefaultSection = Student::create(['admission_number' => 'G2', 'first_name' => 'Chi', 'last_name' => 'Eze', 'current_class_arm_id' => $armWithoutScale->id]);
+
+        foreach ([$studentInScopedSection, $studentInDefaultSection] as $student) {
+            Score::create(['student_id' => $student->id, 'subject_id' => $subject->id, 'class_arm_id' => $student->current_class_arm_id, 'term_id' => $term->id, 'assessment_component_id' => $component->id, 'score' => 90]);
+        }
+
+        $scopedData = app(ReportCardService::class)->forStudent($studentInScopedSection, $term);
+        $defaultData = app(ReportCardService::class)->forStudent($studentInDefaultSection, $term);
+        app(TenantManager::class)->forget();
+
+        $this->assertSame('A', $scopedData['overall']['grade'], 'a section with its own assigned scale must use it, not the school default');
+        $this->assertSame('B', $defaultData['overall']['grade'], 'a section with no scale assigned falls back to the school default');
+    }
+
+    /** User request 2026-07-24: "toggle any of the 5 items under summary on or off". */
+    public function test_each_summary_box_item_is_independently_toggleable(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rcsummary');
+        app(TenantManager::class)->use($school);
+
+        $session = AcademicSession::create(['name' => '2025/2026']);
+        $term = Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1]);
+        $term->makeCurrent();
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => Arm::create(['name' => 'A'])->id]);
+        $subject = Subject::create(['name' => 'Mathematics']);
+        $component = AssessmentComponent::create(['name' => 'Exam', 'max_score' => 100, 'sequence' => 1]);
+        $scale = GradingScale::create(['name' => 'Scale', 'is_default' => true]);
+        GradingBand::create(['grading_scale_id' => $scale->id, 'min_score' => 0, 'max_score' => 100, 'grade' => 'A']);
+        $student = Student::create(['admission_number' => 'S1', 'first_name' => 'Bola', 'last_name' => 'Ade', 'current_class_arm_id' => $arm->id]);
+        Score::create(['student_id' => $student->id, 'subject_id' => $subject->id, 'class_arm_id' => $arm->id, 'term_id' => $term->id, 'assessment_component_id' => $component->id, 'score' => 90]);
+        $studentId = $student->id;
+        $termId = $term->id;
+        app(TenantManager::class)->forget();
+
+        // Turn off everything except Grade.
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/settings", [
+            'template' => 'classic',
+            'fields' => ['summary_grade' => '1'],
+        ])->assertRedirect();
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/{$studentId}/{$termId}");
+        $response->assertOk()
+            ->assertDontSee('Total Score')
+            ->assertDontSee('>Average<', false)
+            ->assertDontSee('>Position<', false)
+            ->assertDontSee('Class Size')
+            ->assertSee('>Grade<', false);
+    }
+
+    /**
      * Class Position & Ranking (Advance plan feature 'class_position_
      * ranking', wired into the nav 2026-07-18): the underlying computation
      * (ResultService::classBroadsheet()/subjectStats()) already existed

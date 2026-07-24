@@ -23,7 +23,7 @@
   .rc-table th,.rc-table td{border:1px solid #d8d8d8;padding:.4rem .45rem;text-align:left}
   .rc-table th{background:#f3f4f6;font-size:.66rem;text-transform:uppercase}
   .rc-table td.num,.rc-table th.num{text-align:center}
-  .rc-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-bottom:.6rem}
+  .rc-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(5rem,1fr));gap:.5rem;margin-bottom:.6rem}
   .rc-summary .box{background:#f7f7f8;border-radius:8px;padding:.5rem;text-align:center}
   .rc-summary .box b{font-size:.95rem;display:block}
   .rc-summary .box span{font-size:.6rem;text-transform:uppercase;color:#777;font-weight:700}
@@ -49,11 +49,32 @@
   .lb-block:hover{outline-color:#ccc}
   .lb-block.selected{outline:2px solid var(--accent);outline-offset:3px;background:color-mix(in srgb,var(--accent) 6%,transparent)}
   .lb-block.dragging{opacity:.35}
-  .lb-section{cursor:grab;border-radius:6px;outline:1px dashed transparent;outline-offset:4px;padding:.4rem;margin:0 -.4rem}
+  {{-- A single 6 column auto flow grid for the whole body zone (user
+       request 2026-07-24: "let the report card designer also allow one
+       to insert columns into a section... so one can have items side
+       by side... let the report designer in view match the current
+       live report card view"). A section's own grid-column span (set
+       inline per element from its columns choice: full width=6,
+       half=3, third=2) decides how much of the row it takes; the
+       browser's own grid auto placement naturally packs two half width
+       sections into one row and starts a full width one on its own,
+       with no JS needed to detect or rebuild "rows" as the admin drags
+       things around. --}}
+  #zone-body.lb-zone{display:grid;grid-template-columns:repeat(6,1fr);gap:.7rem;align-items:start}
+  .lb-section{cursor:grab;position:relative;border-radius:6px;outline:1px dashed transparent;outline-offset:4px;padding:.4rem;margin:1rem -.4rem 0;grid-column:span 6}
   .lb-section:hover{outline-color:#ccc}
   .lb-section.selected{outline:2px solid var(--accent);outline-offset:4px;background:color-mix(in srgb,var(--accent) 5%,transparent)}
   .lb-section.dragging{opacity:.35}
-  .lb-section-tag{font-size:.62rem;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);font-weight:800;margin-bottom:.3rem}
+  {{-- A small floating corner chip, not a full width line stacked
+       directly above the block's own content (user report 2026-07-24:
+       "it has duplicated items on the report card designer now" —
+       every section's own heading, e.g. "Class Teacher Contact", sat
+       directly under this same label in the same small caps style,
+       reading as the same text twice). This is designer only chrome
+       (identifies which block this is while dragging/selecting), never
+       part of the real report card, so it should look like editor UI,
+       not report content. --}}
+  .lb-section-tag{position:absolute;top:-.55rem;left:.5rem;background:var(--accent);color:var(--accent-ink);font-size:.56rem;text-transform:uppercase;letter-spacing:.03em;font-weight:800;padding:.12rem .5rem;border-radius:999px;z-index:2;pointer-events:none}
 
   .lb-shell{display:grid;grid-template-columns:1fr 17rem;gap:1.25rem;align-items:start;margin-top:1.1rem}
   @media(max-width:860px){.lb-shell{grid-template-columns:1fr}}
@@ -120,7 +141,17 @@
         <div class="lb-zone" data-zone="body" id="zone-body">
           @foreach($bodySections as $key)
             @if(isset($bodyHtml[$key]))
-              <div class="lb-section" draggable="true" data-section="{{ $key }}" data-align="{{ ($bodyAlign ?? [])[$key] ?? 'stretch' }}" tabindex="0" role="button" aria-label="{{ $bodyLabels[$key] ?? $key }}, select to edit" style="{{ (($bodyAlign ?? [])[$key] ?? 'stretch') === 'stretch' ? '' : 'max-width:75%;'.['left' => 'margin-right:auto', 'right' => 'margin-left:auto', 'center' => 'margin-left:auto;margin-right:auto'][$bodyAlign[$key]] }}">
+              @php
+                $cols = max(1, min(3, ($bodyColumns ?? [])[$key] ?? 1));
+                $span = intdiv(6, $cols);
+                $align = ($bodyAlign ?? [])[$key] ?? 'stretch';
+                // A shared row's own width already comes from its
+                // grid-column span, left/center/right alignment (a
+                // 75% inset on an otherwise full width section) would
+                // just fight it, so columns > 1 wins.
+                $alignStyle = $cols > 1 || $align === 'stretch' ? '' : 'max-width:75%;'.['left' => 'margin-right:auto', 'right' => 'margin-left:auto', 'center' => 'margin-left:auto;margin-right:auto'][$align];
+              @endphp
+              <div class="lb-section" draggable="true" data-section="{{ $key }}" data-align="{{ $align }}" data-columns="{{ $cols }}" tabindex="0" role="button" aria-label="{{ $bodyLabels[$key] ?? $key }}, select to edit" style="grid-column:span {{ $span }};{{ $alignStyle }}">
                 <div class="lb-section-tag">{{ $bodyLabels[$key] ?? $key }}</div>
                 {!! $bodyHtml[$key] !!}
               </div>
@@ -270,12 +301,23 @@
     return el;
   }
 
-  function sectionAlignStyle(align){
-    if (align === 'stretch' || ! align) { return ''; }
+  function sectionAlignStyle(align, columns){
+    // A shared row's own width already comes from its grid-column span
+    // below, left/center/right (a 75% inset) would just fight it.
+    if (columns > 1 || align === 'stretch' || ! align) { return ''; }
     return 'max-width:75%;' + ({ left: 'margin-right:auto', right: 'margin-left:auto', center: 'margin-left:auto;margin-right:auto' }[align] || '');
   }
 
-  function sectionHtmlEl(key, align){
+  // Full width=6, half=3, third=2, out of the 6 column grid #zone-body
+  // itself declares (user request 2026-07-24: "insert columns into a
+  // section... 1 row by 1 column or the admin selects the rows and
+  // columns needed"). The browser's own grid auto placement packs two
+  // half width sections into one row with no JS row tracking needed.
+  function sectionColumnSpan(columns){
+    return 6 / (columns || 1);
+  }
+
+  function sectionHtmlEl(key, align, columns){
     var el = document.createElement('div');
     el.className = 'lb-section';
     el.draggable = true;
@@ -284,7 +326,8 @@
     el.setAttribute('aria-label', (sectionLabels[key] || key) + ', select to edit');
     el.dataset.section = key;
     el.dataset.align = align || 'stretch';
-    el.style.cssText = sectionAlignStyle(align || 'stretch');
+    el.dataset.columns = columns || 1;
+    el.style.cssText = 'grid-column:span ' + sectionColumnSpan(columns || 1) + ';' + sectionAlignStyle(align || 'stretch', columns || 1);
     el.innerHTML = '<div class="lb-section-tag"></div>' + (sectionHtml[key] || '');
     el.querySelector('.lb-section-tag').textContent = sectionLabels[key] || key;
     return el;
@@ -319,8 +362,9 @@
   function moveSection(key, targetZone, before){
     var existingSection = document.querySelector('.lb-section[data-section="'+key+'"]');
     var currentAlign = existingSection ? (existingSection.dataset.align || 'stretch') : 'stretch';
+    var currentColumns = existingSection ? parseInt(existingSection.dataset.columns || '1', 10) : 1;
     document.querySelectorAll('[data-section="'+key+'"]').forEach(function(n){ n.remove(); });
-    var node = targetZone === 'bodyTray' ? trayItemHtml(key, 'section') : sectionHtmlEl(key, currentAlign);
+    var node = targetZone === 'bodyTray' ? trayItemHtml(key, 'section') : sectionHtmlEl(key, currentAlign, currentColumns);
     var target = zones[targetZone];
     if (before) { target.insertBefore(node, before); } else { target.appendChild(node); }
     refreshTrayEmptyState('bodyTray', '.lb-tray-item', 'Every section is already on the page.', 'sectionTrayEmpty');
@@ -404,6 +448,12 @@
       slabel.innerHTML = '<strong>' + (sectionLabels[skey] || skey) + '</strong>';
       toolbar.appendChild(slabel);
 
+      var scolumns = parseInt(selected.dataset.columns || '1', 10);
+
+      function applySectionStyle(){
+        selected.style.cssText = 'grid-column:span ' + sectionColumnSpan(parseInt(selected.dataset.columns || '1', 10)) + ';' + sectionAlignStyle(selected.dataset.align || 'stretch', parseInt(selected.dataset.columns || '1', 10));
+      }
+
       var sgroup = document.createElement('span');
       sgroup.className = 'align-group';
       ['stretch', 'left', 'center', 'right'].forEach(function(a){
@@ -411,14 +461,38 @@
         b.type = 'button';
         b.textContent = a === 'stretch' ? 'Full width' : (a.charAt(0).toUpperCase() + a.slice(1));
         if ((selected.dataset.align || 'stretch') === a) { b.classList.add('active'); }
+        if (scolumns > 1) { b.disabled = true; b.title = 'Not available while sharing a row'; }
         b.addEventListener('click', function(){
           selected.dataset.align = a;
-          selected.style.cssText = sectionAlignStyle(a);
+          applySectionStyle();
           renderToolbar();
         });
         sgroup.appendChild(b);
       });
       toolbar.appendChild(sgroup);
+
+      {{-- Columns (user request 2026-07-24: "insert columns into a
+           section... 1 row by 1 column or the admin selects the rows
+           and columns needed"). Two consecutive sections both set to
+           the same column count share one row, via #zone-body's own
+           grid auto placement, no explicit "pair with" pointer needed. --}}
+      var cgroup = document.createElement('span');
+      cgroup.className = 'align-group';
+      cgroup.title = 'How many sections share this row';
+      [1, 2, 3].forEach(function(n){
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = n === 1 ? '1 column' : n + ' columns';
+        if (scolumns === n) { b.classList.add('active'); }
+        b.addEventListener('click', function(){
+          selected.dataset.columns = n;
+          if (n > 1) { selected.dataset.align = 'stretch'; }
+          applySectionStyle();
+          renderToolbar();
+        });
+        cgroup.appendChild(b);
+      });
+      toolbar.appendChild(cgroup);
 
       var sup = document.createElement('button'); sup.type = 'button'; sup.className = 'btn btn-ghost btn-sm'; sup.textContent = 'Move up';
       sup.addEventListener('click', function(){
@@ -536,6 +610,12 @@
       alignInput.name = 'body_align[' + chip.dataset.section + ']';
       alignInput.value = chip.dataset.align || 'stretch';
       container.appendChild(alignInput);
+
+      var columnsInput = document.createElement('input');
+      columnsInput.type = 'hidden';
+      columnsInput.name = 'body_columns[' + chip.dataset.section + ']';
+      columnsInput.value = chip.dataset.columns || '1';
+      container.appendChild(columnsInput);
     });
   });
 

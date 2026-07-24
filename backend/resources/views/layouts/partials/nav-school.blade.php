@@ -521,6 +521,17 @@
     $academicSubgroups['Examinations']['narrative_evaluation'] = $link('school.examinations.narrative-evaluation', 'Narrative Evaluation', 'chat');
   }
 
+  // Term Calculation (user request 2026-07-24: "add a settings under
+  // examination on the termly report card calculation settings...
+  // admin can toggle it off if the school decide otherwise"). Same
+  // admin only tier and "not gated by any plan feature" treatment as
+  // Narrative Evaluation right above it.
+  if (! $isRestrictedNav && $navRbac->check($navUser, $school, 'examinations.approve_results')
+      && ! isset($renderedRoutes['school.examinations.report-card-calculation'])) {
+    $renderedRoutes['school.examinations.report-card-calculation'] = true;
+    $academicSubgroups['Examinations']['report_card_calculation'] = $link('school.examinations.report-card-calculation', 'Term Calculation', 'results');
+  }
+
   // Bulk Generate Report Cards (user request 2026-07-23: "add a bulk way
   // for the admin to trigger bulk generate report card for all classes...
   // should be a submenu under examination only for the school admin who
@@ -748,7 +759,7 @@
   // scoped to Settings specifically), pushed into the otherwise-flat
   // Academic group rather than making the whole group nested.
   $examEntries = [];
-  foreach (['enter_scores', 'term_broadsheets', 'grading', 'narrative_evaluation', 'bulk_generate'] as $examKey) {
+  foreach (['enter_scores', 'term_broadsheets', 'grading', 'narrative_evaluation', 'report_card_calculation', 'bulk_generate'] as $examKey) {
     if (isset($academicSubgroups['Examinations'][$examKey])) {
       $examEntries[] = $academicSubgroups['Examinations'][$examKey];
     }

@@ -519,6 +519,11 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             $narrative = \App\Http\Controllers\School\NarrativeEvaluationController::class;
             Route::get('/narrative-evaluation', [$narrative, 'index'])->name('narrative-evaluation');
             Route::post('/narrative-evaluation', [$narrative, 'update'])->name('narrative-evaluation.update');
+
+            $reportCardCalc = \App\Http\Controllers\School\ReportCardCalculationController::class;
+            Route::get('/report-card-calculation', [$reportCardCalc, 'index'])->name('report-card-calculation');
+            Route::post('/report-card-calculation', [$reportCardCalc, 'update'])->name('report-card-calculation.update');
+
             Route::post('/scores', [$examinations, 'save'])->name('scores.save');
             Route::get('/scores/bulk-template', [$examinations, 'bulkTemplate'])->name('scores.bulk-template');
             Route::post('/scores/bulk-upload', [$examinations, 'bulkUpload'])->name('scores.bulk-upload');
@@ -553,6 +558,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/grading/bands/bulk-destroy', [$grading, 'bulkDestroyBands'])->name('grading.bands.bulk-destroy');
             Route::post('/grading/bands/{bandId}', [$grading, 'updateBand'])->name('grading.bands.update');
             Route::delete('/grading/bands/{bandId}', [$grading, 'destroyBand'])->name('grading.bands.destroy');
+            Route::post('/grading/sections/{sectionId}', [$grading, 'assignSection'])->name('grading.sections.assign');
         });
 
         // Foundation Finance slice (2026-07-17): Bank Transfer Payment
