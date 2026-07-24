@@ -14,8 +14,10 @@ use App\Models\Tenant\StudentBehaviouralRating;
 use App\Models\Tenant\StudentTermRemark;
 use App\Models\Tenant\SubjectRemark;
 use App\Models\Tenant\Term;
+use App\Services\Attendance\AttendanceService;
 use App\Services\Results\CommentBank;
 use App\Services\Tenancy\TenantManager;
+use App\Support\ElectiveGroups;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -31,10 +33,11 @@ use Illuminate\Support\Facades\DB;
  * Deliberately never touches `ReportCardReview` (the user's explicit
  * instruction: "leave some for us to review the workflow, approval
  * etc"), this command only ever writes `AcademicSession`/`Term` (to
- * reach two sessions, if a school only has one), `Score`,
- * `SubjectRemark`, `StudentTermRemark` (both `class_teacher_remark` and
- * `principal_remark`), and `StudentBehaviouralRating` rows, nothing
- * that advances a report card through review.
+ * reach two sessions, if a school only has one, and `total_school_days`
+ * once per term), `Score`, `SubjectRemark`, `StudentTermRemark` (both
+ * `class_teacher_remark`/`principal_remark`, and now `height`/`weight`/
+ * `club`, each independently, 2026-07-24), and `StudentBehaviouralRating`
+ * rows, nothing that advances a report card through review.
  *
  * Safe to re-run: a subject that already has any Score row for a
  * student in a given term is left completely alone (skipped whole, not
@@ -71,7 +74,7 @@ class PopulateStudentScores extends Command
 
     protected $description = 'Populate every student with realistic live scores, subject/term remarks, and behavioural trait ratings across every term of every session, leaving the report card review workflow untouched';
 
-    public function handle(TenantManager $tenants, CommentBank $commentBank): int
+    public function handle(TenantManager $tenants, CommentBank $commentBank, AttendanceService $attendance): int
     {
         $slug = $this->argument('school');
 
@@ -119,8 +122,8 @@ class PopulateStudentScores extends Command
             $traits = BehaviouralTrait::active()->where('type', BehaviouralTrait::TYPE_REMARK)->get();
 
             foreach ($terms as $term) {
-                DB::connection('tenant')->transaction(function () use ($term, $components, $commentBank, $gradingScale, $traits, &$scoresWritten, &$remarksWritten, &$termRemarksWritten, &$traitRatingsWritten) {
-                    $this->populateTerm($term, $components, $commentBank, $gradingScale, $traits, $scoresWritten, $remarksWritten, $termRemarksWritten, $traitRatingsWritten);
+                DB::connection('tenant')->transaction(function () use ($term, $components, $commentBank, $gradingScale, $traits, $attendance, &$scoresWritten, &$remarksWritten, &$termRemarksWritten, &$traitRatingsWritten) {
+                    $this->populateTerm($term, $components, $commentBank, $gradingScale, $traits, $attendance, $scoresWritten, $remarksWritten, $termRemarksWritten, $traitRatingsWritten);
                 });
             }
 
@@ -166,8 +169,26 @@ class PopulateStudentScores extends Command
         $this->line("  Added a second session, {$name}, for {$school->slug}.");
     }
 
-    protected function populateTerm(Term $term, $components, CommentBank $commentBank, ?GradingScale $gradingScale, $traits, int &$scoresWritten, int &$remarksWritten, int &$termRemarksWritten, int &$traitRatingsWritten): void
+    protected function populateTerm(Term $term, $components, CommentBank $commentBank, ?GradingScale $gradingScale, $traits, AttendanceService $attendance, int &$scoresWritten, int &$remarksWritten, int &$termRemarksWritten, int &$traitRatingsWritten): void
     {
+        // "Days school was open" is a whole term, whole school fact (user
+        // request 2026-07-24: "populate 'Physical & Attendance' data too
+        // for all learners", refined same day: "this is calculated from
+        // the term start date and end date. excluding the weekends...
+        // and other public holidays, mid term break"), set once per term
+        // here rather than per student, and only if an admin has not
+        // already set a real one. Real dates give the real calculation
+        // (AttendanceService::schoolDaysBetween(), the same weekend/
+        // holiday/break rule attendance marking already enforces); a
+        // term with no dates at all yet (a school still mid setup) falls
+        // back to a plausible guess rather than leaving it blank.
+        if ($term->total_school_days === null) {
+            $days = ($term->starts_on && $term->ends_on)
+                ? $attendance->schoolDaysBetween($term->starts_on, $term->ends_on)
+                : mt_rand(58, 65);
+            $term->update(['total_school_days' => $days]);
+        }
+
         foreach (ClassArm::with('schoolClass.subjects', 'subjects')->get() as $arm) {
             $subjects = $arm->offeredSubjects();
             if ($subjects->isEmpty()) {
@@ -190,7 +211,29 @@ class PopulateStudentScores extends Command
                 $ability = mt_rand(62, 98);
                 $subjectTotals = [];
 
-                foreach ($subjects as $subject) {
+                // A subject list is a MENU (e.g. Arts & Humanities offers
+                // both Christian Religious Studies and Islamic Studies, and
+                // all 3 of Yoruba/Hausa/Igbo), never what one student is
+                // actually scored on (user directive 2026-07-24: "no
+                // student can take both Christian Religious Studies and
+                // Islamic Studies, they have to select one"). Honours an
+                // existing score over the deterministic pick so a student
+                // who already chose one keeps it; drops any leftover score
+                // for the OTHER member of a group, cleaning up a student
+                // scored on more than one from before this rule existed.
+                $existingScoredIdsForTerm = Score::where('student_id', $student->id)
+                    ->where('term_id', $term->id)
+                    ->whereIn('subject_id', $subjects->pluck('id'))
+                    ->pluck('subject_id')
+                    ->unique();
+                $keepSubjectIds = ElectiveGroups::resolve($subjects, $student->id, $existingScoredIdsForTerm);
+                $dropSubjectIds = $subjects->pluck('id')->diff($keepSubjectIds);
+                if ($dropSubjectIds->isNotEmpty()) {
+                    Score::where('student_id', $student->id)->where('term_id', $term->id)->whereIn('subject_id', $dropSubjectIds)->delete();
+                    SubjectRemark::where('student_id', $student->id)->where('term_id', $term->id)->whereIn('subject_id', $dropSubjectIds)->delete();
+                }
+
+                foreach ($subjects->filter(fn ($subject) => $keepSubjectIds->contains($subject->id)) as $subject) {
                     $existingScores = Score::where('student_id', $student->id)
                         ->where('subject_id', $subject->id)
                         ->where('term_id', $term->id)
@@ -281,6 +324,30 @@ class PopulateStudentScores extends Command
                         $termRemarkUpdates['principal_remark'] = $suggestion;
                     }
                 }
+
+                // Physical stats, independently filled the same way (user
+                // request 2026-07-24: "populate 'Physical & Attendance'
+                // data too for all learners"). Height/weight derived from
+                // the student's own real age, not a flat number for every
+                // student regardless of class level, clamped to a
+                // plausible child/teen range either side of a rough growth
+                // curve for whenever a date of birth is missing.
+                if (! $existingTermRemark?->height || ! $existingTermRemark?->weight) {
+                    $age = $student->date_of_birth?->age ?? 10;
+                    if (! $existingTermRemark?->height) {
+                        $termRemarkUpdates['height'] = max(95, min(185, 85 + (int) round($age * 5.2))).'cm';
+                    }
+                    if (! $existingTermRemark?->weight) {
+                        $termRemarkUpdates['weight'] = max(12, min(82, 13 + (int) round($age * 2.3))).'kg';
+                    }
+                }
+                if (! $existingTermRemark?->club) {
+                    $clubs = config('skulos.demo_clubs', []);
+                    if ($clubs) {
+                        $termRemarkUpdates['club'] = $clubs[$student->id % count($clubs)];
+                    }
+                }
+
                 if ($termRemarkUpdates) {
                     StudentTermRemark::updateOrCreate(
                         ['student_id' => $student->id, 'term_id' => $term->id],

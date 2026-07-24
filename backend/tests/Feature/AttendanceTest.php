@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\School;
 use App\Models\Tenant\Arm;
 use App\Models\Tenant\Attendance;
+use App\Models\Tenant\CalendarEvent;
 use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Section;
@@ -14,6 +15,7 @@ use App\Models\Tenant\Student;
 use App\Services\Attendance\AttendanceService;
 use App\Services\Tenancy\TenantManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
@@ -113,5 +115,33 @@ class AttendanceTest extends TestCase
         $log = AuditLog::on('tenant')->where('action', 'attendance.class_marked')->first();
         $this->assertNotNull($log);
         $this->assertSame(1, $log->new_values['count']);
+    }
+
+    /**
+     * "Days school was open" on the report card (user request 2026-07-24:
+     * "this is calculated from the term start date and end date.
+     * excluding the weekends... and other public holidays, mid term
+     * break"), reusing the exact same non school day rule attendance
+     * marking already enforces.
+     */
+    public function test_school_days_between_excludes_weekends_and_a_holiday(): void
+    {
+        // 2026-01-05 (Monday) to 2026-01-18 (Sunday): two full weeks, 10
+        // weekdays, one of which (2026-01-08, a Thursday) is a holiday.
+        CalendarEvent::create(['title' => 'Public Holiday', 'category' => 'holiday', 'starts_on' => '2026-01-08', 'ends_on' => '2026-01-08']);
+
+        $days = app(AttendanceService::class)->schoolDaysBetween(Carbon::parse('2026-01-05'), Carbon::parse('2026-01-18'));
+
+        $this->assertSame(9, $days, '10 weekdays across the range minus the 1 holiday');
+    }
+
+    public function test_school_days_between_excludes_a_ranged_mid_term_break(): void
+    {
+        // A whole week, Monday to Friday, all 5 days inside a Mid Term Break range.
+        CalendarEvent::create(['title' => 'Mid Term Break', 'category' => 'break', 'starts_on' => '2026-02-16', 'ends_on' => '2026-02-20']);
+
+        $days = app(AttendanceService::class)->schoolDaysBetween(Carbon::parse('2026-02-16'), Carbon::parse('2026-02-20'));
+
+        $this->assertSame(0, $days);
     }
 }

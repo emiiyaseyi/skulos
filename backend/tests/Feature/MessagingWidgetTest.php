@@ -113,6 +113,12 @@ class MessagingWidgetTest extends TestCase
         $librarian = $this->member($school, 'librarian');
 
         $response = $this->actingAs($librarian)->get("http://{$school->slug}.localhost/dashboard");
-        $response->assertOk()->assertDontSee('mw-fab', false);
+        // Not a bare 'mw-fab' substring: layouts/app.blade.php carries a
+        // CSS comment referencing ".mw-fab" (bottom padding clearance
+        // note, 2026-07-22) that renders on every dashboard regardless of
+        // role, so that substring alone is always present and gives a
+        // false failure here even when the widget correctly does not
+        // render. The actual anchor's class attribute is unambiguous.
+        $response->assertOk()->assertDontSee('class="mw-fab"', false);
     }
 }

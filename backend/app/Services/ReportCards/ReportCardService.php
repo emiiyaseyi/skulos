@@ -14,6 +14,7 @@ use App\Models\Tenant\Subject;
 use App\Models\Tenant\Term;
 use App\Services\Results\ResultService;
 use App\Services\Tenancy\TenantManager;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Builds the data a report card view needs, whatever template/fields the
@@ -25,7 +26,7 @@ use App\Services\Tenancy\TenantManager;
  */
 class ReportCardService
 {
-    public function __construct(protected ResultService $results, protected TenantManager $tenants)
+    public function __construct(protected ResultService $results, protected TenantManager $tenants, protected ReportCardCumulativePolicy $cumulativePolicy)
     {
     }
 
@@ -38,10 +39,21 @@ class ReportCardService
         $scale ??= GradingScale::default();
         $classArm = $student->currentClassArm;
 
-        $priorTerms = Term::where('academic_session_id', $term->academic_session_id)
-            ->where('sequence', '<=', $term->sequence)
-            ->orderBy('sequence')
-            ->get();
+        // A school configurable choice per term sequence (Examinations >
+        // Term Calculation, 2026-07-24), not a blanket on/off: 'average'
+        // brings in every earlier term's total and shows the average,
+        // 'comparison' shows the same earlier totals with no average,
+        // 'off' shows this term alone. When off, the extra per-subject
+        // lookups for every earlier term are skipped entirely rather
+        // than computed and then hidden by the view, a real saving for
+        // a school that never wants this.
+        $cumulativeMode = $this->cumulativePolicy->modeFor($term);
+        $priorTerms = $cumulativeMode === ReportCardCumulativePolicy::MODE_OFF
+            ? collect()
+            : Term::where('academic_session_id', $term->academic_session_id)
+                ->where('sequence', '<=', $term->sequence)
+                ->orderBy('sequence')
+                ->get();
 
         $subjectIds = \App\Models\Tenant\Score::where('student_id', $student->id)
             ->where('term_id', $term->id)
@@ -54,17 +66,22 @@ class ReportCardService
             $current = $this->results->subjectResult($student->id, $subjectId, $term->id, $scale);
 
             $previousTerms = [];
-            $termTotals = [];
-            foreach ($priorTerms as $t) {
-                $total = $t->id === $term->id
-                    ? $current['total']
-                    : $this->results->subjectResult($student->id, $subjectId, $t->id, $scale)['total'];
-                $termTotals[] = $total;
-                if ($t->id !== $term->id) {
-                    $previousTerms[$t->name] = $total;
+            $cumulativeAverage = null;
+            if ($cumulativeMode !== ReportCardCumulativePolicy::MODE_OFF) {
+                $termTotals = [];
+                foreach ($priorTerms as $t) {
+                    $total = $t->id === $term->id
+                        ? $current['total']
+                        : $this->results->subjectResult($student->id, $subjectId, $t->id, $scale)['total'];
+                    $termTotals[] = $total;
+                    if ($t->id !== $term->id) {
+                        $previousTerms[$t->name] = $total;
+                    }
+                }
+                if ($cumulativeMode === ReportCardCumulativePolicy::MODE_AVERAGE) {
+                    $cumulativeAverage = count($termTotals) ? round(array_sum($termTotals) / count($termTotals), 2) : 0.0;
                 }
             }
-            $cumulativeAverage = count($termTotals) ? round(array_sum($termTotals) / count($termTotals), 2) : 0.0;
 
             $stats = $classArm
                 ? $this->results->subjectStats($classArm->id, $subjectId, $term->id)
@@ -138,6 +155,7 @@ class ReportCardService
         $school = $this->tenants->current();
         $stampPath = $classArm?->stamp_path ?: $school?->stamp_path;
         $signaturePath = $classArm?->signature_path ?: $school?->signature_path;
+        $classTeacher = $classArm?->class_teacher_staff_id ? Staff::find($classArm->class_teacher_staff_id) : null;
 
         return [
             'identity' => [
@@ -148,11 +166,11 @@ class ReportCardService
                 'age' => $student->date_of_birth?->age,
                 'class' => $classArm?->label(),
                 'house' => $student->house?->name,
-                'class_teacher' => $classArm?->class_teacher_staff_id
-                    ? Staff::find($classArm->class_teacher_staff_id)?->fullName()
-                    : null,
+                'class_teacher' => $classTeacher?->fullName(),
+                'photo_url' => $student->passport_path ? Storage::url($student->passport_path) : null,
             ],
             'term' => ['name' => $term->name, 'session' => $term->session?->name],
+            'cumulative_mode' => $cumulativeMode,
             'subjects' => $subjectRows,
             'subject_comments' => $subjectComments,
             'attendance' => $attendance,
@@ -173,6 +191,8 @@ class ReportCardService
                 'club' => $remark?->club,
                 'total_school_days' => $term->total_school_days,
                 'times_absent' => $attendance['total'] - $attendance['present'],
+                'class_teacher_name' => $classTeacher?->fullName(),
+                'class_teacher_phone' => $classTeacher?->phone,
             ],
             'traits' => $traits,
             'stamp_url' => $stampPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($stampPath) : null,
@@ -225,9 +245,10 @@ class ReportCardService
             'identity' => [
                 'name' => 'Ada Grace Obi', 'admission_number' => 'ADM/2025/014', 'gender' => 'Female',
                 'date_of_birth' => '12 Mar 2013', 'age' => 13, 'class' => 'JSS 2 A', 'house' => 'Red House',
-                'class_teacher' => 'Mrs. F. Adigun',
+                'class_teacher' => 'Mrs. F. Adigun', 'photo_url' => null,
             ],
             'term' => ['name' => 'Third Term', 'session' => '2025/2026'],
+            'cumulative_mode' => ReportCardCumulativePolicy::MODE_AVERAGE,
             'subjects' => [
                 ['name' => 'Mathematics', 'components' => ['First CA' => 18, 'Second CA' => 17, 'Exam' => 50], 'total' => 85, 'grade' => 'A', 'remark' => 'Distinction', 'position' => 1, 'class_average' => 68.4, 'highest' => 92, 'lowest' => 31, 'previous_terms' => ['First Term' => 78.0, 'Second Term' => 81.0], 'cumulative_average' => 81.33],
                 ['name' => 'English Studies', 'components' => ['First CA' => 15, 'Second CA' => 16, 'Exam' => 48], 'total' => 79, 'grade' => 'B', 'remark' => 'Upper Credit / Very Good', 'position' => 3, 'class_average' => 65.1, 'highest' => 88, 'lowest' => 28, 'previous_terms' => ['First Term' => 74.0, 'Second Term' => 76.0], 'cumulative_average' => 76.33],
@@ -248,6 +269,7 @@ class ReportCardService
             'physical' => [
                 'height' => '148cm', 'weight' => '38kg', 'club' => 'Debate Club',
                 'total_school_days' => 62, 'times_absent' => 4,
+                'class_teacher_name' => 'Mrs. F. Adigun', 'class_teacher_phone' => '0803 123 4567',
             ],
             'traits' => [
                 ['name' => 'Punctuality', 'type' => 'remark', 'value' => 'Excellent'],

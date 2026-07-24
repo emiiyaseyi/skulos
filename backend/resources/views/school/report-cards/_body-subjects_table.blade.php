@@ -10,6 +10,11 @@
 @php
   $firstSubject = $data['subjects'][0] ?? null;
   $priorTermNames = $firstSubject ? array_keys($firstSubject['previous_terms']) : [];
+  // Set by ReportCardService from Examinations > Term Calculation
+  // (user request 2026-07-24): 'average' shows earlier term columns
+  // plus a real average, 'comparison' shows the same columns with no
+  // average, 'off' shows this term alone.
+  $cumulativeMode = $data['cumulative_mode'] ?? 'off';
 @endphp
 
 @unless($template === 'narrative')
@@ -23,13 +28,13 @@
           <th class="num">{{ $componentName }}</th>
         @endforeach
       @endif
-      @if($show('cumulative_terms'))
+      @if($cumulativeMode !== 'off')
         @foreach($priorTermNames as $termName)
           <th class="num">{{ $termName }}</th>
         @endforeach
       @endif
       <th class="num">Total</th>
-      @if($show('cumulative_terms') && count($priorTermNames))<th class="num">Average</th>@endif
+      @if($cumulativeMode === 'average' && count($priorTermNames))<th class="num">Average</th>@endif
       <th class="num">Grade</th>
       @if($template === 'modern' && $show('subject_position'))<th class="num">Position</th>@endif
       @if($template === 'modern' && $show('class_average'))<th class="num">Class Avg</th>@endif
@@ -47,13 +52,13 @@
             <td class="num">{{ $score }}</td>
           @endforeach
         @endif
-        @if($show('cumulative_terms'))
+        @if($cumulativeMode !== 'off')
           @foreach($priorTermNames as $termName)
             <td class="num">{{ $subject['previous_terms'][$termName] ?? 'N/A' }}</td>
           @endforeach
         @endif
         <td class="num"><strong>{{ $subject['total'] }}</strong></td>
-        @if($show('cumulative_terms') && count($priorTermNames))<td class="num">{{ $subject['cumulative_average'] }}</td>@endif
+        @if($cumulativeMode === 'average' && count($priorTermNames))<td class="num">{{ $subject['cumulative_average'] }}</td>@endif
         <td class="num"><strong>{{ $subject['grade'] }}</strong></td>
         @if($template === 'modern' && $show('subject_position'))<td class="num">{{ $subject['position'] }}</td>@endif
         @if($template === 'modern' && $show('class_average'))<td class="num">{{ $subject['class_average'] }}</td>@endif

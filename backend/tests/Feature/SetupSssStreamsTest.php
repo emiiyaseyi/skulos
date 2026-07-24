@@ -139,13 +139,34 @@ class SetupSssStreamsTest extends TestCase
         $arms = ClassArm::where('school_class_id', $classId)->get()->keyBy(fn (ClassArm $a) => $a->arm->name);
         $this->assertSame(9, Student::whereIn('id', $studentIds)->count(), 'no student should be lost in the split');
 
+        $exclusiveGroups = config('skulos.mutually_exclusive_subjects');
+
         foreach (Student::whereIn('id', $studentIds)->get() as $student) {
             $arm = ClassArm::find($student->current_class_arm_id);
             $offeredIds = $arm->offeredSubjects()->pluck('id');
+            $offeredNames = $arm->offeredSubjects()->pluck('name');
             $scoredIds = Score::where('student_id', $student->id)->distinct()->pluck('subject_id');
+            $scoredNames = Subject::whereIn('id', $scoredIds)->pluck('name');
 
             $this->assertEmpty($scoredIds->diff($offeredIds)->all(), "student {$student->id} has a score for a subject outside their own stream ({$arm->label()})");
-            $this->assertEmpty($offeredIds->diff($scoredIds)->all(), "student {$student->id} is missing a score for a subject their own stream offers");
+
+            // A stream's offered list is a MENU (e.g. Arts & Humanities
+            // offers both Christian Religious Studies and Islamic Studies,
+            // and all 3 of Yoruba/Hausa/Igbo); this command only ever
+            // repoints/cleans EXISTING scores (a fresh score for a subject
+            // a student never had one for at all, e.g. a language not in
+            // the original catalog, is schools:populate-scores' job), so
+            // the guarantee here is never more than one score surviving
+            // per group, not that one always exists.
+            foreach ($exclusiveGroups as $group) {
+                $this->assertLessThanOrEqual(1, $scoredNames->intersect($group)->count(), "student {$student->id} must not be scored on more than one of ".implode('/', $group));
+            }
+
+            // Every subject the stream offers outside an exclusive group must still have a score.
+            $groupedNames = collect($exclusiveGroups)->flatten();
+            $nonGroupOfferedIds = $offeredNames->diff($groupedNames)->map(fn ($name) => $arm->offeredSubjects()->firstWhere('name', $name)->id);
+            $this->assertEmpty($nonGroupOfferedIds->diff($scoredIds)->all(), "student {$student->id} is missing a score for a non elective subject their own stream offers");
+
             // Every remaining score row must point at the student's real, current arm, not the old pre-split one.
             $this->assertSame(0, Score::where('student_id', $student->id)->where('class_arm_id', '!=', $arm->id)->count());
         }

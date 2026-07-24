@@ -5,6 +5,13 @@
   @case('logo')
     @if($logoUrl)<img class="rc-logo" src="{{ $logoUrl }}" alt="" />@endif
     @break
+  @case('student_photo')
+    @if($data['identity']['photo_url'] ?? null)
+      <img class="rc-photo" src="{{ $data['identity']['photo_url'] }}" alt="" />
+    @else
+      <div class="rc-photo rc-photo-placeholder">{{ strtoupper(substr($data['identity']['name'] ?? '?', 0, 1)) }}</div>
+    @endif
+    @break
   @case('school_name')
     <h1 class="rc-lb-title">{{ $school->name }}</h1>
     @break

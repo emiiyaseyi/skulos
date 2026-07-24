@@ -72,10 +72,26 @@
                     <input type="date" name="starts_on" value="{{ $term->starts_on?->toDateString() }}" style="padding:.3rem .4rem;font-size:.8rem" />
                     <span class="muted" style="font-size:.8rem">to</span>
                     <input type="date" name="ends_on" value="{{ $term->ends_on?->toDateString() }}" style="padding:.3rem .4rem;font-size:.8rem" />
+                    <span class="muted" style="font-size:.8rem">Days open</span>
+                    {{--
+                      Pre-filled with the freshly auto-calculated figure
+                      when this term has both dates (user request
+                      2026-07-24: "calculated from the term start date and
+                      end date, excluding weekends and... public holidays,
+                      mid term break... admin can also check the
+                      calculated date and make adjustment to the number
+                      auto calculated"), falling back to whatever is
+                      already stored otherwise. Saving as-is persists the
+                      calculated number; editing it first is the
+                      adjustment. Clearing it blank and saving tells the
+                      server to (re)calculate fresh from whatever dates
+                      end up saved.
+                    --}}
+                    <input type="number" name="total_school_days" value="{{ $calculatedSchoolDays[$term->id] ?? $term->total_school_days }}" min="1" max="250" style="padding:.3rem .4rem;font-size:.8rem;width:4.5rem" placeholder="auto" title="Auto calculated from start/end dates, excluding weekends and holiday/break calendar events. Adjust freely, or clear to recalculate on save." />
                     <button class="btn btn-ghost btn-sm" type="submit">Save</button>
                   </form>
                 @else
-                  <div class="muted" style="font-size:.8rem;margin-bottom:.4rem">{{ $term->starts_on?->toDateString() ?? '?' }} to {{ $term->ends_on?->toDateString() ?? '?' }}</div>
+                  <div class="muted" style="font-size:.8rem;margin-bottom:.4rem">{{ $term->starts_on?->toDateString() ?? '?' }} to {{ $term->ends_on?->toDateString() ?? '?' }}@if($term->total_school_days) &middot; {{ $term->total_school_days }} days open @endif</div>
                 @endif
               @endforeach
             </td>

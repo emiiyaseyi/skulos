@@ -128,6 +128,7 @@
         <button type="button" class="btn btn-ghost btn-sm" id="review-bulk-nudge-btn">Nudge selected</button>
       </div>
     </div>
+    <div style="margin-top:1rem">{{ $reviews->links() }}</div>
   @endif
 </div>
 

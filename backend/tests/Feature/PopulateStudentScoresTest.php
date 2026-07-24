@@ -287,6 +287,80 @@ class PopulateStudentScoresTest extends TestCase
         $this->assertNotEmpty($termRemark->principal_remark);
     }
 
+    /**
+     * User directive 2026-07-24: "no student can take both Christian
+     * Religious Studies and Islamic Studies, they have to select one.
+     * Same as the languages, student must only have one of Yoruba, Hausa
+     * or Igbo... update the seeded data for all students across the
+     * school with this too." A class's own subject list can legitimately
+     * offer every member of the group (a real menu), this only
+     * constrains what one student is actually scored on.
+     */
+    public function test_a_student_is_never_scored_on_more_than_one_member_of_an_exclusive_subject_group(): void
+    {
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'popscoreeleven']));
+        app(TenantManager::class)->use($school);
+
+        $section = Section::create(['name' => 'Secondary', 'sequence' => 3]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS 1', 'sequence' => 1]);
+        $arm = Arm::create(['name' => 'A']);
+        $classArm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => $arm->id]);
+        $crs = Subject::create(['name' => 'Christian Religious Studies']);
+        $islamic = Subject::create(['name' => 'Islamic Studies']);
+        $class->subjects()->attach($crs->id, ['is_mandatory' => false, 'is_examinable' => true]);
+        $class->subjects()->attach($islamic->id, ['is_mandatory' => false, 'is_examinable' => true]);
+
+        AssessmentComponent::create(['name' => 'Exam', 'type' => 'exam', 'max_score' => 100, 'sequence' => 1]);
+        $session = AcademicSession::create(['name' => '2025/2026 Session']);
+        $term = Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1]);
+        $term->makeCurrent();
+
+        $freshStudent = Student::create(['admission_number' => 'B1', 'first_name' => 'Bola', 'last_name' => 'Ade', 'current_class_arm_id' => $classArm->id]);
+
+        // A student already scored on BOTH before this rule existed, the
+        // exact real world bug the config's own doc block describes.
+        $doubleScoredStudent = Student::create(['admission_number' => 'B2', 'first_name' => 'Chidi', 'last_name' => 'Eze', 'current_class_arm_id' => $classArm->id]);
+        $component = AssessmentComponent::first();
+        Score::create(['student_id' => $doubleScoredStudent->id, 'subject_id' => $crs->id, 'class_arm_id' => $classArm->id, 'term_id' => $term->id, 'assessment_component_id' => $component->id, 'score' => 70]);
+        Score::create(['student_id' => $doubleScoredStudent->id, 'subject_id' => $islamic->id, 'class_arm_id' => $classArm->id, 'term_id' => $term->id, 'assessment_component_id' => $component->id, 'score' => 80]);
+
+        app(TenantManager::class)->forget();
+
+        $this->artisan('schools:populate-scores', ['school' => 'popscoreeleven'])->assertSuccessful();
+
+        app(TenantManager::class)->use($school);
+        foreach ([$freshStudent, $doubleScoredStudent] as $student) {
+            $scoredSubjectIds = Score::where('student_id', $student->id)->where('term_id', $term->id)->whereIn('subject_id', [$crs->id, $islamic->id])->pluck('subject_id')->unique();
+            $this->assertCount(1, $scoredSubjectIds, "student {$student->id} must be scored on exactly one of Christian Religious Studies/Islamic Studies");
+        }
+        // The pre existing 70 must survive, not get silently replaced by a freshly generated score.
+        $keptScore = Score::where('student_id', $doubleScoredStudent->id)->where('term_id', $term->id)->whereIn('subject_id', [$crs->id, $islamic->id])->first();
+        $this->assertEquals(70, (float) $keptScore->score, 'the already scored Christian Religious Studies entry (lower subject id) should be the one kept, not silently swapped');
+        app(TenantManager::class)->forget();
+    }
+
+    /** User request 2026-07-24: "populate 'Physical & Attendance' data too for all learners". */
+    public function test_it_populates_height_weight_club_and_total_school_days(): void
+    {
+        [$school, , , $term, $student] = $this->seedSchool('popscoretwelve');
+
+        app(TenantManager::class)->use($school);
+        StudentTermRemark::create(['student_id' => $student->id, 'term_id' => $term->id, 'height' => '150cm']);
+        app(TenantManager::class)->forget();
+
+        $this->artisan('schools:populate-scores', ['school' => 'popscoretwelve'])->assertSuccessful();
+
+        app(TenantManager::class)->use($school);
+        $remark = StudentTermRemark::where('student_id', $student->id)->where('term_id', $term->id)->first();
+        $freshTerm = Term::find($term->id);
+        app(TenantManager::class)->forget();
+
+        $this->assertSame('150cm', $remark->height, 'an already entered height must never be overwritten');
+        $this->assertNotEmpty($remark->weight, 'weight must still be filled independently of the already set height');
+        $this->assertNotEmpty($remark->club);
+        $this->assertNotNull($freshTerm->total_school_days, 'a whole term, whole school day count should be seeded once');
+    }
+
     public function test_it_skips_a_school_with_no_assessment_components(): void
     {
         $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'popscoresix']));

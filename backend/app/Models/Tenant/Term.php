@@ -24,6 +24,7 @@ class Term extends Model
         'starts_on',
         'ends_on',
         'is_current',
+        'total_school_days',
     ];
 
     protected function casts(): array

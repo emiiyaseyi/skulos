@@ -9,8 +9,10 @@ use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Score;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\Subject;
+use App\Models\Tenant\SubjectRemark;
 use App\Models\Tenant\TeachingAssignment;
 use App\Services\Tenancy\TenantManager;
+use App\Support\ElectiveGroups;
 use Illuminate\Console\Command;
 
 /**
@@ -126,7 +128,7 @@ class SetupSssStreams extends Command
         // syncWithoutDetaching) so re-running this command also detaches a
         // subject a stream has since claimed as its own, never left
         // stale/duplicated at both levels.
-        $classLevelNames = $this->classLevelSubjectNames($streamSubjects, collect($catalog['subjects'])->pluck('name'));
+        $classLevelNames = $this->classLevelSubjectNames(collect($catalog['subjects'])->pluck('name'));
         $classLevelSync = collect($catalog['subjects'])
             ->filter(fn ($entry) => in_array($entry['name'], $classLevelNames, true))
             ->mapWithKeys(fn ($entry) => [
@@ -175,16 +177,38 @@ class SetupSssStreams extends Command
             }
         }
 
-        // Step 5: re-point and clean up scores for every moved student.
-        $offeredByArmId = collect($armByStream)->mapWithKeys(fn (ClassArm $a) => [$a->id => $a->offeredSubjects()->pluck('id')]);
+        // Step 5: re-point and clean up scores (and any subject remarks
+        // already suggested against them) for every moved student. Also
+        // the correct cleanup path on a RE-RUN after a stream's own
+        // subject list is edited (e.g. trimmed to fit a subject count
+        // cap): a student who never actually moved arms still has
+        // $oldArmId === $newArmId here, so this still deletes a score/
+        // remark for a subject the stream no longer claims, exactly the
+        // same as a genuine cross-stream move.
+        //
+        // A stream's offeredSubjects() is a MENU (e.g. Arts & Humanities
+        // offers both Christian Religious Studies and Islamic Studies, and
+        // all 3 of Yoruba/Hausa/Igbo), not what any one student actually
+        // takes — no student may keep a score in more than one member of a
+        // config('skulos.mutually_exclusive_subjects') group (user
+        // directive 2026-07-24), so ElectiveGroups::resolve() collapses
+        // each group down to the single subject the student already has a
+        // score for, or a deterministic pick if they have none yet.
+        $offeredByArmId = collect($armByStream)->mapWithKeys(fn (ClassArm $a) => [$a->id => $a->offeredSubjects()]);
         foreach ($students as $student) {
             $oldArmId = $originalArmIdByStudent[$student->id];
             $newArmId = $student->current_class_arm_id;
-            $keepSubjectIds = $offeredByArmId[$newArmId];
+            $existingScoredIds = Score::where('student_id', $student->id)->where('class_arm_id', $oldArmId)->pluck('subject_id');
+            $keepSubjectIds = ElectiveGroups::resolve($offeredByArmId[$newArmId], $student->id, $existingScoredIds);
 
             Score::where('student_id', $student->id)->where('class_arm_id', $oldArmId)
                 ->whereNotIn('subject_id', $keepSubjectIds)->delete();
             Score::where('student_id', $student->id)->where('class_arm_id', $oldArmId)
+                ->update(['class_arm_id' => $newArmId]);
+
+            SubjectRemark::where('student_id', $student->id)->where('class_arm_id', $oldArmId)
+                ->whereNotIn('subject_id', $keepSubjectIds)->delete();
+            SubjectRemark::where('student_id', $student->id)->where('class_arm_id', $oldArmId)
                 ->update(['class_arm_id' => $newArmId]);
         }
 
@@ -192,10 +216,14 @@ class SetupSssStreams extends Command
         // whichever staff member already taught that subject on the
         // class's original arm(s), so score entry keeps working for a
         // scoped subject/class teacher, not just a blanket access admin.
+        // Uses the full MENU, not any one student's collapsed pick: a
+        // stream still needs an Islamic Studies teacher assigned even
+        // though most of its students end up scored under Christian
+        // Religious Studies instead.
         $originalAssignments = TeachingAssignment::whereIn('class_arm_id', $existingArms->pluck('id'))->get()->keyBy('subject_id');
         foreach ($streamNames as $streamName) {
             $arm = $armByStream[$streamName];
-            foreach ($offeredByArmId[$arm->id] as $subjectId) {
+            foreach ($offeredByArmId[$arm->id]->pluck('id') as $subjectId) {
                 $staffId = $originalAssignments[$subjectId]->staff_id ?? null;
                 if ($staffId) {
                     TeachingAssignment::firstOrCreate(['class_arm_id' => $arm->id, 'subject_id' => $subjectId, 'staff_id' => $staffId]);
@@ -206,11 +234,20 @@ class SetupSssStreams extends Command
         $this->line('  streams: '.collect($armByStream)->map(fn (ClassArm $a) => $a->label())->implode(', '));
     }
 
-    /** Subject names that belong at the class (shared) level: everything in the catalog that no stream claims as its own. */
-    protected function classLevelSubjectNames(array $streamSubjects, \Illuminate\Support\Collection $catalogNames): array
+    /**
+     * Subject names that belong at the class (shared) level: an explicit
+     * allowlist (config('skulos.sss_shared_subjects')), not "whatever the
+     * catalog has left once streams take theirs". A leftover computation
+     * silently PROMOTES any subject dropped from a stream's own list (e.g.
+     * trimming Arts & Humanities to fit the 11-subject-per-student cap) to
+     * shared-by-every-stream instead of dropping it, which is how Music,
+     * French and Arabic wrongly ended up mandatory for Science/Commercial
+     * students too after that trim (found via a failing test 2026-07-23).
+     */
+    protected function classLevelSubjectNames(\Illuminate\Support\Collection $catalogNames): array
     {
-        $streamOwned = collect($streamSubjects)->flatten();
+        $shared = collect(config('skulos.sss_shared_subjects', []));
 
-        return $catalogNames->reject(fn ($name) => $streamOwned->contains($name))->values()->all();
+        return $catalogNames->filter(fn ($name) => $shared->contains($name))->values()->all();
     }
 }

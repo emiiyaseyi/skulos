@@ -367,6 +367,48 @@ class ReportCardWorkflowTest extends TestCase
         $this->assertSame(ReportCardReview::STATUS_RELEASED, $review->status, 'released cards must drop out of the pending review query');
     }
 
+    /**
+     * Dbase recommendation standing rule: "paginate every list screen",
+     * found still missing here 2026-07-24 (user report: "there are still
+     * some pages without pagination such as
+     * http://greenfield.localhost:8000/report-cards/pending-review where
+     * we have all the students report cards"). 35 pending reviews (past
+     * the 30 per page default) must split across two pages.
+     */
+    public function test_pending_review_is_paginated(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rcpaginate');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => null]);
+        $session = AcademicSession::create(['name' => '2025/2026 Session']);
+        Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1, 'is_current' => true]);
+        $studentIds = [];
+        for ($i = 1; $i <= 35; $i++) {
+            $studentIds[] = Student::create(['admission_number' => "A{$i}", 'first_name' => "S{$i}", 'last_name' => 'Test', 'current_class_arm_id' => $arm->id])->id;
+        }
+        app(TenantManager::class)->forget();
+
+        foreach ($studentIds as $studentId) {
+            $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/generate");
+        }
+
+        $pageOne = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/pending-review");
+        $pageOne->assertOk();
+
+        app(TenantManager::class)->use($school);
+        $totalReviews = ReportCardReview::count();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(35, $totalReviews);
+        $pageOne->assertSee('page=2', false);
+
+        $pageTwo = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/pending-review?page=2");
+        $pageTwo->assertOk()->assertSee('S31 Test');
+    }
+
     public function test_nudging_a_reviewer_creates_an_in_app_notification(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'rceleven');

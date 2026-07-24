@@ -1313,10 +1313,68 @@ return [
     | shape as default_subjects/default_grading_scales.
     */
     'sss_stream_subjects' => [
+        // A stream's own subject MENU, what it offers — not what any one
+        // student ends up taking. Christian Religious Studies/Islamic
+        // Studies and Yoruba/Hausa/Igbo are each a real, mutually
+        // exclusive choice (user directive 2026-07-24: "no student can
+        // take both Christian Religious Studies and Islamic Studies, they
+        // have to select one. Same as the languages, student must only
+        // have one of Yoruba, Hausa or Igbo and in SSS these languages
+        // are only offered in Arts & Humanities"), see
+        // sss_elective_groups below for how that is actually enforced
+        // when scores are populated. A student's REAL total stays at the
+        // 11 subject cap: 5 shared + Government/Literature in English/
+        // History/Visual Arts (4, always) + one religious study + one
+        // language = 11, even though the menu here lists 9 options.
         'Science & Technology' => ['Biology', 'Chemistry', 'Physics', 'Agricultural Science', 'Further Mathematics', 'Geography'],
-        'Arts & Humanities' => ['Government', 'Literature in English', 'History', 'Christian Religious Studies', 'Islamic Studies', 'Visual Arts', 'Music', 'French', 'Arabic'],
+        'Arts & Humanities' => [
+            'Government', 'Literature in English', 'History', 'Visual Arts',
+            'Christian Religious Studies', 'Islamic Studies',
+            'Yoruba', 'Hausa', 'Igbo',
+        ],
         'Commercial' => ['Economics', 'Commerce', 'Financial Accounting', 'Marketing'],
     ],
+
+    /*
+    | Subjects that are real alternatives, never taken together by the same
+    | student, school wide, not only in SSS (user directive 2026-07-24: "no
+    | student can take both Christian Religious Studies and Islamic
+    | Studies, they have to select one. Same as the languages, student
+    | must only have one of Yoruba, Hausa or Igbo... update the seeded
+    | data for all students across the school with this too"). A class's
+    | own subject catalog can still legitimately offer every member (a
+    | school's real menu of choices for its students), this only
+    | constrains what any ONE student is ever actually scored on.
+    | Christian Religious Studies/Islamic Studies exists as a choice on
+    | both the 'jss' and 'ss' catalogs; Yoruba/Hausa/Igbo only exist as
+    | separate subjects in SSS's Arts & Humanities stream (JSS instead
+    | uses one single "Nigerian Languages" subject, no conflict there).
+    | Consumed by schools:populate-scores (both to skip creating a second
+    | score for an already-satisfied group, and to clean up any student
+    | already scored on more than one member from before this rule
+    | existed): a student is only ever scored on one member per group,
+    | chosen deterministically from their own student id so a re-run
+    | always picks the same one rather than reshuffling on every run.
+    */
+    'mutually_exclusive_subjects' => [
+        ['Christian Religious Studies', 'Islamic Studies'],
+        ['Yoruba', 'Hausa', 'Igbo'],
+    ],
+
+    /*
+    | The 'ss' catalog subjects every SSS stream shares (Mathematics/
+    | English Language/Civic Education are mandatory there already;
+    | Digital Technologies/Trade Subject are offered but optional), kept
+    | as its own explicit list rather than "whatever the catalog's 24
+    | subjects minus whatever a stream claims happens to leave over" —
+    | that implicit-leftover approach silently promoted Music/French/
+    | Arabic to shared-by-every-stream the moment they were trimmed off
+    | Arts & Humanities to fit the 11 subject cap (found testing
+    | sss:setup-streams before it ever touched real data). A subject in
+    | neither this list nor any one stream's own list is simply not
+    | offered by that class at all, not absorbed anywhere by default.
+    */
+    'sss_shared_subjects' => ['Mathematics', 'English Language', 'Civic Education', 'Digital Technologies', 'Trade Subject'],
 
     /*
     | Default house names a school can load in one action (user request
@@ -1326,6 +1384,16 @@ return [
     | other "default_*" catalog here, editable/removable after loading.
     */
     'default_houses' => ['Red House', 'Blue House', 'Green House', 'Yellow House'],
+
+    /*
+    | Extracurricular clubs schools:populate-scores picks from when
+    | backfilling a demo student's "club" field on the report card's
+    | Physical & Attendance section (user request 2026-07-24: "populate
+    | 'Physical & Attendance' data too for all learners"). Generic,
+    | common to most Nigerian schools, not any specific school's real
+    | club roster.
+    */
+    'demo_clubs' => ['Debate Club', 'Football Club', 'Drama Club', 'Chess Club', 'Reading Club', 'Science Club', 'Music Club', 'Press Club'],
 
     /*
     | One-click starting assessment structure (part of the guided setup
@@ -1532,6 +1600,36 @@ return [
     'default_report_card_template' => 'classic',
 
     /*
+    | How each term's report card treats the terms before it in the same
+    | session (user request 2026-07-24: "let's add a settings under
+    | examination on the termly report card calculation settings...
+    | for third term - the school can decide to add first term total and
+    | second term total plus the third term total then find the average
+    | for each subject... admin can toggle it off if the school decide
+    | otherwise... alternatively, the school can decide to add the total
+    | from previous terms but it wont find the average, it just display
+    | it for comparison purpose only"). A school configurable choice per
+    | term SEQUENCE (not per literal "first/second/third", so this still
+    | makes sense for a school running more or fewer than 3 terms, or a
+    | custom mid session term), seeded once into
+    | App\Services\ReportCards\ReportCardCumulativePolicy's own
+    | tenant Setting, never read live from here past that seed, the same
+    | shape as grading_scales/comments.
+    */
+    'report_card_cumulative_modes' => [
+        'off' => ['label' => 'This term only', 'description' => 'No earlier terms are shown or counted, this report reflects this term alone.'],
+        'average' => ['label' => 'Average with earlier terms', 'description' => 'Adds this term\'s subject total to every earlier term in the same session and shows the average.'],
+        'comparison' => ['label' => 'Show earlier terms for comparison, no average', 'description' => 'Shows each earlier term\'s total alongside this one so a parent can see the trend, without averaging them together.'],
+    ],
+    // Applied to any term whose sequence has no explicit choice yet (a
+    // school that has never opened the new settings screen at all keeps
+    // exactly the one behaviour the product always had before this
+    // screen existed). A term's own first (lowest sequence) term in a
+    // session always effectively behaves as 'off' regardless of this
+    // default, there is nothing earlier to add or compare against.
+    'default_report_card_cumulative_mode' => 'average',
+
+    /*
     | The header and identity strip, as movable blocks a school can drag
     | between two zones (Header, Info Strip) or leave unused (user request
     | 2026-07-18: "schools should be able to select where the logo should
@@ -1546,6 +1644,13 @@ return [
     */
     'report_card_layout_blocks' => [
         'logo' => 'School Logo',
+        // Not in default_report_card_layout below (2026-07-23, user
+        // request: "as part of report card builder, the option to add
+        // student picture to the top of the report card"): a student
+        // photo is opt in, dragged into the header from the designer's
+        // own "Available blocks" tray, the same not-mandatory-by-default
+        // treatment score_trend/subject_chart already got.
+        'student_photo' => 'Student Photo',
         'school_name' => 'School Name',
         'address' => 'School Address',
         'term_session' => 'Term and Session',
@@ -1719,7 +1824,12 @@ return [
         'class_average' => ['label' => 'Class average per subject', 'group' => 'academic', 'default' => false],
         'subject_highest' => ['label' => 'Subject highest score', 'group' => 'academic', 'default' => false],
         'subject_lowest' => ['label' => 'Subject lowest score', 'group' => 'academic', 'default' => false],
-        'cumulative_terms' => ['label' => 'Previous terms as columns, with a cumulative average', 'group' => 'academic', 'default' => true],
+        // Superseded 2026-07-24 by the dedicated Term Calculation
+        // settings screen (Examinations > Term Calculation,
+        // ReportCardCumulativePolicy): a single on/off checkbox here
+        // could not express "average for third term, comparison only
+        // for second term" (user request), a real per term choice, not
+        // a report card field toggle.
         'overall_position' => ['label' => 'Overall position in class', 'group' => 'academic', 'default' => true],
         'class_teacher_remark' => ['label' => 'Class teacher remark', 'group' => 'remarks', 'default' => true],
         'principal_remark' => ['label' => 'Head of school remark', 'group' => 'remarks', 'default' => true],
@@ -1732,6 +1842,14 @@ return [
         // template it prefers.
         'behavioural_traits' => ['label' => 'Behavioural / psychomotor traits', 'group' => 'evaluation', 'default' => false],
         'physical_stats' => ['label' => 'Physical stats (height, weight, club, days present)', 'group' => 'evaluation', 'default' => false],
+        // Rendered as fixed content inside the Physical & Attendance
+        // column itself (user directive 2026-07-24: "you are not to add
+        // the toggle there but add the class teacher name and phone
+        // number there. the toggle will be on the report card setting
+        // page"), this key is only the on/off switch for it, distinct
+        // from 'class_teacher' above (an identity block, name only, no
+        // phone, used by the header/info zone instead).
+        'class_teacher_contact' => ['label' => 'Class teacher name and phone number', 'group' => 'evaluation', 'default' => false],
         'subject_comments' => ['label' => 'Written comment per subject (instead of, or alongside, scores)', 'group' => 'evaluation', 'default' => false],
         'stamp_signature' => ['label' => 'School stamp and signature', 'group' => 'evaluation', 'default' => false],
         'grade_legend' => ['label' => 'Grade key legend', 'group' => 'evaluation', 'default' => false],

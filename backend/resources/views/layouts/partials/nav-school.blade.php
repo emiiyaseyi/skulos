@@ -528,8 +528,15 @@
   // report_cards.bulk_generate_all permission, not the plain
   // report_cards.create every class/subject teacher already holds for
   // their own single class, so this stays admin-tier only until a school
-  // deliberately grants it further via Roles & Permissions.
-  if (! $isRestrictedNav && $navRbac->check($navUser, $school, 'report_cards.bulk_generate_all')
+  // deliberately grants it further via Roles & Permissions. Also gated on
+  // the report cards plan feature itself, same as "Pending review" above
+  // (found via a failing test 2026-07-24: a permission grant on its own
+  // is not a plan gate, a school on a plan without basic_report_cards at
+  // all could still see this link since the wildcard role template holds
+  // every permission regardless of which features the school's plan
+  // actually includes).
+  if (! $isRestrictedNav && $school?->hasFeature('basic_report_cards')
+      && $navRbac->check($navUser, $school, 'report_cards.bulk_generate_all')
       && ! isset($renderedRoutes['school.report-cards.bulk-generate'])) {
     $renderedRoutes['school.report-cards.bulk-generate'] = true;
     $academicSubgroups['Examinations']['bulk_generate'] = $link('school.report-cards.bulk-generate', 'Bulk Generate Report Cards', 'results');

@@ -1028,11 +1028,21 @@ class ReportCardController extends Controller
         $school = $this->school($request);
         $term = $this->currentTermOrAbort();
 
+        // Paginated (Dbase recommendation standing rule: "paginate every
+        // list screen"), found still missing here 2026-07-24 once the
+        // bulk generate feature could realistically put an entire
+        // school's worth of report cards, hundreds of rows, into this
+        // one unpaginated table at once. The page's own client side
+        // filter/sort/select-all still work exactly as before, just
+        // scoped to whichever page is currently loaded, the same
+        // tradeoff every other paginated list screen in the app already
+        // makes.
         $reviews = ReportCardReview::where('term_id', $term->id)
             ->whereIn('status', [ReportCardReview::STATUS_PENDING_REVIEW, ReportCardReview::STATUS_NEEDS_CORRECTION])
             ->with(['student.currentClassArm.schoolClass', 'assignedTo'])
             ->orderBy('updated_at')
-            ->get();
+            ->paginate(30)
+            ->withQueryString();
 
         return view('school.report-cards.pending-review', [
             'school' => $school,

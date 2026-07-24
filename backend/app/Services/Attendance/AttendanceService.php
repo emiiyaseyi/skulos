@@ -85,6 +85,25 @@ class AttendanceService
     }
 
     /**
+     * How many real school days fall within a date range (user request
+     * 2026-07-24: "total_school_days... this is calculated from the term
+     * start date and end date, excluding the weekends... and other
+     * public holidays, mid term break set by the admin"), reusing the
+     * exact same weekend/holiday/break rule nonSchoolDayReason() already
+     * applies to attendance, so a "school day" means the same thing in
+     * both places rather than two subtly different definitions.
+     */
+    public function schoolDaysBetween(Carbon $from, Carbon $to): int
+    {
+        $totalDays = $from->diffInDays($to) + 1;
+
+        // One bulk query for every non school date in range (weekends and
+        // holiday/break calendar events already merged into one map by
+        // nonSchoolDatesWithin()), rather than a query per day.
+        return max(0, $totalDays - count($this->nonSchoolDatesWithin($from, $to)));
+    }
+
+    /**
      * Mark a whole class register for a date.
      *
      * @param array<int, string> $marks studentId => status

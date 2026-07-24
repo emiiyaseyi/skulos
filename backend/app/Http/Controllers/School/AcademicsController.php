@@ -17,8 +17,10 @@ use App\Models\Tenant\TeachingAssignment;
 use App\Models\Tenant\Term;
 use App\Services\Academics\AcademicDefaults;
 use App\Services\Academics\PromotionService;
+use App\Services\Attendance\AttendanceService;
 use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
@@ -229,7 +231,7 @@ class AcademicsController extends Controller
      * simply picks a session and term manually via the existing
      * "Make current" buttons, both are supported.
      */
-    public function editCalendar(Request $request): \Illuminate\View\View
+    public function editCalendar(Request $request, AttendanceService $attendance): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'academics.view');
         $school = $this->school($request);
@@ -238,6 +240,19 @@ class AcademicsController extends Controller
             ->with(['terms' => fn ($q) => $q->orderBy('sequence')])
             ->orderByDesc('name')
             ->get();
+
+        // A live preview next to each term's own days-open field (user
+        // request 2026-07-24: "admin can also check the calculated date
+        // and make adjustment to the number auto calculated"), computed
+        // from that term's own start/end dates, not the stored value, so
+        // the admin can compare what is actually saved against what the
+        // calendar would produce right now.
+        $calculatedSchoolDays = [];
+        foreach ($sessions->flatMap->terms as $term) {
+            if ($term->starts_on && $term->ends_on) {
+                $calculatedSchoolDays[$term->id] = $attendance->schoolDaysBetween($term->starts_on, $term->ends_on);
+            }
+        }
 
         $archivedSessions = AcademicSession::where('is_archived', true)
             ->with(['terms' => fn ($q) => $q->orderBy('sequence')])
@@ -259,6 +274,7 @@ class AcademicsController extends Controller
             'sessions' => $sessions,
             'archivedSessions' => $archivedSessions,
             'suggestedTerm' => $suggestedTerm,
+            'calculatedSchoolDays' => $calculatedSchoolDays,
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'academics.update'),
         ]);
     }
@@ -304,15 +320,33 @@ class AcademicsController extends Controller
         return back()->with('status', "{$sessions->count()} session(s) restored.");
     }
 
-    /** Optional start/end dates for a term, used to auto-suggest the current term by today's date. */
-    public function updateTermDates(Request $request): \Illuminate\Http\RedirectResponse
+    /**
+     * Optional start/end dates for a term, used to auto-suggest the
+     * current term by today's date. "Days school was open" (report card
+     * Physical & Attendance) is auto-calculated from those same dates,
+     * weekends and holiday/break calendar events excluded (user request
+     * 2026-07-24: "this is calculated from the term start date and end
+     * date... admin can also check the calculated date and make
+     * adjustment to the number auto calculated"): leaving the field
+     * blank recalculates it fresh every save, typing an explicit number
+     * is a deliberate override that survives future date edits until the
+     * admin clears it back to blank.
+     */
+    public function updateTermDates(Request $request, AttendanceService $attendance): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'academics.update');
         $term = Term::findOrFail($request->route('termId'));
         $data = $request->validate([
             'starts_on' => ['nullable', 'date'],
             'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
+            'total_school_days' => ['nullable', 'integer', 'min:1', 'max:250'],
         ]);
+
+        $startsOn = $data['starts_on'] ?? $term->starts_on;
+        $endsOn = $data['ends_on'] ?? $term->ends_on;
+        if (empty($data['total_school_days']) && $startsOn && $endsOn) {
+            $data['total_school_days'] = $attendance->schoolDaysBetween(Carbon::parse($startsOn), Carbon::parse($endsOn));
+        }
 
         $term->update($data);
 
