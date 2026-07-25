@@ -478,7 +478,7 @@ class RoleDashboardTest extends TestCase
         $data = app(RoleDashboard::class)->build($admin, $school);
         $labels = collect($data['figs'])->pluck('n', 'l');
 
-        $this->assertSame('50%', $labels['Attendance Rate']);
+        $this->assertSame('50%', $labels['Student Attendance Rate']);
         $this->assertSame('1', $labels['Parents']);
         $this->assertSame('1', $labels['Subjects']);
     }
@@ -517,7 +517,7 @@ class RoleDashboardTest extends TestCase
         $data = app(RoleDashboard::class)->build($admin, $school);
         $labels = collect($data['figs'])->pluck('n', 'l');
 
-        $this->assertSame('100%', $labels['Attendance Rate'], 'a 3 day old real mark must still surface, not read as N/A');
+        $this->assertSame('100%', $labels['Student Attendance Rate'], 'a 3 day old real mark must still surface, not read as N/A');
     }
 
     public function test_attendance_rate_is_na_when_nothing_was_ever_marked_at_all(): void
@@ -527,7 +527,7 @@ class RoleDashboardTest extends TestCase
         $data = app(RoleDashboard::class)->build($admin, $school);
         $labels = collect($data['figs'])->pluck('n', 'l');
 
-        $this->assertSame('N/A', $labels['Attendance Rate']);
+        $this->assertSame('N/A', $labels['Student Attendance Rate']);
     }
 
     public function test_class_teacher_dashboard_shows_todays_class_attendance(): void

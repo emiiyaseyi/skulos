@@ -153,7 +153,11 @@ class RoleDashboard
                 ['n' => number_format(\App\Models\Tenant\House::count()), 'l' => 'Houses', 'ic' => 'school', 'c' => '#0EA5A0', 'href' => $href('school.houses.index')],
                 ['n' => number_format($uniqueGuardians), 'l' => 'Parents', 'ic' => 'students', 'c' => '#6D4FE0', 'href' => $href('school.parents.directory')],
                 ['n' => number_format(Subject::count()), 'l' => 'Subjects', 'ic' => 'academics', 'c' => '#0EA5A0', 'href' => $href('school.academics.index')],
-                ['n' => $studentRate !== null ? "{$studentRate}%" : 'N/A', 'l' => 'Attendance Rate', 'ic' => 'students', 'c' => '#12A97B', 'href' => $href('school.attendance.dashboard')],
+                // Labelled "Student Attendance Rate", not just "Attendance
+                // Rate" (user report 2026-07-25), since it sits directly
+                // beside "Staff Attendance" here and the bare label read as
+                // ambiguous about which one it was.
+                ['n' => $studentRate !== null ? "{$studentRate}%" : 'N/A', 'l' => 'Student Attendance Rate', 'ic' => 'students', 'c' => '#12A97B', 'href' => $href('school.attendance.dashboard')],
                 ['n' => $staffRate !== null ? "{$staffRate}%" : 'N/A', 'l' => 'Staff Attendance', 'ic' => 'staff', 'c' => '#12A97B', 'href' => $href('school.attendance.staff')],
                 ['n' => number_format($newThisTerm), 'l' => 'New Registrations', 'ic' => 'students', 'c' => '#E5901C', 'href' => $href('school.students')],
                 // Replaces "Awaiting Class" (user report 2026-07-16: "WHAT
