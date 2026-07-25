@@ -70,4 +70,17 @@
   </tbody>
 </table>
 </div>
+{{--
+  The subject table routinely has more columns than fit a phone screen
+  (component breakdown, prior term comparison columns, position/average
+  extras), scrollable inside its own overflow-x:auto wrapper above, but
+  nothing on screen ever hinted that a swipe reveals the rest, so a real
+  parent on a real phone read the cut-off right edge as the report card
+  simply missing data (user report 2026-07-25, screenshot of a subject
+  row ending abruptly at the screen edge). Shown unconditionally at phone
+  width rather than only when the table truly overflows, since a report
+  card table this size very nearly always does and a plain CSS rule
+  cannot know for certain without JavaScript.
+--}}
+<p class="rc-table-hint">Swipe the table to see every column &rarr;</p>
 @endunless

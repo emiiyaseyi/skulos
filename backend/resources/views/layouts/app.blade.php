@@ -191,13 +191,43 @@ a{color:inherit;text-decoration:none}
 .brandshort{display:none}
 .shell.collapsed .brandshort{display:inline}
 .collapse-btn{display:inline-grid}
-@media(max-width:1000px){.collapse-btn{display:none}}
+/* .appbar .collapse-btn (two classes) so this reliably beats the later,
+   equal-specificity, unconditional .iconbtn{display:inline-grid} rule
+   below — a plain .collapse-btn{display:none} here lost that fight since
+   source order decides ties and .iconbtn comes after it, so this button
+   (a desktop-only "collapse the sidebar to icons" toggle, meaningless
+   once the sidebar is already an off-canvas drawer on mobile) stayed
+   visible right next to the real menu button on a phone (user report
+   2026-07-25, screenshot showing both side by side: "maybe we dont need
+   it in mobile view"). */
+@media(max-width:1000px){.appbar .collapse-btn{display:none}}
 .impersonate-bar{position:sticky;top:0;z-index:35;background:var(--warn);color:#241503;display:flex;align-items:center;justify-content:center;gap:1rem;padding:.55rem 1rem;font-size:.85rem;font-weight:600;flex-wrap:wrap;text-align:center}
 .impersonate-bar .btn{background:#241503;color:#fff;border:none;padding:.35rem .8rem;border-radius:8px;font-weight:700}
 .appbar{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--panel) 90%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:1rem;padding:.8rem 1.6rem}
-.appbar h2{font-size:1rem;font-weight:800}
-.appbar .crumb{font-size:.78rem;color:var(--mut-dim)}
+/* min-width:0 overrides the flex default (min-width:auto), which refuses
+   to shrink a flex item below its content's natural width — without it
+   this title and the fixed width search input below force the whole
+   appbar wider than the viewport on a phone, a horizontal scroll bug
+   found live 2026-07-25 across nearly every page. */
+.appbar-title{min-width:0;flex:1 1 auto;overflow:hidden}
+.appbar h2{font-size:1rem;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.appbar .crumb{font-size:.78rem;color:var(--mut-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .appbar-spacer{flex:1}
+{{--
+  !important on width here and in the two overrides below: a global rule
+  earlier in this same stylesheet (input:not([type=checkbox])
+  :not([type=radio]){width:100%}) has higher specificity than a single
+  class selector (two :not() attribute selectors plus the input type
+  beat one plain class), so it silently won over every one of these
+  width rules regardless of source order or media query, and the search
+  box never actually shrank on a phone no matter how small a value was
+  set here (found live 2026-07-25 by reading the element's own computed
+  style: it reported 160px, matching neither the desktop nor the phone
+  rule below).
+--}}
+.appbar-search{width:15rem !important;min-width:0;padding:.5rem .7rem;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:.85rem}
+.appbar-signout{display:inline-flex;align-items:center;gap:.4rem}
+.appbar-signout-icon{display:none}
 .iconbtn{width:2.75rem;height:2.75rem;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;display:inline-grid;place-items:center;position:relative}
 .iconbtn:hover{background:var(--soft)}
 .iconbtn .badge-dot{position:absolute;top:6px;right:7px;width:8px;height:8px;border-radius:50%;background:var(--bad);border:2px solid var(--panel)}
@@ -386,6 +416,39 @@ tr:last-child td{border-bottom:none}
   .cols-4{grid-template-columns:repeat(2,1fr)}.cols-3{grid-template-columns:1fr}.cols-2{grid-template-columns:1fr}
   .scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:55;display:none}
   .scrim.show{display:block}
+  .appbar-search{width:9rem !important}
+}
+/* Phone width (found live 2026-07-25, screenshots of the appbar's search
+   box, bell, theme toggle and sign out button running off the right edge
+   of the screen on a real phone): the spacer that pushes icons to the
+   right on a wide desktop window only wastes space here, and the search
+   box shrinks again, small enough to tap and still open the real search
+   page but no longer fighting the title for room. */
+@media(max-width:480px){
+  .appbar{gap:.2rem;padding:.6rem .5rem}
+  .appbar-spacer{display:none}
+  .appbar-search{width:3.2rem !important;padding:.45rem .3rem}
+  .appbar .iconbtn{width:1.8rem;height:1.8rem;border-radius:7px}
+  .appbar .iconbtn svg{width:13px;height:13px}
+  .appbar h2{font-size:.85rem}
+  /* Sign out as an icon, same square footprint as the other appbar
+     buttons, not a text button (user report 2026-07-25: the text wrapped
+     to two lines, "Sign" over "out", making the button visibly taller
+     than everything beside it). Desktop is untouched, this is scoped to
+     the same breakpoint as the rest of this mobile header work. */
+  .appbar-signout{width:1.8rem;height:1.8rem;padding:0;justify-content:center;border-radius:7px}
+  .appbar-signout-icon{display:inline-flex}
+  .appbar-signout-icon svg{width:13px;height:13px}
+  .appbar-signout-text{display:none}
+  /* right:0 anchors the panel to the bell icon's own right edge, correct
+     when the bell is the last icon in the row, but the theme toggle and
+     sign out button sit after it here, so the bell is not actually flush
+     with the screen edge, and the panel opened to the left far enough to
+     run off the left edge of the screen (user report 2026-07-25,
+     screenshot: the panel's own "N" in "Notifications" clipped off).
+     Anchoring to the viewport itself instead of the bell keeps it fully
+     on screen regardless of where the bell sits in the row. */
+  .notif-bell-panel{position:fixed;top:4.2rem;left:.8rem;right:.8rem;width:auto;max-width:none}
 }
 /* Mobile friendly data tables ("genuinely usable on a phone, not just
    responsive-looking" standing rule): a wide, many-column table (score
@@ -541,14 +604,14 @@ tr:last-child td{border-bottom:none}
       <button class="iconbtn collapse-btn" id="collapseBtn" aria-label="Collapse menu" title="Collapse menu">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3v18M4 7l-2 5 2 5"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
       </button>
-      <div>
+      <div class="appbar-title">
         <h2>@yield('heading', $pageTitle ?? 'Dashboard')</h2>
         @hasSection('crumb')<div class="crumb">@yield('crumb')</div>@endif
       </div>
       <div class="appbar-spacer"></div>
       @if(($portal ?? null) === 'school' && isset($school) && $school)
         <form method="GET" action="{{ route('school.search.index', ['school' => $school->slug]) }}" style="display:flex;align-items:center;gap:.3rem">
-          <input type="search" name="q" placeholder="Search students, staff, parents" aria-label="Search" style="width:15rem;padding:.5rem .7rem;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:.85rem" />
+          <input type="search" name="q" placeholder="Search students, staff, parents" aria-label="Search" class="appbar-search" />
         </form>
       @endif
       @if(($portal ?? null) === 'school' && isset($school) && $school && auth()->check())
@@ -557,7 +620,13 @@ tr:last-child td{border-bottom:none}
       <button class="iconbtn" id="themeToggle" aria-label="Theme">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
       </button>
-      <form method="POST" action="{{ url('/logout') }}">@csrf<button class="btn btn-ghost btn-sm">Sign out</button></form>
+      <form method="POST" action="{{ url('/logout') }}">
+        @csrf
+        <button class="btn btn-ghost btn-sm appbar-signout" aria-label="Sign out" title="Sign out">
+          <svg class="appbar-signout-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+          <span class="appbar-signout-text">Sign out</span>
+        </button>
+      </form>
     </header>
     <div class="content">
       @if(session('status'))<div class="flash flash-ok" role="status" aria-live="polite">{{ session('status') }}</div>@endif

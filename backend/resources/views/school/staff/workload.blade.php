@@ -40,10 +40,21 @@
   $lightest = $loadCard($insights['lightest'], 'Lowest load');
 @endphp
 
-<div class="grid" style="grid-template-columns:repeat(5, 1fr);gap:1rem;margin-bottom:1.25rem">
+{{--
+  Two grids, not one row of 5 (found live 2026-07-25: a hardcoded
+  grid-template-columns:repeat(5,1fr) never collapses on a phone, unlike
+  every other card row in the app, which uses the shared .cols-N classes
+  that already do, and 5 has no column count that divides it evenly per
+  the standing grid rule). The first 3 plain counts and the 2 clickable
+  load cards are already a natural, distinct grouping, so splitting them
+  reuses .cols-3/.cols-2 as they are rather than inventing a 5-up class.
+--}}
+<div class="grid cols-3" style="margin-bottom:1rem">
   <div class="card stat" style="padding:1rem"><b>{{ $insights['teachers'] }}</b><span>Teaching staff</span></div>
   <div class="card stat" style="padding:1rem"><b>{{ $insights['avg_subjects'] }}</b><span>Average subjects each</span></div>
   <div class="card stat" style="padding:1rem"><b>{{ $insights['avg_students'] }}</b><span>Average students each</span></div>
+</div>
+<div class="grid cols-2" style="margin-bottom:1.25rem">
   @foreach([$heaviest, $lightest] as $i => $loadStat)
     <button type="button" class="card stat load-card" style="padding:1rem;text-align:left;{{ $loadStat['count'] === 0 ? 'cursor:default' : 'cursor:pointer' }}" data-open-popup="loadPopup{{ $i }}" @disabled($loadStat['count'] === 0)>
       <b>{{ $loadStat['students'] }}</b>

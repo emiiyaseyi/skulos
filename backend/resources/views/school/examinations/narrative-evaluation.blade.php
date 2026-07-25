@@ -15,6 +15,7 @@
   <form method="POST" action="{{ route('school.examinations.narrative-evaluation.update', ['school' => $school->slug]) }}">
     @csrf
     <div class="card">
+      <div style="overflow-x:auto">
       <table>
         <thead>
           <tr>
@@ -41,6 +42,7 @@
           @endforeach
         </tbody>
       </table>
+      </div>
     </div>
     <p class="hint" style="margin-top:.6rem">A narrative class's report card always shows written comments per subject instead of a score table, and its Enter Scores screen is skipped, scores are entered under Report Cards, class entry instead.</p>
     <button class="btn btn-primary btn-sm" type="submit" style="margin-top:.8rem">Save</button>

@@ -21,6 +21,8 @@
   .rc-table th,.rc-table td{border:1px solid #d8d8d8;padding:.32rem .4rem;text-align:left}
   .rc-table th{background:#f3f4f6;font-size:.62rem;text-transform:uppercase;letter-spacing:.03em}
   .rc-table td.num,.rc-table th.num{text-align:center;font-variant-numeric:tabular-nums}
+  .rc-table-hint{display:none;font-size:.66rem;color:#888;margin:-.5rem 0 .7rem;text-align:right}
+  @media(max-width:640px){.rc-table-hint{display:block}}
   .rc-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(5.5rem,1fr));gap:.5rem;margin:.7rem 0}
   .rc-summary .box{background:#f7f7f8;border-radius:8px;padding:.5rem;text-align:center}
   .rc-summary .box b{font-size:1rem;display:block}
@@ -74,7 +76,7 @@
        separate re-tuning. */
     html{font-size:13.5px}
     body{background:#fff}
-    .rc-bar,.appbar,.side,.impersonate-bar{display:none !important}
+    .rc-bar,.appbar,.side,.impersonate-bar,.rc-table-hint{display:none !important}
     .content{padding:0 !important}
     .rc-wrap{max-width:none;margin:0;padding:0}
     .rc-sheet{box-shadow:none;border-radius:0;padding:0;margin-bottom:0}

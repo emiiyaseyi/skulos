@@ -38,6 +38,8 @@
   .rc-table th,.rc-table td{border:1px solid #d8d8d8;padding:.32rem .4rem;text-align:left}
   .rc-table th{background:#f3f4f6;font-size:.62rem;text-transform:uppercase;letter-spacing:.03em}
   .rc-table td.num,.rc-table th.num{text-align:center;font-variant-numeric:tabular-nums}
+  .rc-table-hint{display:none;font-size:.66rem;color:#888;margin:-.5rem 0 .7rem;text-align:right}
+  @media(max-width:640px){.rc-table-hint{display:block}}
   {{-- auto-fit, not a fixed 4 column count: each of the 5 boxes here is
        now independently toggleable (2026-07-24), so the real count on
        any given report card varies from 1 to 5, this keeps every count
@@ -127,7 +129,7 @@
     */
     html{font-size:13.5px}
     body{background:#fff}
-    .rc-bar,.appbar,.side,.impersonate-bar{display:none !important}
+    .rc-bar,.appbar,.side,.impersonate-bar,.rc-table-hint{display:none !important}
     .content{padding:0 !important}
     .rc-wrap{max-width:none;margin:0;padding:0}
     .rc-sheet{box-shadow:none;border-radius:0;padding:0}
