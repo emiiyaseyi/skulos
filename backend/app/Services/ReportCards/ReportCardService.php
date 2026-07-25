@@ -37,12 +37,20 @@ class ReportCardService
     public function forStudent(Student $student, Term $term, ?GradingScale $scale = null): array
     {
         $classArm = $student->currentClassArm;
-        // A section's own grading scale wins over the school wide
-        // default (user request 2026-07-24: "check the section grade
-        // structure to get the grade to be placed here... it changes
-        // based on the section and grade set"), falling back exactly
-        // as before for a section that has never had one assigned.
-        $scale ??= $classArm?->schoolClass?->section?->gradingScale ?? GradingScale::default();
+        // A class's own grading scale wins over its section's own scale,
+        // which wins over the school wide default (user request
+        // 2026-07-24, real bug live on greenfield: "i am viewing a
+        // report card in sss and it is showing grade as excellent,
+        // good etc which is not what we have under the grading
+        // structure for the section... sss falls under secondary
+        // school"). JSS and SSS sit under one shared "Secondary"
+        // section (confirmed against greenfield's own real data), so a
+        // section level scale alone cannot tell WAEC graded SSS apart
+        // from NECO/BECE graded JSS, the class's own override is what
+        // actually distinguishes them.
+        $scale ??= $classArm?->schoolClass?->gradingScale
+            ?? $classArm?->schoolClass?->section?->gradingScale
+            ?? GradingScale::default();
 
         // A school configurable choice per term sequence (Examinations >
         // Term Calculation, 2026-07-24), not a blanket on/off: 'average'

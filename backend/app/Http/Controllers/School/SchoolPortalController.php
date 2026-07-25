@@ -308,6 +308,15 @@ class SchoolPortalController extends Controller
         $this->authorizeAction($request, 'school_info.update');
         $school = $this->school($request);
 
+        // A bare domain like "www.school.com" is what most admins
+        // actually type, not a full "https://..." URI (user report
+        // 2026-07-24: "its not accepting www.greenfieldacadmy.com as a
+        // url, which is wrong"); add the scheme before validating/
+        // storing rather than rejecting it.
+        if ($request->filled('website') && ! preg_match('#^https?://#i', $request->input('website'))) {
+            $request->merge(['website' => 'https://'.$request->input('website')]);
+        }
+
         $data = $request->validate([
             'motto' => ['nullable', 'string', 'max:150'],
             'registration_number' => ['nullable', 'string', 'max:100'],

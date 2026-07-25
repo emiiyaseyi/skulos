@@ -15,8 +15,21 @@
        (user report 2026-07-24) alongside every size below being brought
        down toward 11-12px from their old ~13-14px. --}}
   .rc-sheet p{margin:.2rem 0 0}
-  .rc-head{text-align:center;border-bottom:2px solid var(--accent);padding-bottom:.6rem;margin-bottom:.7rem}
-  .rc-head h1{font-size:1.05rem;font-weight:800}
+  {{-- Logo left, student photo right, school name/address/term centered
+       between them (user request 2026-07-24: "the school logo will be
+       on the left side of the header, and the child image will be on
+       the right side of the header... this section of the report card
+       should be center aligned as default"). Nothing renders on either
+       side when there is no logo/photo, no placeholder box holding the
+       space (user: "if there's no image uploaded for the
+       learner/student, nothing appears there"); the center text block's
+       own flex:1 absorbs whichever side is empty, keeping it centered
+       against the header as a whole rather than the remaining space. --}}
+  .rc-head{display:flex;align-items:center;gap:.8rem;text-align:center;border-bottom:2px solid var(--accent);padding-bottom:.6rem;margin-bottom:.7rem}
+  .rc-head-text{flex:1;min-width:0}
+  .rc-head .rc-logo,.rc-head .rc-photo{flex:none;margin:0}
+  {{-- Doubled (user request 2026-07-24: "let's double the size of the school name... it should be much bigger that the current one"). --}}
+  .rc-head h1{font-size:2.1rem;font-weight:800}
   .rc-head p{font-size:.7rem;color:#555;margin:.15rem 0 0}
   .rc-head .term{font-size:.78rem;font-weight:700;margin-top:.3rem;text-transform:uppercase;letter-spacing:.04em}
   .rc-id{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;font-size:.7rem;margin-bottom:.8rem}
@@ -41,12 +54,14 @@
   /* modern */
   .rc-modern .rc-head{background:linear-gradient(135deg,var(--accent),#2a2a2a);color:#fff;border-radius:10px 10px 0 0;border-bottom:none;padding:1rem}
   .rc-modern .rc-head p{color:rgba(255,255,255,.85)}
-  .rc-modern .photo{width:52px;height:52px;border-radius:12px;background:#eee;margin:0 auto .5rem;display:grid;place-items:center;font-weight:800;color:#888}
   /* compact */
   .rc-compact .rc-table{font-size:.64rem}
-  .rc-logo{width:48px;height:48px;object-fit:contain;display:block;margin:0 auto .4rem}
+  {{-- Same size as the student photo, both bigger than before (user
+       request 2026-07-24: "make the school logo bigger than the current
+       size and the child image should also have same size"). --}}
+  .rc-logo{width:76px;height:76px;object-fit:contain;display:block;margin:0 auto .4rem}
   /* Student Photo layout designer block (2026-07-23) */
-  .rc-photo{width:64px;height:64px;object-fit:cover;border-radius:10px;display:block;margin:0 auto .4rem;border:1px solid #d8d8d8}
+  .rc-photo{width:76px;height:76px;object-fit:cover;border-radius:10px;display:block;margin:0 auto .4rem;border:1px solid #d8d8d8}
   .rc-photo-placeholder{display:grid;place-items:center;background:#f3f4f6;color:#888;font-weight:800;font-size:1.15rem}
   /* Layout designer custom header/id blocks (2026-07-18) */
   .rc-head-custom{display:flex;flex-direction:column;align-items:center;gap:.25rem}
@@ -55,7 +70,7 @@
   .rc-eval .rc-head{display:flex;align-items:center;gap:.8rem;text-align:left;border-bottom:2px solid var(--accent);padding-bottom:.6rem}
   .rc-eval .rc-head .rc-logo{margin:0;flex:none}
   .rc-eval .rc-head-text{flex:1}
-  .rc-eval .rc-head h1{font-size:.95rem}
+  .rc-eval .rc-head h1{font-size:1.9rem}
   .rc-eval .rc-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;background:#f3f4f6;border-radius:8px;padding:.5rem .6rem;font-size:.7rem;margin-bottom:.8rem}
   .rc-eval .rc-strip div b{display:block;font-size:.58rem;text-transform:uppercase;letter-spacing:.04em;color:#777;font-weight:700}
   .rc-block{margin-bottom:.7rem}

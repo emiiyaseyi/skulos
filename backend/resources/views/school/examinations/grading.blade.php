@@ -12,11 +12,21 @@
 
 @if($sections->isNotEmpty() && $scales->isNotEmpty())
   <div class="card" style="margin-bottom:1.1rem">
-    <h3 style="margin-bottom:.4rem">Which scale each section grades against</h3>
-    <p class="muted" style="margin-bottom:.8rem">A section left on "School default" uses whichever scale above is marked Default. Report cards (Grade Key, and any overall Grade shown on the summary) always use the scale for the student's own section.</p>
+    <h3 style="margin-bottom:.4rem">Which scale each section and class grades against</h3>
+    {{--
+      A class's own override beats its section's own scale, which beats
+      the school wide default (real bug found live on greenfield,
+      2026-07-24: "i am viewing a report card in sss and it is showing
+      grade as excellent, good etc which is not what we have under the
+      grading structure for the section... sss falls under secondary
+      school"). JSS and SSS both sit under one shared "Secondary"
+      section, so a section level choice alone cannot tell WAEC graded
+      SSS apart from NECO/BECE graded JSS, only a per class override can.
+    --}}
+    <p class="muted" style="margin-bottom:.8rem">A section left on "School default" uses whichever scale above is marked Default. A class left on "Section default" uses its own section's choice instead. Report cards (Grade Key, and any overall Grade shown on the summary) always use the scale for the student's own class first, then their section, then the school default.</p>
     <div style="overflow-x:auto">
     <table>
-      <thead><tr><th>Section</th><th>Grading scale</th></tr></thead>
+      <thead><tr><th>Section / Class</th><th>Grading scale</th></tr></thead>
       <tbody>
         @foreach($sections as $section)
           <tr>
@@ -37,6 +47,26 @@
               @endif
             </td>
           </tr>
+          @foreach($section->classes as $class)
+            <tr>
+              <td class="muted" style="padding-left:1.5rem">{{ $class->name }}</td>
+              <td>
+                @if($canManage)
+                  <form method="POST" action="{{ route('school.examinations.grading.classes.assign', ['school' => $school->slug, 'classId' => $class->id]) }}">
+                    @csrf
+                    <select name="grading_scale_id" onchange="this.form.submit()">
+                      <option value="">Section default</option>
+                      @foreach($scales as $scale)
+                        <option value="{{ $scale->id }}" @selected($class->grading_scale_id === $scale->id)>{{ $scale->name }}</option>
+                      @endforeach
+                    </select>
+                  </form>
+                @else
+                  {{ $class->gradingScale?->name ?? 'Section default' }}
+                @endif
+              </td>
+            </tr>
+          @endforeach
         @endforeach
       </tbody>
     </table>

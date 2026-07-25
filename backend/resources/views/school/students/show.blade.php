@@ -3,9 +3,25 @@
 
 @section('content')
 <div class="page-head">
-  <div>
-    <h1 class="title">{{ $student->fullName() }}</h1>
-    <p class="subtitle">{{ $student->admission_number }} &middot; {{ $student->currentClassArm?->label() ?? 'No class set' }} &middot; <span class="badge {{ $student->status === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucfirst($student->status) }}</span></p>
+  <div style="display:flex;align-items:center;gap:.9rem">
+    {{-- Shown on the right of the report card header when present (user
+         request 2026-07-23/24), nothing here or there if never uploaded. --}}
+    @if($student->passport_path)
+      <img src="{{ \Illuminate\Support\Facades\Storage::url($student->passport_path) }}" alt="" style="width:3.4rem;height:3.4rem;border-radius:10px;object-fit:cover;border:1px solid var(--line);flex:none" />
+    @endif
+    <div>
+      <h1 class="title">{{ $student->fullName() }}</h1>
+      <p class="subtitle">{{ $student->admission_number }} &middot; {{ $student->currentClassArm?->label() ?? 'No class set' }} &middot; <span class="badge {{ $student->status === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucfirst($student->status) }}</span></p>
+      @if($canManage)
+        <form method="POST" action="{{ route('school.students.photo.update', ['school' => $school->slug, 'studentId' => $student->id]) }}" enctype="multipart/form-data" style="margin-top:.3rem">
+          @csrf
+          <label class="btn btn-ghost btn-sm" style="cursor:pointer">
+            {{ $student->passport_path ? 'Change photo' : 'Upload photo' }}
+            <input type="file" name="photo" accept="image/*" style="display:none" onchange="this.form.requestSubmit()" />
+          </label>
+        </form>
+      @endif
+    </div>
   </div>
   <div class="stack" style="flex-direction:row;gap:.6rem">
     @if($canViewReportCard && $term)

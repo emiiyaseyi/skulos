@@ -26,22 +26,24 @@
       </div>
     @endif
   @else
+  {{--
+    Logo left, student photo right, name/address/term centered between
+    them (user request 2026-07-24). Neither side renders anything, not
+    even a placeholder, when the school has no logo or the student has
+    no photo uploaded ("if there's no image uploaded for the
+    learner/student, nothing appears there"). School address is its own
+    toggle (report_card_fields 'school_address', on by default, "let's
+    add the school address as a default thing to also appear on the
+    report card header too, admin can decide to remove it").
+  --}}
   <div class="rc-head">
-    @if($isEval)
-      @if($logoUrl)<img class="rc-logo" src="{{ $logoUrl }}" alt="" />@endif
-      <div class="rc-head-text">
-        <h1>{{ $school->name }}</h1>
-        <p>{{ $school->address ?: $school->motto }}</p>
-        <div class="term">{{ $data['term']['name'] }} Report &middot; {{ $data['term']['session'] }}</div>
-      </div>
-    @else
-      @if($template === 'modern')
-        @if($logoUrl)<img class="rc-logo" src="{{ $logoUrl }}" alt="" />@else<div class="photo">{{ strtoupper(substr($data['identity']['name'],0,1)) }}</div>@endif
-      @endif
+    @if($logoUrl)<img class="rc-logo" src="{{ $logoUrl }}" alt="" />@endif
+    <div class="rc-head-text">
       <h1>{{ $school->name }}</h1>
-      <p>{{ $school->address ?: $school->motto }}</p>
+      @if($show('school_address'))<p>{{ $school->address ?: $school->motto }}</p>@endif
       <div class="term">{{ $data['term']['name'] }} Report &middot; {{ $data['term']['session'] }}</div>
-    @endif
+    </div>
+    @if($data['identity']['photo_url'] ?? null)<img class="rc-photo" src="{{ $data['identity']['photo_url'] }}" alt="" />@endif
   </div>
 
   @if($isEval)

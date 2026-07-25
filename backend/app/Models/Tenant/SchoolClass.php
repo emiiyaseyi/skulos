@@ -24,7 +24,7 @@ class SchoolClass extends Model
 
     protected $table = 'school_classes';
 
-    protected $fillable = ['section_id', 'name', 'sequence', 'is_active', 'default_reviewer_staff_id', 'evaluation_style'];
+    protected $fillable = ['section_id', 'name', 'sequence', 'is_active', 'default_reviewer_staff_id', 'evaluation_style', 'grading_scale_id'];
 
     protected function casts(): array
     {
@@ -45,6 +45,19 @@ class SchoolClass extends Model
     public function defaultReviewer(): BelongsTo
     {
         return $this->belongsTo(Staff::class, 'default_reviewer_staff_id');
+    }
+
+    /**
+     * A class's own grading scale, overriding its section's own scale
+     * (real bug found live on greenfield, 2026-07-24: JSS and SSS both
+     * sit under one shared "Secondary" section, so a section level
+     * scale alone cannot tell WAEC graded SSS apart from NECO/BECE
+     * graded JSS). Unset falls back to the section's own scale, then
+     * the school wide default, exactly as before this existed.
+     */
+    public function gradingScale(): BelongsTo
+    {
+        return $this->belongsTo(GradingScale::class);
     }
 
     public function arms(): HasMany

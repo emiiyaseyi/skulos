@@ -62,7 +62,12 @@
 
     <div class="field">
       <label for="website">Website</label>
-      <input id="website" name="website" type="url" maxlength="200" placeholder="https://" value="{{ old('website', $school->website) }}" />
+      {{-- type="text", not "url": the browser's own URL validation
+           rejects a bare domain like "www.school.com" with no http(s)
+           scheme (user report 2026-07-24: "its not accepting
+           www.greenfieldacadmy.com as a url, which is wrong"), the
+           server below adds https:// automatically when missing. --}}
+      <input id="website" name="website" type="text" maxlength="200" placeholder="www.yourschool.com" value="{{ old('website', $school->website) }}" />
     </div>
 
     <div class="field">

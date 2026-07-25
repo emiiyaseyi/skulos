@@ -87,6 +87,16 @@
     </div>
   </div>
 
+  <div class="card" style="margin-top:1.25rem">
+    <h3 style="margin-bottom:.4rem">Student photo upload limit</h3>
+    <p class="muted" style="margin-bottom:.8rem">Every uploaded photo is converted to WebP and compressed down to this size, whatever the original file was. Keeps the report card's own student photo, and the site overall, light on a shared hosting database (Dbase recommendation).</p>
+    <div class="field" style="max-width:12rem">
+      <label for="student_photo_max_kb">Max size (KB)</label>
+      <input id="student_photo_max_kb" name="student_photo_max_kb" type="number" min="20" max="1000" value="{{ old('student_photo_max_kb', $photoMaxKb) }}" required />
+      @error('student_photo_max_kb')<div class="err">{{ $message }}</div>@enderror
+    </div>
+  </div>
+
   <button class="btn btn-primary btn-sm" type="submit" style="margin-top:1rem">Save</button>
 </form>
 @endsection

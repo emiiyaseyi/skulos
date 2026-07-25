@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\School;
 use App\Models\Tenant\GradingBand;
 use App\Models\Tenant\GradingScale;
+use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Score;
 use App\Models\Tenant\Section;
 use App\Services\Rbac\Rbac;
@@ -50,7 +51,7 @@ class GradingController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'scales' => GradingScale::with('bands')->orderBy('sequence')->orderBy('name')->get(),
-            'sections' => Section::orderBy('sequence')->get(),
+            'sections' => Section::with(['classes' => fn ($q) => $q->orderBy('sequence')])->orderBy('sequence')->get(),
             'defaultCatalog' => config('skulos.default_grading_scales'),
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'examinations.approve_results'),
         ]);
@@ -75,6 +76,28 @@ class GradingController extends Controller
         $section->update(['grading_scale_id' => $data['grading_scale_id'] ?? null]);
 
         return back()->with('status', "Grading scale updated for {$section->name}.");
+    }
+
+    /**
+     * A class's own scale, overriding its section's own scale (real bug
+     * found live on greenfield, 2026-07-24: JSS and SSS both sit under
+     * one shared "Secondary" section, so the section level assignment
+     * above alone cannot tell WAEC graded SSS apart from NECO/BECE
+     * graded JSS). Left unset, a class falls back to its section's own
+     * scale, then the school wide default.
+     */
+    public function assignClass(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'examinations.approve_results');
+        $class = SchoolClass::findOrFail($request->route('classId'));
+
+        $data = $request->validate([
+            'grading_scale_id' => ['nullable', 'exists:tenant.grading_scales,id'],
+        ]);
+
+        $class->update(['grading_scale_id' => $data['grading_scale_id'] ?? null]);
+
+        return back()->with('status', "Grading scale updated for {$class->name}.");
     }
 
     /**

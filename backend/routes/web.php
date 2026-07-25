@@ -292,6 +292,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::get('/students/{studentId}', [\App\Http\Controllers\School\StudentController::class, 'show'])->name('school.students.show');
         Route::get('/students/{studentId}/edit', [\App\Http\Controllers\School\StudentController::class, 'edit'])->name('school.students.edit');
         Route::post('/students/{studentId}/edit', [\App\Http\Controllers\School\StudentController::class, 'update'])->name('school.students.update');
+        Route::post('/students/{studentId}/photo', [\App\Http\Controllers\School\StudentController::class, 'updatePhoto'])->name('school.students.photo.update');
         Route::post('/students/{studentId}/guardians', [\App\Http\Controllers\School\StudentController::class, 'storeGuardian'])->name('school.students.guardians.store');
         Route::post('/students/guardians/{guardianId}/edit', [\App\Http\Controllers\School\StudentController::class, 'updateGuardian'])->name('school.students.guardians.update');
         Route::delete('/students/guardians/{guardianId}', [\App\Http\Controllers\School\StudentController::class, 'destroyGuardian'])->name('school.students.guardians.destroy');
@@ -559,6 +560,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/grading/bands/{bandId}', [$grading, 'updateBand'])->name('grading.bands.update');
             Route::delete('/grading/bands/{bandId}', [$grading, 'destroyBand'])->name('grading.bands.destroy');
             Route::post('/grading/sections/{sectionId}', [$grading, 'assignSection'])->name('grading.sections.assign');
+            Route::post('/grading/classes/{classId}', [$grading, 'assignClass'])->name('grading.classes.assign');
         });
 
         // Foundation Finance slice (2026-07-17): Bank Transfer Payment

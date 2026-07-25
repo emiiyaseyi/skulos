@@ -842,4 +842,50 @@ class StudentScreenTest extends TestCase
         $this->actingAs($bursar)->get("http://{$school->slug}.localhost/students/trashed")
             ->assertOk()->assertDontSee('Restore selected');
     }
+
+    /**
+     * User request 2026-07-23/24: "the option to upload student picture
+     * under each student profile should be built too... max size of
+     * image should be 100kb (admin can reduce or increase it under
+     * settings, add it)". A large fake upload must still end up under
+     * the school's own configured limit once converted, not just
+     * converted to WebP at whatever size that produces.
+     */
+    public function test_a_students_photo_can_be_uploaded_and_is_compressed_under_the_configured_limit(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'photoone');
+        app(TenantManager::class)->use($school);
+        $student = Student::create(['admission_number' => 'PH/1', 'first_name' => 'Ada', 'last_name' => 'Obi']);
+        \App\Models\Tenant\Setting::put('student_photo_max_kb', 40);
+        $studentId = $student->id;
+        app(TenantManager::class)->forget();
+
+        $largeImage = UploadedFile::fake()->image('photo.jpg', 1800, 1800)->size(4000);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/students/{$studentId}/photo", [
+            'photo' => $largeImage,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $fresh = Student::find($studentId);
+        $this->assertNotNull($fresh->passport_path);
+        $this->assertStringEndsWith('.webp', $fresh->passport_path);
+        $bytes = \Illuminate\Support\Facades\Storage::disk('public')->size($fresh->passport_path);
+        app(TenantManager::class)->forget();
+
+        $this->assertLessThanOrEqual(40 * 1024, $bytes, 'the stored photo must fit the school\'s own configured max size');
+    }
+
+    public function test_a_teacher_without_students_update_cannot_upload_a_students_photo(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('teacher', 'phototwo');
+        app(TenantManager::class)->use($school);
+        $student = Student::create(['admission_number' => 'PH/2', 'first_name' => 'Ada', 'last_name' => 'Obi']);
+        $studentId = $student->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacher)->post("http://{$school->slug}.localhost/students/{$studentId}/photo", [
+            'photo' => UploadedFile::fake()->image('photo.jpg'),
+        ])->assertForbidden();
+    }
 }

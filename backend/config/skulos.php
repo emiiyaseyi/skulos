@@ -1695,13 +1695,15 @@ return [
         // directly, the same dual purpose naming subject_comments
         // already uses.
         'behavioural_traits' => 'Behavioural / Psychomotor Traits',
+        // Class Teacher Contact renders inside this same section's own
+        // partial, directly under the Physical & Attendance table, not
+        // as its own body_sections row (user correction 2026-07-24:
+        // "it should be placed directly under the Physical & Attendance
+        // so that its length/height can match the Behavioural /
+        // Psychomotor Traits container on the left"), so it has no
+        // entry of its own here; its report_card_fields toggle below
+        // still controls it independently.
         'physical_stats' => 'Physical & Attendance',
-        // Its own standalone section, not merged into Physical &
-        // Attendance (user correction 2026-07-24: "should have its own
-        // stand alone section... placed by default below the 'Physical
-        // & Attendance' section"), see report_card_default_body_sections
-        // below for the actual default position.
-        'class_teacher_contact' => 'Class Teacher Contact',
         'grade_key' => 'Grade Key',
         'remarks' => 'Remarks (Class Teacher / Head of School)',
         'signoff' => 'Stamp & Signature',
@@ -1727,7 +1729,7 @@ return [
     | in that catalog — see the score_trend/subject_chart comment there.
     */
     'report_card_default_body_sections' => [
-        'subjects_table', 'subject_comments', 'summary', 'behavioural_traits', 'physical_stats', 'class_teacher_contact', 'grade_key', 'remarks', 'signoff',
+        'subjects_table', 'subject_comments', 'summary', 'behavioural_traits', 'physical_stats', 'grade_key', 'remarks', 'signoff',
     ],
 
     /*
@@ -1840,6 +1842,12 @@ return [
     | so nothing is a hard ceiling on what a report card can contain.
     */
     'report_card_fields' => [
+        // Shown in the header, under the school name (user request
+        // 2026-07-24: "let's add the school address as a default thing
+        // to also appear on the report card header too, admin can
+        // decide to remove it from the report builder page"), was
+        // previously unconditional with no way to turn it off at all.
+        'school_address' => ['label' => "School address (header)", 'group' => 'identity', 'default' => true],
         'admission_number' => ['label' => 'Admission number', 'group' => 'identity', 'default' => true],
         'gender' => ['label' => 'Gender', 'group' => 'identity', 'default' => true],
         'date_of_birth' => ['label' => 'Date of birth', 'group' => 'identity', 'default' => true],
@@ -1907,6 +1915,12 @@ return [
     */
     'upload_limits' => [
         'payment_evidence_kb' => 3072,
+        // Seed default only, the live value is
+        // Setting::grab('student_photo_max_kb'), admin editable from
+        // Student, Parent & Staff Field Settings (user request
+        // 2026-07-23: "max size of image should be 100kb, admin can
+        // reduce or increase it under settings").
+        'student_photo_kb' => 100,
     ],
 
     /*

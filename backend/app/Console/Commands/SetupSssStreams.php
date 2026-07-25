@@ -144,16 +144,35 @@ class SetupSssStreams extends Command
         $streamNames = array_keys($streamSubjects);
         $armByStream = [];
 
+        // Every stream starts with the same class teacher the class had
+        // before the split, not left blank (found live on greenfield,
+        // 2026-07-24, real user report: "why is the report showing NA
+        // for class teacher name and number since all class has class
+        // teachers"), a real gap since only the reused/first stream
+        // arm kept whichever teacher it already had, the other 2 newly
+        // created arms started genuinely blank. A starting default, not
+        // a final answer, the same "reuse what already exists, admin
+        // reassigns" reasoning Step 6 below already uses for subject
+        // teachers.
+        $originalClassTeacherId = $existingArms->firstWhere('class_teacher_staff_id', '!=', null)?->class_teacher_staff_id;
+
         $unstreamed = $existingArms->firstWhere('arm_id', null);
         foreach ($streamNames as $i => $streamName) {
             $already = ClassArm::where('school_class_id', $class->id)->where('arm_id', $streamArms[$streamName]->id)->first();
             if ($already) {
                 $armByStream[$streamName] = $already;
+                if (! $already->class_teacher_staff_id && $originalClassTeacherId) {
+                    $already->update(['class_teacher_staff_id' => $originalClassTeacherId]);
+                }
             } elseif ($i === 0 && $unstreamed) {
                 $unstreamed->update(['arm_id' => $streamArms[$streamName]->id]);
                 $armByStream[$streamName] = $unstreamed;
             } else {
-                $armByStream[$streamName] = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => $streamArms[$streamName]->id]);
+                $armByStream[$streamName] = ClassArm::create([
+                    'school_class_id' => $class->id,
+                    'arm_id' => $streamArms[$streamName]->id,
+                    'class_teacher_staff_id' => $originalClassTeacherId,
+                ]);
             }
         }
 

@@ -30,8 +30,14 @@ class ImageProcessingService
      *   image is meant to be widely viewable); financial evidence uploads
      *   pass 'local' instead so the file is never reachable by a bare
      *   unauthenticated URL (audit finding M-2, 2026-07-17)
+     * @param int|null $maxKb a hard ceiling on the FINAL stored file size
+     *   (student photo upload, user request 2026-07-23: "max size of
+     *   image should be 100kb, admin can reduce or increase it under
+     *   settings"), re-encoding at falling quality, then falling
+     *   dimension, until it fits. Null (the default) keeps every
+     *   existing caller's behaviour exactly as before this existed.
      */
-    public function toWebp(UploadedFile $file, string $directory, int $maxDimension = 1600, int $quality = 78, string $disk = 'public'): string
+    public function toWebp(UploadedFile $file, string $directory, int $maxDimension = 1600, int $quality = 78, string $disk = 'public', ?int $maxKb = null): string
     {
         [$width, $height, $type] = getimagesize($file->getRealPath());
 
@@ -47,6 +53,21 @@ class ImageProcessingService
             throw new \RuntimeException('Could not read the uploaded image.');
         }
 
+        $tmpPath = $maxKb === null
+            ? $this->encode($source, $width, $height, $maxDimension, $quality)
+            : $this->encodeUnderLimit($source, $width, $height, $maxDimension, $quality, $maxKb);
+        imagedestroy($source);
+
+        $filename = $directory.'/'.Str::random(24).'.webp';
+        Storage::disk($disk)->put($filename, file_get_contents($tmpPath));
+        @unlink($tmpPath);
+
+        return $filename;
+    }
+
+    /** Renders once at the given dimension/quality, returns the temp file path (caller deletes it). */
+    protected function encode($source, int $width, int $height, int $maxDimension, int $quality): string
+    {
         $scale = min(1, $maxDimension / max($width, $height));
         $targetWidth = max(1, (int) round($width * $scale));
         $targetHeight = max(1, (int) round($height * $scale));
@@ -59,16 +80,51 @@ class ImageProcessingService
         $white = imagecolorallocate($canvas, 255, 255, 255);
         imagefill($canvas, 0, 0, $white);
         imagecopyresampled($canvas, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
-        imagedestroy($source);
 
         $tmpPath = tempnam(sys_get_temp_dir(), 'skulos_img_').'.webp';
         imagewebp($canvas, $tmpPath, $quality);
         imagedestroy($canvas);
 
-        $filename = $directory.'/'.Str::random(24).'.webp';
-        Storage::disk($disk)->put($filename, file_get_contents($tmpPath));
-        @unlink($tmpPath);
+        return $tmpPath;
+    }
 
-        return $filename;
+    /**
+     * Steps quality down in a fixed sequence first (cheap, same
+     * dimension, usually enough on its own); if it is still over the
+     * limit even at the lowest quality step, halves the target
+     * dimension and starts the quality sequence over, repeating until
+     * either it fits or the image is too small to shrink further
+     * (returned as-is at that point rather than looping forever on an
+     * image that genuinely cannot reach the target without becoming
+     * unusably tiny).
+     */
+    protected function encodeUnderLimit($source, int $width, int $height, int $maxDimension, int $startQuality, int $maxKb): string
+    {
+        $maxBytes = $maxKb * 1024;
+        $qualitySteps = array_values(array_unique(array_filter([$startQuality, 60, 45, 30], fn ($q) => $q <= $startQuality)));
+        $dimension = $maxDimension;
+        $lastAttempt = null;
+
+        while (true) {
+            foreach ($qualitySteps as $quality) {
+                $path = $this->encode($source, $width, $height, $dimension, $quality);
+                if (filesize($path) <= $maxBytes) {
+                    if ($lastAttempt !== null) {
+                        @unlink($lastAttempt);
+                    }
+
+                    return $path;
+                }
+                if ($lastAttempt !== null) {
+                    @unlink($lastAttempt);
+                }
+                $lastAttempt = $path;
+            }
+
+            if ($dimension <= 200) {
+                return $lastAttempt;
+            }
+            $dimension = (int) round($dimension / 2);
+        }
     }
 }

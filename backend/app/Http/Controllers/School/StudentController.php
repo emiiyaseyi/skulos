@@ -23,6 +23,7 @@ use App\Services\Rbac\FamilyScope;
 use App\Services\Rbac\Rbac;
 use App\Services\Rbac\StudentAccessGuard;
 use App\Services\Rbac\TeacherScope;
+use App\Services\Media\ImageProcessingService;
 use App\Services\Results\ResultService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -577,6 +578,38 @@ class StudentController extends Controller
             ->with('status', "{$student->fullName()} updated.");
     }
 
+    /**
+     * A student's photo (user request 2026-07-23/24: "the option to
+     * upload student picture under each student profile should be
+     * built too... remember our database recommendation here so that
+     * the site wont be too heavy with lots of images"). Reuses the
+     * existing, previously unused `passport_path` column, converted to
+     * WebP and compressed down to the school's own configured limit
+     * (Student, Parent & Staff Field Settings, default 100KB) regardless
+     * of how large the original upload was. Shown on the right of the
+     * report card header when present, left blank otherwise, no
+     * placeholder.
+     */
+    public function updatePhoto(Request $request, ImageProcessingService $images): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.update');
+        $school = $this->school($request);
+        $student = Student::findOrFail($request->route('studentId'));
+        app(StudentAccessGuard::class)->assertVisible(Auth::user(), $school, $student);
+
+        $data = $request->validate([
+            'photo' => ['required', 'image', 'max:5120'],
+        ]);
+
+        $maxKb = (int) Setting::grab('student_photo_max_kb', config('skulos.upload_limits.student_photo_kb', 100));
+        $student->update([
+            'passport_path' => $images->toWebp($request->file('photo'), "students/{$school->id}", maxDimension: 600, maxKb: $maxKb),
+        ]);
+
+        return redirect()->route('school.students.show', ['school' => $school->slug, 'studentId' => $student->id])
+            ->with('status', "{$student->fullName()}'s photo updated.");
+    }
+
     /** A quick add for one guardian from the student profile page. */
     /**
      * Which of email/phone is required depends on the school's own choice
@@ -869,6 +902,7 @@ class StudentController extends Controller
             'guardianVisibility' => Setting::grab('guardian_visibility', 'class_teacher_only'),
             'defaultStudentPassword' => Setting::grab('default_student_password', config('skulos.default_student_password')),
             'defaultParentPassword' => Setting::grab('default_parent_password', config('skulos.default_parent_password')),
+            'photoMaxKb' => Setting::grab('student_photo_max_kb', config('skulos.upload_limits.student_photo_kb', 100)),
         ]);
     }
 
@@ -884,6 +918,13 @@ class StudentController extends Controller
             'guardian_visibility' => ['required', 'string', 'in:'.implode(',', array_keys(config('skulos.guardian_visibility_options')))],
             'default_student_password' => ['required', 'string', 'min:6', 'max:60'],
             'default_parent_password' => ['required', 'string', 'min:6', 'max:60'],
+            // Dbase recommendation standing rule (user request 2026-07-23:
+            // "max size of image should be 100kb (admin can reduce or
+            // increase it under settings, add it)"): the site's own real,
+            // storable ceiling for a student photo after WebP conversion,
+            // not the raw upload size (which is whatever the browser sends,
+            // always compressed down to this regardless).
+            'student_photo_max_kb' => ['nullable', 'integer', 'min:20', 'max:1000'],
         ]);
 
         Setting::put('student_required_fields', $data['required_fields'] ?? []);
@@ -892,6 +933,9 @@ class StudentController extends Controller
         Setting::put('guardian_visibility', $data['guardian_visibility']);
         Setting::put('default_student_password', $data['default_student_password']);
         Setting::put('default_parent_password', $data['default_parent_password']);
+        if (isset($data['student_photo_max_kb'])) {
+            Setting::put('student_photo_max_kb', $data['student_photo_max_kb']);
+        }
 
         return back()->with('status', 'Student field settings updated.');
     }

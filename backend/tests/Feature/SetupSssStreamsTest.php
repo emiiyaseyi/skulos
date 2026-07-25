@@ -198,6 +198,37 @@ class SetupSssStreamsTest extends TestCase
         $this->assertGreaterThan(0, $scoreCount);
     }
 
+    /**
+     * Real bug found live on greenfield, 2026-07-24 (user report: "why
+     * is the report showing NA for class teacher name and number since
+     * all class has class teachers"): only the reused/first stream arm
+     * kept its class teacher, the other 2 newly created arms started
+     * genuinely blank. Every stream must start with the class's own
+     * pre split class teacher, not left null.
+     */
+    public function test_every_new_stream_inherits_the_classs_class_teacher(): void
+    {
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'ssssetupsix']));
+        app(TenantManager::class)->use($school);
+        ['classId' => $classId] = $this->seedUnstreamedSss($school, 6);
+        $arm = ClassArm::where('school_class_id', $classId)->first();
+        $staff = \App\Models\Tenant\Staff::create(['staff_id' => 'T1', 'first_name' => 'Tola', 'last_name' => 'Bello']);
+        $arm->update(['class_teacher_staff_id' => $staff->id]);
+        $staffId = $staff->id;
+        app(TenantManager::class)->forget();
+
+        $this->artisan('sss:setup-streams', ['school' => 'ssssetupsix'])->assertSuccessful();
+
+        app(TenantManager::class)->use($school);
+        $arms = ClassArm::where('school_class_id', $classId)->get();
+        app(TenantManager::class)->forget();
+
+        $this->assertCount(3, $arms);
+        foreach ($arms as $streamArm) {
+            $this->assertSame($staffId, $streamArm->class_teacher_staff_id, "{$streamArm->id} must inherit the class's own class teacher, not be left blank");
+        }
+    }
+
     /** The bug this command shipped with once: "ss" match keywords ('ss1', 'ss 1', ...) are also substrings of "JSS 1"/"JSS 2"/"JSS 3". */
     public function test_a_jss_class_is_never_mistaken_for_a_senior_secondary_class(): void
     {

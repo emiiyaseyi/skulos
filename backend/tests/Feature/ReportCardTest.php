@@ -190,6 +190,53 @@ class ReportCardTest extends TestCase
         $this->assertSame('B', $defaultData['overall']['grade'], 'a section with no scale assigned falls back to the school default');
     }
 
+    /**
+     * Real bug found live on greenfield, 2026-07-24: JSS and SSS both
+     * sit under one shared "Secondary" section, so a section level
+     * scale alone cannot tell WAEC graded SSS apart from NECO/BECE
+     * graded JSS ("i am viewing a report card in sss and it is showing
+     * grade as excellent, good etc which is not what we have under the
+     * grading structure for the section"). A class's own override must
+     * win over its section's own scale.
+     */
+    public function test_a_classs_own_grading_scale_overrides_its_sections(): void
+    {
+        [$school] = $this->schoolWithMember('school-owner', 'rcclassgrade');
+        app(TenantManager::class)->use($school);
+
+        $session = AcademicSession::create(['name' => '2025/2026']);
+        $term = Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1]);
+        $subject = Subject::create(['name' => 'Mathematics']);
+        $component = AssessmentComponent::create(['name' => 'Exam', 'max_score' => 100, 'sequence' => 1]);
+
+        $juniorScale = GradingScale::create(['name' => 'Junior Secondary Scale']);
+        GradingBand::create(['grading_scale_id' => $juniorScale->id, 'min_score' => 0, 'max_score' => 100, 'grade' => 'Merit']);
+
+        $seniorScale = GradingScale::create(['name' => 'Senior Secondary Scale (WAEC)']);
+        GradingBand::create(['grading_scale_id' => $seniorScale->id, 'min_score' => 0, 'max_score' => 100, 'grade' => 'A1']);
+
+        // Both JSS and SSS share the one "Secondary" section, the exact real shape.
+        $section = Section::create(['name' => 'Secondary', 'sequence' => 1]);
+        $jssClass = SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS 1', 'sequence' => 1, 'grading_scale_id' => $juniorScale->id]);
+        $sssClass = SchoolClass::create(['section_id' => $section->id, 'name' => 'SSS 1', 'sequence' => 2, 'grading_scale_id' => $seniorScale->id]);
+        $jssArm = ClassArm::create(['school_class_id' => $jssClass->id, 'arm_id' => Arm::create(['name' => 'A'])->id]);
+        $sssArm = ClassArm::create(['school_class_id' => $sssClass->id, 'arm_id' => Arm::create(['name' => 'B'])->id]);
+
+        $jssStudent = Student::create(['admission_number' => 'JC1', 'first_name' => 'Ada', 'last_name' => 'Obi', 'current_class_arm_id' => $jssArm->id]);
+        $sssStudent = Student::create(['admission_number' => 'SC1', 'first_name' => 'Chi', 'last_name' => 'Eze', 'current_class_arm_id' => $sssArm->id]);
+
+        foreach ([$jssStudent, $sssStudent] as $student) {
+            Score::create(['student_id' => $student->id, 'subject_id' => $subject->id, 'class_arm_id' => $student->current_class_arm_id, 'term_id' => $term->id, 'assessment_component_id' => $component->id, 'score' => 90]);
+        }
+
+        $jssData = app(ReportCardService::class)->forStudent($jssStudent, $term);
+        $sssData = app(ReportCardService::class)->forStudent($sssStudent, $term);
+        app(TenantManager::class)->forget();
+
+        $this->assertSame('Merit', $jssData['overall']['grade'], 'JSS must use its own class assigned Junior scale');
+        $this->assertSame('A1', $sssData['overall']['grade'], 'SSS must use its own class assigned Senior/WAEC scale, not the shared sections scale');
+    }
+
     /** User request 2026-07-24: "toggle any of the 5 items under summary on or off". */
     public function test_each_summary_box_item_is_independently_toggleable(): void
     {
