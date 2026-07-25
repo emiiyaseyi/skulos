@@ -4,6 +4,7 @@ namespace App\Http\Controllers\School;
 
 use App\Http\Controllers\Controller;
 use App\Models\School;
+use App\Models\Tenant\BankAccount;
 use App\Models\Tenant\FeeItem;
 use App\Models\Tenant\FeeItemInstallment;
 use App\Models\Tenant\Term;
@@ -47,6 +48,7 @@ class FeeItemController extends Controller
             'accent' => $school->branding()['color'],
             'feeItems' => FeeItem::with('term')->orderByDesc('created_at')->get(),
             'terms' => Term::with('session')->get()->sortBy(fn (Term $t) => sprintf('%05d-%05d', $t->session?->id ?? 0, $t->sequence ?? 0))->values(),
+            'bankAccounts' => BankAccount::orderBy('sort_order')->get(),
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'finance.update'),
         ]);
     }

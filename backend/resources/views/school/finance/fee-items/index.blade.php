@@ -46,6 +46,104 @@
   </div>
 @endif
 
+{{--
+  School's own receiving bank account(s) (user request 2026-07-25:
+  "School admin sets the school account options for payment which
+  parents sees, a school can add more than one account details and the
+  parent sees all"). Shown to a parent on the Submit Payment screen,
+  purely informational, never itself validated against a Payment.
+--}}
+<div class="card" style="margin-bottom:1.1rem">
+  <div class="row-between" style="margin-bottom:.6rem">
+    <h3>Bank accounts</h3>
+    <span class="muted" style="font-size:.82rem">Shown to parents on the Submit Payment screen so they know where to send a bank transfer.</span>
+  </div>
+
+  @if($canManage)
+    <form method="POST" action="{{ route('school.finance.bank-accounts.store', ['school' => $school->slug]) }}" class="grid cols-3" style="gap:1rem;margin-bottom:1.1rem;align-items:end">
+      @csrf
+      <div class="field" style="margin:0">
+        <label for="bank_name">Bank name</label>
+        <input id="bank_name" name="bank_name" required maxlength="120" placeholder="e.g. First Bank" />
+      </div>
+      <div class="field" style="margin:0">
+        <label for="account_name">Account name</label>
+        <input id="account_name" name="account_name" required maxlength="120" />
+      </div>
+      <div class="field" style="margin:0;display:flex;gap:.5rem;align-items:end">
+        <div style="flex:1">
+          <label for="account_number">Account number</label>
+          <input id="account_number" name="account_number" required maxlength="40" />
+        </div>
+        <button class="btn btn-primary btn-sm" type="submit">Add</button>
+      </div>
+    </form>
+  @endif
+
+  @if($bankAccounts->isEmpty())
+    <p class="muted">No bank account on file yet. Parents will not see a receiving account when submitting a payment.</p>
+  @else
+    @if($canManage)
+      <form id="bulkBankAccountsForm" method="POST" action="{{ route('school.finance.bank-accounts.bulk-action', ['school' => $school->slug]) }}"></form>
+    @endif
+    <div style="overflow-x:auto">
+    <table>
+      <thead><tr>
+        @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="bank-account-select-all" aria-label="Select all bank accounts" /></th>@endif
+        <th>Bank</th><th>Account name</th><th>Account number</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        @foreach($bankAccounts as $account)
+          <tr>
+            @if($canManage)
+              <td><input type="checkbox" form="bulkBankAccountsForm" class="bank-account-row-check" name="bank_account_ids[]" value="{{ $account->id }}" aria-label="Select {{ $account->bank_name }}" /></td>
+            @endif
+            <td><strong>{{ $account->bank_name }}</strong></td>
+            <td>{{ $account->account_name }}</td>
+            <td class="muted">{{ $account->account_number }}</td>
+            <td><span class="badge {{ $account->is_active ? 'badge-ok' : 'badge-warn' }}">{{ $account->is_active ? 'Visible to parents' : 'Hidden' }}</span></td>
+            <td style="white-space:nowrap">
+              @if($canManage)
+                <form method="POST" action="{{ route('school.finance.bank-accounts.toggle-active', ['school' => $school->slug, 'bankAccountId' => $account->id]) }}" style="display:inline">
+                  @csrf
+                  <button class="btn btn-ghost btn-sm" type="submit">{{ $account->is_active ? 'Hide' : 'Show' }}</button>
+                </form>
+                <form method="POST" action="{{ route('school.finance.bank-accounts.destroy', ['school' => $school->slug, 'bankAccountId' => $account->id]) }}" style="display:inline" onsubmit="return confirm('Remove this bank account?')">
+                  @csrf
+                  @method('DELETE')
+                  <button class="btn btn-ghost btn-sm" type="submit">Delete</button>
+                </form>
+              @endif
+            </td>
+          </tr>
+        @endforeach
+      </tbody>
+    </table>
+    </div>
+
+    @if($canManage)
+      <div class="row-between" style="margin-top:.8rem;flex-wrap:wrap;gap:.6rem">
+        <span class="muted" style="font-size:.85rem">Tick any number of bank accounts above, then choose an action.</span>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <button form="bulkBankAccountsForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="activate">Show</button>
+          <button form="bulkBankAccountsForm" class="btn btn-ghost btn-sm" type="submit" name="action" value="retire">Hide</button>
+          <button form="bulkBankAccountsForm" class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit" name="action" value="delete" onclick="return confirm('Remove the selected bank accounts?')">Delete selected</button>
+        </div>
+      </div>
+      <script>
+        (function(){
+          var all = document.getElementById('bank-account-select-all');
+          var boxes = document.querySelectorAll('.bank-account-row-check');
+          all?.addEventListener('change', function(){ boxes.forEach(function(cb){ cb.checked = all.checked; }); });
+          document.getElementById('bulkBankAccountsForm')?.addEventListener('submit', function(e){
+            var anyChecked = Array.prototype.some.call(boxes, function(cb){ return cb.checked; });
+            if (! anyChecked) { e.preventDefault(); alert('Tick at least one bank account first.'); }
+          });
+        })();
+      </script>
+    @endif
+  @endif
+</div>
+
 <div class="card">
   @if($feeItems->isEmpty())
     <p class="muted">No fee items yet.</p>

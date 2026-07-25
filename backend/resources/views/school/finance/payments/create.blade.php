@@ -10,6 +10,29 @@
   <a class="btn btn-ghost btn-sm" href="{{ route('school.finance.payments.index', ['school' => $school->slug]) }}">Back</a>
 </div>
 
+@if($bankAccounts->isNotEmpty())
+  {{--
+    Where to actually send the money before uploading evidence (user
+    request 2026-07-25: "Parent only sees Bank Transfer Payment Option...
+    a school can add more than one account details and the parent sees
+    all"). Purely informational, shown above the form, not itself part
+    of the submission.
+  --}}
+  <div class="card" style="max-width:40rem;margin-bottom:1.1rem">
+    <h3 style="margin-bottom:.3rem">Bank transfer details</h3>
+    <p class="muted" style="margin-bottom:.8rem">Send your payment to any one of these accounts, then upload your evidence below.</p>
+    <div class="stack" style="gap:.7rem">
+      @foreach($bankAccounts as $account)
+        <div style="border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem">
+          <div style="font-weight:800">{{ $account->bank_name }}</div>
+          <div class="muted" style="font-size:.85rem">{{ $account->account_name }}</div>
+          <div style="font-variant-numeric:tabular-nums;font-weight:700;margin-top:.2rem">{{ $account->account_number }}</div>
+        </div>
+      @endforeach
+    </div>
+  </div>
+@endif
+
 <div class="card" style="max-width:40rem">
   @if($students->isEmpty())
     <p class="muted">No student on record to submit a payment for.</p>
@@ -55,7 +78,7 @@
 
       <div class="grid cols-2" style="gap:1rem">
         <div class="field">
-          <label for="bank_name">Bank name (optional)</label>
+          <label for="bank_name">Bank you sent from (optional)</label>
           <input id="bank_name" name="bank_name" maxlength="120" value="{{ old('bank_name') }}" />
           @error('bank_name')<p class="err">{{ $message }}</p>@enderror
         </div>

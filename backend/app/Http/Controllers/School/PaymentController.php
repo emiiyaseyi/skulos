@@ -4,6 +4,7 @@ namespace App\Http\Controllers\School;
 
 use App\Http\Controllers\Controller;
 use App\Models\School;
+use App\Models\Tenant\BankAccount;
 use App\Models\Tenant\FeeItem;
 use App\Models\Tenant\Notification;
 use App\Models\Tenant\Payment;
@@ -94,6 +95,7 @@ class PaymentController extends Controller
             'accent' => $school->branding()['color'],
             'students' => $students,
             'feeItems' => FeeItem::active()->with('term', 'installments')->orderByDesc('created_at')->get(),
+            'bankAccounts' => BankAccount::active()->orderBy('sort_order')->get(),
         ]);
     }
 

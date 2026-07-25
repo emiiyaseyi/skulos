@@ -590,6 +590,16 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/payments/{paymentId}/verify', [$payments, 'verify'])->name('payments.verify');
             Route::post('/payments/{paymentId}/reject', [$payments, 'reject'])->name('payments.reject');
             Route::get('/payments/{paymentId}/evidence', [$payments, 'evidence'])->name('payments.evidence');
+
+            // The school's own receiving bank account(s) (user request
+            // 2026-07-25), managed from the Fee Records screen, shown to a
+            // parent on the Submit Payment screen.
+            $bankAccounts = \App\Http\Controllers\School\BankAccountController::class;
+            Route::post('/bank-accounts', [$bankAccounts, 'store'])->name('bank-accounts.store');
+            Route::post('/bank-accounts/bulk-action', [$bankAccounts, 'bulkAction'])->name('bank-accounts.bulk-action');
+            Route::post('/bank-accounts/{bankAccountId}', [$bankAccounts, 'update'])->name('bank-accounts.update');
+            Route::post('/bank-accounts/{bankAccountId}/toggle-active', [$bankAccounts, 'toggleActive'])->name('bank-accounts.toggle-active');
+            Route::delete('/bank-accounts/{bankAccountId}', [$bankAccounts, 'destroy'])->name('bank-accounts.destroy');
         });
 
         // Timetable Management (Advance plan feature, user request

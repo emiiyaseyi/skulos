@@ -2038,6 +2038,21 @@ return [
         'subject_insights' => 'examinations.view',
         'teacher_workload' => 'staff.view',
         'timetable_management' => 'timetable.view',
+        // Found live 2026-07-25 (user report: "finance menu is missing
+        // from parent view"): the parent and student roles both already
+        // hold finance.view/finance.create (config('skulos.role_catalog')
+        // above), so PaymentController/FeeItemController already let them
+        // in, but with no entry here at all every Finance nav link was
+        // unconditionally hidden for every restricted-nav role regardless
+        // of that grant, the map lookup returning null reads as "no
+        // permission required, so hide it" for a restricted role. Mapped
+        // to finance.view, the exact permission each of these screens'
+        // own index() action already checks.
+        'bank_transfer_payment_option' => 'finance.view',
+        'payment_evidence_upload' => 'finance.view',
+        'payment_verification' => 'finance.view',
+        'basic_fee_records' => 'finance.view',
+        'installment_payment_plans' => 'finance.view',
     ],
 
     'extra_permissions' => [

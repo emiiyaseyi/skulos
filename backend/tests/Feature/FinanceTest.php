@@ -626,4 +626,104 @@ class FinanceTest extends TestCase
         $this->assertNotNull($payment);
         $this->assertNull($payment->fee_item_installment_id);
     }
+
+    /**
+     * Found live 2026-07-25 (user report: "finance menu is missing from
+     * parent view"): the parent role already holds finance.view/
+     * finance.create, and PaymentController/FeeItemController already let
+     * a parent all the way in, but the nav's own restricted-role branch
+     * only ever shows a feature link when config('skulos.nav_permission_
+     * map') has an entry for it, and none of the 5 finance feature keys
+     * did, so the link was unconditionally hidden for every parent (and
+     * student) regardless of their real permission. Fixed by mapping each
+     * to finance.view, the exact permission each screen's own index()
+     * already checks.
+     */
+    public function test_a_parent_sees_the_finance_nav_link(): void
+    {
+        // hasFeature()/hasAnyFeatureInCategory() (what the nav actually
+        // gates the link's rendering on) read the school's Plan, not the
+        // Module state schoolWithMember() sets, so a real Plan with a
+        // finance feature is needed here specifically to prove the nav
+        // link renders, matching the existing "a school on a plan that
+        // includes finance..." test's own setup for the same reason.
+        $plan = Plan::create([
+            'name' => 'Test Plan Finance Nav', 'slug' => 'plan-financenav',
+            'price_per_student_per_term' => 500, 'modules' => ['finance'], 'features' => ['bank_transfer_payment_option'],
+        ]);
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'finnav', 'plan_id' => $plan->id]));
+        $parent = User::factory()->create();
+        $role = $this->rbac->cloneTemplateRole($school, 'parent');
+        $school->users()->attach($parent->id, ['role_id' => $role->id, 'status' => 'active']);
+
+        $response = $this->actingAs($parent)->get("http://{$school->slug}.localhost/dashboard");
+        $response->assertOk()->assertSee(route('school.finance.payments.index', ['school' => $school->slug]), false);
+    }
+
+    /**
+     * Bank account(s) (user request 2026-07-25: "School admin sets the
+     * school account options for payment which parents sees, a school can
+     * add more than one account details and the parent sees all"). Purely
+     * informational, shown on the Submit Payment screen.
+     */
+    public function test_a_bursar_can_add_more_than_one_bank_account_and_a_parent_sees_them_all(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finbankone');
+        $parent = User::factory()->create();
+        $parentRole = $this->rbac->cloneTemplateRole($school, 'parent');
+        $school->users()->attach($parent->id, ['role_id' => $parentRole->id, 'status' => 'active']);
+
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/bank-accounts", [
+            'bank_name' => 'First Bank', 'account_name' => 'Test Academy', 'account_number' => '1111111111',
+        ])->assertRedirect();
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/bank-accounts", [
+            'bank_name' => 'GTBank', 'account_name' => 'Test Academy', 'account_number' => '2222222222',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertCount(2, \App\Models\Tenant\BankAccount::all());
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($parent)->get("http://{$school->slug}.localhost/finance/payments/create")
+            ->assertOk()
+            ->assertSee('First Bank')->assertSee('1111111111')
+            ->assertSee('GTBank')->assertSee('2222222222');
+    }
+
+    public function test_a_hidden_bank_account_is_not_shown_to_a_parent(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finbanktwo');
+        $parent = User::factory()->create();
+        $parentRole = $this->rbac->cloneTemplateRole($school, 'parent');
+        $school->users()->attach($parent->id, ['role_id' => $parentRole->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        $account = \App\Models\Tenant\BankAccount::create(['bank_name' => 'Access Bank', 'account_name' => 'Test Academy', 'account_number' => '3333333333']);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/bank-accounts/{$account->id}/toggle-active")
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertFalse($account->fresh()->is_active);
+        app(TenantManager::class)->forget();
+
+        // assertDontSee('Access Bank') alone would be a false positive here:
+        // the bursar's own toggle-active flash message ("\"Access Bank\" is
+        // hidden from parents.") shares this test's session/flash state and
+        // would otherwise still be on screen for the very next request.
+        // The account number is a reliable stand-in, it never appears
+        // outside the bank account list itself.
+        $this->actingAs($parent)->get("http://{$school->slug}.localhost/finance/payments/create")
+            ->assertOk()->assertDontSee('3333333333');
+    }
+
+    public function test_a_parent_cannot_manage_bank_accounts(): void
+    {
+        [$school, $parent] = $this->schoolWithMember('parent', 'finbankthree');
+
+        $this->actingAs($parent)->post("http://{$school->slug}.localhost/finance/bank-accounts", [
+            'bank_name' => 'Not Allowed', 'account_name' => 'X', 'account_number' => '000',
+        ])->assertForbidden();
+    }
 }
