@@ -99,7 +99,43 @@ class ProfileController extends Controller
             'status' => ProfileChangeRequest::STATUS_PENDING,
         ]);
 
+        $this->notifyApprovers($school, 'Profile change awaiting your review', "{$user->name} asked to change their profile details. Review it under Users > Profile approvals.");
+
         return back()->with('status', "Your changes have been sent to {$school->name}'s admin for approval, and will apply once approved.");
+    }
+
+    /**
+     * Real bug found live, 2026-07-24 (user report: "a user made a
+     * profile change that requires admin review and approval, admin
+     * did not see it as a notification which from where admin can
+     * access the request, review, approve or reject with comment"): a
+     * ProfileChangeRequest/PasswordResetRequest was created, but no one
+     * with staff.update (the same permission the approvals page itself
+     * is gated on) was ever actually told one existed, only findable by
+     * proactively opening the page. Every active member whose role
+     * grants staff.update gets an in app notification pointed at the
+     * approvals page.
+     */
+    protected function notifyApprovers(School $school, string $title, string $body): void
+    {
+        $roleIds = \App\Models\Role::where('school_id', $school->id)
+            ->whereHas('permissions', fn ($q) => $q->where('code', 'staff.update'))
+            ->pluck('id');
+
+        $approverUserIds = $school->users()
+            ->wherePivot('status', 'active')
+            ->whereIn('school_user.role_id', $roleIds)
+            ->pluck('users.id');
+
+        foreach ($approverUserIds as $userId) {
+            \App\Models\Tenant\Notification::create([
+                'user_id' => $userId,
+                'title' => $title,
+                'body' => $body,
+                'category' => 'profile_approval',
+                'type' => \App\Models\Tenant\Notification::typeFor('profile_approval'),
+            ]);
+        }
     }
 
     /**
@@ -193,6 +229,8 @@ class ProfileController extends Controller
                 'password_hash' => Hash::make($data['password']),
                 'status' => PasswordResetRequest::STATUS_PENDING,
             ]);
+
+            $this->notifyApprovers($school, 'Password reset awaiting your review', "{$user->name} asked to reset their password. Review it under Users > Profile approvals.");
         }
 
         return redirect()->route('school.login', ['school' => $school->slug])->with('status', $generic);

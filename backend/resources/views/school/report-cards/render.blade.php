@@ -94,6 +94,7 @@
   .rc-signoff{display:flex;justify-content:space-around;gap:1.2rem;text-align:center;margin-top:1rem;padding-top:.7rem;border-top:1px solid #e2e2e2}
   .rc-signoff img{max-height:44px;max-width:120px;object-fit:contain;display:block;margin:0 auto .25rem}
   .rc-signoff .line{border-top:1px solid #999;margin-top:.3rem;padding-top:.25rem;font-size:.58rem;text-transform:uppercase;letter-spacing:.03em;color:#777}
+  .rc-footer{margin-top:.8rem;padding-top:.6rem;border-top:1px solid #e2e2e2;font-size:.66rem;color:#777}
   @media (max-width:640px){ .rc-twocol{grid-template-columns:1fr} .rc-cols{grid-template-columns:1fr} .rc-eval .rc-strip{grid-template-columns:1fr} }
   {{--
     Fit on one A4 page (user report 2026-07-21: "Report cards need to be
@@ -142,6 +143,7 @@
     .rc-traits td{padding:.14rem 0}
     .rc-remarks div{margin-bottom:.35rem}
     .rc-signoff{margin-top:.5rem;padding-top:.4rem}
+    .rc-footer{margin-top:.5rem;padding-top:.4rem}
     .rc-signoff img{max-height:36px}
     .rc-logo,.rc-photo{width:44px;height:44px}
     /* Score Trend/Subject Breakdown are opt-in extras on top of an
@@ -164,7 +166,7 @@
        continuing across the page break, exactly like every other
        report card template already does. Only individual rows need to
        stay intact, already covered by .rc-table tr below. */
-    .rc-summary,.rc-block,.rc-signoff,.rc-tally,.rc-strip{break-inside:avoid}
+    .rc-summary,.rc-block,.rc-signoff,.rc-tally,.rc-strip,.rc-footer{break-inside:avoid}
     .rc-table tr{break-inside:avoid}
     .rc-remarks div{break-inside:avoid}
   }

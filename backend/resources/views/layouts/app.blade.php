@@ -748,8 +748,22 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
   // touches the container's bottom edge, landing it flush against the
   // bottom rather than somewhere comfortable to read. 'start' always
   // aligns the active item's top edge with the top of the scrollable nav.
+  // Direct sideEl.scrollTop math, not activeLink.scrollIntoView() (real
+  // bug found live 2026-07-24, user report: "users dashboard page is
+  // not starting from the very top"): scrollIntoView()'s own ancestor
+  // walk does not reliably stop at .side (a position:sticky element,
+  // not a plain scroll parent) when its content does not currently
+  // overflow it, so it kept escaping to scroll the whole window instead
+  // of the sidebar alone, most visible on Dashboard (the very first,
+  // already near the top, nav item) where the whole page nonetheless
+  // opened scrolled down by however far that link's own natural
+  // document offset was. Setting .side's own scrollTop directly can
+  // only ever move the sidebar, never the page.
   var activeLink=document.querySelector('.side-nav .side-link.active');
-  activeLink?.scrollIntoView({block:'start'});
+  var sideEl=document.querySelector('.side');
+  if (activeLink && sideEl) {
+    sideEl.scrollTop = activeLink.getBoundingClientRect().top - sideEl.getBoundingClientRect().top + sideEl.scrollTop;
+  }
 })();
 (function(){
   var scrim=document.getElementById('idleScrim');

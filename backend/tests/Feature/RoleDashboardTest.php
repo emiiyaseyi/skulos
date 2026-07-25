@@ -18,6 +18,7 @@ use App\Services\Rbac\Rbac;
 use App\Services\Tenancy\TenantManager;
 use Database\Seeders\RbacSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
@@ -47,6 +48,7 @@ class RoleDashboardTest extends TestCase
 
     protected function tearDown(): void
     {
+        Carbon::setTestNow();
         app(TenantManager::class)->forget();
         File::deleteDirectory($this->tenantDir);
         parent::tearDown();
@@ -455,6 +457,10 @@ class RoleDashboardTest extends TestCase
      */
     public function test_admin_dashboard_shows_real_attendance_parents_and_subjects(): void
     {
+        // AttendanceService::markClass() refuses to mark a weekend (a real,
+        // correct guard, not a bug) — pin "today" to a known weekday so this
+        // test is not flaky depending on which day the suite happens to run.
+        Carbon::setTestNow(Carbon::parse('2026-07-13 09:00:00'));
         [$school, $admin] = $this->schoolWithMember('school-owner', 'rdattend');
         app(TenantManager::class)->use($school);
         $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
@@ -526,6 +532,9 @@ class RoleDashboardTest extends TestCase
 
     public function test_class_teacher_dashboard_shows_todays_class_attendance(): void
     {
+        // Pin "today" to a known weekday — see the comment on the admin
+        // dashboard attendance test above for why.
+        Carbon::setTestNow(Carbon::parse('2026-07-13 09:00:00'));
         [$school, $teacherUser] = $this->schoolWithMember('class-teacher', 'rdattendtwo');
         app(TenantManager::class)->use($school);
         $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
@@ -545,6 +554,9 @@ class RoleDashboardTest extends TestCase
 
     public function test_student_dashboard_shows_own_attendance(): void
     {
+        // Pin "today" to a known weekday — see the comment on the admin
+        // dashboard attendance test above for why.
+        Carbon::setTestNow(Carbon::parse('2026-07-13 09:00:00'));
         [$school, $studentUser] = $this->schoolWithMember('student', 'rdattendthree');
         app(TenantManager::class)->use($school);
         $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
@@ -565,6 +577,9 @@ class RoleDashboardTest extends TestCase
 
     public function test_parent_dashboard_shows_childrens_attendance_today(): void
     {
+        // Pin "today" to a known weekday — see the comment on the admin
+        // dashboard attendance test above for why.
+        Carbon::setTestNow(Carbon::parse('2026-07-13 09:00:00'));
         [$school, $parentUser] = $this->schoolWithMember('parent', 'rdattendfour');
         app(TenantManager::class)->use($school);
         $section = Section::create(['name' => 'Primary', 'sequence' => 1]);

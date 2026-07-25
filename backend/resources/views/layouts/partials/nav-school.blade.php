@@ -676,6 +676,17 @@
       $linkWithAnchor('school.students.settings.edit', 'identifier-settings', 'Staff Settings', 'staff'),
       $link('school.settings.custom-fields.index', 'Custom Fields', 'settings'),
     ]);
+    // Previously only reachable from a small link tucked in the account
+    // footer at the very bottom of the sidebar (user report 2026-07-24:
+    // "a user made a profile change that requires admin review and
+    // approval... seems there's no page for it as i cant find it under
+    // menu, should be a sub under users in admin setting menu"). Same
+    // staff.update gate the footer link and the approvals page itself
+    // already use, added here too as a real, findable nav entry, not a
+    // replacement for the footer shortcut.
+    if ($navRbac->check($navUser, $school, 'staff.update')) {
+      $settingsSubgroups['Users'][] = $link('school.profile.approvals', 'Profile Approvals', 'staff');
+    }
     $communicationSettingsLinks = [$link('school.settings.mail.edit', 'Mail Settings', 'mail')];
     // "Notifications" here is the exact same route the email_notifications
     // catalog entry above already renders (and marks in $renderedRoutes)

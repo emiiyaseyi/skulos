@@ -123,6 +123,23 @@
     @endforeach
   </div>
 
+  <div class="card" style="margin-bottom:1.25rem">
+    <h3 style="margin-bottom:.4rem">Footer</h3>
+    <p class="muted" style="margin-bottom:.8rem">Shown at the very bottom of every report card, whichever template is chosen. Left blank, your school motto{{ $schoolMotto ? " (\"{$schoolMotto}\")" : '' }} is used instead.</p>
+    <div class="field">
+      <label for="footer_text">Footer text</label>
+      <input id="footer_text" name="footer_text" maxlength="300" placeholder="{{ $schoolMotto ?: 'e.g. Knowledge, Character, Excellence' }}" value="{{ old('footer_text', $footerText) }}" />
+    </div>
+    <div class="field" style="max-width:14rem">
+      <label for="footer_align">Position</label>
+      <select id="footer_align" name="footer_align">
+        <option value="left" @selected($footerAlign === 'left')>Left</option>
+        <option value="center" @selected($footerAlign === 'center')>Center</option>
+        <option value="right" @selected($footerAlign === 'right')>Right</option>
+      </select>
+    </div>
+  </div>
+
   <button class="btn btn-primary" type="submit">Save report card look</button>
 </form>
 

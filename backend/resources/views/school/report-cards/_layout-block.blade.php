@@ -18,6 +18,18 @@
   @case('address')
     <p class="rc-lb-text">{{ $school->address ?: $school->motto }}</p>
     @break
+  @case('website')
+    @if($school->website)<p class="rc-lb-text">{{ $school->website }}</p>@endif
+    @break
+  @case('school_email')
+    @if($school->email)<p class="rc-lb-text">{{ $school->email }}</p>@endif
+    @break
+  @case('school_phone')
+    @if($school->phone)<p class="rc-lb-text">{{ $school->phone }}</p>@endif
+    @break
+  @case('school_alternate_phone')
+    @if($school->alternate_phone)<p class="rc-lb-text">{{ $school->alternate_phone }}</p>@endif
+    @break
   @case('term_session')
     <div class="term">{{ $data['term']['name'] }} Report &middot; {{ $data['term']['session'] }}</div>
     @break

@@ -311,4 +311,64 @@ class ReportCardTest extends TestCase
         $this->assertSame(2, $middleData['overall']['position']);
         $this->assertSame(3, $middleData['overall']['class_size']);
     }
+
+    /** User request 2026-07-24: "beside the school address, the same row let's have the school website, email address and all phone numbers". */
+    public function test_header_shows_website_email_and_phone_when_toggled_on(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'rccontact');
+        $school->update(['address' => '1 Unity Road', 'website' => 'https://greenfield.example', 'email' => 'info@greenfield.example', 'phone' => '0800 000 0000']);
+
+        $response = $this->actingAs($admin)->get("http://{$school->slug}.localhost/report-cards/preview/classic");
+
+        $response->assertOk()
+            ->assertSee('1 Unity Road')
+            ->assertSee('https://greenfield.example')
+            ->assertSee('info@greenfield.example')
+            ->assertSee('0800 000 0000');
+    }
+
+    public function test_header_contact_fields_can_be_turned_off_individually(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'rccontactoff');
+        $school->update(['address' => '1 Unity Road', 'website' => 'https://greenfield.example', 'email' => 'info@greenfield.example']);
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/report-cards/settings", [
+            'template' => 'classic',
+            'fields' => ['school_address' => '1'],
+        ])->assertRedirect();
+
+        $this->actingAs($admin)->get("http://{$school->slug}.localhost/report-cards/preview/classic")
+            ->assertOk()
+            ->assertSee('1 Unity Road')
+            ->assertDontSee('https://greenfield.example')
+            ->assertDontSee('info@greenfield.example');
+    }
+
+    /**
+     * User request 2026-07-24: "a footer for report card where the
+     * school type what they want as the footer but by default picks
+     * the motto under school profile and use".
+     */
+    public function test_footer_defaults_to_the_school_motto_and_can_be_overridden(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'rcfooter');
+        $school->update(['motto' => 'Knowledge and Character']);
+
+        $this->actingAs($admin)->get("http://{$school->slug}.localhost/report-cards/preview/classic")
+            ->assertOk()->assertSee('Knowledge and Character');
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/report-cards/settings", [
+            'template' => 'classic',
+            'fields' => ['school_address' => '1'],
+            'footer_text' => 'Custom footer line',
+            'footer_align' => 'right',
+        ])->assertRedirect();
+        $school->update(['address' => '1 Unity Road']); // so the header's own motto fallback does not also fire
+
+        $response = $this->actingAs($admin)->get("http://{$school->slug}.localhost/report-cards/preview/classic");
+        $response->assertOk()
+            ->assertSee('Custom footer line')
+            ->assertSee('text-align:right', false)
+            ->assertDontSee('Knowledge and Character');
+    }
 }

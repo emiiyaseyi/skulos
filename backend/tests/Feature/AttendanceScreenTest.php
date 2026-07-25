@@ -14,6 +14,7 @@ use App\Services\Rbac\Rbac;
 use App\Services\Tenancy\TenantManager;
 use Database\Seeders\RbacSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
@@ -43,6 +44,7 @@ class AttendanceScreenTest extends TestCase
 
     protected function tearDown(): void
     {
+        Carbon::setTestNow();
         app(TenantManager::class)->forget();
         File::deleteDirectory($this->tenantDir);
         parent::tearDown();
@@ -422,6 +424,12 @@ class AttendanceScreenTest extends TestCase
     /** User directive 2026-07-16 ("ALL THERE", build out the remaining "Soon" items): a real Attendance Dashboard, not just the marking screen. */
     public function test_attendance_dashboard_shows_todays_figures_and_a_trend(): void
     {
+        // The dashboard's 14 day trend/by-class window only ever counts real
+        // school days (weekends excluded, a real, correct behavior, not a
+        // bug) — pin "today" to a known weekday so a mark dated "today" is
+        // not silently dropped from that window depending on which day the
+        // suite happens to run on.
+        Carbon::setTestNow(Carbon::parse('2026-07-13 09:00:00'));
         [$school, $owner] = $this->schoolWithMember('school-owner', 'attdashone');
 
         app(TenantManager::class)->use($school);

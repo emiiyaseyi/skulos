@@ -16,6 +16,10 @@ class ReportCardPreferences
 
     public const KEY_FIELDS = 'report_card_fields';
 
+    public const KEY_FOOTER_TEXT = 'report_card_footer_text';
+
+    public const KEY_FOOTER_ALIGN = 'report_card_footer_align';
+
     public function template(): string
     {
         $chosen = Setting::grab(self::KEY_TEMPLATE);
@@ -65,5 +69,37 @@ class ReportCardPreferences
             $clean[$code] = (bool) ($fields[$code] ?? false);
         }
         Setting::put(self::KEY_FIELDS, $clean);
+    }
+
+    /**
+     * A school's own footer text (user request 2026-07-24: "a footer
+     * for report card where the school type what they want as the
+     * footer but by default picks the motto under school profile").
+     * Null (never explicitly set) means "use the motto instead", the
+     * caller's job since this service does not read the School model.
+     */
+    public function footerText(): ?string
+    {
+        $saved = Setting::grab(self::KEY_FOOTER_TEXT);
+
+        return is_string($saved) && trim($saved) !== '' ? $saved : null;
+    }
+
+    public function setFooterText(?string $text): void
+    {
+        Setting::put(self::KEY_FOOTER_TEXT, $text !== null && trim($text) !== '' ? $text : null);
+    }
+
+    /** @return 'left'|'center'|'right' */
+    public function footerAlign(): string
+    {
+        $saved = Setting::grab(self::KEY_FOOTER_ALIGN);
+
+        return in_array($saved, ['left', 'center', 'right'], true) ? $saved : 'center';
+    }
+
+    public function setFooterAlign(string $align): void
+    {
+        Setting::put(self::KEY_FOOTER_ALIGN, in_array($align, ['left', 'center', 'right'], true) ? $align : 'center');
     }
 }

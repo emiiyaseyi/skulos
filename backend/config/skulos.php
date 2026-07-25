@@ -941,6 +941,11 @@ return [
         'subscription_reinstated' => ['label' => 'Subscription reinstated', 'type' => 'finance'],
         'subscription_payment_verified' => ['label' => 'Subscription payment verified', 'type' => 'finance'],
         'subscription_payment_rejected' => ['label' => 'Subscription payment rejected', 'type' => 'finance'],
+        // A user's own profile edit or password reset request, both
+        // held for admin sign off (found live 2026-07-24, real user
+        // report: an approver had no way to know a request existed at
+        // all without proactively opening the approvals page).
+        'profile_approval' => ['label' => 'Profile approval needed', 'type' => 'urgent'],
     ],
 
     /*
@@ -1653,6 +1658,14 @@ return [
         'student_photo' => 'Student Photo',
         'school_name' => 'School Name',
         'address' => 'School Address',
+        // Same row as the address by default (user request 2026-07-24:
+        // "beside the school address, the same row let's have the
+        // school website, email address and all phone numbers"), also
+        // draggable on their own here in the custom Layout Designer.
+        'website' => 'School Website',
+        'school_email' => 'School Email Address',
+        'school_phone' => 'School Phone Number',
+        'school_alternate_phone' => 'School Alternate Phone Number',
         'term_session' => 'Term and Session',
         'student_name' => 'Name of Learner',
         'admission_number' => 'Admission Number',
@@ -1848,6 +1861,16 @@ return [
         // decide to remove it from the report builder page"), was
         // previously unconditional with no way to turn it off at all.
         'school_address' => ['label' => "School address (header)", 'group' => 'identity', 'default' => true],
+        // Same row as the address (user request 2026-07-24: "beside the
+        // school address, the same row let's have the school website,
+        // email address and all phone numbers"), each independently
+        // toggleable and also available as its own block in the Layout
+        // Designer, same "field toggle + matching designer block" shape
+        // as everything else in this header.
+        'school_website' => ['label' => 'School website (header)', 'group' => 'identity', 'default' => true],
+        'school_email' => ['label' => 'School email address (header)', 'group' => 'identity', 'default' => true],
+        'school_phone' => ['label' => 'School phone number (header)', 'group' => 'identity', 'default' => true],
+        'school_alternate_phone' => ['label' => 'School alternate phone number (header)', 'group' => 'identity', 'default' => true],
         'admission_number' => ['label' => 'Admission number', 'group' => 'identity', 'default' => true],
         'gender' => ['label' => 'Gender', 'group' => 'identity', 'default' => true],
         'date_of_birth' => ['label' => 'Date of birth', 'group' => 'identity', 'default' => true],

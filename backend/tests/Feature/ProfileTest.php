@@ -103,6 +103,37 @@ class ProfileTest extends TestCase
         $this->assertSame('Old Name', $pending->original['name']);
     }
 
+    /**
+     * Real bug found live, 2026-07-24 (user report: "a user made a
+     * profile change that requires admin review and approval, admin
+     * did not see it as a notification which from where admin can
+     * access the request, review, approve or reject with comment").
+     * Every active member whose role grants staff.update (the same
+     * permission the approvals page itself requires) must get an in
+     * app notification, someone without it must not.
+     */
+    public function test_a_profile_change_request_notifies_every_staff_update_holder(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'profilenotify', ['name' => 'Old Name']);
+        $owner = User::factory()->create();
+        $ownerRole = $this->rbac->cloneTemplateRole($school, 'school-owner');
+        $school->users()->attach($owner->id, ['role_id' => $ownerRole->id, 'status' => 'active']);
+
+        $this->actingAs($teacher)->post("http://{$school->slug}.localhost/profile", [
+            'name' => 'New Name',
+            'email' => $teacher->email,
+            'phone' => $teacher->phone,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $ownerNotified = \App\Models\Tenant\Notification::where('user_id', $owner->id)->where('category', 'profile_approval')->exists();
+        $teacherNotified = \App\Models\Tenant\Notification::where('user_id', $teacher->id)->where('category', 'profile_approval')->exists();
+        app(TenantManager::class)->forget();
+
+        $this->assertTrue($ownerNotified, 'the owner holds staff.update and must be notified');
+        $this->assertFalse($teacherNotified, 'the requester themselves is not an approver and must not be notified');
+    }
+
     public function test_submitting_with_no_actual_changes_does_not_create_a_request(): void
     {
         [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'profilefour');

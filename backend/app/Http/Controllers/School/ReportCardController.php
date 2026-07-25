@@ -88,6 +88,9 @@ class ReportCardController extends Controller
             'accent' => $school->branding()['color'],
             'currentTemplate' => $prefs->template(),
             'fields' => $prefs->fields(),
+            'footerText' => $prefs->footerText(),
+            'footerAlign' => $prefs->footerAlign(),
+            'schoolMotto' => $school->motto,
             'reviewStageEnabled' => $this->reviewStageEnabled(),
             'reviewChain' => ReportCardReview::reviewChain(),
             'reviewChainRoles' => config('skulos.report_card_review_roles'),
@@ -154,10 +157,19 @@ class ReportCardController extends Controller
         $data = $request->validate([
             'template' => ['required', 'string', Rule::in(array_keys(config('skulos.report_card_templates')))],
             'fields' => ['array'],
+            // Footer (user request 2026-07-24: "a footer for report
+            // card where the school type what they want as the footer
+            // but by default picks the motto under school profile...
+            // can be place anywhere at the footer"). Blank clears back
+            // to "use the motto instead".
+            'footer_text' => ['nullable', 'string', 'max:300'],
+            'footer_align' => ['nullable', 'string', Rule::in(['left', 'center', 'right'])],
         ]);
 
         $prefs->setTemplate($data['template']);
         $prefs->setFields($request->input('fields', []));
+        $prefs->setFooterText($data['footer_text'] ?? null);
+        $prefs->setFooterAlign($data['footer_align'] ?? 'center');
 
         return back()->with('status', 'Your report card look has been updated.');
     }
@@ -191,6 +203,8 @@ class ReportCardController extends Controller
             'layoutZones' => $layout->zones(),
             'bodySections' => $layout->effectiveBodyOrder($layout->enabled()),
             'bodyRows' => $layout->groupIntoRows($layout->effectiveBodyOrder($layout->enabled())),
+            'footerText' => $prefs->footerText(),
+            'footerAlign' => $prefs->footerAlign(),
             'headerAlign' => $layout->headerAlign(),
             'bodyAlign' => $layout->bodyAlign(),
             'customBlocks' => $this->customBlocksKeyed(),
@@ -222,6 +236,8 @@ class ReportCardController extends Controller
             'layoutZones' => $layout->zones(),
             'bodySections' => $layout->effectiveBodyOrder($layout->enabled()),
             'bodyRows' => $layout->groupIntoRows($layout->effectiveBodyOrder($layout->enabled())),
+            'footerText' => $prefs->footerText(),
+            'footerAlign' => $prefs->footerAlign(),
             'headerAlign' => $layout->headerAlign(),
             'bodyAlign' => $layout->bodyAlign(),
             'customBlocks' => $this->customBlocksKeyed(),
@@ -566,6 +582,8 @@ class ReportCardController extends Controller
             'layoutZones' => $layout->zones(),
             'bodySections' => $layout->effectiveBodyOrder($layout->enabled()),
             'bodyRows' => $layout->groupIntoRows($layout->effectiveBodyOrder($layout->enabled())),
+            'footerText' => $prefs->footerText(),
+            'footerAlign' => $prefs->footerAlign(),
             'headerAlign' => $layout->headerAlign(),
             'bodyAlign' => $layout->bodyAlign(),
             'customBlocks' => $this->customBlocksKeyed(),

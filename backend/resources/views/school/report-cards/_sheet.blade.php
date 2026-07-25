@@ -36,11 +36,31 @@
     add the school address as a default thing to also appear on the
     report card header too, admin can decide to remove it").
   --}}
+  {{--
+    Address, website, email, and phone numbers all on the one row (user
+    request 2026-07-24: "beside the school address, the same row let's
+    have the school website, email address and all phone numbers"),
+    each independently toggleable, only ever showing whichever the
+    school actually has filled in and turned on. Falls back to the
+    motto alone when none of these apply, the row's original purpose
+    before this existed. Kept as one single inline PHP expression
+    below, not a multi statement block: this codebase has hit a real
+    Blade compiler quirk before where that shape, positioned next to
+    certain directives, intermittently fails to compile (see
+    render.blade.php's own note on the same issue), and writing the
+    literal directive names in this very comment turned out to trigger
+    the same quirk a second way, so it is deliberately paraphrased here.
+  --}}
+  @php($contactParts = collect([$show('school_address') ? $school->address : null, $show('school_website') ? $school->website : null, $show('school_email') ? $school->email : null, $show('school_phone') ? $school->phone : null, $show('school_alternate_phone') ? $school->alternate_phone : null])->filter()->values())
   <div class="rc-head">
     @if($logoUrl)<img class="rc-logo" src="{{ $logoUrl }}" alt="" />@endif
     <div class="rc-head-text">
       <h1>{{ $school->name }}</h1>
-      @if($show('school_address'))<p>{{ $school->address ?: $school->motto }}</p>@endif
+      @if($contactParts->isNotEmpty())
+        <p>{{ $contactParts->implode(' • ') }}</p>
+      @elseif($school->motto)
+        <p>{{ $school->motto }}</p>
+      @endif
       <div class="term">{{ $data['term']['name'] }} Report &middot; {{ $data['term']['session'] }}</div>
     </div>
     @if($data['identity']['photo_url'] ?? null)<img class="rc-photo" src="{{ $data['identity']['photo_url'] }}" alt="" />@endif
@@ -110,4 +130,20 @@
       </div>
     @endif
   @endforeach
+
+  {{--
+    Footer (user request 2026-07-24: "a footer for report card where
+    the school type what they want as the footer but by default picks
+    the motto under school profile and use, can be place anywhere at
+    the footer, remember our one report card approach"). Lives in this
+    one shared partial, so it renders the same way regardless of which
+    template a school has chosen. "Place anywhere at the footer" is the
+    left/center/right alignment choice below (Report settings), not a
+    body-order position, a footer is always the very last thing on the
+    page.
+  --}}
+  @php($footerContent = $footerText ?? $school->motto)
+  @if($footerContent)
+    <div class="rc-footer" style="text-align:{{ $footerAlign ?? 'center' }}">{{ $footerContent }}</div>
+  @endif
 </div>
