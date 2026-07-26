@@ -293,6 +293,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::get('/students/{studentId}/edit', [\App\Http\Controllers\School\StudentController::class, 'edit'])->name('school.students.edit');
         Route::post('/students/{studentId}/edit', [\App\Http\Controllers\School\StudentController::class, 'update'])->name('school.students.update');
         Route::post('/students/{studentId}/photo', [\App\Http\Controllers\School\StudentController::class, 'updatePhoto'])->name('school.students.photo.update');
+        Route::post('/students/{studentId}/report-feedback', [\App\Http\Controllers\School\StudentController::class, 'submitReportFeedback'])->name('school.students.report-feedback.store');
         Route::post('/students/{studentId}/guardians', [\App\Http\Controllers\School\StudentController::class, 'storeGuardian'])->name('school.students.guardians.store');
         Route::post('/students/guardians/{guardianId}/edit', [\App\Http\Controllers\School\StudentController::class, 'updateGuardian'])->name('school.students.guardians.update');
         Route::delete('/students/guardians/{guardianId}', [\App\Http\Controllers\School\StudentController::class, 'destroyGuardian'])->name('school.students.guardians.destroy');

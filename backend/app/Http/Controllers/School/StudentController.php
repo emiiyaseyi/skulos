@@ -7,6 +7,9 @@ use App\Models\School;
 use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\GradingScale;
 use App\Models\Tenant\House;
+use App\Models\Tenant\Notification;
+use App\Models\Tenant\ReportCardFeedback;
+use App\Models\Tenant\ReportCardReview;
 use App\Models\Tenant\Section;
 use App\Models\Tenant\Setting;
 use App\Models\Tenant\Student;
@@ -440,15 +443,61 @@ class StudentController extends Controller
         // a resource exists" convention.
         app(StudentAccessGuard::class)->assertVisible($user, $school, $student);
 
-        $term = Term::current()->first();
+        // A parent/student must never see a report card that has not been
+        // released yet (user request 2026-07-26: "parent should not be
+        // able to see report cards that are yet to be release"), and
+        // should be able to switch to any PREVIOUS term that has been
+        // released ("parent should be able to switch to previous terms
+        // report cards that has been release") — staff is unaffected,
+        // still sees the current term's live, in-progress scores by
+        // default, since a teacher genuinely needs to see them before
+        // release. A term counts as released once it has ever reached
+        // ReportCardReview::VISIBLE_TO_FAMILY (released, and still
+        // visible once locked/archived afterward, those are later stages
+        // of the same released card, not an un-release).
+        $roleSlug = optional($user->roleIn($school))->slug;
+        $isFamilyScoped = in_array($roleSlug, config('skulos.family_scoped_roles', []), true);
+        $allTerms = Term::with('session')->get()
+            ->sortByDesc(fn (Term $t) => sprintf('%05d-%05d', $t->academic_session_id ?? 0, $t->sequence ?? 0))
+            ->values();
+
+        $currentTerm = Term::current()->first();
+        if ($isFamilyScoped) {
+            $releasedTermIds = ReportCardReview::where('student_id', $student->id)
+                ->whereIn('status', ReportCardReview::VISIBLE_TO_FAMILY)
+                ->pluck('term_id');
+            $availableTerms = $allTerms->whereIn('id', $releasedTermIds)->values();
+            $currentTermReleased = $currentTerm && $releasedTermIds->contains($currentTerm->id);
+        } else {
+            $availableTerms = $allTerms;
+            $currentTermReleased = true;
+        }
+
+        $requestedTermId = $request->query('term_id');
+        $term = $requestedTermId ? $availableTerms->firstWhere('id', (int) $requestedTermId) : null;
+        if (! $term) {
+            $term = $isFamilyScoped ? $availableTerms->first() : ($currentTerm ?: $availableTerms->first());
+        }
+
         $report = $term ? app(ResultService::class)->studentReport($student->id, $term->id, GradingScale::default()) : [];
+        // Whether $term itself is one the family scoped viewer is allowed
+        // to see; always true for staff, and by construction always true
+        // for a family scoped viewer too ($term only ever comes from
+        // $availableTerms, already filtered to released terms), kept as
+        // its own flag so the view never has to re-derive this logic.
+        $canSeeThisTermsReport = ! $isFamilyScoped || $availableTerms->contains('id', $term?->id);
+        // Existing feedback this family already left on this exact term,
+        // so the form does not invite a second, confusing submission.
+        $existingFeedback = ($isFamilyScoped && $term)
+            ? ReportCardFeedback::where('student_id', $student->id)->where('term_id', $term->id)
+                ->where('submitted_by', $roleSlug)->latest()->first()
+            : null;
 
         // A class teacher (and their assistant) can always see guardian
         // details, a subject teacher only if the school has opted in
         // (user directive 2026-07-12), every unrestricted role always
         // could and still can, this setting only ever narrows the two
         // scoped teacher roles, never widens beyond what already applied.
-        $roleSlug = optional($user->roleIn($school))->slug;
         $canSeeGuardianDetails = ! in_array($roleSlug, config('skulos.teacher_scoped_roles', []), true)
             || in_array($roleSlug, ['class-teacher', 'class-assistant'], true)
             || (Setting::grab('guardian_visibility', 'class_teacher_only') === 'both');
@@ -471,6 +520,12 @@ class StudentController extends Controller
             'student' => $student,
             'term' => $term,
             'report' => $report,
+            'isFamilyScoped' => $isFamilyScoped,
+            'availableTerms' => $availableTerms,
+            'canSeeThisTermsReport' => $canSeeThisTermsReport,
+            'currentTermReleased' => $currentTermReleased,
+            'currentTerm' => $currentTerm,
+            'existingFeedback' => $existingFeedback,
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'students.update'),
             // Provisioning a login is a school-administration action, not
             // a routine per-record edit (user report 2026-07-22: "class
@@ -496,6 +551,86 @@ class StudentController extends Controller
                 fn ($guardian) => [$guardian->id => $customFields->valuesFor('guardian', $guardian->id)]
             ),
         ]);
+    }
+
+    /**
+     * A parent/student's optional comment on an already-released report
+     * card, passed to the class teacher and school leadership (user
+     * request 2026-07-26: "add a comment to be passed to the teacher/
+     * school admin if there's a comment based on the child term report
+     * but its optional"). Saved to ReportCardFeedback (built 2026-07-11,
+     * ready for exactly this, never wired to anything until now) and
+     * delivered as a real notification, since there is no dedicated
+     * staff-side feedback inbox screen (yet) for anyone to browse to.
+     */
+    public function submitReportFeedback(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.view');
+        $school = $this->school($request);
+        $user = Auth::user();
+        $student = Student::with('currentClassArm.schoolClass')->findOrFail($request->route('studentId'));
+        app(StudentAccessGuard::class)->assertVisible($user, $school, $student);
+
+        $roleSlug = optional($user->roleIn($school))->slug;
+        abort_unless(in_array($roleSlug, config('skulos.family_scoped_roles', []), true), 403, 'You do not have permission for this.');
+
+        $data = $request->validate([
+            'term_id' => ['required', 'exists:tenant.terms,id'],
+            'message' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        // Only ever for a term this family is actually allowed to see,
+        // never trust the client on this, a crafted term id for a card
+        // that has not been released yet is dropped, not acted on.
+        $released = ReportCardReview::where('student_id', $student->id)->where('term_id', $data['term_id'])
+            ->whereIn('status', ReportCardReview::VISIBLE_TO_FAMILY)->exists();
+        abort_unless($released, 404);
+
+        $message = trim((string) ($data['message'] ?? ''));
+        if ($message === '') {
+            return back()->with('status', 'Nothing to send, the comment was left blank.');
+        }
+
+        $term = Term::findOrFail($data['term_id']);
+        ReportCardFeedback::create([
+            'student_id' => $student->id,
+            'term_id' => $term->id,
+            'submitted_by' => $roleSlug,
+            'message' => $message,
+        ]);
+
+        $this->notifyAboutReportFeedback($school, $student, $term, $message);
+
+        return back()->with('status', 'Your comment was sent to the school.')->withFragment('report-feedback');
+    }
+
+    protected function notifyAboutReportFeedback(School $school, Student $student, Term $term, string $message): void
+    {
+        $userIds = collect();
+
+        $classTeacherUserId = $student->currentClassArm?->classTeacher?->user_id;
+        if ($classTeacherUserId) {
+            $userIds->push($classTeacherUserId);
+        }
+
+        $leadershipRoleIds = \App\Models\Role::where('school_id', $school->id)
+            ->whereIn('slug', config('skulos.leadership_role_slugs', []))
+            ->pluck('id');
+        $userIds = $userIds->merge(
+            \Illuminate\Support\Facades\DB::table('school_user')
+                ->where('school_id', $school->id)->where('status', 'active')
+                ->whereIn('role_id', $leadershipRoleIds)->pluck('user_id')
+        );
+
+        foreach ($userIds->unique()->filter() as $userId) {
+            Notification::create([
+                'user_id' => $userId,
+                'category' => 'report_card_feedback',
+                'type' => Notification::typeFor('report_card_feedback'),
+                'title' => "Report card comment from {$student->fullName()}'s family",
+                'body' => "On {$term->name}: \"{$message}\"",
+            ]);
+        }
     }
 
     public function create(Request $request, CustomFieldService $customFields): \Illuminate\View\View

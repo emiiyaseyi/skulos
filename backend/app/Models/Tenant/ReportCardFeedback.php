@@ -19,6 +19,13 @@ class ReportCardFeedback extends Model
 
     protected $connection = 'tenant';
 
+    // "feedback" is uncountable, so Eloquent's default pluralized table
+    // name ("report_card_feedback") does not match the migration's own
+    // "report_card_feedbacks", must be set explicitly. Never caught
+    // before this model was actually wired up (2026-07-26), it had no
+    // caller and no test until then.
+    protected $table = 'report_card_feedbacks';
+
     protected $fillable = ['student_id', 'term_id', 'submitted_by', 'message'];
 
     public function student(): BelongsTo

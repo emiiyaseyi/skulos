@@ -1035,6 +1035,7 @@ return [
         'announcement' => ['label' => 'Announcement', 'type' => 'system'],
         'broadcast' => ['label' => 'Broadcast', 'type' => 'urgent'],
         'report_card_review' => ['label' => 'Report card review', 'type' => 'academic'],
+        'report_card_feedback' => ['label' => 'Report card feedback', 'type' => 'academic'],
         'birthday' => ['label' => 'Birthday', 'type' => 'academic'],
         'anniversary' => ['label' => 'Work anniversary', 'type' => 'academic'],
         'fee_item_pending_approval' => ['label' => 'Fee item awaiting approval', 'type' => 'finance'],

@@ -244,10 +244,36 @@
 </div>
 @endif
 
-<div class="card">
-  <h3 style="margin-bottom:.4rem">Academic report</h3>
+{{--
+  User request 2026-07-26: "parent should not be able to see report
+  cards that are yet to be release under the child Academic report,
+  also parent should be able to switch to previous terms report cards
+  that has been release, add a comment to be passed to the teacher/
+  school admin if there's a comment based on the child term report but
+  its optional." $availableTerms is already scoped to only released
+  terms for a parent/student (StudentController::show()), so the
+  switcher below can never expose an unreleased term either way.
+--}}
+<div class="card" id="report-feedback">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem;margin-bottom:.4rem">
+    <h3 style="margin:0">Academic report</h3>
+    @if($availableTerms->count() > 1)
+      <form method="GET" action="{{ route('school.students.show', ['school' => $school->slug, 'studentId' => $student->id]) }}" style="margin:0">
+        <select name="term_id" onchange="this.form.requestSubmit()" aria-label="Choose a term">
+          @foreach($availableTerms as $t)
+            <option value="{{ $t->id }}" @selected($term && $term->id === $t->id)>{{ $t->name }}</option>
+          @endforeach
+        </select>
+      </form>
+    @endif
+  </div>
+
+  @if($isFamilyScoped && $currentTerm && ! $currentTermReleased)
+    <p class="muted" style="margin-bottom:.6rem">{{ $currentTerm->name }}&rsquo;s report card has not been released yet.@if($term && $term->id !== $currentTerm->id) Showing {{ $term->name }} instead. @endif</p>
+  @endif
+
   @if(! $term)
-    <p class="muted">No current term is set for your school yet.</p>
+    <p class="muted">{{ $isFamilyScoped ? 'No report card has been released yet.' : 'No current term is set for your school yet.' }}</p>
   @elseif(empty($report))
     <p class="muted">No scores recorded yet for {{ $term->name }}.</p>
   @else
@@ -266,6 +292,24 @@
         @endforeach
       </tbody>
     </table>
+    </div>
+  @endif
+
+  @if($isFamilyScoped && $term && $canSeeThisTermsReport)
+    <div style="margin-top:1.2rem;padding-top:1rem;border-top:1px solid var(--line)">
+      @if($existingFeedback)
+        <p class="muted" style="font-size:.85rem">You already sent a comment on {{ $term->name }}&rsquo;s report: &ldquo;{{ $existingFeedback->message }}&rdquo;</p>
+      @else
+        <form method="POST" action="{{ route('school.students.report-feedback.store', ['school' => $school->slug, 'studentId' => $student->id]) }}">
+          @csrf
+          <input type="hidden" name="term_id" value="{{ $term->id }}" />
+          <div class="field" style="margin-bottom:.5rem">
+            <label for="report_feedback_message">Comment on this report (optional)</label>
+            <textarea id="report_feedback_message" name="message" rows="3" placeholder="Anything you would like the school to know about this report card?" maxlength="1000"></textarea>
+          </div>
+          <button class="btn btn-ghost btn-sm" type="submit">Send comment to the school</button>
+        </form>
+      @endif
     </div>
   @endif
 </div>

@@ -50,6 +50,15 @@ class ReportCardReview extends Model
     /** Statuses that block further score edits for this student's term (ExaminationController::save() checks this), a reviewer must send it back to needs_correction first. */
     public const LOCKED_FOR_EDITING = [self::STATUS_APPROVED, self::STATUS_LOCKED, self::STATUS_RELEASED, self::STATUS_ARCHIVED];
 
+    /**
+     * Statuses a parent/student is allowed to see (user request
+     * 2026-07-26: "parent should not be able to see report cards that
+     * are yet to be release"). Once released, a card stays visible to
+     * the family through its later workflow stages (locked, archived),
+     * those are not an un-release.
+     */
+    public const VISIBLE_TO_FAMILY = [self::STATUS_RELEASED, self::STATUS_LOCKED, self::STATUS_ARCHIVED];
+
     protected $connection = 'tenant';
 
     protected $fillable = [

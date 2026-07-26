@@ -3,8 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\School;
+use App\Models\Tenant\AcademicSession;
+use App\Models\Tenant\Notification;
+use App\Models\Tenant\ReportCardFeedback;
+use App\Models\Tenant\ReportCardReview;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\StudentGuardian;
+use App\Models\Tenant\Term;
 use App\Models\User;
 use App\Services\Rbac\Rbac;
 use App\Services\Tenancy\TenantManager;
@@ -167,6 +172,184 @@ class StudentParentPortalTest extends TestCase
 
         $this->actingAs($parentUser)->get("http://{$school->slug}.localhost/students/{$childId}/edit")
             ->assertForbidden();
+    }
+
+    /**
+     * User request 2026-07-26: "parent should not be able to see report
+     * cards that are yet to be release under the child Academic report."
+     * No ReportCardReview row at all means never released.
+     */
+    public function test_a_parent_does_not_see_an_unreleased_report_card(): void
+    {
+        [$school, $parentUser] = $this->schoolWithMember('parent', 'portalnine');
+
+        app(TenantManager::class)->use($school);
+        $session = AcademicSession::create(['name' => '2025/2026']);
+        $term = Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1, 'is_current' => true]);
+        $child = Student::create(['admission_number' => 'RC1', 'first_name' => 'Ada', 'last_name' => 'Card']);
+        StudentGuardian::create(['student_id' => $child->id, 'name' => 'Mrs. Card', 'guardian_user_id' => $parentUser->id]);
+        $childId = $child->id;
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($parentUser)->get("http://{$school->slug}.localhost/students/{$childId}");
+
+        // The "not released yet" notice does name the current term (good
+        // UX, tells the parent which term is missing), so the check here
+        // is that no SCORES table renders, not that the term name is
+        // absent from the page entirely.
+        $response->assertOk()
+            ->assertSee('First Term&rsquo;s report card has not been released yet', false)
+            ->assertDontSee('<th>Subject</th>', false);
+    }
+
+    public function test_a_parent_sees_a_released_report_card(): void
+    {
+        [$school, $parentUser] = $this->schoolWithMember('parent', 'portalten');
+
+        app(TenantManager::class)->use($school);
+        $session = AcademicSession::create(['name' => '2025/2026']);
+        $term = Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1, 'is_current' => true]);
+        $child = Student::create(['admission_number' => 'RC2', 'first_name' => 'Bode', 'last_name' => 'Card']);
+        StudentGuardian::create(['student_id' => $child->id, 'name' => 'Mr. Card', 'guardian_user_id' => $parentUser->id]);
+        ReportCardReview::create(['student_id' => $child->id, 'term_id' => $term->id, 'status' => ReportCardReview::STATUS_RELEASED, 'review_stage' => 0]);
+        $childId = $child->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($parentUser)->get("http://{$school->slug}.localhost/students/{$childId}")
+            ->assertOk()->assertSee('First Term')->assertDontSee('has not been released yet');
+    }
+
+    /** User request 2026-07-26: "parent should be able to switch to previous terms report cards that has been release." */
+    public function test_a_parent_can_see_a_previous_released_term_via_the_switcher_even_though_the_current_term_is_not_released(): void
+    {
+        [$school, $parentUser] = $this->schoolWithMember('parent', 'portaleleven');
+
+        app(TenantManager::class)->use($school);
+        $session = AcademicSession::create(['name' => '2025/2026']);
+        $termOne = Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1, 'is_current' => false]);
+        $termTwo = Term::create(['academic_session_id' => $session->id, 'name' => 'Second Term', 'sequence' => 2, 'is_current' => true]);
+        $child = Student::create(['admission_number' => 'RC3', 'first_name' => 'Chidi', 'last_name' => 'Card']);
+        StudentGuardian::create(['student_id' => $child->id, 'name' => 'Mrs. Card', 'guardian_user_id' => $parentUser->id]);
+        // Only the first, earlier term was ever released, the current (second) term has not been.
+        ReportCardReview::create(['student_id' => $child->id, 'term_id' => $termOne->id, 'status' => ReportCardReview::STATUS_RELEASED, 'review_stage' => 0]);
+        $childId = $child->id;
+        app(TenantManager::class)->forget();
+
+        // Default view (no term_id) lands on the released term, not the current unreleased one.
+        $this->actingAs($parentUser)->get("http://{$school->slug}.localhost/students/{$childId}")
+            ->assertOk()->assertSee('First Term')->assertSee('Second Term&rsquo;s report card has not been released yet', false);
+    }
+
+    /** A crafted term_id for a term that has not been released must never reveal that term's data, whatever the client sends. */
+    public function test_a_parent_cannot_reach_an_unreleased_term_via_a_crafted_query_string(): void
+    {
+        [$school, $parentUser] = $this->schoolWithMember('parent', 'portaltwelve');
+
+        app(TenantManager::class)->use($school);
+        $session = AcademicSession::create(['name' => '2025/2026']);
+        $term = Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1, 'is_current' => true]);
+        $child = Student::create(['admission_number' => 'RC4', 'first_name' => 'Dumebi', 'last_name' => 'Card']);
+        StudentGuardian::create(['student_id' => $child->id, 'name' => 'Mrs. Card', 'guardian_user_id' => $parentUser->id]);
+        $childId = $child->id;
+        $termId = $term->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($parentUser)->get("http://{$school->slug}.localhost/students/{$childId}?term_id={$termId}")
+            ->assertOk()->assertSee('has not been released yet');
+    }
+
+    /** A teacher (staff) still sees the current term's live, in-progress scores regardless of release status, the gating is family-scoped only. */
+    public function test_a_class_teacher_still_sees_the_current_term_regardless_of_release_status(): void
+    {
+        [$school, $teacherUser] = $this->schoolWithMember('class-teacher', 'portalthirteen');
+
+        app(TenantManager::class)->use($school);
+        $session = AcademicSession::create(['name' => '2025/2026']);
+        $term = Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1, 'is_current' => true]);
+        $arm = \App\Models\Tenant\ClassArm::create(['school_class_id' => \App\Models\Tenant\SchoolClass::create(['section_id' => \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1])->id, 'name' => 'Primary 1', 'sequence' => 1])->id, 'class_teacher_staff_id' => \App\Models\Tenant\Staff::create(['staff_id' => 'STF1', 'first_name' => 'T', 'last_name' => 'Teacher', 'user_id' => $teacherUser->id])->id]);
+        $child = Student::create(['admission_number' => 'RC5', 'first_name' => 'Emeka', 'last_name' => 'Card', 'current_class_arm_id' => $arm->id]);
+        $childId = $child->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/students/{$childId}")
+            ->assertOk()->assertSee('First Term')->assertDontSee('has not been released yet');
+    }
+
+    public function test_a_parent_can_submit_an_optional_comment_on_a_released_report_card(): void
+    {
+        [$school, $parentUser] = $this->schoolWithMember('parent', 'portalfourteen');
+        $teacherUser = User::factory()->create();
+        $teacherRole = $this->rbac->cloneTemplateRole($school, 'class-teacher');
+        $school->users()->attach($teacherUser->id, ['role_id' => $teacherRole->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        $session = AcademicSession::create(['name' => '2025/2026']);
+        $term = Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1, 'is_current' => true]);
+        $arm = \App\Models\Tenant\ClassArm::create(['school_class_id' => \App\Models\Tenant\SchoolClass::create(['section_id' => \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1])->id, 'name' => 'Primary 1', 'sequence' => 1])->id, 'class_teacher_staff_id' => \App\Models\Tenant\Staff::create(['staff_id' => 'STF2', 'first_name' => 'T', 'last_name' => 'Teacher', 'user_id' => $teacherUser->id])->id]);
+        $child = Student::create(['admission_number' => 'RC6', 'first_name' => 'Fola', 'last_name' => 'Card', 'current_class_arm_id' => $arm->id]);
+        StudentGuardian::create(['student_id' => $child->id, 'name' => 'Mrs. Card', 'guardian_user_id' => $parentUser->id]);
+        ReportCardReview::create(['student_id' => $child->id, 'term_id' => $term->id, 'status' => ReportCardReview::STATUS_RELEASED, 'review_stage' => 0]);
+        $childId = $child->id;
+        $termId = $term->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($parentUser)->post("http://{$school->slug}.localhost/students/{$childId}/report-feedback", [
+            'term_id' => $termId, 'message' => 'Great progress this term, thank you.',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $feedback = ReportCardFeedback::first();
+        $this->assertNotNull($feedback);
+        $this->assertSame('Great progress this term, thank you.', $feedback->message);
+        $this->assertSame('parent', $feedback->submitted_by);
+        $this->assertGreaterThan(0, Notification::where('category', 'report_card_feedback')->count());
+        app(TenantManager::class)->forget();
+
+        // A second visit shows the already-sent comment, not the form again.
+        $this->actingAs($parentUser)->get("http://{$school->slug}.localhost/students/{$childId}")
+            ->assertOk()->assertSee('You already sent a comment', false);
+    }
+
+    public function test_an_empty_comment_is_not_saved(): void
+    {
+        [$school, $parentUser] = $this->schoolWithMember('parent', 'portalfifteen');
+
+        app(TenantManager::class)->use($school);
+        $session = AcademicSession::create(['name' => '2025/2026']);
+        $term = Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1, 'is_current' => true]);
+        $child = Student::create(['admission_number' => 'RC7', 'first_name' => 'Gozie', 'last_name' => 'Card']);
+        StudentGuardian::create(['student_id' => $child->id, 'name' => 'Mrs. Card', 'guardian_user_id' => $parentUser->id]);
+        ReportCardReview::create(['student_id' => $child->id, 'term_id' => $term->id, 'status' => ReportCardReview::STATUS_RELEASED, 'review_stage' => 0]);
+        $childId = $child->id;
+        $termId = $term->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($parentUser)->post("http://{$school->slug}.localhost/students/{$childId}/report-feedback", [
+            'term_id' => $termId, 'message' => '   ',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame(0, ReportCardFeedback::count());
+        app(TenantManager::class)->forget();
+    }
+
+    /** Never trust the client: a crafted term id for a card that was never released must be rejected outright, not silently saved. */
+    public function test_a_parent_cannot_submit_feedback_for_an_unreleased_term(): void
+    {
+        [$school, $parentUser] = $this->schoolWithMember('parent', 'portalsixteen');
+
+        app(TenantManager::class)->use($school);
+        $session = AcademicSession::create(['name' => '2025/2026']);
+        $term = Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1, 'is_current' => true]);
+        $child = Student::create(['admission_number' => 'RC8', 'first_name' => 'Halima', 'last_name' => 'Card']);
+        StudentGuardian::create(['student_id' => $child->id, 'name' => 'Mrs. Card', 'guardian_user_id' => $parentUser->id]);
+        $childId = $child->id;
+        $termId = $term->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($parentUser)->post("http://{$school->slug}.localhost/students/{$childId}/report-feedback", [
+            'term_id' => $termId, 'message' => 'Trying to sneak this in.',
+        ])->assertNotFound();
     }
 
     public function test_a_teacher_without_students_update_cannot_create_a_student_login(): void
