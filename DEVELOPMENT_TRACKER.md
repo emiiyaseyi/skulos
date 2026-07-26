@@ -2449,6 +2449,14 @@ The user's "FEEDBACK LIST.docx" got a first "16 issues" pass and a newly appende
 - Resolution: n/a.
 - QA: two new FinanceTest cases (the create page ships the right non-optional-owed/paid data attributes for a real class with one non-optional and one optional fee item plus a prior part payment; submitting `all_fees` saves as `fee_item_id` null). Full unfiltered `php artisan test` re-run clean, 1109 passed / 0 failed. Verified live on greenfield: real parent `nkechi.ade@gmail.com`'s two children show real computed non-optional owed totals (₦59,500 / ₦83,500) with `paid="0"`, the All Fees option and payment plan markup both render.
 
+### Term Calculation: cumulative mode restricted to specific classes only (2026-07-26, commit `9c91599`)
+- Status: Done
+- Started: 2026-07-26
+- Notes: user request: "Cumulative report card mode: per-class-only toggle option." The cumulative policy (built 2026-07-24) applied its `off`/`average`/`comparison` mode school wide, keyed only by term sequence, with no way to exclude a class (e.g. a WAEC/NECO graded Secondary section where combining term totals for comparison may not make sense the way it does for Primary). `ReportCardCumulativePolicy` gained `KEY_RESTRICTED`/`KEY_CLASSES` Settings (off by default, so an existing school's behaviour is unchanged unless it deliberately turns this on), `isRestrictedToClasses()`/`includedClassIds()`/`appliesToClass()`/`setClassRestriction()`, and `modeFor()` now takes an optional `$schoolClassId` and returns `off` immediately for a class outside the restriction, the same way it already does for a session's own first term. `ReportCardService::forStudent()` passes the student's own `$classArm->school_class_id` through. `ReportCardCalculationController`/the Term Calculation settings page gained a "restrict to specific classes" checkbox that reveals a class checklist (same select-all pattern as Narrative Evaluation's own class picker) when turned on.
+- Issues/Bugs: none.
+- Resolution: n/a.
+- QA: three new `ReportCardCalculationTest` cases (a class left off the list shows no cumulative average even though the sequence's mode is 'average'; a class on the list is unaffected; an admin can save the restriction end to end). Full unfiltered `php artisan test` re-run clean, 1112 passed / 0 failed. Verified live on greenfield: default state confirmed unrestricted (existing `average`/`comparison` policy for terms 2/3 untouched), Term Calculation settings page renders every real class in the new checklist, all unchecked by default.
+
 ### Announcements: each row now opens a full read page instead of a truncated preview (2026-07-26, commit `0321fe7`)
 - Status: Done
 - Started: 2026-07-26
