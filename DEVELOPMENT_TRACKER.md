@@ -2457,6 +2457,30 @@ The user's "FEEDBACK LIST.docx" got a first "16 issues" pass and a newly appende
 - Resolution: n/a.
 - QA: three new `ReportCardCalculationTest` cases (a class left off the list shows no cumulative average even though the sequence's mode is 'average'; a class on the list is unaffected; an admin can save the restriction end to end). Full unfiltered `php artisan test` re-run clean, 1112 passed / 0 failed. Verified live on greenfield: default state confirmed unrestricted (existing `average`/`comparison` policy for terms 2/3 untouched), Term Calculation settings page renders every real class in the new checklist, all unchecked by default.
 
+### Welcome emails: login details, portal link, role brief, admin pause switch (2026-07-26, commit `564c576`)
+- Status: Done
+- Notes: user request: "new user accounts get a welcome email with login details, portal link, and a role-specific brief; admin can disable email notifications for a period." `AccountCreatedMail` already sent login details + portal link for staff and manually created guardian logins (`AccountProvisioningService::provision()`); the auto-provisioned paths (student creation, auto guardian, the bulk backfill command, all via `provisionAuto()`) never emailed anything at all. Extended to those too, but only when a real email exists (a student never has one by design) and only for a genuinely new login. Added a role-specific brief paragraph (`App\Services\Accounts\WelcomeEmailService::briefFor()`, seeded from `config('skulos.default_role_welcome_briefs')`, admin-editable per role from Email Settings) and a "pause welcome emails until" switch on the same screen, scoped to this one email only, not the school's mail system generally.
+- Issues/Bugs: none.
+- QA: new `WelcomeEmailTest` (9/9), full unfiltered `php artisan test` re-run clean, 1131 passed / 0 failed. Verified live on greenfield (settings page render).
+
+### Fixed parents and students reaching the Houses admin screen (2026-07-26, commit `9ab48b1`)
+- Status: Done
+- Notes: real access-control bug, found by the user via the Help Center's own "Setting up school houses" article link. `HouseController` gated its read actions on `students.view`, the same permission a parent/student holds for a completely different, narrower reason (their own child only, via `FamilyScope`), not for browsing the school's administrative structure. `nav-school.blade.php` already excludes the equivalent sidebar item for these two roles despite the shared permission; `HouseController` never applied that same exclusion. Fixed by explicitly denying the `parent`/`student` roles in `HouseController::authorizeAction()` regardless of what the permission check would otherwise allow.
+- Issues/Bugs: none.
+- QA: new regression tests in `HouseScreenTest` (34/34 total). Verified live on greenfield with the real parent account (now 403s).
+
+### Submit Payment fee item picker: merged same-named items, term-scoped the list, added an All Fees variant including optional items (2026-07-26, commit `eb7578d`)
+- Status: Done
+- Notes: three real user reports on the Submit Payment screen. (1) A fee item scoped to certain classes exists as one row per class at a different price, so the same named item (e.g. "School Uniform (Optional)") repeated once per class in the picker even after a single child was selected ("wrong approach... merge under one"). Grouped by name now (`PaymentController::create()` builds `feeItemGroups`), one option per distinct name; the underlying fee item id for the selected child's class is resolved client side (`resolveVariant()` in `create.blade.php`). (2) The picker was never scoped to the active term at all, showing fee items from every term ever created, compounding the same clumsy-list complaint. (3) "All Fees" only ever totalled non-optional items by original design; a second "All Fees (including optional items)" variant sits alongside it rather than replacing it, since an optional item is still something a parent may choose not to pay.
+- Issues/Bugs: a test asserting an inline price on a merged multi-variant option had to be relaxed, price is now shown inline only for a single-variant group (the common case) and resolved dynamically once the class is known for a multi-variant one.
+- QA: new tests in `FinanceTest` covering the merge, the term scope, and the new All Fees variant (66/66 total). Verified live on greenfield with the real multi-child parent account, "School Uniform (Optional)" now appears once instead of four times.
+
+### Help and Knowledge Base: hid admin-only content from parents/students, added a For Parents category (2026-07-26, commit `68a5142`)
+- Status: Done
+- Notes: user report: "Help & Knowledge Base for parent is totally wrong, why is it showing how to set up house, communicaiton... update it to show items related to parents." Same root cause shape as the Houses bug above: a parent holds `students.view`/`communication.view` for their own child only, and `KnowledgeBaseController`'s permission-only filter let two genuinely admin-only articles ("Setting up school houses", "Seeing who has acknowledged an announcement") through anyway. Every one of the 17 existing articles is staff/admin work, none ever applied to a parent, flagged `hidden_for_family_scoped` in `config('skulos.knowledge_base_start_routes')` now (mirrors `nav-school.blade.php`'s own `$alwaysHiddenForScoped` exclusion). Filtering alone would leave a parent with almost nothing, so a real "For Parents" category was authored too: viewing a child's academic report, paying fees, checking payment history, reading announcements, understanding notifications.
+- Issues/Bugs: none.
+- QA: new tests in `KnowledgeBaseTest` (18/18 total). `KnowledgeBaseSeeder` re-run against the real platform database (shared, not per-tenant) so the new category reached every school immediately. Verified live on greenfield with the real parent account.
+
 ### Attendance Dashboard: fixed the dangling 5th stat card at every breakpoint (2026-07-26, commit `95a57d4`)
 - Status: Done
 - Started: 2026-07-26
