@@ -2350,6 +2350,46 @@ The user's "FEEDBACK LIST.docx" got a first "16 issues" pass and a newly appende
 - Resolution: `MessagingWidgetTest` assertion narrowed to `assertDontSee('class="mw-fab"', false)` (the actual anchor's class attribute, unambiguous). Bulk generate nav link gated on `$school?->hasFeature('basic_report_cards')` in addition to its own permission check.
 - QA: both tests pass in isolation and as part of the full suite; full unfiltered `php artisan test` re-run clean (0 failed) at the close of this whole pass.
 
+### Finance: class-scoped fee items, bulk CSV upload, fee approval chain, term switcher, class-level payment status (2026-07-25/26, commits `f20b14a`)
+- Status: Done
+- Started: 2026-07-25
+- Notes: fee items can now be scoped to specific classes via a checkbox picker (`fee_item_school_class` pivot, empty = applies to every class, backward compatible); a fee schedule matrix table renders above the add-item form once any fee items exist. Bulk CSV upload + downloadable template added (`FeeItemController::template()`/`bulkUpload()`, additive not destructive on unknown-class rows). Term picker offers a synthetic `upcoming:{year}` option, only when the current term is the last of its session and the next session doesn't exist yet, resolved into a real session+term on submit via `AcademicDefaults::createSessionWithTerms()` (extracted from `AcademicsController` for reuse). Admin can configure a fee approval chain (`fee_approval_enabled` + `fee_approval_chain` Settings, entries are `role:slug` or `staff:{id}`, staff picked via the app-wide searchable-select enhancement); a pending fee item is hidden from parents until approved (`FeeItem::APPROVAL_PENDING/APPROVED/REJECTED`, atomic query-builder transition guard against a two-approvers race, same pattern `PaymentController::applyDecision()` already used). Payments page adds a class-level fee status table (one row per class ARM/stream, not per class — found live 2026-07-25/26 that a class with multiple streams, e.g. Year 1 Gold/Silver or SSS's Science/Arts/Commercial, was shown as one merged row) with a "Nudge parents" action (one Notification per guardian, not per student), and an admin-configurable payment due-date countdown with a daily parent popup reminder (mirrors the existing subscription-popup pattern, localStorage dismiss-once-per-day key). A `finance_active_term_id` Setting plus a `?term_id=` query switcher lets admin/parents view a different term's status while the Setting controls what parents see by default; the "default term" select has an explicit "school's current term (automatic)" option so an unset Setting doesn't cosmetically look like a term was chosen. `FeeBalanceService` added for the payment popup's per-guardian outstanding calc (deliberately not used to refactor `PaymentController::classStatus()`/`nudgeUnpaid()`, which keep their own bulk-optimized inline versions to avoid N+1 queries in a loop). Populated real fee data for greenfield academy (6 class bands, Tuition/Books/Uniform/Sportswear/Cardigan plus flat PTA Levy/End of Year Party) for both First Term 2026/2027 (upcoming) and Third Term 2025/2026 (current, per direct user request "add seeded data for current term fees too").
+- Issues/Bugs: `nav_permission_map` had zero entries for the 5 finance feature keys, hiding Finance from parents regardless of real permission (fixed, mapped to `finance.view`). `BankAccount::$fillable` omitted `is_active`, silently no-opping `toggleActive()`. `FeeItemController::store()`/`update()`'s `term_id` validation rule included `'string'`, rejecting the raw PHP int Laravel's test client sends (a real browser form would string-coerce it) — removed, the resolver closure already handles both. `SchoolClass` picker for class-scoping included a retired class — filtered to `active()`.
+- Resolution: see above per bug. 52 FinanceTest cases passing (grew from ~22 across this and the prior session's Finance work).
+- QA: full suite 1088 passed / 0 failed at close. Verified live on greenfield via Playwright (class-status table showing all 14 real class arms including all 9 SSS stream rows split correctly, term switcher, payment reminder card, bank accounts, fee schedule matrix).
+
+### Timetable: CSV export added to My Timetable, not just the admin-only Master Timetable (2026-07-25/26, commit `60d7d67`)
+- Status: Done
+- Started: 2026-07-25
+- Notes: `TimetableController::mine()`'s grid-resolution logic (personal schedule / led class / selected child) extracted into `resolveMineGrid()`, shared with a new `mineExport()` action so the CSV always matches whatever the page is currently showing. Same flat day/period-per-row CSV shape and `timetable.view` gate as the page itself; PDF stays covered by the existing Print button, same as the master export.
+- Issues/Bugs: none.
+- Resolution: n/a.
+- QA: `test_a_teacher_can_export_their_own_timetable_as_csv` added; full TimetableTest suite (22 tests) green.
+
+### Notification deep links, and notifying the applicant when their own profile change is decided (2026-07-25/26, commit `469b737`)
+- Status: Done
+- Started: 2026-07-25
+- Notes: `config('skulos.notification_deep_links')` maps a notification category to the screen where it can actually be acted on (`Notification::deepLinkUrl()`); wired into both the header bell panel and the Notification Center's "Take me there" link. Deliberately a category-to-route map, not a specific record, since every notification recipient is already pre-filtered to someone eligible to act by the time the row is written, so no extra permission check is layered on here. A category with nothing to act on (birthday, anniversary) stays unlinked. Separately, `ProfileController::approve()`/`reject()`/`bulkApprove()`/`bulkReject()` now notify the applicant themselves (`profile_change_approved`/`profile_change_rejected` categories, in-app only, unlike the password-reset flow's email — a profile-change applicant is by definition already an authenticated member who can see an in-app notification).
+- Issues/Bugs: none.
+- Resolution: n/a.
+- QA: NotificationCenterTest (8 tests) and ProfileTest (16 tests, including a new bulk-approve/bulk-reject notification test) both green.
+
+### Menu icon audit: every genuinely different nav item now has its own icon (2026-07-25/26, commit `393a87f`)
+- Status: Done
+- Started: 2026-07-25
+- Notes: user report (FEEDBACK LIST.docx): "recheck all the menu icons, as I don't want similar icons representing items there only if it means same thing." Audited all 57 real nav links against the 34-icon `icon.blade.php` catalog via a Playwright DOM script (grouped links by rendered SVG path string); found 14 groups of genuinely different screens silently sharing one icon (worst: Enter Scores/Grading/Term Broadsheets/Term Calculation/Bulk Generate/Pending Review/Assessment Structure/At Risk Thresholds all sharing one bar-chart icon). Added 28 new distinct glyphs (compass, sliders, field, widgets, workload, approve, schedule, terms, narrative, toggle, fee, renew, history, house, campus, builder, traits, structure, broadsheet, scale, pencil, percent, copies, inbox, warning, parents, insight, stats) and reassigned each affected `$builtRoutes`/`$link()` call site in `nav-school.blade.php`. A shared icon is left alone only where the two labels point at the literal same route (Staff Portal/Teacher Portal, Student Fields/Parent Settings/Staff Settings/Custom Fields, Calendar/Academic Calendar) or are genuinely the same category of screen (Report settings/Mail Settings, both plain config screens) — matching the "only if it means same thing" carve-out in the report.
+- Issues/Bugs: none found after the fix (re-ran the same detection script; remaining 3 shared-icon groups are all defensible per above).
+- Resolution: n/a.
+- QA: PlanFeatureNavTest (40 tests) green; verified visually via Playwright screenshot of the expanded Reports & Analytics group, all 10 reassigned icons render distinctly with no glitches.
+
+### Classes & Subjects: removed the redundant student roster from the class detail page (2026-07-25/26, commit `60a1096`)
+- Status: Done
+- Started: 2026-07-25
+- Notes: user report (FEEDBACK LIST.docx): "under Classes & Subjects, the student name/list should not be seen... remove the student list section as it is a repetition of the student portal section." `AcademicsController::showClass()` no longer queries or passes `studentsByArm`; `class-show.blade.php`'s entire "Students" card (search box, roster table, JS filter) removed. The page (and the Students screen's own "View" link into it, which shares this same route) now shows class structure only: streams, class/assistant teacher, subjects and their teachers.
+- Issues/Bugs: none.
+- Resolution: n/a.
+- QA: `test_the_class_detail_page_shows_the_teacher_and_subjects` updated to drop the student-name assertion; new `test_the_class_detail_page_no_longer_shows_a_student_roster` regression test added. AcademicsScreenTest (38 tests) green. Verified live on greenfield via Playwright screenshot.
+
 ---
 
 ---
