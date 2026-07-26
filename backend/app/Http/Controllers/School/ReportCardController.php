@@ -46,6 +46,17 @@ class ReportCardController extends Controller
      */
     public const SETTING_REVIEW_ENABLED = 'report_card_review_enabled';
 
+    /**
+     * Admin toggle for the score entry screen's auto-suggested remark
+     * (user request 2026-07-26: "on/off toggle for the score entry remark
+     * everywhere it appears"). Off suppresses both the server-prefilled
+     * textarea value and the client side live re-suggestion in
+     * ExaminationController::index(); a teacher still types their own
+     * remark either way, this only controls whether one is suggested for
+     * them first. On by default, matching the feature's original behaviour.
+     */
+    public const SETTING_SUGGESTED_REMARK_ENABLED = 'score_entry_suggested_remark_enabled';
+
     protected function school(Request $request): School
     {
         return $request->attributes->get('school');
@@ -54,6 +65,11 @@ class ReportCardController extends Controller
     protected function reviewStageEnabled(): bool
     {
         return (bool) Setting::grab(self::SETTING_REVIEW_ENABLED, true);
+    }
+
+    public static function suggestedRemarkEnabled(): bool
+    {
+        return (bool) Setting::grab(self::SETTING_SUGGESTED_REMARK_ENABLED, true);
     }
 
     protected function authorizeAction(Request $request, string $permission): void
@@ -92,6 +108,7 @@ class ReportCardController extends Controller
             'footerAlign' => $prefs->footerAlign(),
             'schoolMotto' => $school->motto,
             'reviewStageEnabled' => $this->reviewStageEnabled(),
+            'suggestedRemarkEnabled' => self::suggestedRemarkEnabled(),
             'reviewChain' => ReportCardReview::reviewChain(),
             'reviewChainRoles' => config('skulos.report_card_review_roles'),
             // The school wide stamp/signature default lives on the School
@@ -116,6 +133,19 @@ class ReportCardController extends Controller
         return back()->with('status', $data['enabled']
             ? 'The report card review stage is on. Generated report cards now need approval before release.'
             : 'The report card review stage is off. Generated report cards are released immediately.');
+    }
+
+    /** Turns the score entry screen's auto-suggested remark on or off school wide. */
+    public function updateSuggestedRemark(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.assign_review');
+        $data = $request->validate(['enabled' => ['required', 'boolean']]);
+
+        Setting::put(self::SETTING_SUGGESTED_REMARK_ENABLED, $data['enabled']);
+
+        return back()->with('status', $data['enabled']
+            ? 'The score entry auto-suggested remark is on.'
+            : 'The score entry auto-suggested remark is off. Teachers will type remarks from scratch.');
     }
 
     /**

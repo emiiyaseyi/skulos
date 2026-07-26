@@ -670,6 +670,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/settings/layout/custom-blocks/{blockId}', [$reportCards, 'updateCustomBlock'])->name('layout.custom-blocks.update');
             Route::delete('/settings/layout/custom-blocks/{blockId}', [$reportCards, 'destroyCustomBlock'])->name('layout.custom-blocks.destroy');
             Route::post('/review-stage', [$reportCards, 'updateReviewStage'])->name('review-stage');
+            Route::post('/suggested-remark', [$reportCards, 'updateSuggestedRemark'])->name('suggested-remark');
             Route::post('/review-chain', [$reportCards, 'updateReviewChain'])->name('review-chain');
             Route::get('/preview/{template?}', [$reportCards, 'preview'])->name('preview');
             Route::get('/pending-review', [$reportCards, 'pendingReview'])->name('pending-review');

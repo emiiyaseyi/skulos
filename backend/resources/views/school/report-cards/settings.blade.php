@@ -51,6 +51,15 @@
     </label>
     <span class="muted" style="font-size:.8rem">Turning this off releases every generated report card immediately, skipping approval.</span>
   </form>
+  <form method="POST" action="{{ route('school.report-cards.suggested-remark', ['school' => $school->slug]) }}" style="display:flex;align-items:center;gap:.6rem;padding-top:.8rem;border-top:1px solid var(--line)">
+    @csrf
+    <input type="hidden" name="enabled" value="{{ $suggestedRemarkEnabled ? '1' : '0' }}" />
+    <label style="display:flex;align-items:center;gap:.5rem;margin:0">
+      <input type="checkbox" @checked($suggestedRemarkEnabled) onchange="this.form.querySelector('[name=enabled]').value=this.checked?'1':'0';this.form.submit()" />
+      <span>Suggest a remark on the score entry screen</span>
+    </label>
+    <span class="muted" style="font-size:.8rem">Turning this off stops pre filling a remark from the comment bank; teachers type their own from scratch.</span>
+  </form>
 </div>
 
 <div class="card" style="margin-bottom:1.25rem">

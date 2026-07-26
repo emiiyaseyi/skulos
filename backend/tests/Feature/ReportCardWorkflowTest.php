@@ -510,6 +510,43 @@ class ReportCardWorkflowTest extends TestCase
         $this->assertNotNull($review->released_at);
     }
 
+    /**
+     * User request 2026-07-26: "on/off toggle for the score entry remark
+     * everywhere it appears." Same admin-level permission as the review
+     * stage toggle above, this is a school wide decision not a plain
+     * teacher one.
+     */
+    public function test_an_owner_can_turn_the_suggested_remark_off_and_on(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rcsuggestremark');
+
+        app(TenantManager::class)->use($school);
+        $this->assertTrue(\App\Http\Controllers\School\ReportCardController::suggestedRemarkEnabled());
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/suggested-remark", ['enabled' => '0'])
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertFalse(\App\Http\Controllers\School\ReportCardController::suggestedRemarkEnabled());
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/suggested-remark", ['enabled' => '1'])
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertTrue(\App\Http\Controllers\School\ReportCardController::suggestedRemarkEnabled());
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_a_teacher_without_review_permission_cannot_change_the_suggested_remark_setting(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('class-teacher', 'rcsuggestremarktwo');
+
+        $this->actingAs($teacher)->post("http://{$school->slug}.localhost/report-cards/suggested-remark", ['enabled' => '0'])
+            ->assertForbidden();
+    }
+
     public function test_the_review_stage_is_on_by_default(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'rceighteen');

@@ -143,6 +143,38 @@ class ExaminationScreenTest extends TestCase
             ->assertSee('scoresForm', false);
     }
 
+    /**
+     * User request 2026-07-26: "on/off toggle for the score entry remark
+     * everywhere it appears." Turning the Report Settings toggle off must
+     * suppress both the server prefilled suggestion and the comment bank
+     * JSON feed the client side re-suggestion reads, while the unrelated
+     * live grade calc (grading bands) keeps working regardless.
+     */
+    public function test_the_suggested_remark_can_be_turned_off_and_the_grade_calc_still_works(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'examnoremark');
+        $f = $this->seedAcademics($school);
+        $this->attachTeacher($school, $teacher, $f['classArm']->id, $f['subject']->id);
+        [$first, $second, $exam] = $f['components'];
+
+        app(TenantManager::class)->use($school);
+        $scale = \App\Models\Tenant\GradingScale::create(['name' => 'Standard', 'is_default' => true]);
+        \App\Models\Tenant\GradingBand::create(['grading_scale_id' => $scale->id, 'min_score' => 70, 'max_score' => 100, 'grade' => 'A']);
+        \App\Models\Tenant\Comment::create(['min_score' => 70, 'max_score' => 100, 'text' => 'Excellent performance.', 'is_active' => true]);
+        \App\Models\Tenant\Score::create([
+            'student_id' => $f['ada']->id, 'subject_id' => $f['subject']->id, 'class_arm_id' => $f['classArm']->id,
+            'term_id' => $f['term']->id, 'assessment_component_id' => $exam->id, 'score' => 80,
+        ]);
+        \App\Models\Tenant\Setting::put(\App\Http\Controllers\School\ReportCardController::SETTING_SUGGESTED_REMARK_ENABLED, false);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($teacher)->get("http://{$school->slug}.localhost/examinations?pair={$f['classArm']->id}:{$f['subject']->id}");
+
+        $response->assertOk()
+            ->assertSee('"grade":"A"', false)
+            ->assertDontSee('Excellent performance.');
+    }
+
     public function test_a_teacher_can_save_scores_for_their_assigned_class_and_subject(): void
     {
         [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'examtwo');

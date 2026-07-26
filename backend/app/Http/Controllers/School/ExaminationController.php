@@ -256,6 +256,13 @@ class ExaminationController extends Controller
         $suggestions = [];
         $componentOpen = [];
 
+        // Admin toggle on the Report Settings page (user request
+        // 2026-07-26: "on/off toggle for the score entry remark
+        // everywhere it appears"). Off suppresses both the server-side
+        // prefill below and the client side live re-suggestion further
+        // down; a teacher still types their own remark either way.
+        $suggestedRemarkEnabled = ReportCardController::suggestedRemarkEnabled();
+
         if ($selectedPair && $termId) {
             $students = Student::active()
                 ->where('current_class_arm_id', $classArmId)
@@ -288,7 +295,7 @@ class ExaminationController extends Controller
 
             foreach ($students as $student) {
                 $summaries[$student->id] = $results->subjectResult($student->id, $subjectId, $termId);
-                if ($summaries[$student->id]['total'] > 0 && ! $remarks->get($student->id)?->remark) {
+                if ($suggestedRemarkEnabled && $summaries[$student->id]['total'] > 0 && ! $remarks->get($student->id)?->remark) {
                     $suggestions[$student->id] = $commentBank->suggestionFor($summaries[$student->id]['total']);
                 }
             }
@@ -305,14 +312,24 @@ class ExaminationController extends Controller
         // server on every keystroke; the eventual save (autosave or the
         // manual button) still goes through save()'s own validation and
         // window/lock checks unchanged, this is purely a live preview.
-        $commentBank->ensureSeeded();
         $gradingBands = (GradingScale::default()?->bands ?? collect())
             ->map(fn ($b) => ['min' => (float) $b->min_score, 'max' => (float) $b->max_score, 'grade' => $b->grade])
             ->values();
-        $commentBands = Comment::where('is_active', true)->get()
-            ->groupBy(fn (Comment $c) => $c->min_score.':'.$c->max_score)
-            ->map(fn ($group) => ['min' => (float) $group->first()->min_score, 'max' => (float) $group->first()->max_score, 'texts' => $group->pluck('text')->values()])
-            ->values();
+
+        // The suggested-remark toggle only ever gates the comment bank
+        // half of this (both the server prefill above and this JSON feed
+        // for the client side re-suggestion); the live grade calc above
+        // is a separate, always-on feature and keeps using gradingBands
+        // regardless of this setting.
+        if ($suggestedRemarkEnabled) {
+            $commentBank->ensureSeeded();
+            $commentBands = Comment::where('is_active', true)->get()
+                ->groupBy(fn (Comment $c) => $c->min_score.':'.$c->max_score)
+                ->map(fn ($group) => ['min' => (float) $group->first()->min_score, 'max' => (float) $group->first()->max_score, 'texts' => $group->pluck('text')->values()])
+                ->values();
+        } else {
+            $commentBands = collect();
+        }
 
         return view('school.examinations.index', [
             'school' => $school,
