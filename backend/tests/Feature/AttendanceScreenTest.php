@@ -448,6 +448,40 @@ class AttendanceScreenTest extends TestCase
             ->assertSee('class="grid cols-4"', false);
     }
 
+    /**
+     * User report 2026-07-26: the rate card plus 4 status cards (5 total)
+     * dangled a lone 5th card in the 4 column grid at every breakpoint,
+     * on desktop and at the 2-column tablet step alike, the standing
+     * "grids must resolve to complete rows, pick a column count that
+     * divides evenly" rule. The rate card now renders as its own card
+     * outside the grid, so the grid holds exactly the 4 status cards,
+     * which divide cleanly (4, then 2x2, then a single column) at
+     * every breakpoint the same way every other cols-4 grid does.
+     */
+    public function test_the_rate_card_sits_outside_the_four_column_status_grid_not_as_a_fifth_item(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-13 09:00:00'));
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'attdashfive');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $arm, 'studentA' => $student] = $this->twoClassesWithStudents();
+        Attendance::create(['date' => now()->toDateString(), 'person_type' => 'student', 'person_id' => $student->id, 'class_arm_id' => $arm->id, 'status' => 'present']);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/attendance/dashboard");
+        $response->assertOk();
+
+        $content = $response->getContent();
+        $ratePosition = strpos($content, "Today's rate");
+        $gridPosition = strpos($content, 'class="grid cols-4"');
+        $this->assertNotFalse($ratePosition);
+        $this->assertNotFalse($gridPosition);
+        $this->assertLessThan($gridPosition, $ratePosition, 'the rate card should render before the status grid opens, not as a 5th item inside it');
+
+        // Exactly 4 status cards inside the grid, plus the 1 rate card outside it.
+        $this->assertSame(5, substr_count($content, 'class="card stat"'));
+    }
+
     /** User request 2026-07-22: "let's have alterative style ot charts to select for this current ones, apply to all areas that the chart is." */
     public function test_the_attendance_trend_switches_to_bars_when_the_school_chooses_that_chart_style(): void
     {

@@ -31,8 +31,18 @@
   </form>
 </div>
 
+{{--
+  Kept as its own full-width card rather than folded into the grid
+  below (found 2026-07-26: 5 cards, the rate plus 4 statuses, in a
+  4-column grid dangles a lone 5th card at every breakpoint, on
+  desktop and at the 2-column tablet step alike, the standing "grids
+  must resolve to complete rows, pick a column count that divides
+  evenly" rule). The 4 status cards on their own divide cleanly into
+  the existing cols-4 grid at every breakpoint (4, then 2x2, then a
+  single column), the same tested pattern used everywhere else.
+--}}
+<div class="card stat" style="padding:1rem;margin-bottom:1rem"><b>{{ $todayRate !== null ? "{$todayRate}%" : 'N/A' }}</b><span>{!! $isToday ? "Today's rate" : 'Rate on '.e(\Illuminate\Support\Carbon::parse($selectedDate)->format('j M')) !!}</span></div>
 <div class="grid cols-4" style="gap:1rem;margin-bottom:1.25rem">
-  <div class="card stat" style="padding:1rem"><b>{{ $todayRate !== null ? "{$todayRate}%" : 'N/A' }}</b><span>{!! $isToday ? "Today's rate" : 'Rate on '.e(\Illuminate\Support\Carbon::parse($selectedDate)->format('j M')) !!}</span></div>
   @foreach($statuses as $status)
     <div class="card stat" style="padding:1rem"><b>{{ $todayCounts[$status] ?? 0 }}</b><span>{{ ucfirst($status) }} {{ $isToday ? 'today' : 'that day' }}</span></div>
   @endforeach
