@@ -69,6 +69,27 @@ class HouseScreenTest extends TestCase
         $this->assertSame(4, $count);
     }
 
+    /**
+     * User report 2026-07-26 (reached via the Help Center's own "Setting
+     * up school houses" article link): "parents users should not have
+     * access to this at all." A parent holds 'students.view' for a
+     * completely different, narrower reason (viewing their own child's
+     * profile), not for browsing the school's administrative structure.
+     */
+    public function test_a_parent_cannot_reach_the_houses_screen_despite_holding_students_view(): void
+    {
+        [$school, $parent] = $this->schoolWithMember('parent', 'housefour');
+
+        $this->actingAs($parent)->get("http://{$school->slug}.localhost/houses")->assertForbidden();
+    }
+
+    public function test_a_student_cannot_reach_the_houses_screen_despite_holding_students_view(): void
+    {
+        [$school, $student] = $this->schoolWithMember('student', 'housefive');
+
+        $this->actingAs($student)->get("http://{$school->slug}.localhost/houses")->assertForbidden();
+    }
+
     public function test_loading_defaults_twice_does_not_duplicate(): void
     {
         [$school, $admin] = $this->schoolWithMember('school-owner', 'housetwo');

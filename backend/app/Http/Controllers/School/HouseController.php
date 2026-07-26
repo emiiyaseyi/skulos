@@ -34,10 +34,30 @@ class HouseController extends Controller
         return $request->attributes->get('school');
     }
 
+    /**
+     * Houses is a school administration screen, never a parent/student
+     * self-service one. It gates on 'students.view'/'students.manage_
+     * settings' the same as everywhere else that touches student records,
+     * but the parent and student roles also hold 'students.view' for a
+     * completely different, narrower reason, viewing their OWN child's
+     * profile (StudentController's own FamilyScope), not for browsing the
+     * school's administrative structure. Found live 2026-07-26 (real bug
+     * report, reached via the Help Center's own "Setting up school
+     * houses" article link): a parent could open the full Houses admin
+     * screen, including staff/parent CSV bulk-assign templates, purely
+     * because they hold that one broad permission. Explicitly denied
+     * here regardless of what the permission itself would otherwise
+     * allow, deny-by-default for a role this screen was never meant for.
+     */
     protected function authorizeAction(Request $request, string $permission): void
     {
+        $school = $this->school($request);
+        $user = Auth::user();
+        $role = $user->roleIn($school);
+        abort_if(in_array($role?->slug, ['parent', 'student'], true), 403, 'You do not have permission for this.');
+
         abort_unless(
-            app(Rbac::class)->check(Auth::user(), $this->school($request), $permission),
+            app(Rbac::class)->check($user, $school, $permission),
             403,
             'You do not have permission for this.'
         );
