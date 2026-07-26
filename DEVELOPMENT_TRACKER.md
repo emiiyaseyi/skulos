@@ -2425,6 +2425,14 @@ The user's "FEEDBACK LIST.docx" got a first "16 issues" pass and a newly appende
 - Resolution: n/a.
 - QA: FinanceTest grew to 61 passing (class-detail drill-down, parent-hides-breakdown, and three multi-child-split tests: even split + shared group id, single-child has no group id, foreign student id dropped not trusted). Full unfiltered `php artisan test` re-run clean, 1103 passed / 0 failed. `tenants:migrate` run across all 9 provisioned schools for the new `payment_group_id` column.
 
+### Report Settings: admin toggle for the score entry auto suggested remark (2026-07-26, commit `a175cea`)
+- Status: Done
+- Started: 2026-07-26
+- Notes: user request: "on/off toggle for the score entry remark everywhere it appears." New `ReportCardController::SETTING_SUGGESTED_REMARK_ENABLED` tenant Setting (`score_entry_suggested_remark_enabled`, on by default), same pattern as the existing review stage toggle (`report_cards.assign_review` permission to change, a checkbox on Report Settings that self submits). `ExaminationController::index()` reads it once and gates both the server side prefilled suggestion (the `$suggestions` array) and the `commentBands` JSON feed the client side live re-suggestion reads; deliberately does NOT gate `gradingBands`, since the live total/grade calculation is a separate always on feature that must keep working regardless of this toggle.
+- Issues/Bugs: none.
+- Resolution: n/a.
+- QA: new `test_the_suggested_remark_can_be_turned_off_and_the_grade_calc_still_works` (ExaminationScreenTest) and two new ReportCardWorkflowTest cases (owner can toggle on/off, a teacher without `report_cards.assign_review` cannot). Full unfiltered `php artisan test` re-run clean, 1106 passed / 0 failed.
+
 ### Announcements: each row now opens a full read page instead of a truncated preview (2026-07-26, commit `0321fe7`)
 - Status: Done
 - Started: 2026-07-26
