@@ -2390,6 +2390,49 @@ The user's "FEEDBACK LIST.docx" got a first "16 issues" pass and a newly appende
 - Resolution: n/a.
 - QA: `test_the_class_detail_page_shows_the_teacher_and_subjects` updated to drop the student-name assertion; new `test_the_class_detail_page_no_longer_shows_a_student_roster` regression test added. AcademicsScreenTest (38 tests) green. Verified live on greenfield via Playwright screenshot.
 
+### Chat: "Start a new conversation" picker (2026-07-25/26, commit `216188f`)
+- Status: Done
+- Started: 2026-07-25
+- Notes: user report (FEEDBACK LIST.docx screenshot of the Chat screen's own empty state, found only after extracting the actual embedded image from the docx, a first guess at "messaging parity" targeting the Parent Portal directory was wrong and fully reverted before this landed). Chat's empty state previously gave no way to actually begin a thread; added a picker listing reachable people (scoped the same way the rest of Chat already scopes visibility) that starts a new conversation on selection.
+- Issues/Bugs: an initial attempt built Parent Portal directory Message buttons instead; ChatTest showed 3 failing 403s because `class-teacher`/`subject-teacher` roles don't hold `parents.view`, making that approach unreachable regardless. Reverted via `git restore` on all 6 touched files before starting the correct build.
+- Resolution: n/a.
+- QA: ChatTest green. Verified live on greenfield via Playwright.
+
+### Score entry: live total/grade calculation, 5 second autosave, auto-suggested remark (2026-07-25/26, commit `2d0eb3c`)
+- Status: Done
+- Started: 2026-07-25
+- Notes: `ExaminationController`'s score entry screen now computes a live running total and grade client side as CA/exam components are typed (reading the same grading scale/bands the server uses), autosaves in the background every 5 seconds instead of requiring an explicit save click per row, and pre-fills a suggested remark from the school's own comment bank (DB-backed, not `config()` read live, per the standing "everything must be a DB-backed layer" rule) based on the computed grade.
+- Issues/Bugs: none.
+- Resolution: n/a.
+- QA: ExaminationScreenTest green.
+
+### Fee schedule matrix: optional flag, automated per-class totals, term switcher, section filter (2026-07-26, commit `91797f3`)
+- Status: Done
+- Started: 2026-07-26
+- Notes: four separate pieces of direct user feedback on the fee schedule table folded into one build. (1) `is_optional` boolean added to `FeeItem` (migration, `$fillable`/`casts()`), a checkbox on the fee item form; the schedule now sorts non-optional items first (`usort` on `isOptional`) instead of an arbitrary/creation order that had been interleaving repeated "X (Optional)" rows through the list. (2) Two automated total rows per class, "Total including Optional Items" and "Total excluding Optional Items", computed by summing raw floats per class before formatting, not typed in by anyone. (3) `/finance/fee-items` previously rendered every term's schedule stacked on the page at once; `FeeItemController::index()` now resolves a single `$scheduleTerm` (from `?term_id=` or `Term::current()`, mirroring the existing Payments page term switcher pattern) via a small GET form. (4) A second GET form filters the schedule to one section (Nursery/Primary/Secondary), preserving the term selection via a hidden input. `feeSchedule()` was renamed `feeScheduleForTerm()` and rescoped to one term + one already-filtered class collection rather than looping every term.
+- Issues/Bugs: Blade's `{{ }}` HTML-escapes JSON inside an attribute (a test asserting a raw `"key":"value"` substring via `assertSee(..., false)` failed even though the browser correctly unescapes it before JS reads `dataset`) — fixed by asserting on visible text instead. Two tests using `assertDontSee` against page-wide text produced false failures because the page legitimately has two tables at different scopes (the term-filtered schedule and an unfiltered "browse every fee item" list) — fixed by asserting on `$response->viewData(...)` directly instead of scraping the whole page.
+- Resolution: see above per bug.
+- QA: FinanceTest grew to 56 passing at this point; real greenfield fee items backfilled live (`is_optional=true` on the School/Sports Wear/Cardigan "(Optional)" rows, 36 rows) and `tenants:migrate` run across all 9 provisioned schools for the new column.
+
+### Payments: per-class payment drill-down, hiding the raw fee-item breakdown from parents, splitting one payment across multiple children (2026-07-26, commit `f7296b7`)
+- Status: Done
+- Started: 2026-07-26
+- Notes: three pieces of direct user feedback.
+  1. **Per-class drill-down**: "let's add the access to view parents who have paid under the Payments section so that if the user clicks on the class, it shows all the students who have paid, amount paid, balance, date paid, and same for those who are yet to pay." New `PaymentController::classDetail()`/`payments/class-detail.blade.php`, reached by clicking a class row or its new "View" button on the existing class-status table. Reuses the same `FeeItem::appliesToClass()` owed calculation already used by `classStatus()`/`nudgeUnpaid()`; "date paid" is `Payment::verified_at` (real datetime set when a bursar verifies), shown as "Not paid yet" when null.
+  2. **Hide the raw breakdown from parents**: "parents should not be seeing the individual breakdown of the fees like this, just fee schedule is okay to be seen." The entire fee-items list card on `/finance/fee-items` (Name/Term/Amount/Classes/Installments/Status/View/Manage columns) is now wrapped in `@if($canManage)`, whole-card rather than gating individual controls, since the complaint was about the section existing at all for a parent, not specific buttons within it. Parents still see the schedule matrix above it, unaffected.
+  3. **Split one payment across multiple children**: "for parents with more than one child, add the option of check box to select in case the parent wants the payment to cover more than one child." `payments.store` now accepts `student_ids[]` (was a single `student_id`); when a parent has more than one linked child the Submit Payment form shows a checkbox per child instead of a dropdown, with a live "this will be split evenly: NGN X each for N children" hint. The controller creates one `Payment` row per selected child (each still individually verifiable/rejectable, balances/records all stay per-student as before), the total amount split evenly with the rounding remainder landing on the last child so the shares always sum back exactly, and all rows in one submission share a new `payment_group_id` column (migration, nullable, null for the ordinary single-child case) so the records screen can show they came from one evidence upload. A crafted student id outside the parent's own family is dropped from the batch, not rejected outright, so the legitimate children in a mixed submission still get recorded.
+- Issues/Bugs: none found this pass.
+- Resolution: n/a.
+- QA: FinanceTest grew to 61 passing (class-detail drill-down, parent-hides-breakdown, and three multi-child-split tests: even split + shared group id, single-child has no group id, foreign student id dropped not trusted). Full unfiltered `php artisan test` re-run clean, 1103 passed / 0 failed. `tenants:migrate` run across all 9 provisioned schools for the new `payment_group_id` column.
+
+### Announcements: each row now opens a full read page instead of a truncated preview (2026-07-26, commit `0321fe7`)
+- Status: Done
+- Started: 2026-07-26
+- Notes: user report: "one should be able to click on each one so as to read it fully" (the index list truncated every body to 90 characters via `Str::limit`, with no way to open the rest). New `AnnouncementController::show()`/`announcements/show.blade.php`; each index row's title now links to it. `Announcement::body` is validated plain text (no rich HTML), so the show page renders it via Blade's normal auto-escaping `{{ }}` with `white-space:pre-wrap` to preserve line breaks, no sanitizer needed.
+- Issues/Bugs: a test comparing the rendered page against the literal POSTed body failed by one trailing space, `TrimStrings` middleware trims trailing whitespace from POSTed text server side before it is ever saved.
+- Resolution: test assertion compares against `trim($longBody)` instead.
+- QA: AnnouncementComposeTest (5 tests) green.
+
 ---
 
 ---
