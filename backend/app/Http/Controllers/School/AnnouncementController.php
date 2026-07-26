@@ -60,6 +60,28 @@ class AnnouncementController extends Controller
     }
 
     /**
+     * Read one announcement in full (user report 2026-07-26: the index
+     * list truncated every body to 90 characters with no way to open the
+     * rest, "one should be able to click on each one so as to read it
+     * fully"). Not scoped to this user's own audience targeting, the
+     * same as index() itself (a shared communication log every member
+     * with communication.view can already browse, not a per-recipient
+     * inbox), so any announcement id shown on that list is reachable.
+     */
+    public function show(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'communication.view');
+        $school = $this->school($request);
+        $announcement = Announcement::announcements()->findOrFail($request->route('announcementId'));
+
+        return view('school.announcements.show', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'announcement' => $announcement,
+        ]);
+    }
+
+    /**
      * Communication History (user directive 2026-07-16, "ALL THERE": build
      * out the remaining Reports & Analytics/Communication "Soon" items,
      * covers the communication_history catalog feature). Announcements and

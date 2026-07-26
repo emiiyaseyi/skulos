@@ -412,6 +412,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/history/{announcementId}/nudge', [$announcements, 'nudgeUnacknowledged'])->name('history.nudge');
             Route::get('/create', [$announcements, 'create'])->name('create');
             Route::post('/create', [$announcements, 'store'])->name('store');
+            Route::get('/{announcementId}', [$announcements, 'show'])->name('show');
         });
         Route::prefix('messages')->name('school.messages.')->group(function () {
             $messages = \App\Http\Controllers\School\MessageController::class;
@@ -596,6 +597,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/payments/nudge', [$payments, 'nudgeUnpaid'])->name('payments.nudge');
             Route::post('/payments/due-date', [$payments, 'updateDueDate'])->name('payments.due-date');
             Route::post('/payments/active-term', [$payments, 'updateActiveTerm'])->name('payments.active-term');
+            Route::get('/payments/classes/{classArmId}', [$payments, 'classDetail'])->name('payments.class-detail');
             Route::get('/payments/{paymentId}', [$payments, 'show'])->name('payments.show');
             Route::post('/payments/{paymentId}/verify', [$payments, 'verify'])->name('payments.verify');
             Route::post('/payments/{paymentId}/reject', [$payments, 'reject'])->name('payments.reject');

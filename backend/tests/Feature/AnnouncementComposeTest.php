@@ -126,4 +126,30 @@ class AnnouncementComposeTest extends TestCase
         $this->actingAs($owner)->get(route('school.announcements.index', ['school' => $school->slug]))
             ->assertOk()->assertSee('Uniform update');
     }
+
+    /**
+     * User report 2026-07-26: the index list truncated every body to 90
+     * characters with no way to open the rest, "one should be able to
+     * click on each one so as to read it fully."
+     */
+    public function test_a_recipient_can_click_through_to_read_the_full_announcement(): void
+    {
+        Mail::fake();
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'annfive');
+        $longBody = str_repeat('This is the full announcement body. ', 10);
+
+        $this->actingAs($owner)->post(route('school.announcements.store', ['school' => $school->slug]), [
+            'title' => 'Long notice', 'body' => $longBody, 'audience' => 'all',
+        ]);
+
+        app(TenantManager::class)->use($school);
+        $announcementId = Announcement::first()->id;
+        app(TenantManager::class)->forget();
+
+        $index = $this->actingAs($owner)->get(route('school.announcements.index', ['school' => $school->slug]));
+        $index->assertOk()->assertSee(route('school.announcements.show', ['school' => $school->slug, 'announcementId' => $announcementId]), false);
+
+        $this->actingAs($owner)->get(route('school.announcements.show', ['school' => $school->slug, 'announcementId' => $announcementId]))
+            ->assertOk()->assertSee('Long notice')->assertSee(trim($longBody));
+    }
 }
