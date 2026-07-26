@@ -53,6 +53,7 @@
   @else
     <form id="bulkNotificationsForm" method="POST" action="{{ route('school.notifications.bulk-action', ['school' => $school->slug]) }}"></form>
     @foreach($notifications as $n)
+      @php($link = $n->deepLinkUrl($school))
       <div class="notif-row {{ $n->read_at ? '' : 'unread' }}">
         <input type="checkbox" form="bulkNotificationsForm" class="notif-row-check" name="notification_ids[]" value="{{ $n->id }}" aria-label="Select {{ $n->title }}" style="margin-top:.25rem" />
         <div style="flex:1">
@@ -64,6 +65,9 @@
           @if($n->body)<div class="muted" style="font-size:.87rem;margin-top:.2rem">{{ $n->body }}</div>@endif
           <small class="muted">{{ $n->created_at->diffForHumans() }}</small>
         </div>
+        @if($link)
+          <a class="btn btn-ghost btn-sm" href="{{ $link }}" style="white-space:nowrap">Take me there</a>
+        @endif
       </div>
     @endforeach
 

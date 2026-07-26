@@ -136,6 +136,45 @@ class NotificationCenterTest extends TestCase
         $archived->assertOk()->assertSee('Archive me');
     }
 
+    /**
+     * User report 2026-07-25: a notification could be read but there was
+     * nothing to click through to the screen where it could actually be
+     * acted on. config('skulos.notification_deep_links') maps a category
+     * to the actionable screen; a category with nothing to act on
+     * (birthday) stays unlinked.
+     */
+    public function test_a_notification_with_a_mapped_category_deep_links_to_its_actionable_screen(): void
+    {
+        [$school, $user] = $this->schoolWithMember('school-owner', 'notifdeeplinkone');
+
+        app(TenantManager::class)->use($school);
+        $n = Notification::create(['user_id' => $user->id, 'title' => 'Fee awaiting approval', 'category' => 'fee_item_pending_approval', 'type' => 'finance']);
+        $url = $n->deepLinkUrl($school);
+        app(TenantManager::class)->forget();
+
+        $this->assertNotNull($url);
+        $this->assertStringContainsString('/finance/fee-items', $url);
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/notifications")
+            ->assertOk()->assertSee('Take me there')
+            ->assertSee("http://{$school->slug}.localhost/finance/fee-items", false);
+    }
+
+    public function test_a_notification_with_no_mapped_category_has_no_deep_link(): void
+    {
+        [$school, $user] = $this->schoolWithMember('school-owner', 'notifdeeplinktwo');
+
+        app(TenantManager::class)->use($school);
+        $n = Notification::create(['user_id' => $user->id, 'title' => 'Happy birthday', 'category' => 'birthday', 'type' => 'academic']);
+        $url = $n->deepLinkUrl($school);
+        app(TenantManager::class)->forget();
+
+        $this->assertNull($url);
+
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/notifications")
+            ->assertOk()->assertDontSee('Take me there');
+    }
+
     /** A user can only ever act on their own notifications, never another user's, even if they guess the id. */
     public function test_a_user_cannot_bulk_act_on_another_users_notification(): void
     {

@@ -192,8 +192,10 @@ class ProfileTest extends TestCase
 
         app(TenantManager::class)->use($school);
         $status = ProfileChangeRequest::find($requestId)->status;
+        $applicantNotified = \App\Models\Tenant\Notification::where('user_id', $teacher->id)->where('category', 'profile_change_approved')->exists();
         app(TenantManager::class)->forget();
         $this->assertSame(ProfileChangeRequest::STATUS_APPROVED, $status);
+        $this->assertTrue($applicantNotified, 'the applicant must be told their own request was approved');
     }
 
     public function test_an_admin_can_reject_a_pending_request_with_a_reason(): void
@@ -218,9 +220,14 @@ class ProfileTest extends TestCase
 
         app(TenantManager::class)->use($school);
         $rejected = ProfileChangeRequest::find($requestId);
+        $applicantNotified = \App\Models\Tenant\Notification::where('user_id', $teacher->id)
+            ->where('category', 'profile_change_rejected')
+            ->where('body', 'like', '%Please use your legal name.%')
+            ->exists();
         app(TenantManager::class)->forget();
         $this->assertSame(ProfileChangeRequest::STATUS_REJECTED, $rejected->status);
         $this->assertSame('Please use your legal name.', $rejected->notes);
+        $this->assertTrue($applicantNotified, 'the applicant must be told their own request was rejected, with the reason');
     }
 
     public function test_rejecting_without_a_reason_fails_validation(): void
@@ -239,6 +246,42 @@ class ProfileTest extends TestCase
 
         $this->actingAs($owner)->post("http://{$school->slug}.localhost/profile/approvals/{$requestId}/reject", [])
             ->assertSessionHasErrors('notes');
+    }
+
+    public function test_bulk_approve_and_bulk_reject_both_notify_the_applicants(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'profilebulk');
+        $teacherA = User::factory()->create(['name' => 'Teacher A']);
+        $teacherB = User::factory()->create(['name' => 'Teacher B']);
+        $school->users()->attach($teacherA->id, ['role_id' => $this->rbac->cloneTemplateRole($school, 'subject-teacher')->id, 'status' => 'active']);
+        $school->users()->attach($teacherB->id, ['role_id' => $this->rbac->cloneTemplateRole($school, 'subject-teacher')->id, 'status' => 'active']);
+
+        $this->actingAs($teacherA)->post("http://{$school->slug}.localhost/profile", [
+            'name' => 'A New Name', 'email' => $teacherA->email, 'phone' => $teacherA->phone,
+        ]);
+        $this->actingAs($teacherB)->post("http://{$school->slug}.localhost/profile", [
+            'name' => 'B New Name', 'email' => $teacherB->email, 'phone' => $teacherB->phone,
+        ]);
+
+        app(TenantManager::class)->use($school);
+        $requestIdA = ProfileChangeRequest::where('user_id', $teacherA->id)->first()->id;
+        $requestIdB = ProfileChangeRequest::where('user_id', $teacherB->id)->first()->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/profile/approvals/bulk-approve", [
+            'request_ids' => [$requestIdA],
+        ])->assertRedirect();
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/profile/approvals/bulk-reject", [
+            'request_ids' => [$requestIdB], 'notes' => 'Not this time.',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $aApproved = \App\Models\Tenant\Notification::where('user_id', $teacherA->id)->where('category', 'profile_change_approved')->exists();
+        $bRejected = \App\Models\Tenant\Notification::where('user_id', $teacherB->id)->where('category', 'profile_change_rejected')->exists();
+        app(TenantManager::class)->forget();
+
+        $this->assertTrue($aApproved, 'bulk approve must notify the applicant');
+        $this->assertTrue($bRejected, 'bulk reject must notify the applicant');
     }
 
     public function test_a_teacher_without_staff_update_cannot_view_the_approvals_inbox(): void

@@ -21,10 +21,15 @@
       @if($bellFeed['unread'] > 0)<span class="badge badge-warn">{{ $bellFeed['unread'] }} new</span>@endif
     </div>
     @forelse($bellFeed['items'] as $n)
+      @php($link = $n->deepLinkUrl($school))
       <div class="notif" data-notification-id="{{ $n->id }}">
         <span class="dot {{ $n->read_at ? 'read' : '' }}"></span>
         <div style="flex:1">
-          <b>{{ $n->title }}</b>
+          @if($link)
+            <a href="{{ $link }}" style="color:inherit;text-decoration:none"><b>{{ $n->title }}</b></a>
+          @else
+            <b>{{ $n->title }}</b>
+          @endif
           @if($n->body)<div class="muted" style="font-size:.8rem">{{ \Illuminate\Support\Str::limit($n->body, 90) }}</div>@endif
           <small>{{ $n->created_at->diffForHumans() }}</small>
         </div>

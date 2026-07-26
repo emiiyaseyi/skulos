@@ -420,6 +420,7 @@ class ProfileController extends Controller
             'reviewed_by_user_id' => Auth::id(),
             'reviewed_at' => now(),
         ]);
+        $this->notifyApplicantOfDecision($applicant, 'profile_change_approved', 'Your profile change was approved', 'The change you asked for has been approved and is now live on your profile.');
 
         return back()->with('status', "{$applicant->name}'s profile change has been approved and applied.");
     }
@@ -438,8 +439,33 @@ class ProfileController extends Controller
             'reviewed_at' => now(),
             'notes' => $data['notes'],
         ]);
+        if ($applicant = User::find($changeRequest->user_id)) {
+            $this->notifyApplicantOfDecision($applicant, 'profile_change_rejected', 'Your profile change was rejected', "Your requested profile change was not approved: {$data['notes']}");
+        }
 
         return back()->with('status', 'The profile change has been rejected.');
+    }
+
+    /**
+     * The other side of notifyApprovers() above: tells the applicant
+     * themselves once their own request is decided (user report
+     * 2026-07-25, the same shape of gap as the approver-side one this
+     * page's approvals notification already fixed: nothing told them a
+     * decision had even been made, besides re-opening their own profile
+     * and noticing the fields had quietly changed). In app only, unlike
+     * the password reset flow's email: a profile-change applicant is by
+     * definition already an authenticated member who can see an in app
+     * notification, not someone locked out and reachable only by email.
+     */
+    protected function notifyApplicantOfDecision(User $applicant, string $category, string $title, string $body): void
+    {
+        \App\Models\Tenant\Notification::create([
+            'user_id' => $applicant->id,
+            'title' => $title,
+            'body' => $body,
+            'category' => $category,
+            'type' => \App\Models\Tenant\Notification::typeFor($category),
+        ]);
     }
 
     /**
@@ -491,6 +517,7 @@ class ProfileController extends Controller
                 'reviewed_by_user_id' => Auth::id(),
                 'reviewed_at' => now(),
             ]);
+            $this->notifyApplicantOfDecision($applicant, 'profile_change_approved', 'Your profile change was approved', 'The change you asked for has been approved and is now live on your profile.');
             $approved++;
         }
 
@@ -512,6 +539,9 @@ class ProfileController extends Controller
             'notes' => ['required', 'string', 'max:500'],
         ]);
 
+        $applicantUserIds = ProfileChangeRequest::where('status', ProfileChangeRequest::STATUS_PENDING)
+            ->whereIn('id', $data['request_ids'])->pluck('user_id');
+
         $count = ProfileChangeRequest::where('status', ProfileChangeRequest::STATUS_PENDING)
             ->whereIn('id', $data['request_ids'])
             ->update([
@@ -520,6 +550,10 @@ class ProfileController extends Controller
                 'reviewed_at' => now(),
                 'notes' => $data['notes'],
             ]);
+
+        foreach (User::whereIn('id', $applicantUserIds)->get() as $applicant) {
+            $this->notifyApplicantOfDecision($applicant, 'profile_change_rejected', 'Your profile change was rejected', "Your requested profile change was not approved: {$data['notes']}");
+        }
 
         return back()->with('status', "{$count} profile change(s) rejected.");
     }

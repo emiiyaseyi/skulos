@@ -86,6 +86,19 @@ class Notification extends Model
         }
     }
 
+    /**
+     * Where clicking this notification should take the recipient, per
+     * config('skulos.notification_deep_links'). Null for a category with
+     * no actionable screen (birthday, anniversary), which just renders
+     * as an unlinked notification, exactly as before this existed.
+     */
+    public function deepLinkUrl(\App\Models\School $school): ?string
+    {
+        $route = config("skulos.notification_deep_links.{$this->category}");
+
+        return $route ? route($route, ['school' => $school->slug]) : null;
+    }
+
     public function togglePin(): void
     {
         $this->forceFill(['pinned_at' => $this->pinned_at ? null : now()])->save();
