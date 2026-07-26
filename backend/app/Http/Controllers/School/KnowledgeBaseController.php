@@ -24,12 +24,45 @@ use Illuminate\Support\Facades\Auth;
  * (config('skulos.knowledge_base_start_routes')[route]['permission']);
  * an article with no start_route is general orientation content and
  * stays visible to everyone.
+ *
+ * A second, independent check narrows this further for a parent or
+ * student (2026-07-26 user report: "Help & Knowledge Base for parent
+ * is totally wrong, why is it showing how to set up house,
+ * communicaiton, so may issues are wrog there"): the permission check
+ * above alone was not enough, a parent/student holds several of the
+ * same broad permission codes an admin screen checks (students.view,
+ * communication.view) for a completely different, narrower reason,
+ * their own child only, via FamilyScope, not for browsing school
+ * administration articles. config('skulos.knowledge_base_start_
+ * routes')[route]['hidden_for_family_scoped'] flags exactly which
+ * ones to hide regardless, the same "shares a permission but isn't
+ * really for them" exclusion nav-school.blade.php's own
+ * $alwaysHiddenForScoped already applies to the sidebar.
  */
 class KnowledgeBaseController extends Controller
 {
     protected function school(Request $request): \App\Models\School
     {
         return $request->attributes->get('school');
+    }
+
+    protected function isFamilyScoped(\App\Models\School $school): bool
+    {
+        $roleSlug = optional(Auth::user()?->roleIn($school))->slug;
+
+        return $roleSlug && in_array($roleSlug, config('skulos.family_scoped_roles', []), true);
+    }
+
+    protected function articleVisible(\App\Models\KnowledgeBaseArticle $article, array $startRoutes, Rbac $rbac, $user, \App\Models\School $school, bool $familyScoped): bool
+    {
+        $meta = $startRoutes[$article->start_route] ?? [];
+        if ($familyScoped && ($meta['hidden_for_family_scoped'] ?? false)) {
+            return false;
+        }
+
+        $permission = $meta['permission'] ?? null;
+
+        return ! $permission || $rbac->check($user, $school, $permission);
     }
 
     public function index(Request $request): \Illuminate\View\View
@@ -39,6 +72,7 @@ class KnowledgeBaseController extends Controller
         $user = Auth::user();
         $rbac = app(Rbac::class);
         $startRoutes = config('skulos.knowledge_base_start_routes', []);
+        $familyScoped = $this->isFamilyScoped($school);
 
         $categories = KnowledgeBaseCategory::with(['articles' => function ($query) use ($q) {
             $query->where('is_published', true)->orderBy('sequence');
@@ -46,12 +80,10 @@ class KnowledgeBaseController extends Controller
                 $query->where(fn ($w) => $w->where('title', 'like', "%{$q}%")->orWhere('body', 'like', "%{$q}%"));
             }
         }])->orderBy('sequence')->get()
-            ->map(function ($category) use ($startRoutes, $rbac, $user, $school) {
-                $category->setRelation('articles', $category->articles->filter(function ($article) use ($startRoutes, $rbac, $user, $school) {
-                    $permission = $startRoutes[$article->start_route]['permission'] ?? null;
-
-                    return ! $permission || $rbac->check($user, $school, $permission);
-                }));
+            ->map(function ($category) use ($startRoutes, $rbac, $user, $school, $familyScoped) {
+                $category->setRelation('articles', $category->articles->filter(
+                    fn ($article) => $this->articleVisible($article, $startRoutes, $rbac, $user, $school, $familyScoped)
+                ));
 
                 return $category;
             })
@@ -73,8 +105,9 @@ class KnowledgeBaseController extends Controller
             ->firstOrFail();
 
         $school = $this->school($request);
-        $permission = config('skulos.knowledge_base_start_routes', [])[$article->start_route]['permission'] ?? null;
-        abort_unless(! $permission || app(Rbac::class)->check(Auth::user(), $school, $permission), 404);
+        $startRoutes = config('skulos.knowledge_base_start_routes', []);
+        $visible = $this->articleVisible($article, $startRoutes, app(Rbac::class), Auth::user(), $school, $this->isFamilyScoped($school));
+        abort_unless($visible, 404);
 
         return view('school.knowledge-base.show', [
             'school' => $school,

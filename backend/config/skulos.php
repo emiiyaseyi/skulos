@@ -491,6 +491,65 @@ return [
                 'start_route' => 'school.examinations.academic-insights',
             ],
         ],
+        // For Parents (2026-07-26, user report: "Help & Knowledge Base
+        // for parent is totally wrong... update it to show items related
+        // to parents"). Every article here is something a parent
+        // genuinely does on SKULOS, none of the school administration
+        // content above ever applied to them in the first place.
+        'For Parents' => [
+            [
+                'title' => "Viewing your child's academic report",
+                'body' => "Each child's profile shows their current term scores, remarks, and attendance for that term.",
+                'steps' => [
+                    'Go to Students.',
+                    'Open your child\'s profile (if you have more than one child, pick which one first).',
+                    "The Academic Report card shows this term's subject scores, remarks, and attendance.",
+                    'A full Report Card is also available from the same profile once the school has released it.',
+                ],
+                'start_route' => 'school.students',
+            ],
+            [
+                'title' => "Paying your child's fees",
+                'body' => 'Payment is by bank transfer: send the money, then upload your evidence here for the school to verify.',
+                'steps' => [
+                    'Go to Finance > Payments > Submit Payment.',
+                    "Send the transfer to one of the school's bank accounts shown on the page.",
+                    'Choose which child (or children, if you are covering more than one) and what the payment is for, or use one of the All Fees options to pay everything at once.',
+                    'Upload a screenshot or PDF of your transfer as evidence, then submit. You will be notified once the school verifies it.',
+                ],
+                'start_route' => 'school.finance.payments.create',
+            ],
+            [
+                'title' => 'Checking your payment history',
+                'body' => 'Every payment you have submitted, and whether it is still pending, verified, or was rejected.',
+                'steps' => [
+                    'Go to Finance > Payments.',
+                    'Each row shows the child, amount, and current status.',
+                    'Open any payment to see its full detail, including your uploaded evidence.',
+                ],
+                'start_route' => 'school.finance.payments.index',
+            ],
+            [
+                'title' => 'Reading school announcements',
+                'body' => 'Every announcement sent to you, most recent first.',
+                'steps' => [
+                    'Go to Announcements.',
+                    'Tap any row to read the full announcement.',
+                    'A new announcement also arrives as a notification.',
+                ],
+                'start_route' => 'school.announcements.index',
+            ],
+            [
+                'title' => 'Understanding your notifications',
+                'body' => 'The bell icon at the top of every screen, and the full Notification Center for everything at once.',
+                'steps' => [
+                    'Tap the bell icon at the top of any screen for a quick preview of your recent notifications.',
+                    'Go to Notifications for the full list, including read and archived ones.',
+                    'Pin an important notification so it always stays at the top.',
+                ],
+                'start_route' => 'school.notifications.index',
+            ],
+        ],
     ],
 
     /*
@@ -507,6 +566,7 @@ return [
         'Results & Report Cards' => 'results',
         'Communication' => 'comms',
         'Reports & Analytics' => 'trend',
+        'For Parents' => 'parents',
     ],
 
     /*
@@ -528,25 +588,50 @@ return [
     | filters an article out of a user's own Help list when they lack it.
     | An article with no start_route (general orientation, "Finding your
     | way around") has no permission to check and always shows.
+    |
+    | "hidden_for_family_scoped" (added 2026-07-26, user report: "Help &
+    | Knowledge Base for parent is totally wrong, why is it showing how
+    | to set up house, communication... update it to show items related
+    | to parents") catches every article below, all of them genuinely
+    | staff/admin workflows, none meant for a parent or student, that the
+    | permission check alone lets through anyway because a parent/student
+    | happens to hold the same broad permission for a completely
+    | different, narrower reason (their own child only, via FamilyScope),
+    | the exact same "shares students.view but isn't really for them"
+    | shape nav-school.blade.php's own $alwaysHiddenForScoped list
+    | already handles for the sidebar. Mirrors that same convention here
+    | rather than inventing a new one.
     */
     'knowledge_base_start_routes' => [
-        'school.roles.index' => ['label' => 'User & Role Management', 'permission' => 'staff.update'],
-        'school.students.create' => ['label' => 'Add a Student', 'permission' => 'students.create'],
-        'school.students.import' => ['label' => 'Import Students', 'permission' => 'students.bulk'],
-        'school.students.settings.edit' => ['label' => 'Student Field Settings', 'permission' => 'students.manage_settings'],
-        'school.houses.index' => ['label' => 'Houses', 'permission' => 'students.view'],
-        'school.settings.custom-fields.index' => ['label' => 'Custom Fields', 'permission' => 'school_info.manage_settings'],
-        'school.attendance.index' => ['label' => 'Take Attendance', 'permission' => 'attendance.view'],
-        'school.timetable.periods' => ['label' => 'Timetable Periods', 'permission' => 'timetable.update'],
-        'school.timetable.exam.index' => ['label' => 'Examination Timetable', 'permission' => 'timetable.update'],
-        'school.examinations.structure' => ['label' => 'Assessment Structure', 'permission' => 'examinations.view'],
-        'school.examinations.grading' => ['label' => 'Grading', 'permission' => 'examinations.view'],
-        'school.report-cards.layout.edit' => ['label' => 'Report Card Layout Designer', 'permission' => 'report_cards.view'],
-        'school.report-cards.pending-review' => ['label' => 'Report Cards Pending Review', 'permission' => 'report_cards.assign_review'],
-        'school.announcements.create' => ['label' => 'Compose an Announcement', 'permission' => 'communication.broadcast'],
-        'school.announcements.history' => ['label' => 'Communication History', 'permission' => 'communication.view'],
-        'school.reports.builder.index' => ['label' => 'Report Builder', 'permission' => 'analytics.view'],
-        'school.examinations.academic-insights' => ['label' => 'Academic Insights', 'permission' => 'examinations.approve_results'],
+        'school.roles.index' => ['label' => 'User & Role Management', 'permission' => 'staff.update', 'hidden_for_family_scoped' => true],
+        'school.students.create' => ['label' => 'Add a Student', 'permission' => 'students.create', 'hidden_for_family_scoped' => true],
+        'school.students.import' => ['label' => 'Import Students', 'permission' => 'students.bulk', 'hidden_for_family_scoped' => true],
+        'school.students.settings.edit' => ['label' => 'Student Field Settings', 'permission' => 'students.manage_settings', 'hidden_for_family_scoped' => true],
+        'school.houses.index' => ['label' => 'Houses', 'permission' => 'students.view', 'hidden_for_family_scoped' => true],
+        'school.settings.custom-fields.index' => ['label' => 'Custom Fields', 'permission' => 'school_info.manage_settings', 'hidden_for_family_scoped' => true],
+        'school.attendance.index' => ['label' => 'Take Attendance', 'permission' => 'attendance.view', 'hidden_for_family_scoped' => true],
+        'school.timetable.periods' => ['label' => 'Timetable Periods', 'permission' => 'timetable.update', 'hidden_for_family_scoped' => true],
+        'school.timetable.exam.index' => ['label' => 'Examination Timetable', 'permission' => 'timetable.update', 'hidden_for_family_scoped' => true],
+        'school.examinations.structure' => ['label' => 'Assessment Structure', 'permission' => 'examinations.view', 'hidden_for_family_scoped' => true],
+        'school.examinations.grading' => ['label' => 'Grading', 'permission' => 'examinations.view', 'hidden_for_family_scoped' => true],
+        'school.report-cards.layout.edit' => ['label' => 'Report Card Layout Designer', 'permission' => 'report_cards.view', 'hidden_for_family_scoped' => true],
+        'school.report-cards.pending-review' => ['label' => 'Report Cards Pending Review', 'permission' => 'report_cards.assign_review', 'hidden_for_family_scoped' => true],
+        'school.announcements.create' => ['label' => 'Compose an Announcement', 'permission' => 'communication.broadcast', 'hidden_for_family_scoped' => true],
+        'school.announcements.history' => ['label' => 'Communication History', 'permission' => 'communication.view', 'hidden_for_family_scoped' => true],
+        'school.reports.builder.index' => ['label' => 'Report Builder', 'permission' => 'analytics.view', 'hidden_for_family_scoped' => true],
+        'school.examinations.academic-insights' => ['label' => 'Academic Insights', 'permission' => 'examinations.approve_results', 'hidden_for_family_scoped' => true],
+        // Parent/student relevant destinations (2026-07-26), every one
+        // reachable with only the permissions the parent/student role
+        // already holds, no {studentId}-style extra route parameter
+        // (the "Start here" button only ever supplies {school}).
+        'school.students' => ['label' => 'Students', 'permission' => 'students.view'],
+        'school.finance.payments.create' => ['label' => 'Submit Payment', 'permission' => 'finance.create'],
+        'school.finance.payments.index' => ['label' => 'Payments', 'permission' => 'finance.view'],
+        'school.announcements.index' => ['label' => 'Announcements', 'permission' => 'communication.view'],
+        // Notifications are personal, signed-in membership is the only
+        // gate (NotificationController's own doc comment), no permission
+        // to check.
+        'school.notifications.index' => ['label' => 'Notifications'],
     ],
 
     /*
@@ -1198,6 +1283,41 @@ return [
         'bar' => ['label' => 'Bar', 'description' => 'A bar per point, axis anchored at zero.'],
     ],
     'default_chart_style' => 'line',
+
+    /*
+    | Welcome email role briefs (2026-07-26). Seed-only catalog, same
+    | "config feeds a one-time seed, live reads go through a real tenant
+    | Setting" shape grading_scales/comments already use: an admin can
+    | override any of these from Email Settings, App\Services\Accounts\
+    | WelcomeEmailService::briefFor() falls back to this only for a role
+    | the school has never customized. One short sentence per role slug,
+    | what that role can actually do on first sign in.
+    */
+    'default_role_welcome_briefs' => [
+        'school-owner' => 'You have full control of your school\'s SKULOS portal: admissions, academics, finance, staff, and communication, all in one place.',
+        'school-admin' => 'You can manage students, staff, academics, and day to day school administration on SKULOS.',
+        'principal' => 'You have an overview of academics, staff, and student performance across the school.',
+        'head-teacher' => 'You have an overview of academics, staff, and student performance for your section of the school.',
+        'vice-principal' => 'You support the principal with academics, staff, and student performance across the school.',
+        'registrar' => 'You manage student admissions, records, and enrollment on SKULOS.',
+        'examination-officer' => 'You manage examinations, results, and report cards on SKULOS.',
+        'bursar' => 'You manage fees, payments, and the school\'s financial records on SKULOS.',
+        'ict-officer' => 'You support the school\'s SKULOS setup and help other staff with their accounts.',
+        'secretary' => 'You handle correspondence, records, and day to day administrative support on SKULOS.',
+        'teacher' => 'You can mark attendance, enter scores, post assignments, and message parents from your dashboard.',
+        'class-teacher' => 'You manage your class\'s attendance, report cards, and parent communication from your dashboard.',
+        'subject-teacher' => 'You can mark attendance, enter scores, and post assignments for the subjects you teach.',
+        'librarian' => 'You manage the school library on SKULOS.',
+        'nurse' => 'You manage student health records on SKULOS.',
+        'store-keeper' => 'You manage school inventory and supplies on SKULOS.',
+        'accountant' => 'You manage the school\'s financial records and reporting on SKULOS.',
+        'class-assistant' => 'You can take attendance and support your class teacher from your dashboard.',
+        'parent' => 'You can track your child\'s attendance, results, fees, and school announcements in one place.',
+        'student' => 'You can view your timetable, assignments, results, and school announcements any time.',
+        'security' => 'You manage visitor and gate records on SKULOS.',
+        'hostel-master' => 'You manage boarding house records on SKULOS.',
+        'transport-officer' => 'You manage school transport records on SKULOS.',
+    ],
 
     /*
     | Quick pick swatches for the brand colour picker (user request

@@ -207,6 +207,63 @@ class KnowledgeBaseTest extends TestCase
             ->assertOk()->assertSee('Adding a student');
     }
 
+    /**
+     * User report 2026-07-26: "Help & Knowledge Base for parent is
+     * totally wrong, why is it showing how to set up house,
+     * communicaiton, so may issues are wrog there." A parent holds
+     * students.view and communication.view too, for their own child
+     * only, not for browsing school administration articles like Houses
+     * or Communication History, so the permission check alone was not
+     * enough, hidden_for_family_scoped catches these regardless.
+     */
+    public function test_a_parent_does_not_see_admin_only_articles_despite_holding_the_same_permission(): void
+    {
+        [$school, $parent] = $this->schoolWithMember('parent', 'kbparentfilter');
+        $this->seed(\Database\Seeders\KnowledgeBaseSeeder::class);
+
+        $response = $this->actingAs($parent)->get("http://{$school->slug}.localhost/help");
+
+        $response->assertOk()
+            ->assertDontSee('Setting up school houses')
+            ->assertDontSee('Seeing who has acknowledged an announcement');
+    }
+
+    public function test_a_parent_cannot_open_an_admin_only_article_directly_by_url(): void
+    {
+        [$school, $parent] = $this->schoolWithMember('parent', 'kbparentfilterurl');
+        $this->seed(\Database\Seeders\KnowledgeBaseSeeder::class);
+
+        $this->actingAs($parent)->get("http://{$school->slug}.localhost/help/setting-up-school-houses")
+            ->assertNotFound();
+    }
+
+    /** User request 2026-07-26: "update it to show items related to parents." */
+    public function test_a_parent_sees_the_new_for_parents_category_with_real_content(): void
+    {
+        [$school, $parent] = $this->schoolWithMember('parent', 'kbparentcontent');
+        $this->seed(\Database\Seeders\KnowledgeBaseSeeder::class);
+
+        $response = $this->actingAs($parent)->get("http://{$school->slug}.localhost/help");
+
+        $response->assertOk()
+            ->assertSee('For Parents')
+            ->assertSee(e("Paying your child's fees"), false)
+            ->assertSee('Reading school announcements')
+            ->assertSee('Checking your payment history');
+    }
+
+    /** A school owner, unaffected by the family-scoped exclusion, must still see every admin article. */
+    public function test_an_admin_still_sees_the_admin_only_articles_the_family_scoped_exclusion_hides_from_a_parent(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'kbadminstillsees');
+        $this->seed(\Database\Seeders\KnowledgeBaseSeeder::class);
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/help")
+            ->assertOk()
+            ->assertSee('Setting up school houses')
+            ->assertSee('Seeing who has acknowledged an announcement');
+    }
+
     public function test_deleting_a_category_removes_its_articles(): void
     {
         $admin = $this->superAdmin();
