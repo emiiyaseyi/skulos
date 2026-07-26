@@ -38,6 +38,10 @@
         <input type="checkbox" name="allow_installments" value="1" @checked(old('allow_installments', $feeItem->allow_installments)) />
         <span>Allow this fee to be paid in installments</span>
       </label>
+      <label style="display:flex;align-items:center;gap:.5rem;margin:1rem 0">
+        <input type="checkbox" name="is_optional" value="1" @checked(old('is_optional', $feeItem->is_optional)) />
+        <span>This item is optional (e.g. uniform, sportswear), excluded from the "excluding optional items" total</span>
+      </label>
       <button class="btn btn-primary btn-sm" type="submit">Save changes</button>
     </form>
   </div>

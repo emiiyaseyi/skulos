@@ -10,6 +10,7 @@ use App\Models\Tenant\FeeItem;
 use App\Models\Tenant\FeeItemInstallment;
 use App\Models\Tenant\Notification;
 use App\Models\Tenant\SchoolClass;
+use App\Models\Tenant\Section;
 use App\Models\Tenant\Setting;
 use App\Models\Tenant\Staff;
 use App\Models\Tenant\Term;
@@ -53,19 +54,54 @@ class FeeItemController extends Controller
         $school = $this->school($request);
         $user = Auth::user();
 
+        $terms = Term::with('session')->get()->sortBy(fn (Term $t) => sprintf('%05d-%05d', $t->session?->id ?? 0, $t->sequence ?? 0))->values();
+        $upcomingTerm = $this->upcomingTermOption();
+
+        // Term switcher for the fee schedule matrix (user report
+        // 2026-07-26: "the terms are all showing on the page instead of
+        // have the switch a term function"), same ?term_id= pattern the
+        // Payments page's own term switcher already uses. Defaults to
+        // the school's actual current term, not just whichever term
+        // happens to have fee items.
+        $scheduleTermId = $request->integer('term_id') ?: null;
+        $scheduleTerm = $scheduleTermId ? Term::find($scheduleTermId) : Term::current()->first();
+
+        $sections = Section::orderBy('sequence')->get();
+        $sectionId = $request->integer('section_id') ?: null;
+
         $feeItems = FeeItem::with(['term', 'schoolClasses'])->orderByDesc('created_at')->get();
         $schoolClasses = SchoolClass::active()->with('section')->orderBy('sequence')->get()
             ->sortBy(fn (SchoolClass $c) => sprintf('%05d-%05d', $c->section?->sequence ?? 0, $c->sequence ?? 0))->values();
+
+        // "Make it possible to view the fees per section (Nursery,
+        // Primary, Secondary) under the selected term" (user request
+        // 2026-07-26): narrows which class columns the schedule shows,
+        // using the school's own real Section -> Class structure, not a
+        // second, separate grouping.
+        $scheduleClasses = $sectionId ? $schoolClasses->where('section_id', $sectionId)->values() : $schoolClasses;
+
+        $feeSchedule = null;
+        if ($scheduleTerm) {
+            $itemsForTerm = $feeItems->where('term_id', $scheduleTerm->id)->where('approval_status', FeeItem::APPROVAL_APPROVED);
+            if ($itemsForTerm->isNotEmpty()) {
+                $feeSchedule = $this->feeScheduleForTerm($itemsForTerm, $scheduleClasses);
+            }
+        }
+
         $chain = $this->feeApprovalChain();
 
         return view('school.finance.fee-items.index', [
             'school' => $school,
             'accent' => $school->branding()['color'],
             'feeItems' => $feeItems,
-            'terms' => Term::with('session')->get()->sortBy(fn (Term $t) => sprintf('%05d-%05d', $t->session?->id ?? 0, $t->sequence ?? 0))->values(),
-            'upcomingTerm' => $this->upcomingTermOption(),
+            'terms' => $terms,
+            'upcomingTerm' => $upcomingTerm,
             'schoolClasses' => $schoolClasses,
-            'feeSchedule' => $this->feeSchedule($feeItems->where('approval_status', FeeItem::APPROVAL_APPROVED), $schoolClasses),
+            'sections' => $sections,
+            'sectionId' => $sectionId,
+            'scheduleTerm' => $scheduleTerm,
+            'scheduleClasses' => $scheduleClasses,
+            'feeSchedule' => $feeSchedule,
             'bankAccounts' => BankAccount::orderBy('sort_order')->get(),
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'finance.update'),
             'feeApprovalEnabled' => $this->feeApprovalEnabled(),
@@ -135,36 +171,66 @@ class FeeItemController extends Controller
     /**
      * "The first section should show the schools fees in a tabular form
      * for all classes... only shows if the school admin has uploaded,
-     * set or entered the fee items" (user request 2026-07-25): one table
-     * per term, fee item names as rows, classes as columns, so the whole
-     * fee schedule reads at a glance instead of one row per fee item per
-     * class. A blank cell means that fee item does not apply to that
-     * class at all.
+     * set or entered the fee items" (user request 2026-07-25): fee item
+     * names as rows, classes as columns, so the whole fee schedule reads
+     * at a glance instead of one row per fee item per class. A blank
+     * cell means that fee item does not apply to that class at all.
+     * Scoped to a single term and a single, already-filtered (e.g. by
+     * section) set of classes by the caller, not looped over every term
+     * on one page any more (user report 2026-07-26: "the terms are all
+     * showing on the page instead of have the switch a term function").
+     * Non-optional items are listed first (user request 2026-07-26: "let
+     * all non optional items come first in the list"), each row also
+     * carries whether it is optional so the view can badge it and the
+     * two totals below can include/exclude it correctly.
      *
-     * @return list<array{term: string, classes: \Illuminate\Support\Collection, rows: list<array{name: string, amounts: array<int, ?string>}>}>
+     * @return array{rows: list<array{name: string, isOptional: bool, amounts: array<int, ?string>}>, totals: array{including: array<int, float>, excluding: array<int, float>}}
      */
-    protected function feeSchedule(\Illuminate\Support\Collection $feeItems, \Illuminate\Support\Collection $schoolClasses): array
+    protected function feeScheduleForTerm(\Illuminate\Support\Collection $feeItemsForTerm, \Illuminate\Support\Collection $schoolClasses): array
     {
-        $schedule = [];
+        $rows = [];
 
-        foreach ($feeItems->groupBy('term_id') as $itemsForTerm) {
-            $termName = $itemsForTerm->first()->term?->name ?? 'No term';
-            $rows = [];
-
-            foreach ($itemsForTerm->pluck('name')->unique() as $name) {
-                $itemsNamed = $itemsForTerm->where('name', $name);
-                $amounts = [];
-                foreach ($schoolClasses as $class) {
-                    $match = $itemsNamed->first(fn (FeeItem $i) => $i->appliesToClass($class->id));
-                    $amounts[$class->id] = $match ? number_format((float) $match->amount, 2) : null;
-                }
-                $rows[] = ['name' => $name, 'amounts' => $amounts];
+        foreach ($feeItemsForTerm->pluck('name')->unique() as $name) {
+            $itemsNamed = $feeItemsForTerm->where('name', $name);
+            $isOptional = $itemsNamed->contains(fn (FeeItem $i) => $i->is_optional);
+            $amounts = [];
+            foreach ($schoolClasses as $class) {
+                $match = $itemsNamed->first(fn (FeeItem $i) => $i->appliesToClass($class->id));
+                $amounts[$class->id] = $match ? (float) $match->amount : null;
             }
-
-            $schedule[] = ['term' => $termName, 'classes' => $schoolClasses, 'rows' => $rows];
+            $rows[] = ['name' => $name, 'isOptional' => $isOptional, 'amounts' => $amounts];
         }
 
-        return $schedule;
+        // Stable sort: non-optional rows first, optional rows after,
+        // each group keeping the order fee item names were first seen in.
+        usort($rows, fn ($a, $b) => $a['isOptional'] <=> $b['isOptional']);
+
+        $totalsIncluding = [];
+        $totalsExcluding = [];
+        foreach ($schoolClasses as $class) {
+            $totalsIncluding[$class->id] = 0.0;
+            $totalsExcluding[$class->id] = 0.0;
+            foreach ($rows as $row) {
+                $amount = $row['amounts'][$class->id] ?? null;
+                if ($amount === null) {
+                    continue;
+                }
+                $totalsIncluding[$class->id] += $amount;
+                if (! $row['isOptional']) {
+                    $totalsExcluding[$class->id] += $amount;
+                }
+            }
+        }
+
+        // Format for display only after totalling on real floats above.
+        foreach ($rows as &$row) {
+            foreach ($row['amounts'] as $classId => $amount) {
+                $row['amounts'][$classId] = $amount === null ? null : number_format($amount, 2);
+            }
+        }
+        unset($row);
+
+        return ['rows' => $rows, 'totals' => ['including' => $totalsIncluding, 'excluding' => $totalsExcluding]];
     }
 
     /**
@@ -255,10 +321,12 @@ class FeeItemController extends Controller
             'amount' => ['required', 'numeric', 'min:0'],
             'term_id' => ['required', $this->termIdRule()],
             'allow_installments' => ['nullable', 'boolean'],
+            'is_optional' => ['nullable', 'boolean'],
             'class_ids' => ['nullable', 'array'],
             'class_ids.*' => ['exists:tenant.school_classes,id'],
         ]);
         $data['allow_installments'] = (bool) ($data['allow_installments'] ?? false);
+        $data['is_optional'] = (bool) ($data['is_optional'] ?? false);
         $data['term_id'] = $this->resolveTermId($data['term_id']);
         $classIds = $data['class_ids'] ?? [];
         unset($data['class_ids']);
@@ -388,10 +456,12 @@ class FeeItemController extends Controller
             'amount' => ['required', 'numeric', 'min:0'],
             'term_id' => ['required', $this->termIdRule()],
             'allow_installments' => ['nullable', 'boolean'],
+            'is_optional' => ['nullable', 'boolean'],
             'class_ids' => ['nullable', 'array'],
             'class_ids.*' => ['exists:tenant.school_classes,id'],
         ]);
         $data['allow_installments'] = (bool) ($data['allow_installments'] ?? false);
+        $data['is_optional'] = (bool) ($data['is_optional'] ?? false);
         $data['term_id'] = $this->resolveTermId($data['term_id']);
         $classIds = $data['class_ids'] ?? [];
         unset($data['class_ids']);

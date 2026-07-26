@@ -15,36 +15,89 @@
   as columns (user request 2026-07-25: "the first section should show
   the schools fees in a tabular form for all classes first... this only
   shows if the school admin has uploaded, set or entered the fee
-  items"), one table per term. Read only, editing still happens on the
-  per fee item table/forms further down this same page.
+  items"). Scoped to one term at a time via the switcher below (user
+  report 2026-07-26: "the terms are all showing on the page instead of
+  have the switch a term function"), and optionally to one section's
+  classes (user request 2026-07-26: "make it possible to view the fees
+  per section... under the selected term"). Read only, editing still
+  happens on the per fee item table/forms further down this same page.
 --}}
-@if(count($feeSchedule))
+@if(count($terms))
   <div class="card" style="margin-bottom:1.1rem">
-    @foreach($feeSchedule as $group)
-      <h3 style="margin-bottom:.6rem{{ $loop->first ? '' : ';margin-top:1.4rem;padding-top:1.2rem;border-top:1px solid var(--line)' }}">{{ $group['term'] }} fee schedule</h3>
-      <div style="overflow-x:auto">
-      <table>
-        <thead>
+    <div style="display:flex;flex-wrap:wrap;gap:1.2rem;align-items:flex-end">
+      <form method="GET" style="max-width:18rem">
+        @if($sectionId)<input type="hidden" name="section_id" value="{{ $sectionId }}" />@endif
+        <div class="field" style="margin:0">
+          <label for="schedule_term_id">Viewing term</label>
+          <select id="schedule_term_id" name="term_id" onchange="this.form.submit()">
+            @foreach($terms as $term)
+              <option value="{{ $term->id }}" {{ $scheduleTerm && (int) $scheduleTerm->id === (int) $term->id ? 'selected' : '' }}>{{ $term->name }} ({{ $term->session?->name }})</option>
+            @endforeach
+          </select>
+        </div>
+      </form>
+      <form method="GET" style="max-width:16rem">
+        @if($scheduleTerm)<input type="hidden" name="term_id" value="{{ $scheduleTerm->id }}" />@endif
+        <div class="field" style="margin:0">
+          <label for="schedule_section_id">Section</label>
+          <select id="schedule_section_id" name="section_id" onchange="this.form.submit()">
+            <option value="">All sections</option>
+            @foreach($sections as $section)
+              <option value="{{ $section->id }}" @selected($sectionId === $section->id)>{{ $section->name }}</option>
+            @endforeach
+          </select>
+        </div>
+      </form>
+    </div>
+  </div>
+@endif
+
+@if($feeSchedule)
+  <div class="card" style="margin-bottom:1.1rem">
+    <h3 style="margin-bottom:.6rem">{{ $scheduleTerm->name }} fee schedule</h3>
+    <div style="overflow-x:auto">
+    <table>
+      <thead>
+        <tr>
+          <th>Fee item</th>
+          @foreach($scheduleClasses as $class)
+            <th style="text-align:right;white-space:nowrap">{{ $class->name }}</th>
+          @endforeach
+        </tr>
+      </thead>
+      <tbody>
+        @foreach($feeSchedule['rows'] as $row)
           <tr>
-            <th>Fee item</th>
-            @foreach($group['classes'] as $class)
-              <th style="text-align:right;white-space:nowrap">{{ $class->name }}</th>
+            <td style="white-space:nowrap">
+              <strong>{{ $row['name'] }}</strong>
+              @if($row['isOptional'])<span class="badge" style="margin-left:.4rem">Optional</span>@endif
+            </td>
+            @foreach($scheduleClasses as $class)
+              <td class="muted" style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap">{{ $row['amounts'][$class->id] ? '₦'.$row['amounts'][$class->id] : 'Not set' }}</td>
             @endforeach
           </tr>
-        </thead>
-        <tbody>
-          @foreach($group['rows'] as $row)
-            <tr>
-              <td style="white-space:nowrap"><strong>{{ $row['name'] }}</strong></td>
-              @foreach($group['classes'] as $class)
-                <td class="muted" style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap">{{ $row['amounts'][$class->id] ? '₦'.$row['amounts'][$class->id] : '—' }}</td>
-              @endforeach
-            </tr>
+        @endforeach
+      </tbody>
+      <tfoot>
+        <tr style="border-top:2px solid var(--line)">
+          <td><strong>Total (including optional items)</strong></td>
+          @foreach($scheduleClasses as $class)
+            <td style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap"><strong>₦{{ number_format($feeSchedule['totals']['including'][$class->id] ?? 0, 2) }}</strong></td>
           @endforeach
-        </tbody>
-      </table>
-      </div>
-    @endforeach
+        </tr>
+        <tr>
+          <td><strong>Total (excluding optional items)</strong></td>
+          @foreach($scheduleClasses as $class)
+            <td style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap"><strong>₦{{ number_format($feeSchedule['totals']['excluding'][$class->id] ?? 0, 2) }}</strong></td>
+          @endforeach
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+  </div>
+@elseif($scheduleTerm)
+  <div class="card" style="margin-bottom:1.1rem">
+    <p class="muted">No fee items set up yet for {{ $scheduleTerm->name }}{{ $sectionId ? ' in this section' : '' }}.</p>
   </div>
 @endif
 
@@ -132,6 +185,10 @@
       <label style="display:flex;align-items:center;gap:.5rem;margin:1rem 0">
         <input type="checkbox" name="allow_installments" value="1" @checked(old('allow_installments')) />
         <span>Allow this fee to be paid in installments</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:.5rem;margin:1rem 0">
+        <input type="checkbox" name="is_optional" value="1" @checked(old('is_optional')) />
+        <span>This item is optional (e.g. uniform, sportswear), excluded from the "excluding optional items" total</span>
       </label>
       <button class="btn btn-primary btn-sm" type="submit">Add fee item</button>
     </form>
@@ -276,7 +333,7 @@
             @if($canManage)
               <td><input type="checkbox" form="bulkFeeItemsForm" class="fee-item-row-check" name="fee_item_ids[]" value="{{ $item->id }}" aria-label="Select {{ $item->name }}" /></td>
             @endif
-            <td><strong>{{ $item->name }}</strong></td>
+            <td><strong>{{ $item->name }}</strong>@if($item->is_optional)<span class="badge" style="margin-left:.4rem">Optional</span>@endif</td>
             <td class="muted">{{ $item->term?->name }}</td>
             <td>₦{{ number_format((float) $item->amount, 2) }}</td>
             <td class="muted">{{ $item->schoolClasses->isEmpty() ? 'Every class' : $item->schoolClasses->pluck('name')->join(', ') }}</td>

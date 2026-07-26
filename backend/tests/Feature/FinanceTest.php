@@ -790,6 +790,115 @@ class FinanceTest extends TestCase
             ->assertSee('data-classes="'.$sss1->id.'"', false);
     }
 
+    /** User request 2026-07-26: "the fee items should have a box to check if its optional or not." */
+    public function test_a_fee_item_can_be_marked_optional(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finoptionalone');
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items", [
+            'name' => 'School Uniform', 'amount' => 12000, 'term_id' => $term->id, 'is_optional' => '1',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $isOptional = FeeItem::where('name', 'School Uniform')->value('is_optional');
+        app(TenantManager::class)->forget();
+
+        $this->assertTrue((bool) $isOptional);
+    }
+
+    /**
+     * User report 2026-07-26: "the fee schedule per class section table
+     * is not showing the total per class (note that this should be
+     * automated and should have two rows - Total including Options
+     * Items and Total excluding Options Items)" and "let all non
+     * optional items come first in the list."
+     */
+    public function test_the_fee_schedule_shows_non_optional_items_first_and_two_automated_totals(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finoptionaltwo');
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        FeeItem::create(['name' => 'School Uniform', 'amount' => 12000, 'term_id' => $term->id, 'is_optional' => true]);
+        FeeItem::create(['name' => 'Tuition', 'amount' => 50000, 'term_id' => $term->id, 'is_optional' => false]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($bursar)->get("http://{$school->slug}.localhost/finance/fee-items?term_id={$term->id}");
+        $response->assertOk();
+        $content = $response->getContent();
+
+        $this->assertLessThan(
+            strpos($content, 'School Uniform'),
+            strpos($content, 'Tuition'),
+            'a non optional item (Tuition) must be listed before an optional one (School Uniform)'
+        );
+        $this->assertStringContainsString('Total (including optional items)', $content);
+        $this->assertStringContainsString('Total (excluding optional items)', $content);
+        $response->assertSee('₦62,000.00')  // including: 12,000 + 50,000
+            ->assertSee('₦50,000.00');       // excluding: 50,000 only
+    }
+
+    /**
+     * User report 2026-07-26: "the terms are all showing on the page
+     * instead of have the switch a term function." Checked via the
+     * page's own $feeSchedule/$scheduleTerm view data rather than raw
+     * HTML text: the separate, unscoped "every fee item" list further
+     * down the same page (and the add-item class picker) legitimately
+     * still shows every term/class regardless of this filter, by design,
+     * so a page-wide assertDontSee would be testing the wrong table.
+     */
+    public function test_the_fee_schedule_shows_only_the_selected_term_not_every_term_at_once(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finswitchschedule');
+
+        app(TenantManager::class)->use($school);
+        $currentTerm = $this->currentTerm();
+        $otherSession = \App\Models\Tenant\AcademicSession::create(['name' => '2026/2027']);
+        $otherTerm = \App\Models\Tenant\Term::create([
+            'academic_session_id' => $otherSession->id, 'name' => 'Second Term', 'sequence' => 2, 'is_current' => false,
+            'starts_on' => now()->addMonths(4), 'ends_on' => now()->addMonths(7),
+        ]);
+        FeeItem::create(['name' => 'Current Term Fee', 'amount' => 1000, 'term_id' => $currentTerm->id]);
+        FeeItem::create(['name' => 'Other Term Fee', 'amount' => 2000, 'term_id' => $otherTerm->id]);
+        app(TenantManager::class)->forget();
+
+        $viewingCurrent = $this->actingAs($bursar)->get("http://{$school->slug}.localhost/finance/fee-items?term_id={$currentTerm->id}");
+        $viewingCurrent->assertOk();
+        $this->assertSame($currentTerm->id, $viewingCurrent->viewData('scheduleTerm')->id);
+        $this->assertEqualsCanonicalizing(['Current Term Fee'], collect($viewingCurrent->viewData('feeSchedule')['rows'])->pluck('name')->all());
+
+        $viewingOther = $this->actingAs($bursar)->get("http://{$school->slug}.localhost/finance/fee-items?term_id={$otherTerm->id}");
+        $viewingOther->assertOk();
+        $this->assertSame($otherTerm->id, $viewingOther->viewData('scheduleTerm')->id);
+        $this->assertEqualsCanonicalizing(['Other Term Fee'], collect($viewingOther->viewData('feeSchedule')['rows'])->pluck('name')->all());
+    }
+
+    /** User request 2026-07-26: "make it possible to view the fees per section... under the selected term." */
+    public function test_the_fee_schedule_can_be_narrowed_to_one_section(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finsectionfilter');
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $primarySection = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $secondarySection = \App\Models\Tenant\Section::create(['name' => 'Secondary', 'sequence' => 2]);
+        $primaryClass = \App\Models\Tenant\SchoolClass::create(['section_id' => $primarySection->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $secondaryClass = \App\Models\Tenant\SchoolClass::create(['section_id' => $secondarySection->id, 'name' => 'JSS 1', 'sequence' => 1]);
+        FeeItem::create(['name' => 'Tuition', 'amount' => 30000, 'term_id' => $term->id]);
+        $primarySectionId = $primarySection->id;
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($bursar)->get("http://{$school->slug}.localhost/finance/fee-items?term_id={$term->id}&section_id={$primarySectionId}");
+        $response->assertOk();
+        $this->assertEqualsCanonicalizing(['Primary 1'], collect($response->viewData('scheduleClasses'))->pluck('name')->all());
+    }
+
     /** The downloadable CSV template (user request 2026-07-25: "add a downloadable csv too"). */
     public function test_the_fee_item_csv_template_downloads_with_the_expected_columns(): void
     {

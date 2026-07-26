@@ -26,7 +26,7 @@ class FeeItem extends Model
 
     protected $connection = 'tenant';
 
-    protected $fillable = ['name', 'amount', 'term_id', 'is_active', 'allow_installments'];
+    protected $fillable = ['name', 'amount', 'term_id', 'is_active', 'allow_installments', 'is_optional'];
 
     /**
      * approval_status/approved_by_user_id/approved_at are deliberately
@@ -37,7 +37,7 @@ class FeeItem extends Model
      */
     protected function casts(): array
     {
-        return ['amount' => 'decimal:2', 'is_active' => 'boolean', 'allow_installments' => 'boolean', 'approved_at' => 'datetime'];
+        return ['amount' => 'decimal:2', 'is_active' => 'boolean', 'allow_installments' => 'boolean', 'is_optional' => 'boolean', 'approved_at' => 'datetime'];
     }
 
     public function term(): BelongsTo
