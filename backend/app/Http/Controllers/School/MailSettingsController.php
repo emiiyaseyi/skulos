@@ -5,6 +5,7 @@ namespace App\Http\Controllers\School;
 use App\Http\Controllers\Controller;
 use App\Mail\TestMail;
 use App\Models\School;
+use App\Services\Accounts\WelcomeEmailService;
 use App\Services\Mail\MailSettingsService;
 use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
@@ -31,7 +32,7 @@ class MailSettingsController extends Controller
         );
     }
 
-    public function edit(Request $request, MailSettingsService $mail): \Illuminate\View\View
+    public function edit(Request $request, MailSettingsService $mail, WelcomeEmailService $welcomeEmails): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'school_info.view');
         $school = $this->school($request);
@@ -40,6 +41,9 @@ class MailSettingsController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'settings' => $mail->schoolSettings(),
+            'welcomeBriefs' => $welcomeEmails->allBriefs(),
+            'roleLabels' => collect(config('skulos.roles'))->map(fn ($role, $slug) => $role['name'] ?? $slug)->all(),
+            'welcomeEmailsPausedUntil' => $welcomeEmails->pausedUntil(),
         ]);
     }
 
@@ -59,6 +63,28 @@ class MailSettingsController extends Controller
         $mail->saveSchoolSettings($data);
 
         return back()->with('status', 'Mail settings saved.');
+    }
+
+    /**
+     * Welcome email settings: role briefs and a "pause for a period"
+     * switch (user request 2026-07-26). Same permission as SMTP itself,
+     * since this lives on the same Email Settings screen.
+     */
+    public function updateWelcomeEmails(Request $request, WelcomeEmailService $welcomeEmails): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'school_info.manage_settings');
+
+        $data = $request->validate([
+            'briefs' => ['array'],
+            'briefs.*' => ['nullable', 'string', 'max:240'],
+            'paused_until' => ['nullable', 'date'],
+            'resume_now' => ['nullable', 'boolean'],
+        ]);
+
+        $welcomeEmails->setBriefs($data['briefs'] ?? []);
+        $welcomeEmails->pauseUntil($request->boolean('resume_now') ? null : ($data['paused_until'] ?? null));
+
+        return back()->with('status', 'Welcome email settings saved.');
     }
 
     public function sendTest(Request $request, MailSettingsService $mail): \Illuminate\Http\RedirectResponse

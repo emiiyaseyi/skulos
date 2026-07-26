@@ -759,6 +759,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/', [$mailSettings, 'edit'])->name('edit');
             Route::post('/', [$mailSettings, 'update'])->name('update');
             Route::post('/test', [$mailSettings, 'sendTest'])->name('test');
+            Route::post('/welcome-emails', [$mailSettings, 'updateWelcomeEmails'])->name('welcome-emails.update');
         });
 
         // Idle timeout (optional per-school override of the platform default).

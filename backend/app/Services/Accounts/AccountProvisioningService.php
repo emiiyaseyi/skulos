@@ -24,6 +24,10 @@ use Illuminate\Support\Str;
  */
 class AccountProvisioningService
 {
+    public function __construct(protected WelcomeEmailService $welcomeEmails)
+    {
+    }
+
     /**
      * @return array{user: User, password: string} $password is only ever
      *   returned for the caller to flash/display once; it is never stored.
@@ -50,8 +54,8 @@ class AccountProvisioningService
         $role = app(Rbac::class)->cloneTemplateRole($school, $roleSlug);
         $school->users()->syncWithoutDetaching([$user->id => ['role_id' => $role->id, 'status' => 'active']]);
 
-        if ($isNewLogin) {
-            Mail::to($user->email)->send(new AccountCreatedMail($user, $school, $password, $role->name));
+        if ($isNewLogin && ! $this->welcomeEmails->isPaused()) {
+            Mail::to($user->email)->send(new AccountCreatedMail($user, $school, $password, $role->name, $roleSlug));
         }
 
         return ['user' => $user, 'password' => $password];
@@ -107,6 +111,14 @@ class AccountProvisioningService
 
         $role = app(Rbac::class)->cloneTemplateRole($school, $roleSlug);
         $school->users()->syncWithoutDetaching([$user->id => ['role_id' => $role->id, 'status' => 'active']]);
+
+        // A welcome email only ever goes to a REAL email address (never
+        // the synthetic placeholder above, that would just bounce), and
+        // only for a genuinely new login, the same "only once" guard
+        // provision() above already applies.
+        if ($isNew && $realEmail && ! $this->welcomeEmails->isPaused()) {
+            Mail::to($realEmail)->send(new AccountCreatedMail($user, $school, $defaultPassword, $role->name, $roleSlug));
+        }
 
         return ['user' => $user, 'isNew' => $isNew];
     }
