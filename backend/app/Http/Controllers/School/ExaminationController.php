@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\School;
 use App\Models\Tenant\AssessmentComponent;
 use App\Models\Tenant\ClassArm;
+use App\Models\Tenant\Comment;
+use App\Models\Tenant\GradingScale;
 use App\Models\Tenant\ReportCardReview;
 use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Score;
@@ -294,6 +296,24 @@ class ExaminationController extends Controller
 
         $subjectsInThisClass = $pairs->where('class_arm_id', $classArmId)->pluck('subject_id')->unique()->count();
 
+        // Live total/grade/remark recalculation as a teacher types, and a
+        // 5 second autosave, both purely client side (user request
+        // 2026-07-25: "live total/grade calc, 5s autosave, auto-suggested
+        // remark" on this screen). Ships the same bands the server itself
+        // already uses (GradingScale::bandFor()/CommentBank::suggestionFor())
+        // to the browser as plain JSON, rather than round tripping to the
+        // server on every keystroke; the eventual save (autosave or the
+        // manual button) still goes through save()'s own validation and
+        // window/lock checks unchanged, this is purely a live preview.
+        $commentBank->ensureSeeded();
+        $gradingBands = (GradingScale::default()?->bands ?? collect())
+            ->map(fn ($b) => ['min' => (float) $b->min_score, 'max' => (float) $b->max_score, 'grade' => $b->grade])
+            ->values();
+        $commentBands = Comment::where('is_active', true)->get()
+            ->groupBy(fn (Comment $c) => $c->min_score.':'.$c->max_score)
+            ->map(fn ($group) => ['min' => (float) $group->first()->min_score, 'max' => (float) $group->first()->max_score, 'texts' => $group->pluck('text')->values()])
+            ->values();
+
         return view('school.examinations.index', [
             'school' => $school,
             'accent' => $school->branding()['color'],
@@ -313,6 +333,8 @@ class ExaminationController extends Controller
             'narrativeClasses' => $narrativeClasses,
             'canSave' => app(Rbac::class)->check(Auth::user(), $school, 'examinations.create'),
             'componentOpen' => $componentOpen,
+            'gradingBands' => $gradingBands,
+            'commentBands' => $commentBands,
         ]);
     }
 

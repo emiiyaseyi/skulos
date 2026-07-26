@@ -112,6 +112,37 @@ class ExaminationScreenTest extends TestCase
             ->assertSee('JSS 1 A: Mathematics');
     }
 
+    /**
+     * User request 2026-07-25: "live total/grade calc, 5s autosave,
+     * auto-suggested remark" on this screen. The recalculation itself is
+     * client side JS (not exercisable here), but the page must ship the
+     * real grading/comment bands as JSON and the DOM hooks that JS reads,
+     * against the same bands the server itself already uses.
+     */
+    public function test_the_score_entry_page_ships_grading_and_comment_bands_for_live_recalculation(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'examlive');
+        $f = $this->seedAcademics($school);
+        $this->attachTeacher($school, $teacher, $f['classArm']->id, $f['subject']->id);
+
+        app(TenantManager::class)->use($school);
+        $scale = \App\Models\Tenant\GradingScale::create(['name' => 'Standard', 'is_default' => true]);
+        \App\Models\Tenant\GradingBand::create(['grading_scale_id' => $scale->id, 'min_score' => 70, 'max_score' => 100, 'grade' => 'A']);
+        \App\Models\Tenant\Comment::create(['min_score' => 70, 'max_score' => 100, 'text' => 'Excellent performance.', 'is_active' => true]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($teacher)->get("http://{$school->slug}.localhost/examinations?pair={$f['classArm']->id}:{$f['subject']->id}");
+
+        $response->assertOk()
+            ->assertSee('"grade":"A"', false)
+            ->assertSee('Excellent performance.')
+            ->assertSee('js-score-input', false)
+            ->assertSee('js-total', false)
+            ->assertSee('js-remark', false)
+            ->assertSee('autosaveStatus', false)
+            ->assertSee('scoresForm', false);
+    }
+
     public function test_a_teacher_can_save_scores_for_their_assigned_class_and_subject(): void
     {
         [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'examtwo');

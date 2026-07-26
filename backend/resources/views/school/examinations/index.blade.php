@@ -127,7 +127,7 @@
   @endforeach
 
   <div class="card">
-    <form method="POST" action="{{ route('school.examinations.scores.save', ['school' => $school->slug]) }}">
+    <form method="POST" id="scoresForm" action="{{ route('school.examinations.scores.save', ['school' => $school->slug]) }}">
       @csrf
       <input type="hidden" name="term_id" value="{{ $termId }}" />
       <input type="hidden" name="class_arm_id" value="{{ $classArmId }}" />
@@ -167,21 +167,21 @@
                 @php $open = $componentOpen[$component->id] ?? true; @endphp
                 <td data-label="{{ $component->name }}">
                   @if($canSave && $open)
-                    <input type="number" step="0.01" min="0" max="{{ $component->max_score }}"
+                    <input type="number" step="0.01" min="0" max="{{ $component->max_score }}" class="js-score-input"
                       name="scores[{{ $student->id }}][{{ $component->id }}]"
                       value="{{ old('scores.'.$student->id.'.'.$component->id, $existing->get($component->id)?->score) }}" />
                   @elseif($canSave && ! $open)
-                    <input type="number" step="0.01" min="0" max="{{ $component->max_score }}" value="{{ $existing->get($component->id)?->score }}" disabled title="Entry window closed" />
+                    <input type="number" step="0.01" min="0" max="{{ $component->max_score }}" class="js-score-input" value="{{ $existing->get($component->id)?->score }}" disabled title="Entry window closed" />
                   @else
                     {{ $existing->get($component->id)?->score ?? 'Not entered' }}
                   @endif
                 </td>
               @endforeach
-              <td class="scores-total" data-label="Total">{{ $summaries[$student->id]['total'] ?? 0 }}</td>
-              <td data-label="Grade">{{ $summaries[$student->id]['grade'] ?? 'Not graded' }}</td>
+              <td class="scores-total js-total" data-label="Total">{{ $summaries[$student->id]['total'] ?? 0 }}</td>
+              <td class="js-grade" data-label="Grade">{{ $summaries[$student->id]['grade'] ?? 'Not graded' }}</td>
               <td data-label="Remark">
                 @if($canSave)
-                  <textarea name="remarks[{{ $student->id }}]" placeholder="No suggestion yet" class="{{ $savedRemark ? '' : 'remark-suggested' }}">{{ old('remarks.'.$student->id, $savedRemark ?? ($suggestions[$student->id] ?? '')) }}</textarea>
+                  <textarea name="remarks[{{ $student->id }}]" placeholder="No suggestion yet" class="js-remark {{ $savedRemark ? '' : 'remark-suggested' }}" data-user-edited="{{ $savedRemark ? '1' : '0' }}">{{ old('remarks.'.$student->id, $savedRemark ?? ($suggestions[$student->id] ?? '')) }}</textarea>
                 @else
                   {{ $savedRemark ?: 'Not entered' }}
                 @endif
@@ -193,9 +193,113 @@
       </div>
       <p class="muted" style="margin-top:.6rem;font-size:.82rem">Remarks are suggested from your school's comment bank based on each student's score, in grey until you save. Edit, replace, or clear any of them before saving.</p>
       @if($canSave)
-        <button class="btn btn-primary" type="submit" style="margin-top:1.2rem">Save scores</button>
+        <div style="display:flex;align-items:center;gap:.8rem;margin-top:1.2rem">
+          <button class="btn btn-primary" type="submit">Save scores</button>
+          <span id="autosaveStatus" class="muted" style="font-size:.8rem"></span>
+        </div>
       @endif
     </form>
   </div>
 @endif
 @endsection
+
+@if($canSave && $selectedPair && $students->isNotEmpty())
+@push('scripts')
+<script>
+(function(){
+  var gradingBands = @json($gradingBands ?? []);
+  var commentBands = @json($commentBands ?? []);
+  var form = document.getElementById('scoresForm');
+  if (! form) return;
+
+  function gradeFor(total){
+    for (var i = 0; i < gradingBands.length; i++){
+      var b = gradingBands[i];
+      if (total >= b.min && total <= b.max) return b.grade;
+    }
+    return 'Not graded';
+  }
+  function suggestFor(total){
+    for (var i = 0; i < commentBands.length; i++){
+      var b = commentBands[i];
+      if (total >= b.min && total <= b.max && b.texts.length){
+        return b.texts[Math.floor(Math.random() * b.texts.length)];
+      }
+    }
+    return null;
+  }
+
+  // Live total/grade calc + auto-suggested remark (user request
+  // 2026-07-25), entirely client side against the same bands the server
+  // itself uses, so a teacher sees the real total/grade/suggestion the
+  // instant they finish typing a score, not only after Save reloads the
+  // page. A remark the teacher has typed or that was already saved
+  // (data-user-edited="1") is never silently overwritten.
+  function recalcRow(row){
+    var total = 0;
+    row.querySelectorAll('.js-score-input').forEach(function(input){
+      var value = parseFloat(input.value);
+      if (! isNaN(value)) total += value;
+    });
+
+    var totalCell = row.querySelector('.js-total');
+    var gradeCell = row.querySelector('.js-grade');
+    if (totalCell) totalCell.textContent = total;
+    if (gradeCell) gradeCell.textContent = total > 0 ? gradeFor(total) : 'Not graded';
+
+    var remark = row.querySelector('.js-remark');
+    if (remark && remark.dataset.userEdited !== '1' && total > 0) {
+      var suggestion = suggestFor(total);
+      if (suggestion) {
+        remark.value = suggestion;
+        remark.classList.add('remark-suggested');
+      }
+    }
+  }
+
+  form.querySelectorAll('tbody tr').forEach(function(row){
+    row.querySelectorAll('.js-score-input').forEach(function(input){
+      input.addEventListener('input', function(){ recalcRow(row); markDirty(); });
+    });
+    var remark = row.querySelector('.js-remark');
+    if (remark) {
+      remark.addEventListener('input', function(){
+        remark.dataset.userEdited = '1';
+        remark.classList.remove('remark-suggested');
+        markDirty();
+      });
+    }
+  });
+
+  // Autosave every 5 seconds while there are unsaved changes (user
+  // request 2026-07-25: "5s autosave"). The manual Save scores button
+  // still works exactly as before (a full save + redirect); this just
+  // means progress is never lost to a closed tab or a slow connection.
+  var statusEl = document.getElementById('autosaveStatus');
+  var dirty = false;
+  var saving = false;
+  function markDirty(){ dirty = true; if (statusEl) statusEl.textContent = 'Unsaved changes'; }
+
+  setInterval(function(){
+    if (! dirty || saving) return;
+    saving = true;
+    if (statusEl) statusEl.textContent = 'Saving…';
+    fetch(form.action, { method: 'POST', body: new FormData(form), headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function(res){
+        saving = false;
+        if (res.ok) {
+          dirty = false;
+          if (statusEl) statusEl.textContent = 'Saved ' + new Date().toLocaleTimeString();
+        } else if (statusEl) {
+          statusEl.textContent = 'Autosave failed, use Save scores below';
+        }
+      })
+      .catch(function(){
+        saving = false;
+        if (statusEl) statusEl.textContent = 'Autosave failed, use Save scores below';
+      });
+  }, 5000);
+})();
+</script>
+@endpush
+@endif
