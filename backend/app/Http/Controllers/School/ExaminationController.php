@@ -78,17 +78,18 @@ class ExaminationController extends Controller
      * before "Nursery 1" before "Primary 1", not the pedagogical order
      * the school actually uses).
      */
-    protected function allowedPairs(Request $request): \Illuminate\Support\Collection
+    protected function allowedPairs(Request $request, int $termId): \Illuminate\Support\Collection
     {
         if ($this->hasBlanketAccess($request)) {
             $pairs = collect();
-            ClassArm::with(['schoolClass.section', 'schoolClass.subjects', 'subjects', 'arm'])->get()->each(function (ClassArm $classArm) use (&$pairs) {
-                // Narrative Evaluation (2026-07-18): scores are not entered
-                // for a class using the comment based report, see
-                // NarrativeEvaluationController; that class's report card
-                // shows written comments instead (ReportCardController::
-                // classEntry()), entered from Report Cards, not here.
-                if ($classArm->schoolClass?->isNarrativeEvaluation()) {
+            ClassArm::with(['schoolClass.section', 'schoolClass.subjects', 'schoolClass.narrativeTerms', 'subjects', 'arm'])->get()->each(function (ClassArm $classArm) use (&$pairs, $termId) {
+                // Narrative Evaluation (2026-07-18, per-term 2026-07-26):
+                // scores are not entered for a class toggled narrative for
+                // THIS term, see NarrativeEvaluationController; that
+                // class's report card shows written comments instead
+                // (ReportCardController::classEntry()), entered from
+                // Report Cards, not here.
+                if ($classArm->schoolClass?->isNarrativeEvaluationForTerm($termId)) {
                     return;
                 }
                 $order = $classArm->orderKey();
@@ -116,9 +117,9 @@ class ExaminationController extends Controller
         }
 
         return TeachingAssignment::where('staff_id', $staff->id)
-            ->with(['subject', 'classArm.schoolClass.section', 'classArm.arm'])
+            ->with(['subject', 'classArm.schoolClass.section', 'classArm.schoolClass.narrativeTerms', 'classArm.arm'])
             ->get()
-            ->reject(fn (TeachingAssignment $a) => $a->classArm?->schoolClass?->isNarrativeEvaluation())
+            ->reject(fn (TeachingAssignment $a) => $a->classArm?->schoolClass?->isNarrativeEvaluationForTerm($termId))
             ->map(fn (TeachingAssignment $a) => [
                 'class_arm_id' => (int) $a->class_arm_id,
                 'subject_id' => (int) $a->subject_id,
@@ -214,7 +215,7 @@ class ExaminationController extends Controller
      * link to it for whichever narrative classes this viewer may enter,
      * scoped by TeacherScope the same way every other list on this page is.
      */
-    protected function narrativeClasses(Request $request): \Illuminate\Support\Collection
+    protected function narrativeClasses(Request $request, int $termId): \Illuminate\Support\Collection
     {
         $school = $this->school($request);
         if (! app(Rbac::class)->check(Auth::user(), $school, 'report_cards.update')) {
@@ -223,10 +224,13 @@ class ExaminationController extends Controller
 
         $scopedArmIds = app(TeacherScope::class)->classArmIds(Auth::user(), $school);
 
+        // Per-class-per-term (2026-07-26): a class is narrative for THIS
+        // term only if it has a ClassNarrativeTerm row for it, not a
+        // permanent flag, see SchoolClass::isNarrativeEvaluationForTerm().
         return SchoolClass::active()
-            ->where('evaluation_style', SchoolClass::EVALUATION_STYLE_NARRATIVE)
-            ->with('section', 'arms')
+            ->with('section', 'arms', 'narrativeTerms')
             ->get()
+            ->filter(fn (SchoolClass $c) => $c->isNarrativeEvaluationForTerm($termId))
             ->filter(fn (SchoolClass $c) => $scopedArmIds === null || $c->arms->pluck('id')->intersect($scopedArmIds)->isNotEmpty())
             ->sortBy(fn (SchoolClass $c) => sprintf('%05d-%05d', $c->section?->sequence ?? 0, $c->sequence ?? 0))
             ->values();
@@ -237,11 +241,11 @@ class ExaminationController extends Controller
         $this->authorizeAction($request, 'examinations.view');
         $school = $this->school($request);
 
-        $pairs = $this->allowedPairs($request);
-        $narrativeClasses = $this->narrativeClasses($request);
         $terms = Term::with('session')->orderByDesc('starts_on')->get();
-
         $termId = (int) $request->query('term_id', Term::current()->value('id'));
+
+        $pairs = $this->allowedPairs($request, $termId);
+        $narrativeClasses = $this->narrativeClasses($request, $termId);
         [$classArmId, $subjectId] = array_pad(explode(':', (string) $request->query('pair', '')), 2, 0);
         $classArmId = (int) $classArmId;
         $subjectId = (int) $subjectId;
@@ -367,7 +371,7 @@ class ExaminationController extends Controller
             'scores' => ['array'],
         ]);
 
-        $pairs = $this->allowedPairs($request);
+        $pairs = $this->allowedPairs($request, (int) $data['term_id']);
         $allowed = $pairs->first(fn ($p) => $p['class_arm_id'] === (int) $data['class_arm_id'] && $p['subject_id'] === (int) $data['subject_id']);
         abort_unless($allowed, 403, 'You do not teach this class and subject.');
 
@@ -481,9 +485,9 @@ class ExaminationController extends Controller
      * determine to do bulk upload for just one subject also", implying
      * the default, no subject given, covers everything they teach there).
      */
-    protected function bulkSubjectIds(Request $request, int $classArmId, ?int $subjectId): array
+    protected function bulkSubjectIds(Request $request, int $termId, int $classArmId, ?int $subjectId): array
     {
-        $pairs = $this->allowedPairs($request)->where('class_arm_id', $classArmId);
+        $pairs = $this->allowedPairs($request, $termId)->where('class_arm_id', $classArmId);
         if ($subjectId) {
             $pairs = $pairs->where('subject_id', $subjectId);
         }
@@ -514,7 +518,7 @@ class ExaminationController extends Controller
             'subject_id' => ['nullable', 'integer'],
         ]);
 
-        $subjectIds = $this->bulkSubjectIds($request, (int) $data['class_arm_id'], isset($data['subject_id']) ? (int) $data['subject_id'] : null);
+        $subjectIds = $this->bulkSubjectIds($request, (int) $data['term_id'], (int) $data['class_arm_id'], isset($data['subject_id']) ? (int) $data['subject_id'] : null);
         abort_if(empty($subjectIds), 403, 'You do not teach a subject in this class.');
 
         $subjects = Subject::whereIn('id', $subjectIds)->get()->keyBy('id');
@@ -584,7 +588,7 @@ class ExaminationController extends Controller
             'file' => ['required', 'file', 'mimes:csv,txt', 'max:5120'],
         ]);
 
-        $allowedSubjectIds = $this->bulkSubjectIds($request, (int) $data['class_arm_id'], null);
+        $allowedSubjectIds = $this->bulkSubjectIds($request, (int) $data['term_id'], (int) $data['class_arm_id'], null);
         abort_if(empty($allowedSubjectIds), 403, 'You do not teach a subject in this class.');
 
         $subjects = Subject::whereIn('id', $allowedSubjectIds)->get()->keyBy('id');

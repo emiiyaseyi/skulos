@@ -6,6 +6,7 @@ use App\Models\School;
 use App\Models\Tenant\AcademicSession;
 use App\Models\Tenant\Arm;
 use App\Models\Tenant\ClassArm;
+use App\Models\Tenant\ClassNarrativeTerm;
 use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Section;
 use App\Models\Tenant\Staff;
@@ -97,32 +98,69 @@ class NarrativeEvaluationTest extends TestCase
     public function test_an_admin_can_set_a_class_to_narrative_evaluation(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'narrativeone');
-        ['crecheClass' => $crecheClass] = $this->seedTwoClasses($school);
+        ['crecheClass' => $crecheClass, 'term' => $term] = $this->seedTwoClasses($school);
 
         $this->actingAs($owner)->post("http://{$school->slug}.localhost/examinations/narrative-evaluation", [
+            'term_id' => $term->id,
             'narrative_class_ids' => [$crecheClass->id],
         ])->assertRedirect();
 
         app(TenantManager::class)->use($school);
-        $this->assertTrue($crecheClass->fresh()->isNarrativeEvaluation());
+        $this->assertTrue($crecheClass->fresh()->isNarrativeEvaluationForTerm($term->id));
         app(TenantManager::class)->forget();
     }
 
     public function test_saving_declaratively_reverts_an_unchecked_class_back_to_scores(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'narrativetwo');
-        ['crecheClass' => $crecheClass] = $this->seedTwoClasses($school);
+        ['crecheClass' => $crecheClass, 'term' => $term] = $this->seedTwoClasses($school);
 
         app(TenantManager::class)->use($school);
-        $crecheClass->update(['evaluation_style' => SchoolClass::EVALUATION_STYLE_NARRATIVE]);
+        ClassNarrativeTerm::create(['school_class_id' => $crecheClass->id, 'term_id' => $term->id]);
         app(TenantManager::class)->forget();
 
         $this->actingAs($owner)->post("http://{$school->slug}.localhost/examinations/narrative-evaluation", [
+            'term_id' => $term->id,
             'narrative_class_ids' => [],
         ])->assertRedirect();
 
         app(TenantManager::class)->use($school);
-        $this->assertFalse($crecheClass->fresh()->isNarrativeEvaluation());
+        $this->assertFalse($crecheClass->fresh()->isNarrativeEvaluationForTerm($term->id));
+        app(TenantManager::class)->forget();
+    }
+
+    /**
+     * User request 2026-07-26: "per-class-per-term toggle, re-toggleable
+     * across terms." Toggling a class off for a NEW term must not affect
+     * whatever an earlier term already had, and vice versa.
+     */
+    public function test_the_toggle_is_independent_per_term(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'narrativeeleven');
+        ['crecheClass' => $crecheClass, 'term' => $firstTerm] = $this->seedTwoClasses($school);
+
+        app(TenantManager::class)->use($school);
+        $session = $firstTerm->session;
+        $secondTerm = Term::create(['academic_session_id' => $session->id, 'name' => 'Second Term', 'sequence' => 2]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/examinations/narrative-evaluation", [
+            'term_id' => $firstTerm->id,
+            'narrative_class_ids' => [$crecheClass->id],
+        ])->assertRedirect();
+
+        // Second term starts blank, unaffected by the first term's toggle.
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/examinations/narrative-evaluation?term_id={$secondTerm->id}")
+            ->assertOk();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/examinations/narrative-evaluation", [
+            'term_id' => $secondTerm->id,
+            'narrative_class_ids' => [],
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertTrue($crecheClass->fresh()->isNarrativeEvaluationForTerm($firstTerm->id));
+        $this->assertFalse($crecheClass->fresh()->isNarrativeEvaluationForTerm($secondTerm->id));
         app(TenantManager::class)->forget();
     }
 
@@ -137,10 +175,10 @@ class NarrativeEvaluationTest extends TestCase
     public function test_a_narrative_class_is_excluded_from_the_score_entry_picker(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'narrativefour');
-        ['crecheClass' => $crecheClass, 'jssClass' => $jssClass] = $this->seedTwoClasses($school);
+        ['crecheClass' => $crecheClass, 'jssClass' => $jssClass, 'term' => $term] = $this->seedTwoClasses($school);
 
         app(TenantManager::class)->use($school);
-        $crecheClass->update(['evaluation_style' => SchoolClass::EVALUATION_STYLE_NARRATIVE]);
+        ClassNarrativeTerm::create(['school_class_id' => $crecheClass->id, 'term_id' => $term->id]);
         app(TenantManager::class)->forget();
 
         $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/examinations");
@@ -159,10 +197,10 @@ class NarrativeEvaluationTest extends TestCase
     public function test_a_narrative_class_is_surfaced_on_the_score_entry_page_with_a_link_to_its_comment_entry_screen(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'narrativenine');
-        ['crecheClass' => $crecheClass] = $this->seedTwoClasses($school);
+        ['crecheClass' => $crecheClass, 'term' => $term] = $this->seedTwoClasses($school);
 
         app(TenantManager::class)->use($school);
-        $crecheClass->update(['evaluation_style' => SchoolClass::EVALUATION_STYLE_NARRATIVE]);
+        ClassNarrativeTerm::create(['school_class_id' => $crecheClass->id, 'term_id' => $term->id]);
         $crecheClassId = $crecheClass->id;
         app(TenantManager::class)->forget();
 
@@ -176,10 +214,10 @@ class NarrativeEvaluationTest extends TestCase
     public function test_a_teacher_without_report_cards_update_does_not_see_the_narrative_classes_section(): void
     {
         [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'narrativeten');
-        ['crecheClass' => $crecheClass] = $this->seedTwoClasses($school);
+        ['crecheClass' => $crecheClass, 'term' => $term] = $this->seedTwoClasses($school);
 
         app(TenantManager::class)->use($school);
-        $crecheClass->update(['evaluation_style' => SchoolClass::EVALUATION_STYLE_NARRATIVE]);
+        ClassNarrativeTerm::create(['school_class_id' => $crecheClass->id, 'term_id' => $term->id]);
         app(TenantManager::class)->forget();
 
         $this->actingAs($teacher)->get("http://{$school->slug}.localhost/examinations")
@@ -193,7 +231,7 @@ class NarrativeEvaluationTest extends TestCase
         ['crecheClass' => $crecheClass, 'crecheArm' => $crecheArm, 'term' => $term, 'subject' => $subject] = $this->seedTwoClasses($school);
 
         app(TenantManager::class)->use($school);
-        $crecheClass->update(['evaluation_style' => SchoolClass::EVALUATION_STYLE_NARRATIVE]);
+        ClassNarrativeTerm::create(['school_class_id' => $crecheClass->id, 'term_id' => $term->id]);
         $staff = Staff::create(['staff_id' => 'T1', 'first_name' => 'Tade', 'last_name' => 'Teacher']);
         TeachingAssignment::create(['staff_id' => $staff->id, 'subject_id' => $subject->id, 'class_arm_id' => $crecheArm->id]);
         app(ReportCardPreferences::class)->setTemplate('classic');
@@ -211,7 +249,7 @@ class NarrativeEvaluationTest extends TestCase
         ['crecheClass' => $crecheClass, 'crecheArm' => $crecheArm, 'term' => $term, 'subject' => $subject, 'crecheStudent' => $student] = $this->seedTwoClasses($school);
 
         app(TenantManager::class)->use($school);
-        $crecheClass->update(['evaluation_style' => SchoolClass::EVALUATION_STYLE_NARRATIVE]);
+        ClassNarrativeTerm::create(['school_class_id' => $crecheClass->id, 'term_id' => $term->id]);
         $staff = Staff::create(['staff_id' => 'T2', 'first_name' => 'Tade', 'last_name' => 'Teacher']);
         TeachingAssignment::create(['staff_id' => $staff->id, 'subject_id' => $subject->id, 'class_arm_id' => $crecheArm->id]);
         app(TenantManager::class)->forget();
@@ -249,7 +287,7 @@ class NarrativeEvaluationTest extends TestCase
         ['crecheClass' => $crecheClass, 'crecheStudent' => $student, 'term' => $term] = $this->seedTwoClasses($school);
 
         app(TenantManager::class)->use($school);
-        $crecheClass->update(['evaluation_style' => SchoolClass::EVALUATION_STYLE_NARRATIVE]);
+        ClassNarrativeTerm::create(['school_class_id' => $crecheClass->id, 'term_id' => $term->id]);
         app(ReportCardPreferences::class)->setTemplate('classic');
         app(TenantManager::class)->forget();
 

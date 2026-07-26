@@ -31,10 +31,29 @@ class SchoolClass extends Model
         return ['sequence' => 'integer', 'is_active' => 'boolean'];
     }
 
-    /** Narrative Evaluation (2026-07-18): comment based, no scores, typically Creche/Reception. */
-    public function isNarrativeEvaluation(): bool
+    /**
+     * Narrative Evaluation (2026-07-18): comment based, no scores,
+     * typically Creche/Reception. Per-class-per-term (2026-07-26, user
+     * request: "re-toggleable across terms"): evaluation_style itself is
+     * no longer read live, ClassNarrativeTerm rows are the source of
+     * truth, this column only remains as the pre-migration value a
+     * schema backfill (see the class_narrative_terms migration) copied
+     * forward into the term that was current at the time.
+     */
+    public function isNarrativeEvaluationForTerm(?int $termId): bool
     {
-        return $this->evaluation_style === self::EVALUATION_STYLE_NARRATIVE;
+        if (! $termId) {
+            return false;
+        }
+
+        return $this->relationLoaded('narrativeTerms')
+            ? $this->narrativeTerms->contains('term_id', $termId)
+            : $this->narrativeTerms()->where('term_id', $termId)->exists();
+    }
+
+    public function narrativeTerms(): HasMany
+    {
+        return $this->hasMany(ClassNarrativeTerm::class);
     }
 
     public function section(): BelongsTo

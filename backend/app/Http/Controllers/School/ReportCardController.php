@@ -250,10 +250,10 @@ class ReportCardController extends Controller
         $this->assertStudentVisible($request, $student);
         $term = Term::findOrFail($request->route('termId'));
 
-        // Narrative Evaluation (2026-07-18): overrides the school's own
-        // global template choice for this one student's class, same
-        // reasoning as classEntry() above.
-        $narrativeClass = $student->currentClassArm?->schoolClass?->isNarrativeEvaluation();
+        // Narrative Evaluation (2026-07-18, per-term 2026-07-26): overrides
+        // the school's own global template choice for this one student's
+        // class, for this one term, same reasoning as classEntry() below.
+        $narrativeClass = $student->currentClassArm?->schoolClass?->isNarrativeEvaluationForTerm($term->id);
 
         return view('school.report-cards.render', [
             'school' => $school,
@@ -598,7 +598,7 @@ class ReportCardController extends Controller
         }
 
         $students = Student::whereIn('current_class_arm_id', $armIds)->orderBy('last_name')->get();
-        $template = $class->isNarrativeEvaluation() ? 'narrative' : $prefs->template();
+        $template = $class->isNarrativeEvaluationForTerm($term->id) ? 'narrative' : $prefs->template();
 
         return view('school.report-cards.class-print', [
             'school' => $school,
@@ -1235,12 +1235,14 @@ class ReportCardController extends Controller
             ->where('term_id', $term->id)->get()->groupBy('student_id');
 
         $prefs = app(ReportCardPreferences::class);
-        // Narrative Evaluation (2026-07-18): a class flagged evaluation_style
-        // 'narrative' always uses the comment based template here, regardless
-        // of the school's own global template choice, so a school can mix a
-        // scored Primary/Secondary with a narrative Creche/Reception rather
-        // than the template being one all-or-nothing school wide setting.
-        $template = $class->isNarrativeEvaluation() ? 'narrative' : $prefs->template();
+        // Narrative Evaluation (2026-07-18, per-term 2026-07-26): a class
+        // toggled narrative for THIS term always uses the comment based
+        // template here, regardless of the school's own global template
+        // choice, so a school can mix a scored Primary/Secondary with a
+        // narrative Creche/Reception rather than the template being one
+        // all-or-nothing school wide setting, and can toggle differently
+        // term to term without rewriting a past term's report cards.
+        $template = $class->isNarrativeEvaluationForTerm($term->id) ? 'narrative' : $prefs->template();
         $subjects = collect();
         $comments = collect();
         // Comments are entered here whenever the active look actually shows
@@ -1364,7 +1366,7 @@ class ReportCardController extends Controller
         $students = Student::whereIn('current_class_arm_id', $armIds)->active()->orderBy('last_name')->get();
         $traits = \App\Models\Tenant\BehaviouralTrait::active()->orderBy('sequence')->get();
         $prefs = app(ReportCardPreferences::class);
-        $narrativeClass = $class->isNarrativeEvaluation();
+        $narrativeClass = $class->isNarrativeEvaluationForTerm($term->id);
         $subjects = ($narrativeClass || $prefs->shows('subject_comments'))
             ? \App\Models\Tenant\Subject::whereIn('id', \App\Models\Tenant\TeachingAssignment::whereIn('class_arm_id', $armIds)->pluck('subject_id')->unique())->orderBy('name')->get()
             : collect();
@@ -1430,7 +1432,7 @@ class ReportCardController extends Controller
         $students = Student::whereIn('current_class_arm_id', $armIds)->active()->get()->keyBy('admission_number');
         $traits = \App\Models\Tenant\BehaviouralTrait::active()->orderBy('sequence')->get();
         $prefs = app(ReportCardPreferences::class);
-        $narrativeClass = $class->isNarrativeEvaluation();
+        $narrativeClass = $class->isNarrativeEvaluationForTerm($term->id);
         $subjects = ($narrativeClass || $prefs->shows('subject_comments'))
             ? \App\Models\Tenant\Subject::whereIn('id', \App\Models\Tenant\TeachingAssignment::whereIn('class_arm_id', $armIds)->pluck('subject_id')->unique())->orderBy('name')->get()
             : collect();
