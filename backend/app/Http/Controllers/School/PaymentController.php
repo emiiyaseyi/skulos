@@ -346,38 +346,84 @@ class PaymentController extends Controller
         // child or children selected, the parent should be asked if they
         // want to make full payment or partial payment... if parent has
         // made payment before, show the balance left". Each student's own
-        // non-optional-owed and paid-so-far totals ship as data attributes
-        // on their checkbox, so the form can compute a live combined
-        // total/balance in JS as children are ticked, no round trip per
-        // change. Same "paid" simplification FeeBalanceService already
-        // uses everywhere else: every verified payment ever recorded for
-        // the student, not scoped fee-item-by-fee-item.
+        // owed and paid-so-far totals ship as data attributes on their
+        // checkbox, so the form can compute a live combined total/balance
+        // in JS as children are ticked, no round trip per change. Two
+        // owed totals travel per student, non-optional only and every fee
+        // item (user report 2026-07-26: "you did not add all fees -
+        // optional items included", the original non-optional-only plan
+        // stays as its own choice, this adds a second one that folds
+        // optional items in too, rather than replacing it, since an
+        // optional item is still something a parent may choose not to
+        // pay). Same "paid" simplification FeeBalanceService already uses
+        // everywhere else: every verified payment ever recorded for the
+        // student, not scoped fee-item-by-fee-item.
         $term = $this->resolveActiveTerm($request);
         $balancesByStudent = $students->mapWithKeys(function (Student $student) use ($balances, $term) {
             $classId = $student->currentClassArm?->school_class_id;
             $owed = ($classId && $term) ? $balances->nonOptionalOwedForClass($classId, $term) : 0.0;
+            $owedAll = ($classId && $term) ? $balances->owedForClass($classId, $term) : 0.0;
             $paid = $balances->paidByStudent($student->id);
 
-            return [$student->id => ['owed' => $owed, 'paid' => $paid, 'balance' => max(0, $owed - $paid)]];
+            return [$student->id => [
+                'owed' => $owed, 'owedAll' => $owedAll, 'paid' => $paid,
+                'balance' => max(0, $owed - $paid), 'balanceAll' => max(0, $owedAll - $paid),
+            ]];
         });
+
+        // A fee item may only apply to certain classes (user request
+        // 2026-07-25), so the same named item (e.g. "School Uniform
+        // (Optional)") often exists as several per-class rows at
+        // different prices. Listing every one of those separately made
+        // the picker unusable (user report 2026-07-26: "looking through
+        // all the list is too clumsy... it is still showing school
+        // uniform for three childs, wrong approach"). Grouped by name
+        // here, one option per distinct name; the view resolves the
+        // right underlying fee item id once it knows the selected
+        // child's class, same "empty classIds means every class"
+        // convention FeeItem::appliesToClass() already uses.
+        $feeItems = $term
+            ? FeeItem::where('term_id', $term->id)->active()->where('approval_status', FeeItem::APPROVAL_APPROVED)
+                ->with('installments', 'schoolClasses')->get()
+            : collect();
+
+        $feeItemGroups = $feeItems->groupBy('name')->map(function ($group) {
+            $first = $group->first();
+
+            return [
+                'name' => $first->name,
+                'isOptional' => (bool) $first->is_optional,
+                'variants' => $group->map(fn (FeeItem $item) => [
+                    'id' => $item->id,
+                    'amount' => (float) $item->amount,
+                    'classIds' => $item->schoolClasses->pluck('id')->all(),
+                    'installments' => $item->installments->map(fn ($i) => ['id' => $i->id, 'label' => $i->label, 'amount' => (float) $i->amount])->values(),
+                ])->values(),
+            ];
+        })->sortBy(fn ($g) => ($g['isOptional'] ? '1' : '0').'-'.$g['name'])->values();
+
+        // Re-selects the right group option after a validation error, the
+        // hidden field's own old value is a real fee item id (or
+        // 'all_fees'/'all_fees_incl_optional'), not a group index.
+        $oldFeeItemId = old('fee_item_id');
+        $oldGroupIndex = null;
+        if ($oldFeeItemId && ! in_array($oldFeeItemId, ['all_fees', 'all_fees_incl_optional'], true)) {
+            foreach ($feeItemGroups as $i => $group) {
+                if (collect($group['variants'])->contains(fn ($v) => (string) $v['id'] === (string) $oldFeeItemId)) {
+                    $oldGroupIndex = $i;
+                    break;
+                }
+            }
+        }
 
         return view('school.finance.payments.create', [
             'school' => $school,
             'accent' => $school->branding()['color'],
             'students' => $students,
             'balancesByStudent' => $balancesByStudent,
-            // A fee item may only apply to certain classes (user request
-            // 2026-07-25); eager loading schoolClasses lets the create
-            // form's JS filter the picker to only what the chosen
-            // student's own class is actually charged, without another
-            // request per student.
-            // approval_status excludes a fee item still awaiting approval,
-            // or rejected outright (user request 2026-07-25: an approval
-            // chain, off by default; every existing/approval-disabled fee
-            // item is already 'approved', so this changes nothing for a
-            // school that has not turned approval on).
-            'feeItems' => FeeItem::active()->where('approval_status', FeeItem::APPROVAL_APPROVED)
-                ->with('term', 'installments', 'schoolClasses')->orderByDesc('created_at')->get(),
+            'term' => $term,
+            'feeItemGroups' => $feeItemGroups,
+            'oldFeeItemSelectValue' => $oldGroupIndex !== null ? "group:{$oldGroupIndex}" : ($oldFeeItemId ?: ''),
             'bankAccounts' => BankAccount::active()->orderBy('sort_order')->get(),
         ]);
     }
@@ -389,12 +435,12 @@ class PaymentController extends Controller
         $user = Auth::user();
         $familyStudentIds = app(FamilyScope::class)->studentIds($user, $school);
 
-        // "All Fees" (user request 2026-07-26) is a computed convenience
-        // in the "what is this for" picker, not a real catalog row: it
-        // drives the amount calculator client side, but is not itself
-        // tied to one specific fee item, so it saves the same way a
-        // General payment does (fee_item_id null).
-        if ($request->input('fee_item_id') === 'all_fees') {
+        // "All Fees" (user request 2026-07-26), either variant, is a
+        // computed convenience in the "what is this for" picker, not a
+        // real catalog row: it drives the amount calculator client side,
+        // but is not itself tied to one specific fee item, so it saves
+        // the same way a General payment does (fee_item_id null).
+        if (in_array($request->input('fee_item_id'), ['all_fees', 'all_fees_incl_optional'], true)) {
             $request->merge(['fee_item_id' => null]);
         }
 

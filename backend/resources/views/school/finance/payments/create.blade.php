@@ -54,13 +54,13 @@
             @foreach($students as $student)
               @php($old = old('student_ids', []))
               <label style="display:flex;align-items:center;gap:.5rem;font-weight:600">
-                <input type="checkbox" name="student_ids[]" value="{{ $student->id }}" class="student-checkbox" data-class-id="{{ $student->currentClassArm?->schoolClass?->id }}" data-owed="{{ $balancesByStudent[$student->id]['owed'] ?? 0 }}" data-paid="{{ $balancesByStudent[$student->id]['paid'] ?? 0 }}" @checked(in_array($student->id, $old))>
+                <input type="checkbox" name="student_ids[]" value="{{ $student->id }}" class="student-checkbox" data-class-id="{{ $student->currentClassArm?->schoolClass?->id }}" data-owed="{{ $balancesByStudent[$student->id]['owed'] ?? 0 }}" data-owed-all="{{ $balancesByStudent[$student->id]['owedAll'] ?? 0 }}" data-paid="{{ $balancesByStudent[$student->id]['paid'] ?? 0 }}" @checked(in_array($student->id, $old))>
                 {{ $student->fullName() }} ({{ $student->admission_number }})
               </label>
             @endforeach
           </div>
         @else
-          <input type="hidden" name="student_ids[]" value="{{ $students->first()->id }}" class="student-checkbox" checked data-class-id="{{ $students->first()->currentClassArm?->schoolClass?->id }}" data-owed="{{ $balancesByStudent[$students->first()->id]['owed'] ?? 0 }}" data-paid="{{ $balancesByStudent[$students->first()->id]['paid'] ?? 0 }}">
+          <input type="hidden" name="student_ids[]" value="{{ $students->first()->id }}" class="student-checkbox" checked data-class-id="{{ $students->first()->currentClassArm?->schoolClass?->id }}" data-owed="{{ $balancesByStudent[$students->first()->id]['owed'] ?? 0 }}" data-owed-all="{{ $balancesByStudent[$students->first()->id]['owedAll'] ?? 0 }}" data-paid="{{ $balancesByStudent[$students->first()->id]['paid'] ?? 0 }}">
           <p style="font-weight:700">{{ $students->first()->fullName() }} ({{ $students->first()->admission_number }})</p>
         @endif
         <p class="hint" id="splitHint" style="display:none"></p>
@@ -69,23 +69,46 @@
       </div>
 
       <div class="field">
-        <label for="fee_item_id">What is this for (optional)</label>
-        <select id="fee_item_id" name="fee_item_id">
+        <label for="fee_item_id_display">What is this for (optional)</label>
+        <select id="fee_item_id_display">
           <option value="">General payment</option>
           {{--
             "All Fees" payment plan (user request 2026-07-26): "add an
             item of all fees... based on the child or children selected,
-            ask if they want full or partial payment, this is only for
-            non optional items, then calculate the total amount to be
-            paid." Picking this reveals the plan below instead of a
-            single fee item's own amount.
+            ask if they want full or partial payment... calculate the
+            total amount to be paid." Two variants (user report
+            2026-07-26: "you did not add all fees, optional items
+            included") since an optional item is still something a
+            parent may choose not to pay, so non-optional-only stays its
+            own choice rather than being replaced.
           --}}
           <option value="all_fees">All Fees (non-optional items)</option>
-          @foreach($feeItems as $item)
-            <option value="{{ $item->id }}" data-classes="{{ $item->schoolClasses->pluck('id')->join(',') }}" @selected(old('fee_item_id') == $item->id)>{{ $item->name }} &middot; ₦{{ number_format((float) $item->amount, 2) }} ({{ $item->term?->name }})</option>
+          <option value="all_fees_incl_optional">All Fees (including optional items)</option>
+          {{--
+            Grouped by name (user report 2026-07-26: "looking through all
+            the list is too clumsy... it is still showing school uniform
+            for three childs, wrong approach"): a fee item scoped to
+            certain classes often exists as several same-named rows at
+            different prices, one per class. Shown here as one option per
+            distinct name; resolveVariant() in the script below picks the
+            right underlying fee item once it knows the selected child's
+            class.
+          --}}
+          @foreach($feeItemGroups as $i => $group)
+            @php($universal = collect($group['variants'])->contains(fn ($v) => empty($v['classIds'])))
+            @php($classIds = $universal ? '' : collect($group['variants'])->pluck('classIds')->flatten()->unique()->join(','))
+            {{-- A single-variant group (most fee items, they usually apply
+                 to every class) still shows its price right in the list,
+                 same convenience as before; a multi-variant group's price
+                 varies by class, so it is resolved once the child is
+                 known instead (the amount hint below the picker). --}}
+            <option value="group:{{ $i }}" data-classes="{{ $classIds }}" @selected($oldFeeItemSelectValue === "group:{$i}")>{{ $group['name'] }}@if(count($group['variants']) === 1) &middot; ₦{{ number_format($group['variants'][0]['amount'], 2) }} @endif</option>
           @endforeach
         </select>
+        <input type="hidden" name="fee_item_id" id="fee_item_id" value="{{ in_array($oldFeeItemSelectValue, ['all_fees', 'all_fees_incl_optional'], true) ? $oldFeeItemSelectValue : old('fee_item_id') }}">
         <p class="hint" id="feeItemClassHint" style="display:none">Showing only fees that apply to this student's class.</p>
+        <p class="hint" id="feeItemAmountHint" style="display:none"></p>
+        @if($term)<p class="hint">Showing fees for {{ $term->name }}.</p>@endif
         @error('fee_item_id')<p class="err">{{ $message }}</p>@enderror
       </div>
 
@@ -172,17 +195,47 @@
         btn.textContent = 'Uploading...';
       });
 
-      {{-- Installment Payment Plans (2026-07-18): which fee items allow
-           installments, and what those installments are, so the picker
-           below only appears, and only offers real options, for a fee
-           item that actually has any. --}}
-      var feeItemInstallments = @json($feeItems->mapWithKeys(fn($item) => [$item->id => $item->installments->map(fn($i) => ['id' => $i->id, 'label' => $i->label, 'amount' => (float) $i->amount])]));
-      var feeItemSelect = document.getElementById('fee_item_id');
+      {{-- Fee item groups (user report 2026-07-26): one entry in
+           feeItemGroups per distinct name, each with every per-class
+           variant (id/amount/classIds/installments) that shares that
+           name. resolveVariant() picks the right one once the selected
+           child's class is known: an exact class match wins, then a
+           variant that applies to every class (empty classIds), then
+           whatever variant comes first. --}}
+      var feeItemGroups = @json($feeItemGroups);
+      var feeItemSelect = document.getElementById('fee_item_id_display');
+      var feeItemHidden = document.getElementById('fee_item_id');
       var installmentField = document.getElementById('installmentField');
       var installmentSelect = document.getElementById('fee_item_installment_id');
+      var feeItemAmountHint = document.getElementById('feeItemAmountHint');
+
+      function resolveVariant(groupIndex, classId){
+        var group = feeItemGroups[groupIndex];
+        if (! group) return null;
+        var variants = group.variants;
+        if (classId) {
+          var exact = variants.filter(function(v){ return v.classIds.indexOf(parseInt(classId, 10)) !== -1; })[0];
+          if (exact) return exact;
+        }
+        var universal = variants.filter(function(v){ return v.classIds.length === 0; })[0];
+        return universal || variants[0] || null;
+      }
+
+      function currentSelectedClassId(){
+        var classIds = selectedStudentEls().map(function(el){ return el.dataset.classId; }).filter(Boolean);
+        var unique = classIds.filter(function(v, i, a){ return a.indexOf(v) === i; });
+        // Several children in different classes have no single class to
+        // scope by.
+        return unique.length === 1 ? unique[0] : '';
+      }
+
       function refreshInstallments(){
-        var installments = feeItemInstallments[feeItemSelect.value] || [];
         installmentSelect.innerHTML = '<option value="">Full amount / not tied to one installment</option>';
+        var installments = [];
+        if (feeItemSelect.value.indexOf('group:') === 0) {
+          var variant = resolveVariant(parseInt(feeItemSelect.value.split(':')[1], 10), currentSelectedClassId());
+          installments = variant ? variant.installments : [];
+        }
         installments.forEach(function(inst){
           var opt = document.createElement('option');
           opt.value = inst.id;
@@ -192,31 +245,47 @@
         installmentField.style.display = installments.length ? '' : 'none';
         if (window.SkulosSearchable) window.SkulosSearchable.enhanceAll(installmentSelect.parentNode);
       }
-      feeItemSelect?.addEventListener('change', refreshInstallments);
-      refreshInstallments();
+
+      {{-- Resolves the group option actually selected down to a real fee
+           item id in the hidden field the form submits, and auto fills
+           the amount so picking a specific fee (not an All Fees plan)
+           shows its price without the parent having to look it up. --}}
+      function refreshFeeItemHidden(){
+        var val = feeItemSelect.value;
+        if (val.indexOf('group:') === 0) {
+          var variant = resolveVariant(parseInt(val.split(':')[1], 10), currentSelectedClassId());
+          feeItemHidden.value = variant ? String(variant.id) : '';
+          if (variant) {
+            feeItemAmountHint.textContent = 'Amount for this fee: ₦' + variant.amount.toLocaleString(undefined, {minimumFractionDigits: 2});
+            feeItemAmountHint.style.display = '';
+            amountInput.value = variant.amount.toFixed(2);
+            refreshSplitHint();
+          } else {
+            feeItemAmountHint.style.display = 'none';
+          }
+        } else {
+          feeItemHidden.value = val;
+          feeItemAmountHint.style.display = 'none';
+        }
+      }
 
       {{-- A fee item may only apply to certain classes (user request
-           2026-07-25): once a student is picked, hide any fee item option
-           that does not apply to that student's own class (a blank
-           data-classes means "every class", always shown). The already
-           selected fee item is reset if it no longer applies, so the
-           form can never silently submit a fee item for the wrong class. --}}
+           2026-07-25): once a student is picked, hide any group option
+           none of whose variants apply to that student's own class (a
+           blank data-classes means at least one variant applies to
+           every class, always shown). The already selected option is
+           reset if it no longer applies, so the form can never silently
+           submit a fee item for the wrong class. --}}
       var studentEls = Array.prototype.slice.call(document.querySelectorAll('.student-checkbox'));
       var feeItemClassHint = document.getElementById('feeItemClassHint');
       function selectedStudentEls(){
         return studentEls.filter(function(el){ return el.type !== 'checkbox' || el.checked; });
       }
       function refreshFeeItemsForStudents(){
-        var selected = selectedStudentEls();
-        var classIds = selected.map(function(el){ return el.dataset.classId; }).filter(Boolean);
-        var uniqueClassIds = classIds.filter(function(v, i, a){ return a.indexOf(v) === i; });
-        // Several children in different classes have no single class to
-        // scope by, so the filter only kicks in when every selected child
-        // shares the same class.
-        var classId = uniqueClassIds.length === 1 ? uniqueClassIds[0] : '';
+        var classId = currentSelectedClassId();
         var anyHidden = false;
         Array.prototype.forEach.call(feeItemSelect.options, function(opt){
-          if (! opt.value) return; // "General payment"
+          if (! opt.value || opt.value === 'all_fees' || opt.value === 'all_fees_incl_optional') return;
           var classes = (opt.dataset.classes || '').split(',').filter(Boolean);
           var applies = classes.length === 0 || (classId && classes.indexOf(classId) !== -1);
           opt.hidden = ! applies;
@@ -227,6 +296,7 @@
         });
         feeItemClassHint.style.display = classId && anyHidden ? '' : 'none';
         if (window.SkulosSearchable) window.SkulosSearchable.enhanceAll(feeItemSelect.parentNode);
+        refreshFeeItemHidden();
         refreshInstallments();
       }
 
@@ -250,18 +320,20 @@
       var amountInput = document.getElementById('amount');
 
       {{-- All Fees payment plan (user request 2026-07-26): full or
-           partial payment against the combined non-optional total for
-           whichever children are ticked, with a live balance so a parent
-           who already paid something sees what is actually left. --}}
+           partial payment against the combined total for whichever
+           children are ticked, non-optional only or including optional
+           items depending on which variant is picked, with a live
+           balance so a parent who already paid something sees what is
+           actually left. --}}
       var allFeesPlan = document.getElementById('allFeesPlan');
       var allFeesSummary = document.getElementById('allFeesSummary');
       var fullPaymentLabel = document.getElementById('fullPaymentLabel');
       var percentRow = document.getElementById('percentRow');
 
-      function selectedBalanceTotals(){
+      function selectedBalanceTotals(inclOptional){
         var owed = 0, paid = 0;
         selectedStudentEls().forEach(function(el){
-          owed += parseFloat(el.dataset.owed || '0');
+          owed += parseFloat((inclOptional ? el.dataset.owedAll : el.dataset.owed) || '0');
           paid += parseFloat(el.dataset.paid || '0');
         });
 
@@ -275,7 +347,7 @@
       }
 
       function applyPaymentPlanMode(){
-        var totals = selectedBalanceTotals();
+        var totals = selectedBalanceTotals(feeItemSelect.value === 'all_fees_incl_optional');
         percentRow.style.display = planMode() === 'partial' ? 'flex' : 'none';
         if (planMode() === 'full') {
           amountInput.value = totals.balance.toFixed(2);
@@ -284,14 +356,16 @@
       }
 
       function refreshAllFeesPlan(){
-        if (feeItemSelect.value !== 'all_fees') {
+        var val = feeItemSelect.value;
+        if (val !== 'all_fees' && val !== 'all_fees_incl_optional') {
           allFeesPlan.style.display = 'none';
           return;
         }
         allFeesPlan.style.display = '';
-        var totals = selectedBalanceTotals();
+        var inclOptional = val === 'all_fees_incl_optional';
+        var totals = selectedBalanceTotals(inclOptional);
         fullPaymentLabel.textContent = totals.paid > 0 ? 'Complete Payment' : 'Full Payment';
-        var parts = ['Non optional fees owed: ₦' + totals.owed.toLocaleString(undefined, {minimumFractionDigits: 2})];
+        var parts = [(inclOptional ? 'Fees owed, including optional: ₦' : 'Non optional fees owed: ₦') + totals.owed.toLocaleString(undefined, {minimumFractionDigits: 2})];
         if (totals.paid > 0) {
           parts.push('Already paid: ₦' + totals.paid.toLocaleString(undefined, {minimumFractionDigits: 2}));
         }
@@ -305,13 +379,13 @@
       });
       document.querySelectorAll('.percent-btn').forEach(function(btn){
         btn.addEventListener('click', function(){
-          var totals = selectedBalanceTotals();
+          var totals = selectedBalanceTotals(feeItemSelect.value === 'all_fees_incl_optional');
           var pct = parseFloat(btn.dataset.percent);
           amountInput.value = (totals.balance * pct / 100).toFixed(2);
           refreshSplitHint();
         });
       });
-      feeItemSelect?.addEventListener('change', refreshAllFeesPlan);
+      feeItemSelect?.addEventListener('change', function(){ refreshFeeItemHidden(); refreshInstallments(); refreshAllFeesPlan(); });
 
       studentEls.forEach(function(el){
         el.addEventListener('change', function(){ refreshFeeItemsForStudents(); refreshSplitHint(); refreshAllFeesPlan(); });

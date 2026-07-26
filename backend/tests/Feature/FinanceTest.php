@@ -823,6 +823,90 @@ class FinanceTest extends TestCase
     }
 
     /**
+     * User report 2026-07-26: "looking through all the list is too
+     * clumsy, all similar items in the list should be merged under one,
+     * parent selected one child and it is still showing school uniform
+     * for three childs, wrong approach." A fee item scoped to certain
+     * classes exists as one row per class at different prices; the
+     * Submit Payment picker now shows one option per distinct name
+     * regardless of how many per-class rows share it.
+     */
+    public function test_same_named_fee_items_across_classes_show_as_one_option_not_several(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finmergeone');
+        $parent = User::factory()->create();
+        $parentRole = $this->rbac->cloneTemplateRole($school, 'parent');
+        $school->users()->attach($parent->id, ['role_id' => $parentRole->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $term->update(['is_current' => true]);
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $classA = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $classB = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 2', 'sequence' => 2]);
+        FeeItem::create(['name' => 'School Uniform (Optional)', 'amount' => 12000, 'term_id' => $term->id, 'is_optional' => true])->schoolClasses()->attach($classA->id);
+        FeeItem::create(['name' => 'School Uniform (Optional)', 'amount' => 15000, 'term_id' => $term->id, 'is_optional' => true])->schoolClasses()->attach($classB->id);
+        $arm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $classA->id]);
+        $student = Student::create(['admission_number' => 'MRG1', 'first_name' => 'Merge', 'last_name' => 'Test', 'current_class_arm_id' => $arm->id]);
+        StudentGuardian::create(['student_id' => $student->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($parent)->get("http://{$school->slug}.localhost/finance/payments/create");
+
+        $response->assertOk();
+        $this->assertSame(1, substr_count($response->getContent(), 'School Uniform (Optional)<'), 'the two per-class rows sharing this name must render as exactly one dropdown option');
+    }
+
+    /**
+     * User report 2026-07-26: "you did not add all fees, optional items
+     * included." The original non-optional-only All Fees plan stays as
+     * its own choice; this is a second one that folds optional items in
+     * too.
+     */
+    public function test_all_fees_including_optional_variant_totals_every_approved_item(): void
+    {
+        [$school, $parent] = $this->schoolWithMember('parent', 'finallfeesthree');
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $arm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $class->id]);
+        FeeItem::create(['name' => 'Tuition', 'amount' => 10000, 'term_id' => $term->id, 'is_optional' => false]);
+        FeeItem::create(['name' => 'Uniform', 'amount' => 3000, 'term_id' => $term->id, 'is_optional' => true]);
+        $child = Student::create(['admission_number' => 'AFI1', 'first_name' => 'Ada', 'last_name' => 'Inc', 'current_class_arm_id' => $arm->id]);
+        StudentGuardian::create(['student_id' => $child->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($parent)->get("http://{$school->slug}.localhost/finance/payments/create");
+
+        $response->assertOk()
+            ->assertSee('All Fees (including optional items)')
+            ->assertSee('data-owed-all="13000"', false)
+            ->assertSee('data-owed="10000"', false);
+    }
+
+    /** The fee item picker only ever shows the active term's own items, matching every other finance screen's own term scoping. */
+    public function test_the_submit_payment_fee_item_picker_only_shows_the_active_term(): void
+    {
+        [$school, $parent] = $this->schoolWithMember('parent', 'finmergetwo');
+
+        app(TenantManager::class)->use($school);
+        $currentTerm = $this->currentTerm();
+        $currentTerm->update(['is_current' => true]);
+        $pastSession = AcademicSession::create(['name' => '2024/2025']);
+        $pastTerm = Term::create(['academic_session_id' => $pastSession->id, 'name' => 'Third Term', 'sequence' => 3, 'is_current' => false]);
+        FeeItem::create(['name' => 'Current Term Fee', 'amount' => 5000, 'term_id' => $currentTerm->id]);
+        FeeItem::create(['name' => 'Old Term Fee', 'amount' => 5000, 'term_id' => $pastTerm->id]);
+        $student = Student::create(['admission_number' => 'MRG2', 'first_name' => 'Term', 'last_name' => 'Scope']);
+        StudentGuardian::create(['student_id' => $student->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($parent)->get("http://{$school->slug}.localhost/finance/payments/create")
+            ->assertOk()->assertSee('Current Term Fee')->assertDontSee('Old Term Fee');
+    }
+
+    /**
      * Found live 2026-07-25 (user report: "finance menu is missing from
      * parent view"): the parent role already holds finance.view/
      * finance.create, and PaymentController/FeeItemController already let
