@@ -82,14 +82,14 @@ class AcademicsController extends Controller
      * individually afterwards via storeTerm(); nothing here forces exactly
      * three, it is just the fast path for the common case.
      */
-    public function storeSession(Request $request): \Illuminate\Http\RedirectResponse
+    public function storeSession(Request $request, AcademicDefaults $defaults): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'academics.create');
         $data = $request->validate([
             'start_year' => ['required', 'integer', 'min:2000', 'max:2100'],
         ]);
 
-        $session = $this->createSessionWithTerms((int) $data['start_year']);
+        $session = $defaults->createSessionWithTerms((int) $data['start_year']);
         if (! $session) {
             $startYear = (int) $data['start_year'];
 
@@ -101,35 +101,6 @@ class AcademicsController extends Controller
         }
 
         return back()->with('status', "{$session->name} created with its three terms.");
-    }
-
-    /**
-     * Shared by storeSession() and the End of Term session rollover:
-     * creates "{start}/{end} Session" with its three Nigerian-named
-     * terms if it does not already exist. Returns null (does not create
-     * anything) if a session of that name already exists, since the two
-     * callers handle "already exists" differently (one is a user error,
-     * the other means "just use the one that is already there").
-     */
-    protected function createSessionWithTerms(int $startYear): ?AcademicSession
-    {
-        $yearLabel = $startYear.'/'.($startYear + 1);
-        $name = "{$yearLabel} Session";
-
-        if (AcademicSession::where('name', $name)->exists()) {
-            return null;
-        }
-
-        $session = AcademicSession::create(['name' => $name]);
-        foreach (['First' => 1, 'Second' => 2, 'Third' => 3] as $ordinal => $sequence) {
-            Term::create([
-                'academic_session_id' => $session->id,
-                'name' => "{$ordinal} Term {$yearLabel}",
-                'sequence' => $sequence,
-            ]);
-        }
-
-        return $session;
     }
 
     public function makeSessionCurrent(Request $request): \Illuminate\Http\RedirectResponse
@@ -180,7 +151,7 @@ class AcademicsController extends Controller
      * ict-officer hold any academics.* permission at all, no classroom
      * teacher can trigger this.
      */
-    public function endTerm(Request $request, PromotionService $promotions): \Illuminate\Http\RedirectResponse
+    public function endTerm(Request $request, PromotionService $promotions, AcademicDefaults $defaults): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'academics.update');
 
@@ -199,14 +170,13 @@ class AcademicsController extends Controller
         }
 
         // Last term of the session: roll over and promote.
-        preg_match('/(\d{4})/', $currentTerm->session->name, $matches);
-        $nextStartYear = ((int) ($matches[1] ?? now()->year)) + 1;
+        $nextStartYear = $defaults->nextStartYearAfter($currentTerm->session);
 
         // createSessionWithTerms() returns null only when that session
         // already exists (e.g. an admin created next year's session
         // ahead of time), in which case just use it.
         $nextSessionName = "{$nextStartYear}/".($nextStartYear + 1).' Session';
-        $nextSession = $this->createSessionWithTerms($nextStartYear)
+        $nextSession = $defaults->createSessionWithTerms($nextStartYear)
             ?? AcademicSession::where('name', $nextSessionName)->first();
         abort_unless($nextSession, 500, 'Could not determine the next session.');
 
@@ -522,17 +492,20 @@ class AcademicsController extends Controller
 
     /**
      * Full detail for one class (user request 2026-07-11): every stream,
-     * its class teacher and assistant class teacher, its students, the
-     * subjects it offers, and who teaches each one (via TeachingAssignment,
-     * scoped to this class's own streams).
+     * its class teacher and assistant class teacher, the subjects it
+     * offers, and who teaches each one (via TeachingAssignment, scoped to
+     * this class's own streams). No student roster (removed 2026-07-25,
+     * user report: "under classes & subjects, the student name/list
+     * should not be seen... remove the student list section as it is a
+     * repetition of the student portal section") — the roster lives on
+     * the Students screen, this page is class structure only.
      */
     public function showClass(Request $request): \Illuminate\View\View
     {
         // Serves both the Classes & Subjects area and the Students list's
-        // "view this class's roster" link, so either permission suffices,
-        // not just academics.view (found 2026-07-11: a subject-teacher
-        // can view Students but not Classes & Subjects, and this page's
-        // content is mostly a student roster, not academic structure).
+        // "view" link, so either permission suffices, not just
+        // academics.view (found 2026-07-11: a subject-teacher can view
+        // Students but not Classes & Subjects).
         $school = $this->school($request);
         $allowed = app(Rbac::class)->check(Auth::user(), $school, 'academics.view')
             || app(Rbac::class)->check(Auth::user(), $school, 'students.view');
@@ -541,11 +514,6 @@ class AcademicsController extends Controller
             ->findOrFail($request->route('classId'));
 
         $armIds = $class->arms->pluck('id');
-        $studentsByArm = Student::whereIn('current_class_arm_id', $armIds)
-            ->orderBy('last_name')
-            ->get()
-            ->groupBy('current_class_arm_id');
-
         $assignmentsBySubject = TeachingAssignment::whereIn('class_arm_id', $armIds)
             ->with('staff', 'subject')
             ->get()
@@ -560,7 +528,6 @@ class AcademicsController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'class' => $class,
-            'studentsByArm' => $studentsByArm,
             'teachersBySubject' => $teachersBySubject,
             'staffIdBySubject' => $staffIdBySubject,
             'staffOptions' => Staff::active()->orderBy('first_name')->get(),

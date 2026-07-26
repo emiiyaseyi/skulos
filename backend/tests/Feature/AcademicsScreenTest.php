@@ -783,7 +783,7 @@ class AcademicsScreenTest extends TestCase
         $this->assertNull($gone);
     }
 
-    public function test_the_class_detail_page_shows_students_teacher_and_subjects(): void
+    public function test_the_class_detail_page_shows_the_teacher_and_subjects(): void
     {
         [$school, $admin] = $this->schoolWithMember('school-owner', 'acadtwentytwo');
 
@@ -799,8 +799,32 @@ class AcademicsScreenTest extends TestCase
 
         $this->actingAs($admin)->get("http://{$school->slug}.localhost/academics/classes/{$classId}")
             ->assertOk()
-            ->assertSee('Ada Obi')
             ->assertSee('Tunde Bello');
+    }
+
+    /**
+     * User report 2026-07-25: "under classes & subjects, the student
+     * name/list should not be seen... remove the student list section as
+     * it is a repetition of the student portal section." The class
+     * detail page must never show a student's name, even though a
+     * student is enrolled in the class.
+     */
+    public function test_the_class_detail_page_no_longer_shows_a_student_roster(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadnoroster');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 3', 'sequence' => 3]);
+        $arm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => null]);
+        \App\Models\Tenant\Student::create(['admission_number' => 'A2', 'first_name' => 'Chika', 'last_name' => 'Nwosu', 'current_class_arm_id' => $arm->id]);
+        $classId = $class->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->get("http://{$school->slug}.localhost/academics/classes/{$classId}")
+            ->assertOk()
+            ->assertDontSee('Chika Nwosu')
+            ->assertDontSee('Students');
     }
 
     public function test_assigning_a_class_teacher_updates_the_arm(): void

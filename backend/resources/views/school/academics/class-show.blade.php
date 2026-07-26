@@ -42,61 +42,7 @@
 </div>
 @endif
 
-@php($allStudents = collect($studentsByArm)->flatten(1)->sortBy('last_name'))
 @php($multiStream = $class->arms->count() > 1)
-<div class="card" style="margin-bottom:1.1rem">
-  <div class="row-between" style="margin-bottom:.7rem;flex-wrap:wrap;gap:.5rem">
-    <h3>Students</h3>
-    <span class="muted">{{ $allStudents->count() }} student(s)</span>
-  </div>
-  @if($allStudents->isNotEmpty())
-    <input type="search" id="classStudentSearch" placeholder="Search by name or admission number" style="margin-bottom:.8rem" />
-  @endif
-
-  @if($allStudents->isEmpty())
-    <p class="muted">No students in this class yet.</p>
-  @else
-    <div style="overflow-x:auto">
-    <table id="classStudentTable">
-      <thead><tr><th>Admission No.</th><th>Name</th>@if($multiStream)<th>Stream</th>@endif<th>Gender</th><th></th></tr></thead>
-      <tbody>
-        @foreach($allStudents as $student)
-          <tr data-search="{{ mb_strtolower($student->admission_number.' '.$student->fullName()) }}">
-            <td class="muted">{{ $student->admission_number }}</td>
-            <td>{{ $student->fullName() }}</td>
-            @if($multiStream)<td class="muted">{{ $student->currentClassArm?->label() }}</td>@endif
-            <td class="muted">{{ $student->gender ?: 'Not set' }}</td>
-            <td style="white-space:nowrap">
-              <a class="btn btn-ghost btn-sm" href="{{ route('school.students.show', ['school' => $school->slug, 'studentId' => $student->id]) }}">View</a>
-              @if($canManage)
-                <a class="btn btn-ghost btn-sm" href="{{ route('school.students.edit', ['school' => $school->slug, 'studentId' => $student->id]) }}">Edit</a>
-              @endif
-            </td>
-          </tr>
-        @endforeach
-      </tbody>
-    </table>
-    </div>
-    <p class="muted" id="classStudentEmpty" style="display:none;margin-top:.6rem">No students match your search.</p>
-    <script>
-      (function(){
-        var input = document.getElementById('classStudentSearch');
-        var rows = document.querySelectorAll('#classStudentTable tbody tr');
-        var empty = document.getElementById('classStudentEmpty');
-        input?.addEventListener('input', function(){
-          var q = this.value.trim().toLowerCase();
-          var visible = 0;
-          rows.forEach(function(row){
-            var match = !q || row.getAttribute('data-search').indexOf(q) !== -1;
-            row.style.display = match ? '' : 'none';
-            if (match) visible++;
-          });
-          empty.style.display = visible === 0 ? '' : 'none';
-        });
-      })();
-    </script>
-  @endif
-</div>
 
 @foreach($class->arms as $arm)
   <div class="card" style="margin-bottom:1.1rem">
