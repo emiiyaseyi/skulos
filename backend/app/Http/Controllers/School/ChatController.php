@@ -9,7 +9,9 @@ use App\Models\Tenant\Student;
 use App\Models\User;
 use App\Services\Communication\ChatService;
 use App\Services\Media\ImageProcessingService;
+use App\Services\Rbac\FamilyScope;
 use App\Services\Rbac\Rbac;
+use App\Services\Rbac\TeacherScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -43,7 +45,7 @@ class ChatController extends Controller
         );
     }
 
-    public function index(Request $request): \Illuminate\View\View
+    public function index(Request $request, ChatService $chat): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'communication.view');
         $school = $this->school($request);
@@ -65,7 +67,49 @@ class ChatController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'threads' => $threads,
+            'starters' => $this->conversationStarters($school, $user, $chat),
         ]);
+    }
+
+    /**
+     * Every student this user could start a brand new conversation about,
+     * each with the real people on the other side of that student they
+     * could message (user report 2026-07-25: the Chat screen's own empty
+     * state said "Start one from a student's page", but nothing on this
+     * screen itself actually let you start one, forcing a detour through
+     * Students just to reach the same "Message" button this screen could
+     * offer directly). A teacher only gets this when the school hasn't
+     * turned teacher-to-parent messaging off (matching start()'s own
+     * guard below); a guardian always gets theirs, the same "a parent can
+     * still reply with the toggle off" carve-out the rest of this
+     * controller already gives them.
+     *
+     * @return array<int, array{student: Student, targets: \Illuminate\Support\Collection<int, User>}>
+     */
+    protected function conversationStarters(School $school, User $user, ChatService $chat): array
+    {
+        $roleSlug = optional($user->roleIn($school))->slug;
+
+        if (in_array($roleSlug, config('skulos.teacher_scoped_roles', []), true)) {
+            if (! $chat->teacherParentMessagingEnabled()) {
+                return [];
+            }
+            $armIds = app(TeacherScope::class)->classArmIds($user, $school);
+            $students = $armIds === null ? collect() : Student::whereIn('current_class_arm_id', $armIds)->active()->orderBy('last_name')->get();
+
+            return $students->map(fn (Student $s) => ['student' => $s, 'targets' => $chat->guardianTargetsFor($s)])
+                ->filter(fn (array $row) => $row['targets']->isNotEmpty())->values()->all();
+        }
+
+        if ($roleSlug === 'parent') {
+            $studentIds = app(FamilyScope::class)->studentIds($user, $school);
+            $students = $studentIds === null ? collect() : Student::whereIn('id', $studentIds)->active()->orderBy('first_name')->get();
+
+            return $students->map(fn (Student $s) => ['student' => $s, 'targets' => $chat->teacherTargetsFor($s, $school)])
+                ->filter(fn (array $row) => $row['targets']->isNotEmpty())->values()->all();
+        }
+
+        return [];
     }
 
     /**

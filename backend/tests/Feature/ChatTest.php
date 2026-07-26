@@ -243,6 +243,50 @@ class ChatTest extends TestCase
             ->assertOk()->assertSee("Message {$teacher->name}");
     }
 
+    /**
+     * User report 2026-07-25: the Chat screen's own empty state said
+     * "Start one from a student's page," but offered no way to actually
+     * start one from this screen itself. A "Start a new conversation"
+     * picker now lists every student a teacher/guardian could message
+     * someone about, with the real people on the other side.
+     */
+    public function test_a_teacher_can_start_a_new_conversation_directly_from_the_chat_screen(): void
+    {
+        [$school, $teacher, $parent, $studentId] = $this->schoolWithTeacherStudentGuardian('chatstarterone');
+
+        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/chat")
+            ->assertOk()
+            ->assertSee('Start a new conversation')
+            ->assertSee('Ada Obi')
+            ->assertSee($parent->name);
+    }
+
+    public function test_a_parent_can_start_a_new_conversation_directly_from_the_chat_screen(): void
+    {
+        [$school, $teacher, $parent, $studentId] = $this->schoolWithTeacherStudentGuardian('chatstartertwo');
+
+        $this->actingAs($parent)->get("http://{$school->slug}.localhost/chat")
+            ->assertOk()
+            ->assertSee('Start a new conversation')
+            ->assertSee('Ada Obi')
+            ->assertSee($teacher->name);
+    }
+
+    public function test_the_starter_disappears_for_a_teacher_when_messaging_is_turned_off_but_not_for_a_parent(): void
+    {
+        [$school, $teacher, $parent, $studentId] = $this->schoolWithTeacherStudentGuardian('chatstarterthree');
+
+        app(TenantManager::class)->use($school);
+        app(ChatService::class)->setTeacherParentMessagingEnabled(false);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/chat")
+            ->assertOk()->assertDontSee('Start a new conversation');
+
+        $this->actingAs($parent)->get("http://{$school->slug}.localhost/chat")
+            ->assertOk()->assertSee('Start a new conversation');
+    }
+
     public function test_school_owner_can_toggle_teacher_parent_messaging_off(): void
     {
         [$school, $teacher, $parent, $studentId] = $this->schoolWithTeacherStudentGuardian('chatnine');
