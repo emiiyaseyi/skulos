@@ -4,7 +4,7 @@ This file exists so any future Claude session (or a different agent entirely) ca
 
 ## Session handover (read this first — kept current per user directive 2026-07-26: "always update the CLAUDE.md file on what you are doing, done and what's left")
 
-**State as of 2026-07-26, end of session:** working tree clean, everything committed and pushed to `main` (latest commit `9c91599`). Full backend suite green: 1112 passed / 0 failed (`php artisan test`, ran from `backend/`). No work in progress.
+**State as of 2026-07-26, end of session:** working tree clean, everything committed and pushed to `main` (latest commit `95a57d4`). Full backend suite green: 1113 passed / 0 failed (`php artisan test`, ran from `backend/`). No work in progress.
 
 **Just completed this session** (each its own commit, already pushed, tracker entries written — see the tracker's Build Log for full detail on each):
 - Finance/Payments batch: per-class fee-item drill-down on the Payments page, hiding the raw fee-item breakdown table from parents (schedule only), multi-child payment splitting (a parent with more than one child can tick several and split one payment across them), and an "All Fees" payment plan (Full/Partial payment with 25/50/75/90 percent presets, live balance, relabels to "Complete Payment" once something is already paid) — see `App\Http\Controllers\School\PaymentController`, `App\Services\Finance\FeeBalanceService`.
@@ -12,15 +12,17 @@ This file exists so any future Claude session (or a different agent entirely) ca
 - Report Settings: admin on/off toggle for the score entry screen's auto-suggested remark (`ReportCardController::SETTING_SUGGESTED_REMARK_ENABLED`).
 - Narrative Evaluation reworked from a permanent school-wide-per-class flag into a **per-class-per-term** toggle (`App\Models\Tenant\ClassNarrativeTerm`), re-toggleable across terms without rewriting an earlier term's already-generated report cards.
 - Term Calculation (cumulative report card mode): added a **per-class-only toggle** — off by default (unrestricted, matches old behaviour), once on an admin picks which classes it applies to (`App\Services\ReportCards\ReportCardCumulativePolicy::isRestrictedToClasses()`/`includedClassIds()`).
+- Attendance Dashboard: fixed 5 stat cards (rate + 4 statuses) dangling a lone 5th card in a `.grid.cols-4` at every breakpoint — the rate card is now its own card above the grid, which now holds exactly 4 (`resources/views/school/attendance/dashboard.blade.php`).
+- Investigated (no code change, closed): "notification pin error" — audited the whole pin feature end to end, ran its tests (8/8 green), found no defect. Noted an unrelated anomaly (school `greencheck`, id 30, was never actually provisioned — empty `database`/`provisioned_at`) but left it untouched; user chose to skip rather than have it investigated.
 
-**What's left in the active queue** (not started yet, no code written):
-1. Investigate and fix the notification pin error (no diagnosis done yet — needs reproduction first, exact error unknown to this handover).
-2. Fix the poorly-aligned two-column attendance stat area (desktop + mobile) — likely `resources/views/school/attendance/*` or the dashboard attendance widget partial, not yet located precisely.
-3. Add an alternative chart style option, applied everywhere charts appear school-wide (an admin-toggleable second visual style for every chart in the product, not just attendance's existing bar/line toggle — scope not yet fully pinned down, clarify with the user if picking this up).
-4. New user accounts get a welcome email with login details, portal link, and a role-specific brief; admin can disable email notifications for a period under email settings (build on the existing `MailSettingsService`/email layout pattern documented below).
-5. Every outgoing email footer must show the platform name (small, mechanical — touches `resources/views/emails/layout.blade.php` and `emails/plain.blade.php`).
+**Open, unresolved, needs the user's help to reproduce:**
+- **Chart style toggle allegedly not applying to the "Result performance" widget** (`role-panel.blade.php`'s trend chart). Reproduced the full save-then-render path twice end to end on real greenfield data (direct `Setting::put()` + a completely fresh-login real HTTP form POST to `/settings/branding`) and **both times it worked correctly** — the widget switched to bars. Could not reproduce the reported bug. Reverted the school's `chart_style` back to `line` (the default) after testing — **do not change the default away from `line`**, the ask is only that switching actually works everywhere, which it appears to already do. User is going to retry and report exact steps (which page/role, whether Save was clicked, hard refresh tried). See tracker entry "Investigated: chart style toggle..." for full detail. **Do not re-attempt a fix here until there's a concrete repro from the user** — re-verifying what's already been verified twice would be wasted effort; the missing piece is reproduction, not more code-reading.
 
-None of these five have been started. Pick the next one in order unless the user redirects.
+**What's left in the active queue** (not started, no code written):
+1. New user accounts get a welcome email with login details, portal link, and a role-specific brief; admin can disable email notifications for a period under email settings (build on the existing `MailSettingsService`/email layout pattern documented below).
+2. Every outgoing email footer must show the platform name (small, mechanical — touches `resources/views/emails/layout.blade.php` and `emails/plain.blade.php`).
+
+Pick the next one in order unless the user redirects. (Two items from the prior version of this queue turned out to already be fully built in an earlier session and needed no work: "notification pin" had no bug, and "alternative chart style option, applied everywhere charts appear" was built and tested 2026-07-22 — see the tracker's "Selectable chart style" entry — confirmed via exhaustive `<svg>`/`<polyline>` search across every Blade view.)
 
 **Practical notes for whoever picks this up:**
 - Real school for live verification is **greenfield** (`greenfield.localhost:8000`). Known working non-forced-password logins found this session: parent `nkechi.ade@gmail.com` (two real children, useful for multi-child features), staff/admin `ebele.etim@yahoo.com` — both password `password123`. Many other greenfield accounts have `must_change_password = true` and will bounce a scripted login to `/password/change`; check that flag before picking a login for HTTP-level verification.

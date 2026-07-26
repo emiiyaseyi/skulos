@@ -2457,6 +2457,28 @@ The user's "FEEDBACK LIST.docx" got a first "16 issues" pass and a newly appende
 - Resolution: n/a.
 - QA: three new `ReportCardCalculationTest` cases (a class left off the list shows no cumulative average even though the sequence's mode is 'average'; a class on the list is unaffected; an admin can save the restriction end to end). Full unfiltered `php artisan test` re-run clean, 1112 passed / 0 failed. Verified live on greenfield: default state confirmed unrestricted (existing `average`/`comparison` policy for terms 2/3 untouched), Term Calculation settings page renders every real class in the new checklist, all unchecked by default.
 
+### Attendance Dashboard: fixed the dangling 5th stat card at every breakpoint (2026-07-26, commit `95a57d4`)
+- Status: Done
+- Started: 2026-07-26
+- Notes: user report: "poorly aligned two-column attendance stat area (desktop and mobile)." The rate card plus the 4 status count cards (5 total) shared one `.grid.cols-4`, which cannot divide evenly at any breakpoint the app's own responsive rules define (4 on desktop leaves 1 dangling; the 2-column tablet step leaves 1 dangling; even the 1-column mobile step is fine, but the two wider steps genuinely were not) — a direct violation of the project's own standing "grids must resolve to complete rows, pick a column count that divides evenly" rule. The rate card now renders as its own full-width card above the grid; the grid holds exactly the 4 status cards, which divide cleanly at every breakpoint (4, then 2x2, then 1 column) the same tested way every other `cols-4` grid in the app already does.
+- Issues/Bugs: none.
+- Resolution: n/a.
+- QA: new `test_the_rate_card_sits_outside_the_four_column_status_grid_not_as_a_fifth_item` regression test. Full unfiltered `php artisan test` re-run clean, 1113 passed / 0 failed. Verified live on greenfield with real attendance data.
+
+### Investigated: "notification pin" error (2026-07-26) — no bug found in the pin feature itself
+- Status: Done (investigation closed, no code change)
+- Started: 2026-07-26
+- Notes: a queued task with no further detail attached ("investigate and fix the notification pin error"). Audited the whole pin feature end to end — `Notification::togglePin()`/`scopePinned()`/`feedFor()`, `NotificationController::bulkAction()`'s `pin`/`unpin` actions, the routes, the migration that added `pinned_at` (confirmed present on every currently-live provisioned tenant database) — and ran the full `NotificationCenterTest` suite: 8/8 passing, no defect found anywhere in the feature. The one real anomaly found was unrelated: school `greencheck` (id 30) has an empty `database`/`provisioned_at`, meaning it was never actually provisioned, which would break every tenant-scoped screen for that school, not specifically notifications/pin. Presented both findings to the user; they chose to skip this item for now rather than have `greencheck` investigated, since neither is a reproducible pin-specific bug. Revisit if the user can describe the exact on-screen symptom.
+- Issues/Bugs: none found in the pin feature. `greencheck`'s missing tenant database noted but intentionally left untouched pending the user's own decision on whether it is stale test data or a real unprovisioned school.
+- Resolution: n/a, investigation only.
+
+### Investigated: chart style toggle allegedly not applying to the "Result performance" widget (2026-07-26) — could not reproduce
+- Status: Open, awaiting the user's exact reproduction steps
+- Started: 2026-07-26
+- Notes: user report, with a screenshot of `role-panel.blade.php`'s "Result performance" trend widget still rendering as a line after apparently switching the chart style setting to an alternative. Reproduced the full path twice, end to end, on real greenfield data: (1) set `chart_style` directly via `Setting::put()`, refetched `/dashboard`, the widget correctly rendered `<rect>` bars; (2) with a completely fresh login, submitted the real `/settings/branding` form via HTTP exactly as a browser would (`chart_style=bar`), confirmed the Setting persisted, refetched `/dashboard` again, again correctly rendered bars. Both the save path (`SchoolPortalController::updateBranding()`) and the render path (`_trend-line.blade.php` included from `role-panel.blade.php`) work correctly for this exact widget on this exact school when driven directly. Could not reproduce the reported failure. Reverted the test school's `chart_style` back to `line` (the default, unchanged) after testing. User asked to retry themselves and report exact reproduction details (which page/role, whether Save was clicked, whether a hard refresh was tried) rather than have the default behaviour changed — **do not change the default chart style from `line`,** the request is only that the toggle itself works when a school switches away from it.
+- Issues/Bugs: none reproduced.
+- Resolution: pending user's retest; come back to this once there's a concrete repro.
+
 ### Announcements: each row now opens a full read page instead of a truncated preview (2026-07-26, commit `0321fe7`)
 - Status: Done
 - Started: 2026-07-26
