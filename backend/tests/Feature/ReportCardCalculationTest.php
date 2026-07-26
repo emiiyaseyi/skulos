@@ -201,4 +201,66 @@ class ReportCardCalculationTest extends TestCase
 
         $this->assertSame('off', $mode);
     }
+
+    /**
+     * Per-class-only toggle (user request 2026-07-26): "per-class-only
+     * toggle option" for cumulative calculation. Unrestricted (the
+     * default) applies to every class unchanged; once restricted, a
+     * class outside the included list is forced to 'off' regardless of
+     * the sequence's own saved mode, and an included class is unaffected.
+     */
+    public function test_a_class_left_off_the_restriction_list_shows_no_cumulative_average(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'calcnine');
+        ['studentId' => $studentId, 'termTwoId' => $termTwoId] = $this->seedTwoTermsWithScores($school);
+
+        app(TenantManager::class)->use($school);
+        app(ReportCardCumulativePolicy::class)->setPolicy([2 => 'average']);
+        // Restricted to a class that is NOT the seeded student's own class.
+        $otherClass = SchoolClass::create(['section_id' => Section::first()->id, 'name' => 'Primary 2', 'sequence' => 2]);
+        app(ReportCardCumulativePolicy::class)->setClassRestriction(true, [$otherClass->id]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/{$studentId}/{$termTwoId}");
+
+        $response->assertOk()->assertDontSee('First Term')->assertDontSee('<th class="num">Average</th>', false);
+    }
+
+    public function test_a_class_on_the_restriction_list_still_shows_the_saved_mode(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'calcten');
+        ['studentId' => $studentId, 'termTwoId' => $termTwoId] = $this->seedTwoTermsWithScores($school);
+
+        app(TenantManager::class)->use($school);
+        app(ReportCardCumulativePolicy::class)->setPolicy([2 => 'average']);
+        $ownClassId = \App\Models\Tenant\Student::find($studentId)->currentClassArm->school_class_id;
+        app(ReportCardCumulativePolicy::class)->setClassRestriction(true, [$ownClassId]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/{$studentId}/{$termTwoId}");
+
+        $response->assertOk()->assertSee('First Term')->assertSee('80', false); // (60 + 100) / 2
+    }
+
+    public function test_an_admin_can_save_the_class_restriction(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'calceleven');
+        $this->seedTwoTermsWithScores($school);
+
+        app(TenantManager::class)->use($school);
+        $classId = SchoolClass::first()->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/examinations/report-card-calculation", [
+            'sequence' => [2 => 'average'],
+            'restrict_to_classes' => '1',
+            'class_ids' => [$classId],
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $policy = app(ReportCardCumulativePolicy::class);
+        $this->assertTrue($policy->isRestrictedToClasses());
+        $this->assertSame([$classId], $policy->includedClassIds());
+        app(TenantManager::class)->forget();
+    }
 }

@@ -60,7 +60,7 @@ class ReportCardService
         // lookups for every earlier term are skipped entirely rather
         // than computed and then hidden by the view, a real saving for
         // a school that never wants this.
-        $cumulativeMode = $this->cumulativePolicy->modeFor($term);
+        $cumulativeMode = $this->cumulativePolicy->modeFor($term, $classArm?->school_class_id);
         $priorTerms = $cumulativeMode === ReportCardCumulativePolicy::MODE_OFF
             ? collect()
             : Term::where('academic_session_id', $term->academic_session_id)

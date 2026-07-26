@@ -4,6 +4,7 @@ namespace App\Http\Controllers\School;
 
 use App\Http\Controllers\Controller;
 use App\Models\School;
+use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Term;
 use App\Services\Rbac\Rbac;
 use App\Services\ReportCards\ReportCardCumulativePolicy;
@@ -71,6 +72,16 @@ class ReportCardCalculationController extends Controller
             'policy' => $policy->all(),
             'modes' => config('skulos.report_card_cumulative_modes', []),
             'defaultMode' => config('skulos.default_report_card_cumulative_mode', ReportCardCumulativePolicy::MODE_AVERAGE),
+            // Per-class-only toggle (user request 2026-07-26): by default
+            // cumulative calculation applies to every class; an admin can
+            // restrict it to specific classes only (e.g. Primary, not a
+            // WAEC/NECO graded Secondary where the comparison may not
+            // make sense).
+            'restrictedToClasses' => $policy->isRestrictedToClasses(),
+            'includedClassIds' => $policy->includedClassIds(),
+            'classes' => SchoolClass::active()->with('section')->get()
+                ->sortBy(fn (SchoolClass $c) => sprintf('%05d-%05d', $c->section?->sequence ?? 0, $c->sequence ?? 0))
+                ->values(),
         ]);
     }
 
@@ -82,9 +93,13 @@ class ReportCardCalculationController extends Controller
         $data = $request->validate([
             'sequence' => ['array'],
             'sequence.*' => [Rule::in($validModes)],
+            'restrict_to_classes' => ['nullable', 'boolean'],
+            'class_ids' => ['array'],
+            'class_ids.*' => ['integer', 'exists:tenant.school_classes,id'],
         ]);
 
         $policy->setPolicy($data['sequence'] ?? []);
+        $policy->setClassRestriction((bool) ($data['restrict_to_classes'] ?? false), $data['class_ids'] ?? []);
 
         return back()->with('status', 'Term Calculation settings saved.');
     }
