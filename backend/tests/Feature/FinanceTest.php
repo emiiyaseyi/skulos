@@ -104,6 +104,36 @@ class FinanceTest extends TestCase
         app(TenantManager::class)->forget();
     }
 
+    /**
+     * User report 2026-07-26: "parents should not be seeing the
+     * individual breakdown of the fees like this, just fee schedule is
+     * okay to be seen." The per-fee-item list (term/classes/
+     * installments/status, real finance-office detail) is restricted to
+     * $canManage; the schedule matrix above it still shows for everyone
+     * with finance.view.
+     */
+    public function test_a_parent_sees_the_fee_schedule_but_not_the_individual_fee_item_breakdown(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finhidebreakdown');
+        $parent = User::factory()->create();
+        $parentRole = $this->rbac->cloneTemplateRole($school, 'parent');
+        $school->users()->attach($parent->id, ['role_id' => $parentRole->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        FeeItem::create(['name' => 'Tuition', 'amount' => 50000, 'term_id' => $term->id]);
+        app(TenantManager::class)->forget();
+
+        $bursarResponse = $this->actingAs($bursar)->get("http://{$school->slug}.localhost/finance/fee-items?term_id={$term->id}");
+        $bursarResponse->assertOk()->assertSee('Installments')->assertSee('Manage');
+
+        $parentResponse = $this->actingAs($parent)->get("http://{$school->slug}.localhost/finance/fee-items?term_id={$term->id}");
+        $parentResponse->assertOk()
+            ->assertSee($term->name.' fee schedule', false)
+            ->assertDontSee('Installments')
+            ->assertDontSee('Manage');
+    }
+
     public function test_a_role_without_finance_permission_cannot_manage_fee_records(): void
     {
         [$school, $user] = $this->schoolWithMember('security', 'fintwo');
@@ -194,7 +224,7 @@ class FinanceTest extends TestCase
         $evidence = UploadedFile::fake()->image('receipt.jpg', 800, 600);
 
         $this->actingAs($parent)->post("http://{$school->slug}.localhost/finance/payments", [
-            'student_id' => $student->id,
+            'student_ids' => [$student->id],
             'fee_item_id' => $feeItem->id,
             'amount' => 50000,
             'bank_name' => 'GTBank',
@@ -259,7 +289,7 @@ class FinanceTest extends TestCase
         $evidence = UploadedFile::fake()->create('statement.pdf', 100, 'application/pdf');
 
         $this->actingAs($parent)->post("http://{$school->slug}.localhost/finance/payments", [
-            'student_id' => $student->id,
+            'student_ids' => [$student->id],
             'amount' => 15000,
             'evidence' => $evidence,
         ])->assertRedirect();
@@ -281,7 +311,7 @@ class FinanceTest extends TestCase
         app(TenantManager::class)->forget();
 
         $this->actingAs($parent)->post("http://{$school->slug}.localhost/finance/payments", [
-            'student_id' => $otherStudent->id,
+            'student_ids' => [$otherStudent->id],
             'amount' => 10000,
             'evidence' => UploadedFile::fake()->image('r.jpg'),
         ])->assertNotFound();
@@ -557,7 +587,7 @@ class FinanceTest extends TestCase
 
         $file = UploadedFile::fake()->image('evidence.jpg');
         $this->actingAs($parent)->post("http://{$school->slug}.localhost/finance/payments", [
-            'student_id' => $child->id, 'fee_item_id' => $item->id, 'fee_item_installment_id' => $installment->id,
+            'student_ids' => [$child->id], 'fee_item_id' => $item->id, 'fee_item_installment_id' => $installment->id,
             'amount' => 30000, 'evidence' => $file,
         ])->assertRedirect();
 
@@ -615,7 +645,7 @@ class FinanceTest extends TestCase
 
         $file = UploadedFile::fake()->image('evidence.jpg');
         $this->actingAs($parent)->post("http://{$school->slug}.localhost/finance/payments", [
-            'student_id' => $child->id, 'fee_item_id' => $itemA->id, 'fee_item_installment_id' => $installmentOfB->id,
+            'student_ids' => [$child->id], 'fee_item_id' => $itemA->id, 'fee_item_installment_id' => $installmentOfB->id,
             'amount' => 30000, 'evidence' => $file,
         ])->assertRedirect();
 
@@ -625,6 +655,106 @@ class FinanceTest extends TestCase
 
         $this->assertNotNull($payment);
         $this->assertNull($payment->fee_item_installment_id);
+    }
+
+    /**
+     * User request 2026-07-26: "for parents with more than one child, add
+     * the option of check box to select in case the parent want the
+     * payment to cover more than one child." One evidence upload split
+     * across three children, each getting its own Payment row and an even
+     * share of the total, tied together by a shared payment_group_id.
+     */
+    public function test_a_parent_with_multiple_children_can_split_one_payment_across_them(): void
+    {
+        [$school, $parent] = $this->schoolWithMember('parent', 'finmulti');
+
+        app(TenantManager::class)->use($school);
+        $childA = Student::create(['admission_number' => 'FM1', 'first_name' => 'Ada', 'last_name' => 'Multi']);
+        $childB = Student::create(['admission_number' => 'FM2', 'first_name' => 'Bola', 'last_name' => 'Multi']);
+        $childC = Student::create(['admission_number' => 'FM3', 'first_name' => 'Chidi', 'last_name' => 'Multi']);
+        foreach ([$childA, $childB, $childC] as $child) {
+            StudentGuardian::create(['student_id' => $child->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        }
+        app(TenantManager::class)->forget();
+
+        $evidence = UploadedFile::fake()->image('receipt.jpg');
+        $this->actingAs($parent)->post("http://{$school->slug}.localhost/finance/payments", [
+            'student_ids' => [$childA->id, $childB->id, $childC->id],
+            'amount' => 10000,
+            'evidence' => $evidence,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $payments = Payment::orderBy('student_id')->get();
+        app(TenantManager::class)->forget();
+
+        $this->assertCount(3, $payments);
+        $this->assertEqualsWithDelta(10000.0, (float) $payments->sum('amount'), 0.01);
+        $this->assertCount(1, $payments->pluck('payment_group_id')->unique());
+        $this->assertNotNull($payments->first()->payment_group_id);
+        $this->assertCount(1, $payments->pluck('evidence_path')->unique());
+    }
+
+    /**
+     * A single-child submission (the ordinary case) must not gain a
+     * payment_group_id or split anything, unchanged from before this
+     * feature existed.
+     */
+    public function test_a_single_child_payment_has_no_payment_group(): void
+    {
+        [$school, $parent] = $this->schoolWithMember('parent', 'finmultitwo');
+
+        app(TenantManager::class)->use($school);
+        $child = Student::create(['admission_number' => 'FM4', 'first_name' => 'Solo', 'last_name' => 'Payer']);
+        StudentGuardian::create(['student_id' => $child->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        app(TenantManager::class)->forget();
+
+        $evidence = UploadedFile::fake()->image('receipt.jpg');
+        $this->actingAs($parent)->post("http://{$school->slug}.localhost/finance/payments", [
+            'student_ids' => [$child->id],
+            'amount' => 5000,
+            'evidence' => $evidence,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $payment = Payment::first();
+        app(TenantManager::class)->forget();
+
+        $this->assertNotNull($payment);
+        $this->assertNull($payment->payment_group_id);
+        $this->assertEqualsWithDelta(5000.0, (float) $payment->amount, 0.01);
+    }
+
+    /**
+     * A crafted student id outside the parent's own family is silently
+     * dropped from the batch rather than rejecting the whole submission,
+     * same "never trust cross-field ids" convention as elsewhere; the
+     * legitimate children in the batch still get their payment recorded.
+     */
+    public function test_a_foreign_student_id_is_dropped_from_a_multi_child_submission_not_trusted(): void
+    {
+        [$school, $parent] = $this->schoolWithMember('parent', 'finmultithree');
+
+        app(TenantManager::class)->use($school);
+        $ownChild = Student::create(['admission_number' => 'FM5', 'first_name' => 'Own', 'last_name' => 'Child']);
+        StudentGuardian::create(['student_id' => $ownChild->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        $notMyChild = Student::create(['admission_number' => 'FM6', 'first_name' => 'Not', 'last_name' => 'Mine']);
+        app(TenantManager::class)->forget();
+
+        $evidence = UploadedFile::fake()->image('receipt.jpg');
+        $this->actingAs($parent)->post("http://{$school->slug}.localhost/finance/payments", [
+            'student_ids' => [$ownChild->id, $notMyChild->id],
+            'amount' => 8000,
+            'evidence' => $evidence,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $payments = Payment::all();
+        app(TenantManager::class)->forget();
+
+        $this->assertCount(1, $payments);
+        $this->assertSame($ownChild->id, $payments->first()->student_id);
+        $this->assertEqualsWithDelta(8000.0, (float) $payments->first()->amount, 0.01);
     }
 
     /**
@@ -1294,6 +1424,46 @@ class FinanceTest extends TestCase
 
         $this->assertFalse($paidNotified, 'a guardian whose child already paid in full must not be nudged');
         $this->assertTrue($unpaidNotified, 'a guardian whose child still owes must be nudged');
+    }
+
+    /**
+     * User request 2026-07-26: "add the access to view parents who have
+     * paid under the Payments section so that if the user click on the
+     * class, it shows all the students who have paid, amount paid,
+     * balance if there is, date paid, and same for those who are yet to
+     * pay, this is done per class."
+     */
+    public function test_clicking_a_class_on_the_payments_page_shows_the_per_student_payment_detail(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finclassdetail');
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 5', 'sequence' => 1]);
+        $arm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $class->id]);
+        $feeItem = FeeItem::create(['name' => 'Tuition', 'amount' => 10000, 'term_id' => $term->id]);
+        $feeItem->schoolClasses()->sync([$class->id]);
+
+        $paidFull = Student::create(['admission_number' => 'FD1', 'first_name' => 'Full', 'last_name' => 'Payer', 'current_class_arm_id' => $arm->id]);
+        $partial = Student::create(['admission_number' => 'FD2', 'first_name' => 'Part', 'last_name' => 'Payer', 'current_class_arm_id' => $arm->id]);
+        $unpaid = Student::create(['admission_number' => 'FD3', 'first_name' => 'No', 'last_name' => 'Payer', 'current_class_arm_id' => $arm->id]);
+        Payment::forceCreate(['student_id' => $paidFull->id, 'fee_item_id' => $feeItem->id, 'amount' => 10000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_VERIFIED, 'submitted_by_user_id' => $bursar->id, 'verified_at' => now()]);
+        Payment::forceCreate(['student_id' => $partial->id, 'fee_item_id' => $feeItem->id, 'amount' => 4000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_VERIFIED, 'submitted_by_user_id' => $bursar->id, 'verified_at' => now()]);
+        $armId = $arm->id;
+        app(TenantManager::class)->forget();
+
+        // The class name on the class status table links straight here.
+        $this->actingAs($bursar)->get("http://{$school->slug}.localhost/finance/payments?term_id={$term->id}")
+            ->assertOk()->assertSee(route('school.finance.payments.class-detail', ['school' => $school->slug, 'classArmId' => $armId, 'term_id' => $term->id]), false);
+
+        $response = $this->actingAs($bursar)->get("http://{$school->slug}.localhost/finance/payments/classes/{$armId}?term_id={$term->id}");
+        $response->assertOk()
+            ->assertSee('Full Payer')->assertSee('Part Payer')->assertSee('No Payer')
+            ->assertSee('₦10,000.00')  // full payer's amount paid
+            ->assertSee('₦4,000.00')   // partial payer's amount paid
+            ->assertSee('₦6,000.00')   // partial payer's balance (10000 - 4000)
+            ->assertSee('Paid in full')->assertSee('Partial')->assertSee('Not paid');
     }
 
     /**

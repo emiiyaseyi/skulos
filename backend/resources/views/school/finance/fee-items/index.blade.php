@@ -313,6 +313,19 @@
   @endif
 </div>
 
+{{--
+  User report 2026-07-26: "parents should not be seeing the individual
+  breakdown of the fees like this, just fee schedule is okay to be
+  seen." The per-fee-item list (term, classes, installments, status)
+  further identifies and manages each fee item individually, real
+  finance-office detail a parent does not need; the schedule matrix
+  above already gives them everything they actually need to know about
+  what they owe. Restricted to the same $canManage (finance.update)
+  tier already gating the edit/bulk-action controls inside this table,
+  not just those controls, so a parent (finance.view/create only) never
+  reaches this section at all.
+--}}
+@if($canManage)
 <div class="card">
   @if($feeItems->isEmpty())
     <p class="muted">No fee items yet.</p>
@@ -403,4 +416,5 @@
     @endif
   @endif
 </div>
+@endif
 @endsection

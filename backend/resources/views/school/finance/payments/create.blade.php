@@ -40,14 +40,32 @@
     <form method="POST" action="{{ route('school.finance.payments.store', ['school' => $school->slug]) }}" enctype="multipart/form-data" id="paymentForm">
       @csrf
       <div class="field">
-        <label for="student_id">Student</label>
-        <select id="student_id" name="student_id" required aria-invalid="@error('student_id') true @else false @enderror" @error('student_id') aria-describedby="student_id-error" @enderror>
-          <option value="">Select a student</option>
-          @foreach($students as $student)
-            <option value="{{ $student->id }}" data-class-id="{{ $student->currentClassArm?->schoolClass?->id }}" @selected(old('student_id') == $student->id)>{{ $student->fullName() }} ({{ $student->admission_number }})</option>
-          @endforeach
-        </select>
-        @error('student_id')<p class="err" id="student_id-error">{{ $message }}</p>@enderror
+        <label>{{ $students->count() > 1 ? 'Student(s)' : 'Student' }}</label>
+        @if($students->count() > 1)
+          {{--
+            User request 2026-07-26: "for parents with more than one
+            child, add the option of check box to select in case the
+            parent want the payment to cover more than one child." One
+            evidence upload can now cover several children at once, the
+            amount below is split evenly across whichever are checked.
+          --}}
+          <p class="hint" style="margin-bottom:.4rem">Tick every child this payment covers. One payment can cover more than one child.</p>
+          <div class="stack" style="gap:.4rem;border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem">
+            @foreach($students as $student)
+              @php($old = old('student_ids', []))
+              <label style="display:flex;align-items:center;gap:.5rem;font-weight:600">
+                <input type="checkbox" name="student_ids[]" value="{{ $student->id }}" class="student-checkbox" data-class-id="{{ $student->currentClassArm?->schoolClass?->id }}" @checked(in_array($student->id, $old))>
+                {{ $student->fullName() }} ({{ $student->admission_number }})
+              </label>
+            @endforeach
+          </div>
+        @else
+          <input type="hidden" name="student_ids[]" value="{{ $students->first()->id }}" class="student-checkbox" checked data-class-id="{{ $students->first()->currentClassArm?->schoolClass?->id }}">
+          <p style="font-weight:700">{{ $students->first()->fullName() }} ({{ $students->first()->admission_number }})</p>
+        @endif
+        <p class="hint" id="splitHint" style="display:none"></p>
+        @error('student_ids')<p class="err">{{ $message }}</p>@enderror
+        @error('student_ids.*')<p class="err">{{ $message }}</p>@enderror
       </div>
 
       <div class="field">
@@ -72,7 +90,7 @@
       </div>
 
       <div class="field">
-        <label for="amount">Amount paid (₦)</label>
+        <label for="amount">{{ $students->count() > 1 ? 'Total amount paid (₦)' : 'Amount paid (₦)' }}</label>
         <input id="amount" name="amount" type="number" step="0.01" min="0.01" required value="{{ old('amount') }}" aria-invalid="@error('amount') true @else false @enderror" @error('amount') aria-describedby="amount-error" @enderror />
         @error('amount')<p class="err" id="amount-error">{{ $message }}</p>@enderror
       </div>
@@ -103,8 +121,13 @@
       {{-- A multi-MB evidence upload on a slow connection previously gave
            no feedback at all, so it looked frozen (audit finding M-13,
            2026-07-17). --}}
-      document.getElementById('paymentForm')?.addEventListener('submit', function(){
+      document.getElementById('paymentForm')?.addEventListener('submit', function(e){
         var btn = document.getElementById('paymentSubmit');
+        if (selectedStudentEls().length === 0) {
+          e.preventDefault();
+          alert('Tick at least one child first.');
+          return;
+        }
         if (!btn) return;
         btn.disabled = true;
         btn.setAttribute('aria-busy', 'true');
@@ -140,11 +163,19 @@
            data-classes means "every class", always shown). The already
            selected fee item is reset if it no longer applies, so the
            form can never silently submit a fee item for the wrong class. --}}
-      var studentSelect = document.getElementById('student_id');
+      var studentEls = Array.prototype.slice.call(document.querySelectorAll('.student-checkbox'));
       var feeItemClassHint = document.getElementById('feeItemClassHint');
-      function refreshFeeItemsForStudent(){
-        var chosen = studentSelect.options[studentSelect.selectedIndex];
-        var classId = chosen ? chosen.dataset.classId : '';
+      function selectedStudentEls(){
+        return studentEls.filter(function(el){ return el.type !== 'checkbox' || el.checked; });
+      }
+      function refreshFeeItemsForStudents(){
+        var selected = selectedStudentEls();
+        var classIds = selected.map(function(el){ return el.dataset.classId; }).filter(Boolean);
+        var uniqueClassIds = classIds.filter(function(v, i, a){ return a.indexOf(v) === i; });
+        // Several children in different classes have no single class to
+        // scope by, so the filter only kicks in when every selected child
+        // shares the same class.
+        var classId = uniqueClassIds.length === 1 ? uniqueClassIds[0] : '';
         var anyHidden = false;
         Array.prototype.forEach.call(feeItemSelect.options, function(opt){
           if (! opt.value) return; // "General payment"
@@ -160,8 +191,31 @@
         if (window.SkulosSearchable) window.SkulosSearchable.enhanceAll(feeItemSelect.parentNode);
         refreshInstallments();
       }
-      studentSelect?.addEventListener('change', refreshFeeItemsForStudent);
-      refreshFeeItemsForStudent();
+
+      {{-- Splitting one payment across more than one child (user request
+           2026-07-26): show the parent exactly what each child's share
+           will be before they submit, so the even split is never a
+           surprise. --}}
+      var splitHint = document.getElementById('splitHint');
+      function refreshSplitHint(){
+        var count = selectedStudentEls().length;
+        var amount = parseFloat(amountInput.value);
+        if (count > 1 && amount > 0) {
+          var share = amount / count;
+          splitHint.textContent = 'This will be split evenly: ₦' + share.toLocaleString(undefined, {minimumFractionDigits: 2}) + ' each for ' + count + ' children.';
+          splitHint.style.display = '';
+        } else {
+          splitHint.style.display = 'none';
+        }
+      }
+
+      var amountInput = document.getElementById('amount');
+      studentEls.forEach(function(el){
+        el.addEventListener('change', function(){ refreshFeeItemsForStudents(); refreshSplitHint(); });
+      });
+      amountInput?.addEventListener('input', refreshSplitHint);
+      refreshFeeItemsForStudents();
+      refreshSplitHint();
     </script>
   @endif
 </div>

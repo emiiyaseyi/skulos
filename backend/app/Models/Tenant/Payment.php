@@ -38,7 +38,7 @@ class Payment extends Model
      */
     protected $fillable = [
         'student_id', 'fee_item_id', 'fee_item_installment_id', 'amount', 'method', 'bank_name', 'reference',
-        'evidence_path', 'submitted_by_user_id',
+        'evidence_path', 'payment_group_id', 'submitted_by_user_id',
     ];
 
     protected function casts(): array

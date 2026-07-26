@@ -229,6 +229,56 @@ class PaymentController extends Controller
     }
 
     /**
+     * Drills into one class arm's own list of students (user request
+     * 2026-07-26: "add the access to view parents who have paid under
+     * the Payments section so that if the user click on the class, it
+     * shows all the students who have paid, amount paid, balance if
+     * there is, date paid, and same for those who are yet to pay"). Same
+     * owed calc as classStatus()/nudgeUnpaid(), scoped to whichever term
+     * the class status table was actually showing (the term switcher).
+     */
+    public function classDetail(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'finance.view');
+        $school = $this->school($request);
+        $arm = ClassArm::with('schoolClass.section', 'arm')->findOrFail($request->route('classArmId'));
+
+        $term = $this->resolveActiveTerm($request);
+        abort_unless($term, 404, 'There is no term to show.');
+
+        $owed = FeeItem::where('term_id', $term->id)->active()->where('approval_status', FeeItem::APPROVAL_APPROVED)
+            ->with('schoolClasses')->get()->filter(fn (FeeItem $f) => $f->appliesToClass($arm->school_class_id))->sum('amount');
+
+        $students = Student::active()->where('current_class_arm_id', $arm->id)->orderBy('first_name')->get();
+
+        $paymentsByStudent = Payment::where('status', Payment::STATUS_VERIFIED)
+            ->whereIn('student_id', $students->pluck('id'))
+            ->get(['student_id', 'amount', 'verified_at']);
+
+        $rows = $students->map(function (Student $student) use ($paymentsByStudent, $owed) {
+            $payments = $paymentsByStudent->where('student_id', $student->id);
+            $paid = (float) $payments->sum('amount');
+
+            return [
+                'student' => $student,
+                'paid' => $paid,
+                'balance' => max(0, $owed - $paid),
+                'status' => $owed > 0 && $paid >= $owed ? 'paid' : ($paid > 0 ? 'partial' : 'unpaid'),
+                'lastPaidAt' => $payments->max('verified_at'),
+            ];
+        })->sortBy(fn ($row) => $row['status'] === 'paid' ? 1 : 0)->values();
+
+        return view('school.finance.payments.class-detail', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'arm' => $arm,
+            'term' => $term,
+            'owed' => $owed,
+            'rows' => $rows,
+        ]);
+    }
+
+    /**
      * Reminds every guardian whose child is in this class and has not
      * yet paid in full this term (user request 2026-07-25: "a trigger
      * parent to those who are yet to pay at all, or have partial payment
@@ -320,7 +370,8 @@ class PaymentController extends Controller
         $familyStudentIds = app(FamilyScope::class)->studentIds($user, $school);
 
         $data = $request->validate([
-            'student_id' => ['required', 'exists:tenant.students,id'],
+            'student_ids' => ['required', 'array', 'min:1'],
+            'student_ids.*' => ['integer', 'exists:tenant.students,id'],
             'fee_item_id' => ['nullable', 'exists:tenant.fee_items,id'],
             'fee_item_installment_id' => ['nullable', 'exists:tenant.fee_item_installments,id'],
             'amount' => ['required', 'numeric', 'min:0.01'],
@@ -332,7 +383,7 @@ class PaymentController extends Controller
         // A crafted installment id belonging to a different fee item than
         // the one submitted is silently dropped rather than acted on, the
         // same "never trust cross-field ids" convention the rest of this
-        // controller already follows for student_id.
+        // controller already follows for student ids.
         if (! empty($data['fee_item_installment_id'])) {
             $belongs = \App\Models\Tenant\FeeItemInstallment::where('id', $data['fee_item_installment_id'])
                 ->where('fee_item_id', $data['fee_item_id'] ?? null)->exists();
@@ -342,11 +393,14 @@ class PaymentController extends Controller
         }
 
         // A parent/student may only ever submit for their own linked
-        // child/self, a crafted student_id outside that set is rejected,
-        // never silently redirected onto someone else's record.
-        if ($familyStudentIds !== null && ! $familyStudentIds->contains((int) $data['student_id'])) {
-            abort(404);
+        // children/self, any crafted student id outside that set is
+        // dropped rather than acted on, never silently redirected onto
+        // someone else's record.
+        $studentIds = collect($data['student_ids'])->map(fn ($id) => (int) $id)->unique()->values();
+        if ($familyStudentIds !== null) {
+            $studentIds = $studentIds->filter(fn ($id) => $familyStudentIds->contains($id))->values();
         }
+        abort_if($studentIds->isEmpty(), 404);
 
         // Financial evidence never goes on the public disk (audit finding
         // M-2, 2026-07-17): a bank receipt/proof-of-payment is served only
@@ -358,35 +412,62 @@ class PaymentController extends Controller
             ? $file->storeAs("payments/{$school->slug}", Str::random(24).'.pdf', 'local')
             : $images->toWebp($file, "payments/{$school->slug}", disk: 'local');
 
+        // For parents with more than one child (user request 2026-07-26):
+        // one evidence upload can cover several children at once. Each
+        // child still gets its own Payment row (so verification, balances,
+        // and records all stay per-student as before), sharing an even
+        // split of the total amount and tagged with the same
+        // payment_group_id so the records screen can show they came from
+        // one submission. The split's rounding remainder lands on the last
+        // student so the shares always sum back to the entered total.
+        $count = $studentIds->count();
+        $share = round(((float) $data['amount']) / $count, 2);
+        $groupId = $count > 1 ? (string) Str::uuid() : null;
+
         // If the record create fails after the file already uploaded
         // successfully, the file is deleted rather than left orphaned on
         // disk indefinitely, unreferenced by any record (audit finding
         // M-6, 2026-07-17).
         try {
-            // status is intentionally not passed here: it is not
-            // mass-assignable (see Payment::$fillable), so a new payment
-            // always starts at the migration's own status='pending'
-            // column default, the single source of truth for that.
-            $payment = Payment::create([
-                'student_id' => $data['student_id'],
-                'fee_item_id' => $data['fee_item_id'] ?? null,
-                'fee_item_installment_id' => $data['fee_item_installment_id'] ?? null,
-                'amount' => $data['amount'],
-                'method' => 'bank_transfer',
-                'bank_name' => $data['bank_name'] ?? null,
-                'reference' => $data['reference'] ?? null,
-                'evidence_path' => $evidencePath,
-                'submitted_by_user_id' => $user->id,
-            ]);
+            $payments = collect();
+            foreach ($studentIds as $index => $studentId) {
+                $amount = $index === $count - 1
+                    ? round((float) $data['amount'] - $share * ($count - 1), 2)
+                    : $share;
+
+                // status is intentionally not passed here: it is not
+                // mass-assignable (see Payment::$fillable), so a new
+                // payment always starts at the migration's own
+                // status='pending' column default, the single source of
+                // truth for that.
+                $payments->push(Payment::create([
+                    'student_id' => $studentId,
+                    'fee_item_id' => $data['fee_item_id'] ?? null,
+                    'fee_item_installment_id' => $data['fee_item_installment_id'] ?? null,
+                    'amount' => $amount,
+                    'method' => 'bank_transfer',
+                    'bank_name' => $data['bank_name'] ?? null,
+                    'reference' => $data['reference'] ?? null,
+                    'evidence_path' => $evidencePath,
+                    'payment_group_id' => $groupId,
+                    'submitted_by_user_id' => $user->id,
+                ]));
+            }
         } catch (\Throwable $e) {
             Storage::disk('local')->delete($evidencePath);
             throw $e;
         }
 
-        $this->notifyFinanceStaff($school, $payment, 'payment_submitted', 'New payment submitted', "{$payment->student->fullName()}'s payment of ₦".number_format((float) $payment->amount, 2).' is awaiting verification.');
+        foreach ($payments as $payment) {
+            $this->notifyFinanceStaff($school, $payment, 'payment_submitted', 'New payment submitted', "{$payment->student->fullName()}'s payment of ₦".number_format((float) $payment->amount, 2).' is awaiting verification.');
+        }
+
+        $status = $count > 1
+            ? "Payment submitted for {$count} children. You will be notified once each is verified."
+            : 'Payment submitted. You will be notified once it is verified.';
 
         return redirect()->route('school.finance.payments.index', ['school' => $school->slug])
-            ->with('status', 'Payment submitted. You will be notified once it is verified.');
+            ->with('status', $status);
     }
 
     public function show(Request $request): \Illuminate\View\View

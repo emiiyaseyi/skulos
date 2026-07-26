@@ -74,12 +74,13 @@
       <tbody>
         @foreach($classStatus as $row)
           <tr>
-            <td><strong>{{ $row['label'] }}</strong></td>
+            <td><a href="{{ route('school.finance.payments.class-detail', ['school' => $school->slug, 'classArmId' => $row['arm']->id, 'term_id' => $activeTerm?->id]) }}"><strong>{{ $row['label'] }}</strong></a></td>
             <td class="muted">{{ $row['studentCount'] }}</td>
             <td><span class="badge badge-ok">{{ $row['fullyPaid'] }}</span></td>
             <td><span class="badge badge-warn">{{ $row['partial'] }}</span></td>
             <td><span class="badge badge-bad">{{ $row['unpaid'] }}</span></td>
-            <td>
+            <td style="white-space:nowrap">
+              <a class="btn btn-ghost btn-sm" href="{{ route('school.finance.payments.class-detail', ['school' => $school->slug, 'classArmId' => $row['arm']->id, 'term_id' => $activeTerm?->id]) }}">View</a>
               @if($canVerify && ($row['partial'] + $row['unpaid']) > 0)
                 <form method="POST" action="{{ route('school.finance.payments.nudge', ['school' => $school->slug]) }}" style="display:inline">
                   @csrf
