@@ -33,7 +33,8 @@
           @endforeach
         </select>
       </div>
-      <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem">
+      @include('school.finance.fee-items._class-checkboxes', ['selectedClassIds' => old('class_ids', $feeItem->schoolClasses->pluck('id')->all())])
+      <label style="display:flex;align-items:center;gap:.5rem;margin:1rem 0">
         <input type="checkbox" name="allow_installments" value="1" @checked(old('allow_installments', $feeItem->allow_installments)) />
         <span>Allow this fee to be paid in installments</span>
       </label>

@@ -44,7 +44,7 @@
         <select id="student_id" name="student_id" required aria-invalid="@error('student_id') true @else false @enderror" @error('student_id') aria-describedby="student_id-error" @enderror>
           <option value="">Select a student</option>
           @foreach($students as $student)
-            <option value="{{ $student->id }}" @selected(old('student_id') == $student->id)>{{ $student->fullName() }} ({{ $student->admission_number }})</option>
+            <option value="{{ $student->id }}" data-class-id="{{ $student->currentClassArm?->schoolClass?->id }}" @selected(old('student_id') == $student->id)>{{ $student->fullName() }} ({{ $student->admission_number }})</option>
           @endforeach
         </select>
         @error('student_id')<p class="err" id="student_id-error">{{ $message }}</p>@enderror
@@ -55,9 +55,10 @@
         <select id="fee_item_id" name="fee_item_id">
           <option value="">General payment</option>
           @foreach($feeItems as $item)
-            <option value="{{ $item->id }}" @selected(old('fee_item_id') == $item->id)>{{ $item->name }} &middot; ₦{{ number_format((float) $item->amount, 2) }} ({{ $item->term?->name }})</option>
+            <option value="{{ $item->id }}" data-classes="{{ $item->schoolClasses->pluck('id')->join(',') }}" @selected(old('fee_item_id') == $item->id)>{{ $item->name }} &middot; ₦{{ number_format((float) $item->amount, 2) }} ({{ $item->term?->name }})</option>
           @endforeach
         </select>
+        <p class="hint" id="feeItemClassHint" style="display:none">Showing only fees that apply to this student's class.</p>
         @error('fee_item_id')<p class="err">{{ $message }}</p>@enderror
       </div>
 
@@ -132,6 +133,35 @@
       }
       feeItemSelect?.addEventListener('change', refreshInstallments);
       refreshInstallments();
+
+      {{-- A fee item may only apply to certain classes (user request
+           2026-07-25): once a student is picked, hide any fee item option
+           that does not apply to that student's own class (a blank
+           data-classes means "every class", always shown). The already
+           selected fee item is reset if it no longer applies, so the
+           form can never silently submit a fee item for the wrong class. --}}
+      var studentSelect = document.getElementById('student_id');
+      var feeItemClassHint = document.getElementById('feeItemClassHint');
+      function refreshFeeItemsForStudent(){
+        var chosen = studentSelect.options[studentSelect.selectedIndex];
+        var classId = chosen ? chosen.dataset.classId : '';
+        var anyHidden = false;
+        Array.prototype.forEach.call(feeItemSelect.options, function(opt){
+          if (! opt.value) return; // "General payment"
+          var classes = (opt.dataset.classes || '').split(',').filter(Boolean);
+          var applies = classes.length === 0 || (classId && classes.indexOf(classId) !== -1);
+          opt.hidden = ! applies;
+          if (! applies) {
+            anyHidden = true;
+            if (opt.selected) feeItemSelect.value = '';
+          }
+        });
+        feeItemClassHint.style.display = classId && anyHidden ? '' : 'none';
+        if (window.SkulosSearchable) window.SkulosSearchable.enhanceAll(feeItemSelect.parentNode);
+        refreshInstallments();
+      }
+      studentSelect?.addEventListener('change', refreshFeeItemsForStudent);
+      refreshFeeItemsForStudent();
     </script>
   @endif
 </div>

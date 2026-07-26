@@ -10,7 +10,88 @@
   <a class="btn btn-ghost btn-sm" href="{{ route('school.finance.payments.index', ['school' => $school->slug]) }}">Payments</a>
 </div>
 
+{{--
+  The whole fee schedule at a glance, fee item names as rows and classes
+  as columns (user request 2026-07-25: "the first section should show
+  the schools fees in a tabular form for all classes first... this only
+  shows if the school admin has uploaded, set or entered the fee
+  items"), one table per term. Read only, editing still happens on the
+  per fee item table/forms further down this same page.
+--}}
+@if(count($feeSchedule))
+  <div class="card" style="margin-bottom:1.1rem">
+    @foreach($feeSchedule as $group)
+      <h3 style="margin-bottom:.6rem{{ $loop->first ? '' : ';margin-top:1.4rem;padding-top:1.2rem;border-top:1px solid var(--line)' }}">{{ $group['term'] }} fee schedule</h3>
+      <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Fee item</th>
+            @foreach($group['classes'] as $class)
+              <th style="text-align:right;white-space:nowrap">{{ $class->name }}</th>
+            @endforeach
+          </tr>
+        </thead>
+        <tbody>
+          @foreach($group['rows'] as $row)
+            <tr>
+              <td style="white-space:nowrap"><strong>{{ $row['name'] }}</strong></td>
+              @foreach($group['classes'] as $class)
+                <td class="muted" style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap">{{ $row['amounts'][$class->id] ? '₦'.$row['amounts'][$class->id] : '—' }}</td>
+              @endforeach
+            </tr>
+          @endforeach
+        </tbody>
+      </table>
+      </div>
+    @endforeach
+  </div>
+@endif
+
 @if($canManage)
+  {{--
+    Fee approval chain (user request 2026-07-25: "admin can set an
+    approval level for school fees which the school owner, principal,
+    vice principal, head teacher, assistant head teacher or any other
+    name from the staff list, search option works here"). Off by
+    default: a school that never opens this card keeps every fee item
+    immediately live exactly as before. Every <select> in this app is
+    searchable automatically once it has enough options (window.
+    SkulosSearchable, applied on page load), so the plain staff options
+    below are already the "search option" the request asked for.
+  --}}
+  <div class="card" style="margin-bottom:1.1rem;max-width:40rem">
+    <h3 style="margin-bottom:.4rem">Fee approval</h3>
+    <p class="muted" style="margin-bottom:.8rem">Require someone to approve a new fee item before parents can see it.</p>
+    <form method="POST" action="{{ route('school.finance.fee-items.approval-settings', ['school' => $school->slug]) }}">
+      @csrf
+      <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:.8rem">
+        <input type="checkbox" name="enabled" value="1" @checked($feeApprovalEnabled) />
+        <span>Require approval before a new fee item is visible to parents</span>
+      </label>
+      <div class="field">
+        <label>Approvers</label>
+        <p class="hint" style="margin:0 0 .5rem">Anyone selected here can approve or reject. Pick a role, a specific staff member, or both.</p>
+        @for($i = 0; $i < 5; $i++)
+          <select name="chain[]" style="margin-bottom:.5rem">
+            <option value="">Not used</option>
+            <optgroup label="Role">
+              @foreach($feeApprovalRoles as $slug => $label)
+                <option value="role:{{ $slug }}" @selected(($feeApprovalChain[$i] ?? null) === "role:{$slug}")>{{ $label }}</option>
+              @endforeach
+            </optgroup>
+            <optgroup label="Specific staff member">
+              @foreach($staffForApproval as $staff)
+                <option value="staff:{{ $staff->id }}" @selected(($feeApprovalChain[$i] ?? null) === "staff:{$staff->id}")>{{ $staff->fullName() }}</option>
+              @endforeach
+            </optgroup>
+          </select>
+        @endfor
+      </div>
+      <button class="btn btn-primary btn-sm" type="submit">Save fee approval settings</button>
+    </form>
+  </div>
+
   <div class="card" style="margin-bottom:1.1rem;max-width:40rem">
     <h3 style="margin-bottom:.6rem">Add a fee item</h3>
     <form method="POST" action="{{ route('school.finance.fee-items.store', ['school' => $school->slug]) }}">
@@ -34,15 +115,46 @@
           @foreach($terms as $term)
             <option value="{{ $term->id }}" @selected(old('term_id') == $term->id)>{{ $term->name }} ({{ $term->session?->name }})</option>
           @endforeach
+          {{--
+            The upcoming session's First Term, offered automatically once
+            the school is in the last term of its current session (user
+            request 2026-07-25), not a real Term row yet, resolved into
+            one (created on the spot) only if this option is actually
+            picked and saved, see FeeItemController::resolveTermId().
+          --}}
+          @if($upcomingTerm)
+            <option value="{{ $upcomingTerm['value'] }}" @selected(old('term_id') === $upcomingTerm['value'])>{{ $upcomingTerm['label'] }}</option>
+          @endif
         </select>
         @error('term_id')<p class="err" id="term_id-error">{{ $message }}</p>@enderror
       </div>
-      <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem">
+      @include('school.finance.fee-items._class-checkboxes', ['selectedClassIds' => old('class_ids', [])])
+      <label style="display:flex;align-items:center;gap:.5rem;margin:1rem 0">
         <input type="checkbox" name="allow_installments" value="1" @checked(old('allow_installments')) />
         <span>Allow this fee to be paid in installments</span>
       </label>
       <button class="btn btn-primary btn-sm" type="submit">Add fee item</button>
     </form>
+  </div>
+
+  {{--
+    Bulk way to set up a whole fee schedule at once (user request
+    2026-07-25: "make the fee items that one can upload as a bulk file,
+    add a downloadable csv too... alternatively, the school can decide to
+    upload a file that will act as the school fees"). Additive, not a
+    wholesale replace, matching every other bulk import in this app.
+  --}}
+  <div class="card" style="margin-bottom:1.1rem;max-width:40rem">
+    <h3 style="margin-bottom:.4rem">Bulk add fee items</h3>
+    <p class="muted" style="margin-bottom:.8rem">Download the template, fill in as many fee items as you like (one per row, "classes" left blank applies to the whole school), then upload it back.</p>
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center">
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.finance.fee-items.template', ['school' => $school->slug]) }}">Download template</a>
+      <form method="POST" action="{{ route('school.finance.fee-items.bulk-upload', ['school' => $school->slug]) }}" enctype="multipart/form-data" style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+        @csrf
+        <input type="file" name="file" accept=".csv,text/csv" required />
+        <button class="btn btn-primary btn-sm" type="submit">Upload</button>
+      </form>
+    </div>
   </div>
 @endif
 
@@ -155,7 +267,9 @@
     <table>
       <thead><tr>
         @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="fee-item-select-all" aria-label="Select all fee items" /></th>@endif
-        <th>Name</th><th>Term</th><th>Amount</th><th>Installments</th><th>Status</th><th></th></tr></thead>
+        <th>Name</th><th>Term</th><th>Amount</th><th>Classes</th><th>Installments</th><th>Status</th>
+        @if($feeApprovalEnabled)<th>Approval</th>@endif
+        <th></th></tr></thead>
       <tbody>
         @foreach($feeItems as $item)
           <tr>
@@ -165,10 +279,32 @@
             <td><strong>{{ $item->name }}</strong></td>
             <td class="muted">{{ $item->term?->name }}</td>
             <td>₦{{ number_format((float) $item->amount, 2) }}</td>
+            <td class="muted">{{ $item->schoolClasses->isEmpty() ? 'Every class' : $item->schoolClasses->pluck('name')->join(', ') }}</td>
             <td class="muted">{{ $item->allow_installments ? 'Allowed' : 'Full amount only' }}</td>
             <td><span class="badge {{ $item->is_active ? 'badge-ok' : 'badge-warn' }}">{{ $item->is_active ? 'Active' : 'Retired' }}</span></td>
+            @if($feeApprovalEnabled)
+              <td>
+                @if($item->approval_status === 'pending')
+                  <span class="badge badge-warn">Pending</span>
+                @elseif($item->approval_status === 'rejected')
+                  <span class="badge" style="background:color-mix(in srgb,var(--bad) 18%,transparent);color:color-mix(in srgb,var(--bad) 55%,black)">Rejected</span>
+                @else
+                  <span class="badge badge-ok">Approved</span>
+                @endif
+              </td>
+            @endif
             <td style="white-space:nowrap">
               <a class="btn btn-ghost btn-sm" href="{{ route('school.finance.fee-items.show', ['school' => $school->slug, 'feeItemId' => $item->id]) }}">{{ $canManage ? 'Manage' : 'View' }}</a>
+              @if($isEligibleApprover && $item->approval_status === 'pending')
+                <form method="POST" action="{{ route('school.finance.fee-items.approve', ['school' => $school->slug, 'feeItemId' => $item->id]) }}" style="display:inline">
+                  @csrf
+                  <button class="btn btn-ghost btn-sm" type="submit">Approve</button>
+                </form>
+                <form method="POST" action="{{ route('school.finance.fee-items.reject', ['school' => $school->slug, 'feeItemId' => $item->id]) }}" style="display:inline">
+                  @csrf
+                  <button class="btn btn-ghost btn-sm" type="submit">Reject</button>
+                </form>
+              @endif
               @if($canManage)
                 <form method="POST" action="{{ route('school.finance.fee-items.toggle-active', ['school' => $school->slug, 'feeItemId' => $item->id]) }}" style="display:inline">
                   @csrf

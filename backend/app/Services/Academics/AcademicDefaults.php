@@ -2,12 +2,14 @@
 
 namespace App\Services\Academics;
 
+use App\Models\Tenant\AcademicSession;
 use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\GradingBand;
 use App\Models\Tenant\GradingScale;
 use App\Models\Tenant\Section;
 use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Subject;
+use App\Models\Tenant\Term;
 
 /**
  * One-click starting points for a school's subject list and grading
@@ -238,5 +240,54 @@ class AcademicDefaults
         }
 
         return $scale;
+    }
+
+    /**
+     * Create "{start}/{end} Session" with its three Nigerian-named terms
+     * (First/Second/Third) if a session of that name does not already
+     * exist. Extracted from AcademicsController (which still owns the
+     * "Sessions & Terms" screen and the End of Term rollover) so a second
+     * caller, the Fee Records term picker's "next session's First Term
+     * comes up automatically once you're in Third Term" convenience
+     * (user request 2026-07-25), can create the same real Term/
+     * AcademicSession rows on demand rather than duplicating this
+     * naming/shape logic a second time. Returns null (does not create
+     * anything) if a session of that name already exists, since callers
+     * handle "already exists" differently (one treats it as a user
+     * error, another just uses the one already there).
+     */
+    public function createSessionWithTerms(int $startYear): ?AcademicSession
+    {
+        $yearLabel = $startYear.'/'.($startYear + 1);
+        $name = "{$yearLabel} Session";
+
+        if (AcademicSession::where('name', $name)->exists()) {
+            return null;
+        }
+
+        $session = AcademicSession::create(['name' => $name]);
+        foreach (['First' => 1, 'Second' => 2, 'Third' => 3] as $ordinal => $sequence) {
+            Term::create([
+                'academic_session_id' => $session->id,
+                'name' => "{$ordinal} Term {$yearLabel}",
+                'sequence' => $sequence,
+            ]);
+        }
+
+        return $session;
+    }
+
+    /**
+     * The session that would come immediately after $session, by parsing
+     * the 4 digit start year out of its name (e.g. "2025/2026 Session"
+     * -> 2026) the same way AcademicsController::endTerm() already does
+     * for its own rollover. Shared here so the Fee Records term picker
+     * can compute the same label without duplicating the parsing.
+     */
+    public function nextStartYearAfter(AcademicSession $session): int
+    {
+        preg_match('/(\d{4})/', $session->name, $matches);
+
+        return ((int) ($matches[1] ?? now()->year)) + 1;
     }
 }

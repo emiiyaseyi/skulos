@@ -573,8 +573,15 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             // Registered before the {feeItemId} wildcard route below, which
             // would otherwise greedily match "bulk-action" as an id.
             Route::post('/fee-items/bulk-action', [$feeItems, 'bulkAction'])->name('fee-items.bulk-action');
+            Route::get('/fee-items/template', [$feeItems, 'template'])->name('fee-items.template');
+            Route::post('/fee-items/bulk-upload', [$feeItems, 'bulkUpload'])->name('fee-items.bulk-upload');
+            // The fee approval chain (user request 2026-07-25), registered
+            // before {feeItemId} for the same reason as bulk-action above.
+            Route::post('/fee-items/approval-settings', [$feeItems, 'updateApprovalSettings'])->name('fee-items.approval-settings');
             Route::post('/fee-items/{feeItemId}', [$feeItems, 'update'])->name('fee-items.update');
             Route::post('/fee-items/{feeItemId}/toggle-active', [$feeItems, 'toggleActive'])->name('fee-items.toggle-active');
+            Route::post('/fee-items/{feeItemId}/approve', [$feeItems, 'approveFeeItem'])->name('fee-items.approve');
+            Route::post('/fee-items/{feeItemId}/reject', [$feeItems, 'rejectFeeItem'])->name('fee-items.reject');
             Route::delete('/fee-items/{feeItemId}', [$feeItems, 'destroy'])->name('fee-items.destroy');
             Route::get('/fee-items/{feeItemId}', [$feeItems, 'show'])->name('fee-items.show');
             Route::post('/fee-items/{feeItemId}/installments', [$feeItems, 'storeInstallment'])->name('fee-items.installments.store');
@@ -586,6 +593,9 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/payments/create', [$payments, 'create'])->name('payments.create');
             Route::post('/payments', [$payments, 'store'])->name('payments.store');
             Route::post('/payments/bulk-action', [$payments, 'bulkAction'])->name('payments.bulk-action');
+            Route::post('/payments/nudge', [$payments, 'nudgeUnpaid'])->name('payments.nudge');
+            Route::post('/payments/due-date', [$payments, 'updateDueDate'])->name('payments.due-date');
+            Route::post('/payments/active-term', [$payments, 'updateActiveTerm'])->name('payments.active-term');
             Route::get('/payments/{paymentId}', [$payments, 'show'])->name('payments.show');
             Route::post('/payments/{paymentId}/verify', [$payments, 'verify'])->name('payments.verify');
             Route::post('/payments/{paymentId}/reject', [$payments, 'reject'])->name('payments.reject');
@@ -615,6 +625,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/periods/{periodId}', [$timetable, 'updatePeriod'])->name('periods.update');
             Route::delete('/periods/{periodId}', [$timetable, 'destroyPeriod'])->name('periods.destroy');
             Route::get('/mine', [$timetable, 'mine'])->name('mine');
+            Route::get('/mine/export', [$timetable, 'mineExport'])->name('mine.export');
             Route::get('/master', [$timetable, 'master'])->name('master');
             Route::get('/master/export', [$timetable, 'masterExport'])->name('master.export');
             Route::prefix('exam')->name('exam.')->group(function () use ($timetable) {

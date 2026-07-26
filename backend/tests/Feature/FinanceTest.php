@@ -726,4 +726,714 @@ class FinanceTest extends TestCase
             'bank_name' => 'Not Allowed', 'account_name' => 'X', 'account_number' => '000',
         ])->assertForbidden();
     }
+
+    /**
+     * Class-scoped fee items (user request 2026-07-25: "fee items can be
+     * different for each class... make it possible to select the classes
+     * that item is applicable to"). No classes ticked still means "every
+     * class", the field's original, still-default meaning.
+     */
+    public function test_a_fee_item_with_no_classes_ticked_applies_to_every_class(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finclassone');
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items", [
+            'name' => 'PTA Levy', 'amount' => 2000, 'term_id' => $term->id,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $feeItem = FeeItem::first();
+        $applies = $feeItem->appliesToClass(999);
+        app(TenantManager::class)->forget();
+
+        $this->assertTrue($applies, 'a fee item with no classes ticked must apply to every class, including one that does not even exist yet');
+    }
+
+    public function test_a_fee_item_scoped_to_one_class_only_shows_for_a_student_in_that_class(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finclasstwo');
+        $parent = User::factory()->create();
+        $parentRole = $this->rbac->cloneTemplateRole($school, 'parent');
+        $school->users()->attach($parent->id, ['role_id' => $parentRole->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $section = \App\Models\Tenant\Section::create(['name' => 'Secondary', 'sequence' => 1]);
+        $sss1 = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'SSS 1', 'sequence' => 1]);
+        $sss2 = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'SSS 2', 'sequence' => 2]);
+        $arm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $sss1->id]);
+        $student = Student::create(['admission_number' => 'FC1', 'first_name' => 'Sss', 'last_name' => 'One', 'current_class_arm_id' => $arm->id]);
+        StudentGuardian::create(['student_id' => $student->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items", [
+            'name' => 'SSS 1 Excursion', 'amount' => 15000, 'term_id' => $term->id, 'class_ids' => [$sss1->id],
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $feeItem = FeeItem::where('name', 'SSS 1 Excursion')->first();
+        $this->assertTrue($feeItem->appliesToClass($sss1->id));
+        $this->assertFalse($feeItem->appliesToClass($sss2->id));
+        app(TenantManager::class)->forget();
+
+        // The create form itself passes every active fee item to the
+        // page regardless of class (JS filters it client side against
+        // the chosen student's own class), so this proves the data the
+        // filtering relies on is actually there rather than the filtering
+        // logic itself, which is client side JS out of PHP's reach here.
+        $this->actingAs($parent)->get("http://{$school->slug}.localhost/finance/payments/create")
+            ->assertOk()->assertSee('data-class-id="'.$sss1->id.'"', false)
+            ->assertSee('data-classes="'.$sss1->id.'"', false);
+    }
+
+    /** The downloadable CSV template (user request 2026-07-25: "add a downloadable csv too"). */
+    public function test_the_fee_item_csv_template_downloads_with_the_expected_columns(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'fintemplate');
+
+        $response = $this->actingAs($bursar)->get("http://{$school->slug}.localhost/finance/fee-items/template");
+        $response->assertOk();
+        $this->assertStringContainsString('name,amount,term,allow_installments,classes', $response->getContent());
+    }
+
+    /**
+     * The bulk upload (user request 2026-07-25: "make the fee items that
+     * one can upload as a bulk file... alternatively, the school can
+     * decide to upload a file that will act as the school fees").
+     */
+    public function test_a_bursar_can_bulk_upload_fee_items_via_csv(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finbulkone');
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $section = \App\Models\Tenant\Section::create(['name' => 'Nursery', 'sequence' => 1]);
+        $nursery = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Nursery 1', 'sequence' => 1]);
+        app(TenantManager::class)->forget();
+
+        $csv = "name,amount,term,allow_installments,classes\n"
+            ."Tuition,50000,{$term->name},no,\n"
+            ."Books and Stationery,8000,{$term->name},no,Nursery 1\n"
+            ."Unknown Fee,1000,Nonexistent Term,no,\n";
+        $file = UploadedFile::fake()->createWithContent('fees.csv', $csv);
+
+        $response = $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items/bulk-upload", [
+            'file' => $file,
+        ]);
+        $response->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $items = FeeItem::with('schoolClasses')->orderBy('name')->get();
+        app(TenantManager::class)->forget();
+
+        $this->assertCount(2, $items, 'the row with an unknown term must be skipped, not created');
+        $stationery = $items->firstWhere('name', 'Books and Stationery');
+        $this->assertTrue($stationery->appliesToClass($nursery->id));
+        $tuition = $items->firstWhere('name', 'Tuition');
+        $this->assertTrue($tuition->schoolClasses->isEmpty());
+    }
+
+    /**
+     * "Under Term it should also show the new coming session if the
+     * school is in Third term currently... automated based on the
+     * current term if third term and session year" (user request
+     * 2026-07-25).
+     */
+    public function test_the_upcoming_terms_first_term_is_offered_once_in_the_last_term_of_a_session(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finupcomingone');
+
+        app(TenantManager::class)->use($school);
+        $session = AcademicSession::create(['name' => '2025/2026 Session', 'is_current' => true]);
+        $thirdTerm = Term::create(['academic_session_id' => $session->id, 'name' => 'Third Term 2025/2026', 'sequence' => 3, 'is_current' => true]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->get("http://{$school->slug}.localhost/finance/fee-items")
+            ->assertOk()->assertSee('First Term 2026/2027 (not created yet)');
+    }
+
+    public function test_selecting_the_upcoming_term_creates_the_real_session_and_uses_its_first_term(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finupcomingtwo');
+
+        app(TenantManager::class)->use($school);
+        $session = AcademicSession::create(['name' => '2025/2026 Session', 'is_current' => true]);
+        Term::create(['academic_session_id' => $session->id, 'name' => 'Third Term 2025/2026', 'sequence' => 3, 'is_current' => true]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items", [
+            'name' => 'New Session Tuition', 'amount' => 60000, 'term_id' => 'upcoming:2026',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $nextSession = AcademicSession::where('name', '2026/2027 Session')->first();
+        $this->assertNotNull($nextSession, 'the upcoming session must be created for real once actually used');
+        $feeItem = FeeItem::where('name', 'New Session Tuition')->first();
+        $this->assertNotNull($feeItem);
+        $this->assertSame('First Term 2026/2027', $feeItem->term->name);
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_the_upcoming_term_option_is_not_offered_once_the_next_session_already_exists(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finupcomingthree');
+
+        app(TenantManager::class)->use($school);
+        $session = AcademicSession::create(['name' => '2025/2026 Session', 'is_current' => true]);
+        Term::create(['academic_session_id' => $session->id, 'name' => 'Third Term 2025/2026', 'sequence' => 3, 'is_current' => true]);
+        AcademicSession::create(['name' => '2026/2027 Session']);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->get("http://{$school->slug}.localhost/finance/fee-items")
+            ->assertOk()->assertDontSee('not created yet');
+    }
+
+    /**
+     * Fee approval chain (user request 2026-07-25: "admin can set an
+     * approval level for school fees which the school owner, principal,
+     * vice principal, head teacher, assistant head teacher or any other
+     * name from the staff list"). Off by default, a fee item stays
+     * auto-approved exactly as before until a school explicitly turns
+     * this on and configures at least one approver.
+     */
+    public function test_a_fee_item_is_auto_approved_when_approval_is_off(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finapprovalone');
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items", [
+            'name' => 'Tuition', 'amount' => 50000, 'term_id' => $term->id,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $feeItem = FeeItem::first();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(FeeItem::APPROVAL_APPROVED, $feeItem->approval_status);
+    }
+
+    public function test_a_new_fee_item_starts_pending_once_approval_is_on_and_configured(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finapprovaltwo');
+        $principal = User::factory()->create();
+        $principalRole = $this->rbac->cloneTemplateRole($school, 'principal');
+        $school->users()->attach($principal->id, ['role_id' => $principalRole->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items/approval-settings", [
+            'enabled' => 1, 'chain' => ['role:principal'],
+        ])->assertRedirect();
+
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items", [
+            'name' => 'Tuition', 'amount' => 50000, 'term_id' => $term->id,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $feeItem = FeeItem::first();
+        $notified = Notification::where('user_id', $principal->id)->where('category', 'fee_item_pending_approval')->exists();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(FeeItem::APPROVAL_PENDING, $feeItem->approval_status);
+        $this->assertTrue($notified, 'the configured approver must be notified');
+    }
+
+    public function test_a_pending_fee_item_is_hidden_from_a_parent_until_approved(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finapprovalthree');
+        $parent = User::factory()->create();
+        $parentRole = $this->rbac->cloneTemplateRole($school, 'parent');
+        $school->users()->attach($parent->id, ['role_id' => $parentRole->id, 'status' => 'active']);
+        $principal = User::factory()->create();
+        $principalRole = $this->rbac->cloneTemplateRole($school, 'principal');
+        $school->users()->attach($principal->id, ['role_id' => $principalRole->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        // A parent with no linked child sees "No student on record" and
+        // the fee item picker never renders at all, which would make
+        // both assertions below trivially (and misleadingly) pass.
+        $student = Student::create(['admission_number' => 'FA1', 'first_name' => 'Approval', 'last_name' => 'Child']);
+        StudentGuardian::create(['student_id' => $student->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items/approval-settings", [
+            'enabled' => 1, 'chain' => ['role:principal'],
+        ])->assertRedirect();
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items", [
+            'name' => 'Excursion Fee', 'amount' => 12000, 'term_id' => $term->id,
+        ])->assertRedirect();
+
+        // assertDontSee('Excursion Fee') alone would be a false positive
+        // here: the bursar's own store() flash message ("\"Excursion
+        // Fee\" added and is awaiting approval...") shares this test's
+        // session/flash state and would otherwise still be on screen for
+        // the very next request. The formatted amount, which only the
+        // dropdown option itself would render, is a reliable stand-in.
+        $this->actingAs($parent)->get("http://{$school->slug}.localhost/finance/payments/create")
+            ->assertOk()->assertDontSee('₦12,000.00');
+
+        app(TenantManager::class)->use($school);
+        $feeItem = FeeItem::where('name', 'Excursion Fee')->first();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($principal)->post("http://{$school->slug}.localhost/finance/fee-items/{$feeItem->id}/approve")
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame(FeeItem::APPROVAL_APPROVED, $feeItem->fresh()->approval_status);
+        $this->assertSame($principal->id, $feeItem->fresh()->approved_by_user_id);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($parent)->get("http://{$school->slug}.localhost/finance/payments/create")
+            ->assertOk()->assertSee('₦12,000.00');
+    }
+
+    public function test_a_specific_staff_member_can_be_named_an_approver_by_search(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finapprovalfour');
+        $teacherUser = User::factory()->create();
+        $teacherRole = $this->rbac->cloneTemplateRole($school, 'class-teacher');
+        $school->users()->attach($teacherUser->id, ['role_id' => $teacherRole->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        $staff = \App\Models\Tenant\Staff::create(['staff_id' => 'STF/APP1', 'first_name' => 'Assistant', 'last_name' => 'HeadTeacher', 'user_id' => $teacherUser->id]);
+        $term = $this->currentTerm();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items/approval-settings", [
+            'enabled' => 1, 'chain' => ["staff:{$staff->id}"],
+        ])->assertRedirect();
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items", [
+            'name' => 'Tuition', 'amount' => 50000, 'term_id' => $term->id,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $feeItem = FeeItem::first();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacherUser)->post("http://{$school->slug}.localhost/finance/fee-items/{$feeItem->id}/approve")
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame(FeeItem::APPROVAL_APPROVED, $feeItem->fresh()->approval_status);
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_someone_not_in_the_approval_chain_cannot_approve(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finapprovalfive');
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items/approval-settings", [
+            'enabled' => 1, 'chain' => ['role:principal'],
+        ])->assertRedirect();
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items", [
+            'name' => 'Tuition', 'amount' => 50000, 'term_id' => $term->id,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $feeItem = FeeItem::first();
+        app(TenantManager::class)->forget();
+
+        // The bursar created it but is not in the configured chain, so
+        // cannot approve their own submission.
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items/{$feeItem->id}/approve")
+            ->assertForbidden();
+    }
+
+    public function test_a_rejected_fee_item_cannot_be_approved_afterwards(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finapprovalsix');
+        $principal = User::factory()->create();
+        $principalRole = $this->rbac->cloneTemplateRole($school, 'principal');
+        $school->users()->attach($principal->id, ['role_id' => $principalRole->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items/approval-settings", [
+            'enabled' => 1, 'chain' => ['role:principal'],
+        ])->assertRedirect();
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/fee-items", [
+            'name' => 'Tuition', 'amount' => 50000, 'term_id' => $term->id,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $feeItem = FeeItem::first();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($principal)->post("http://{$school->slug}.localhost/finance/fee-items/{$feeItem->id}/reject")
+            ->assertRedirect();
+        $this->actingAs($principal)->post("http://{$school->slug}.localhost/finance/fee-items/{$feeItem->id}/approve")
+            ->assertRedirect()->assertSessionHas('error');
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame(FeeItem::APPROVAL_REJECTED, $feeItem->fresh()->approval_status);
+        app(TenantManager::class)->forget();
+    }
+
+    /**
+     * "Under payments, show a data table of all the classes in the
+     * school, number of student per class, number that has paid full
+     * fees, number that has paid partial payments, a trigger [to nudge]
+     * parent to those who are yet to pay at all, or have partial payment
+     * left" (user request 2026-07-25).
+     */
+    public function test_the_payments_page_shows_class_level_fee_status_for_the_current_term(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finstatusone');
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $arm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $class->id]);
+        $feeItem = FeeItem::create(['name' => 'Tuition', 'amount' => 10000, 'term_id' => $term->id]);
+        $feeItem->schoolClasses()->sync([$class->id]);
+
+        $paidFull = Student::create(['admission_number' => 'FS1', 'first_name' => 'Paid', 'last_name' => 'Full', 'current_class_arm_id' => $arm->id]);
+        $paidPartial = Student::create(['admission_number' => 'FS2', 'first_name' => 'Paid', 'last_name' => 'Partial', 'current_class_arm_id' => $arm->id]);
+        $unpaid = Student::create(['admission_number' => 'FS3', 'first_name' => 'Not', 'last_name' => 'Paid', 'current_class_arm_id' => $arm->id]);
+        Payment::forceCreate(['student_id' => $paidFull->id, 'fee_item_id' => $feeItem->id, 'amount' => 10000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_VERIFIED, 'submitted_by_user_id' => $bursar->id]);
+        Payment::forceCreate(['student_id' => $paidPartial->id, 'fee_item_id' => $feeItem->id, 'amount' => 4000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_VERIFIED, 'submitted_by_user_id' => $bursar->id]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($bursar)->get("http://{$school->slug}.localhost/finance/payments");
+        $response->assertOk()
+            ->assertSee('fee status by class', false)
+            ->assertSee('Primary 1');
+    }
+
+    /**
+     * User report 2026-07-25: "classes with streams was not splitted" — a
+     * class with more than one stream (e.g. Year 1's Gold/Silver arms,
+     * or SSS's Science/Arts/Commercial arms) was being shown as one
+     * merged row on the class level fee status table instead of one row
+     * per stream.
+     */
+    public function test_a_class_with_multiple_streams_shows_one_row_per_stream_not_merged(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finstreamone');
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Year 1', 'sequence' => 1]);
+        $gold = \App\Models\Tenant\Arm::create(['name' => 'Gold']);
+        $silver = \App\Models\Tenant\Arm::create(['name' => 'Silver']);
+        $goldArm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $class->id, 'arm_id' => $gold->id]);
+        $silverArm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $class->id, 'arm_id' => $silver->id]);
+        $feeItem = FeeItem::create(['name' => 'Tuition', 'amount' => 10000, 'term_id' => $term->id]);
+        $feeItem->schoolClasses()->sync([$class->id]);
+
+        Student::create(['admission_number' => 'FSG1', 'first_name' => 'Gold', 'last_name' => 'One', 'current_class_arm_id' => $goldArm->id]);
+        Student::create(['admission_number' => 'FSS1', 'first_name' => 'Silver', 'last_name' => 'One', 'current_class_arm_id' => $silverArm->id]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($bursar)->get("http://{$school->slug}.localhost/finance/payments");
+        $response->assertOk()
+            ->assertSee('Year 1 Gold')
+            ->assertSee('Year 1 Silver');
+    }
+
+    public function test_nudging_only_notifies_guardians_of_students_who_still_owe(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finstatustwo');
+        $paidGuardianUser = User::factory()->create();
+        $unpaidGuardianUser = User::factory()->create();
+        $parentRole = $this->rbac->cloneTemplateRole($school, 'parent');
+        $school->users()->attach($paidGuardianUser->id, ['role_id' => $parentRole->id, 'status' => 'active']);
+        $school->users()->attach($unpaidGuardianUser->id, ['role_id' => $parentRole->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 2', 'sequence' => 1]);
+        $arm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $class->id]);
+        $feeItem = FeeItem::create(['name' => 'Tuition', 'amount' => 10000, 'term_id' => $term->id]);
+        $feeItem->schoolClasses()->sync([$class->id]);
+
+        $paidStudent = Student::create(['admission_number' => 'FS4', 'first_name' => 'Paid', 'last_name' => 'Up', 'current_class_arm_id' => $arm->id]);
+        $unpaidStudent = Student::create(['admission_number' => 'FS5', 'first_name' => 'Owes', 'last_name' => 'Still', 'current_class_arm_id' => $arm->id]);
+        StudentGuardian::create(['student_id' => $paidStudent->id, 'name' => 'Paid Guardian', 'relationship' => 'Mother', 'guardian_user_id' => $paidGuardianUser->id, 'is_primary' => true]);
+        StudentGuardian::create(['student_id' => $unpaidStudent->id, 'name' => 'Unpaid Guardian', 'relationship' => 'Mother', 'guardian_user_id' => $unpaidGuardianUser->id, 'is_primary' => true]);
+        Payment::forceCreate(['student_id' => $paidStudent->id, 'fee_item_id' => $feeItem->id, 'amount' => 10000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_VERIFIED, 'submitted_by_user_id' => $bursar->id]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/payments/nudge", [
+            'class_arm_id' => $arm->id,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $paidNotified = Notification::where('user_id', $paidGuardianUser->id)->where('category', 'payment_reminder')->exists();
+        $unpaidNotified = Notification::where('user_id', $unpaidGuardianUser->id)->where('category', 'payment_reminder')->exists();
+        app(TenantManager::class)->forget();
+
+        $this->assertFalse($paidNotified, 'a guardian whose child already paid in full must not be nudged');
+        $this->assertTrue($unpaidNotified, 'a guardian whose child still owes must be nudged');
+    }
+
+    /**
+     * Term switcher (user request 2026-07-25: "one can switch term view
+     * but the default for parent should be set by admin"). Precedence:
+     * ?term_id= query param, then the finance_active_term_id setting,
+     * then Term::current().
+     */
+    public function test_the_payments_page_defaults_to_the_current_term_when_no_setting_is_configured(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finswitchone');
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->get("http://{$school->slug}.localhost/finance/payments")
+            ->assertOk()->assertSee($term->name.' ('.$term->session->name.')');
+    }
+
+    public function test_a_bursar_can_set_the_default_term_parents_see_and_it_overrides_current_term(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finswitchtwo');
+
+        app(TenantManager::class)->use($school);
+        $currentTerm = $this->currentTerm();
+        $otherSession = AcademicSession::create(['name' => '2026/2027']);
+        $upcomingTerm = Term::create([
+            'academic_session_id' => $otherSession->id, 'name' => 'First Term', 'sequence' => 1, 'is_current' => false,
+            'starts_on' => now()->addMonths(4), 'ends_on' => now()->addMonths(7),
+        ]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/payments/active-term", [
+            'term_id' => $upcomingTerm->id,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertEquals($upcomingTerm->id, (int) \App\Models\Tenant\Setting::grab('finance_active_term_id'));
+        app(TenantManager::class)->forget();
+
+        // Now no ?term_id= is passed, so the page falls back to the
+        // admin-set default (the upcoming term), not Term::current().
+        $this->actingAs($bursar)->get("http://{$school->slug}.localhost/finance/payments")
+            ->assertOk()->assertSee('selected', false)
+            ->assertSee($upcomingTerm->name.' ('.$upcomingTerm->session->name.')');
+    }
+
+    public function test_a_query_string_term_id_overrides_the_admin_default_for_viewing_only(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finswitchthree');
+
+        app(TenantManager::class)->use($school);
+        $currentTerm = $this->currentTerm();
+        \App\Models\Tenant\Setting::put('finance_active_term_id', $currentTerm->id);
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 9', 'sequence' => 1]);
+        $arm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $class->id]);
+        $otherSession = AcademicSession::create(['name' => '2026/2027']);
+        $otherTerm = Term::create([
+            'academic_session_id' => $otherSession->id, 'name' => 'First Term', 'sequence' => 1, 'is_current' => false,
+            'starts_on' => now()->addMonths(4), 'ends_on' => now()->addMonths(7),
+        ]);
+        $feeItem = FeeItem::create(['name' => 'Tuition', 'amount' => 5000, 'term_id' => $otherTerm->id]);
+        $feeItem->schoolClasses()->sync([$class->id]);
+        Student::create(['admission_number' => 'FS9', 'first_name' => 'Some', 'last_name' => 'Kid', 'current_class_arm_id' => $arm->id]);
+        app(TenantManager::class)->forget();
+
+        // Viewing the other term explicitly shows its class status, even
+        // though the admin default is still the current term.
+        $this->actingAs($bursar)->get("http://{$school->slug}.localhost/finance/payments?term_id={$otherTerm->id}")
+            ->assertOk()->assertSee($otherTerm->name.' fee status by class', false)
+            ->assertSee('Primary 9');
+
+        // The stored admin default is untouched by merely viewing another term.
+        app(TenantManager::class)->use($school);
+        $this->assertEquals($currentTerm->id, (int) \App\Models\Tenant\Setting::grab('finance_active_term_id'));
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_a_parent_cannot_change_the_default_term_setting(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finswitchfour');
+        $parent = User::factory()->create();
+        $parentRole = $this->rbac->cloneTemplateRole($school, 'parent');
+        $school->users()->attach($parent->id, ['role_id' => $parentRole->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($parent)->post("http://{$school->slug}.localhost/finance/payments/active-term", [
+            'term_id' => $term->id,
+        ])->assertForbidden();
+    }
+
+    /**
+     * Payment countdown/reminder popup (user request 2026-07-25: "let the
+     * admin configure a payment countdown date to parents who will see
+     * how many days left to payments, if it has past, it keeps showing
+     * as over due, 15 days (as set by the admin) it shows daily on the
+     * parent login as pop up reminder to pay").
+     */
+    public function test_a_bursar_can_set_the_payment_due_date_and_reminder_window(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finduedateone');
+
+        $this->actingAs($bursar)->post("http://{$school->slug}.localhost/finance/payments/due-date", [
+            'payment_due_date' => now()->addDays(20)->toDateString(), 'payment_reminder_days' => 10,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $due = \App\Models\Tenant\Setting::grab('payment_due_date');
+        $days = \App\Models\Tenant\Setting::grab('payment_reminder_days');
+        app(TenantManager::class)->forget();
+
+        $this->assertNotNull($due);
+        $this->assertSame(10, (int) $days);
+    }
+
+    public function test_a_parent_with_an_outstanding_balance_sees_the_payment_popup_inside_the_reminder_window(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finduedatetwo');
+        $parent = User::factory()->create();
+        $parentRole = $this->rbac->cloneTemplateRole($school, 'parent');
+        $school->users()->attach($parent->id, ['role_id' => $parentRole->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 3', 'sequence' => 1]);
+        $arm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $class->id]);
+        $feeItem = FeeItem::create(['name' => 'Tuition', 'amount' => 10000, 'term_id' => $term->id]);
+        $feeItem->schoolClasses()->sync([$class->id]);
+        $student = Student::create(['admission_number' => 'FD1', 'first_name' => 'Owes', 'last_name' => 'Money', 'current_class_arm_id' => $arm->id]);
+        StudentGuardian::create(['student_id' => $student->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        \App\Models\Tenant\Setting::put('payment_due_date', now()->addDays(5)->toDateString());
+        \App\Models\Tenant\Setting::put('payment_reminder_days', 15);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($parent)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()->assertSee('payPopupScrim', false)->assertSee('₦10,000.00');
+    }
+
+    public function test_a_parent_who_has_paid_in_full_does_not_see_the_payment_popup(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finduedatethree');
+        $parent = User::factory()->create();
+        $parentRole = $this->rbac->cloneTemplateRole($school, 'parent');
+        $school->users()->attach($parent->id, ['role_id' => $parentRole->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 4', 'sequence' => 1]);
+        $arm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $class->id]);
+        $feeItem = FeeItem::create(['name' => 'Tuition', 'amount' => 10000, 'term_id' => $term->id]);
+        $feeItem->schoolClasses()->sync([$class->id]);
+        $student = Student::create(['admission_number' => 'FD2', 'first_name' => 'Paid', 'last_name' => 'Up', 'current_class_arm_id' => $arm->id]);
+        StudentGuardian::create(['student_id' => $student->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        Payment::forceCreate(['student_id' => $student->id, 'fee_item_id' => $feeItem->id, 'amount' => 10000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_VERIFIED, 'submitted_by_user_id' => $bursar->id]);
+        \App\Models\Tenant\Setting::put('payment_due_date', now()->addDays(5)->toDateString());
+        \App\Models\Tenant\Setting::put('payment_reminder_days', 15);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($parent)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()->assertDontSee('payPopupScrim', false);
+    }
+
+    public function test_a_parent_does_not_see_the_payment_popup_outside_the_reminder_window(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finduedatefour');
+        $parent = User::factory()->create();
+        $parentRole = $this->rbac->cloneTemplateRole($school, 'parent');
+        $school->users()->attach($parent->id, ['role_id' => $parentRole->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 5', 'sequence' => 1]);
+        $arm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $class->id]);
+        $feeItem = FeeItem::create(['name' => 'Tuition', 'amount' => 10000, 'term_id' => $term->id]);
+        $feeItem->schoolClasses()->sync([$class->id]);
+        $student = Student::create(['admission_number' => 'FD3', 'first_name' => 'Not', 'last_name' => 'Yet', 'current_class_arm_id' => $arm->id]);
+        StudentGuardian::create(['student_id' => $student->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        // Due date is 30 days out, reminder window is only the last 15,
+        // so today is not inside it yet.
+        \App\Models\Tenant\Setting::put('payment_due_date', now()->addDays(30)->toDateString());
+        \App\Models\Tenant\Setting::put('payment_reminder_days', 15);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($parent)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()->assertDontSee('payPopupScrim', false);
+    }
+
+    public function test_an_overdue_payment_popup_keeps_showing_regardless_of_the_reminder_window(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finduedatefive');
+        $parent = User::factory()->create();
+        $parentRole = $this->rbac->cloneTemplateRole($school, 'parent');
+        $school->users()->attach($parent->id, ['role_id' => $parentRole->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 6', 'sequence' => 1]);
+        $arm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $class->id]);
+        $feeItem = FeeItem::create(['name' => 'Tuition', 'amount' => 10000, 'term_id' => $term->id]);
+        $feeItem->schoolClasses()->sync([$class->id]);
+        $student = Student::create(['admission_number' => 'FD4', 'first_name' => 'Overdue', 'last_name' => 'Family', 'current_class_arm_id' => $arm->id]);
+        StudentGuardian::create(['student_id' => $student->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        // 60 days overdue, well outside the 15 day reminder window, but
+        // overdue must always still show ("if it has past, it keeps
+        // showing as over due").
+        \App\Models\Tenant\Setting::put('payment_due_date', now()->subDays(60)->toDateString());
+        \App\Models\Tenant\Setting::put('payment_reminder_days', 15);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($parent)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()->assertSee('payPopupScrim', false)->assertSee('Fees payment overdue');
+    }
+
+    public function test_fee_balance_service_computes_outstanding_across_multiple_children(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finbalanceone');
+        $parent = User::factory()->create();
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $classA = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 7', 'sequence' => 1]);
+        $classB = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 8', 'sequence' => 2]);
+        $armA = \App\Models\Tenant\ClassArm::create(['school_class_id' => $classA->id]);
+        $armB = \App\Models\Tenant\ClassArm::create(['school_class_id' => $classB->id]);
+        $feeA = FeeItem::create(['name' => 'Tuition', 'amount' => 10000, 'term_id' => $term->id]);
+        $feeA->schoolClasses()->sync([$classA->id]);
+        $feeB = FeeItem::create(['name' => 'Tuition', 'amount' => 15000, 'term_id' => $term->id]);
+        $feeB->schoolClasses()->sync([$classB->id]);
+        $childA = Student::create(['admission_number' => 'FB1', 'first_name' => 'Child', 'last_name' => 'A', 'current_class_arm_id' => $armA->id]);
+        $childB = Student::create(['admission_number' => 'FB2', 'first_name' => 'Child', 'last_name' => 'B', 'current_class_arm_id' => $armB->id]);
+        StudentGuardian::create(['student_id' => $childA->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        StudentGuardian::create(['student_id' => $childB->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        Payment::forceCreate(['student_id' => $childA->id, 'amount' => 10000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_VERIFIED, 'submitted_by_user_id' => $bursar->id]);
+        Payment::forceCreate(['student_id' => $childB->id, 'amount' => 6000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_VERIFIED, 'submitted_by_user_id' => $bursar->id]);
+
+        $outstanding = app(\App\Services\Finance\FeeBalanceService::class)->outstandingForGuardian($parent, $term);
+        app(TenantManager::class)->forget();
+
+        // Child A fully paid (0 owed), Child B owes 15000-6000 = 9000.
+        $this->assertSame(9000.0, $outstanding);
+    }
 }

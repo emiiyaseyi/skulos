@@ -519,6 +519,40 @@ tr:last-child td{border-bottom:none}
       ];
     }
   }
+  // Payment countdown/reminder popup (user request 2026-07-25: "let the
+  // admin configure a payment countdown date to parents who will see how
+  // many days left to payments, if it has past, it keeps showing as over
+  // due... 15 days (as set by the admin) it shows daily on the parent
+  // login as pop up reminder to pay"), same daily-once client side
+  // dismissal pattern as the subscription popup above. Only ever shown
+  // to a real parent with a real outstanding balance for a real
+  // configured due date, never a fabricated countdown; an admin who
+  // never opens the due date setting (tenant Setting "payment_due_date",
+  // unset by default) keeps every parent's experience exactly as before.
+  $paymentPopup = null;
+  if ($portal === 'school' && isset($school) && auth()->user()
+      && optional(auth()->user()->roleIn($school))->slug === 'parent') {
+    $paymentDueDate = \App\Models\Tenant\Setting::grab('payment_due_date');
+    if ($paymentDueDate) {
+      $dueDate = \Illuminate\Support\Carbon::parse($paymentDueDate);
+      $reminderDays = (int) \App\Models\Tenant\Setting::grab('payment_reminder_days', 15);
+      $daysUntilDue = now()->startOfDay()->diffInDays($dueDate->copy()->startOfDay(), false);
+      // Overdue always shows regardless of the reminder window ("if it
+      // has past, it keeps showing as over due"); not yet due only
+      // shows once inside the last $reminderDays days.
+      if ($daysUntilDue <= $reminderDays) {
+        // The same admin-configured "which term parents see by default"
+        // setting the Payments term switcher uses (user request
+        // 2026-07-25), not always the school's system wide current term.
+        $financeTermId = \App\Models\Tenant\Setting::grab('finance_active_term_id');
+        $financeTerm = $financeTermId ? \App\Models\Tenant\Term::find($financeTermId) : \App\Models\Tenant\Term::current()->first();
+        $outstanding = app(\App\Services\Finance\FeeBalanceService::class)->outstandingForGuardian(auth()->user(), $financeTerm);
+        if ($outstanding > 0) {
+          $paymentPopup = ['daysUntilDue' => $daysUntilDue, 'dueDate' => $dueDate->format('d M Y'), 'amountDue' => $outstanding];
+        }
+      }
+    }
+  }
   // Self-hosted license grace-period banner (user request 2026-07-18):
   // shown for the whole school while a failed/unreachable check-in's
   // grace period is still running, so the school gets a disclosed
@@ -693,6 +727,7 @@ window.SkulosDialog = {
   @include('layouts.partials.broadcast-popup', ['school' => $school])
   @include('layouts.partials.messaging-widget', ['school' => $school])
   @include('layouts.partials.subscription-popup', ['school' => $school, 'subscriptionPopup' => $subscriptionPopup])
+  @include('layouts.partials.payment-popup', ['school' => $school, 'paymentPopup' => $paymentPopup])
 @endif
 
 {{-- Idle session security timeout (user request 2026-07-09, made admin

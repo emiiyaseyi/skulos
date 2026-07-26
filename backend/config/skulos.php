@@ -792,6 +792,26 @@ return [
     'default_report_card_review_chain' => ['class-teacher'],
 
     /*
+    | Who can approve a new fee item before parents ever see it (user
+    | request 2026-07-25: "admin can set an approval level for school
+    | fees which the school owner, principal, vice principal, head
+    | teacher, assistant head teacher or any other name from the staff
+    | list"). No "assistant-head-teacher" role exists in role_catalog
+    | below, a school that has one names that specific person instead via
+    | the staff search the approval chain screen also offers, the same
+    | escape hatch the user's own "or any other name from the staff
+    | list" already asked for. Off by default (fee_approval_enabled
+    | tenant Setting), a school that never turns it on keeps every fee
+    | item auto-approved exactly as it always was.
+    */
+    'fee_approval_roles' => [
+        'school-owner' => 'School Owner',
+        'principal' => 'Principal',
+        'vice-principal' => 'Vice Principal',
+        'head-teacher' => 'Head Teacher',
+    ],
+
+    /*
     | Picklist of pages an admin can set as a role's default landing page
     | right after login (user request 2026-07-13: "admin-configurable
     | landing page per staff/student/parent (default Dashboard)"). This
@@ -932,6 +952,8 @@ return [
         'report_card_review' => ['label' => 'Report card review', 'type' => 'academic'],
         'birthday' => ['label' => 'Birthday', 'type' => 'academic'],
         'anniversary' => ['label' => 'Work anniversary', 'type' => 'academic'],
+        'fee_item_pending_approval' => ['label' => 'Fee item awaiting approval', 'type' => 'finance'],
+        'payment_reminder' => ['label' => 'Outstanding fees reminder', 'type' => 'finance'],
         'payment_submitted' => ['label' => 'Payment submitted', 'type' => 'finance'],
         'payment_verified' => ['label' => 'Payment verified', 'type' => 'finance'],
         'payment_rejected' => ['label' => 'Payment rejected', 'type' => 'finance'],
@@ -946,6 +968,47 @@ return [
         // report: an approver had no way to know a request existed at
         // all without proactively opening the approvals page).
         'profile_approval' => ['label' => 'Profile approval needed', 'type' => 'urgent'],
+        // The other side of profile_approval above: told to the person who
+        // ASKED for the change once an admin decides it (found live
+        // 2026-07-25: an applicant had no way to know their own request
+        // had been approved besides re-opening their profile page and
+        // noticing the fields had quietly changed).
+        'profile_change_approved' => ['label' => 'Your profile change was approved', 'type' => 'system'],
+        'profile_change_rejected' => ['label' => 'Your profile change was rejected', 'type' => 'system'],
+    ],
+
+    /*
+    | Where clicking a notification actually takes the recipient (user
+    | report 2026-07-25: a notification could be read but never clicked
+    | through to the screen where the thing it describes gets acted on).
+    | Deliberately just a category -> route map, not a specific record
+    | (e.g. one exact payment or fee item): recipients are always
+    | pre-filtered to whoever is actually eligible to act before a
+    | Notification row is ever written for them (an approver, the
+    | assigned reviewer, the owing guardian), so no extra permission
+    | check is layered on here, the destination route's own gate is
+    | the only one that matters. A category with no entry (birthday,
+    | anniversary) has nothing to act on, so it stays a plain, unlinked
+    | notification, same as before this existed.
+    */
+    'notification_deep_links' => [
+        'announcement' => 'school.announcements.index',
+        'broadcast' => 'school.announcements.index',
+        'report_card_review' => 'school.report-cards.pending-review',
+        'fee_item_pending_approval' => 'school.finance.fee-items.index',
+        'payment_reminder' => 'school.finance.payments.create',
+        'payment_submitted' => 'school.finance.payments.index',
+        'payment_verified' => 'school.finance.payments.index',
+        'payment_rejected' => 'school.finance.payments.index',
+        'subscription_reminder' => 'school.subscription.index',
+        'subscription_extended' => 'school.subscription.index',
+        'subscription_locked' => 'school.subscription.index',
+        'subscription_reinstated' => 'school.subscription.index',
+        'subscription_payment_verified' => 'school.subscription.index',
+        'subscription_payment_rejected' => 'school.subscription.index',
+        'profile_approval' => 'school.profile.approvals',
+        'profile_change_approved' => 'school.profile.edit',
+        'profile_change_rejected' => 'school.profile.edit',
     ],
 
     /*
