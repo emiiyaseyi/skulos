@@ -329,7 +329,7 @@ class PaymentController extends Controller
         return back()->with('status', "Reminded {$guardianUserIds->count()} parent(s) with outstanding fees in {$label}.");
     }
 
-    public function create(Request $request): \Illuminate\View\View
+    public function create(Request $request, \App\Services\Finance\FeeBalanceService $balances): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'finance.create');
         $school = $this->school($request);
@@ -342,10 +342,30 @@ class PaymentController extends Controller
             ->orderBy('last_name')
             ->get();
 
+        // "All Fees" payment plan (user request 2026-07-26): "based on the
+        // child or children selected, the parent should be asked if they
+        // want to make full payment or partial payment... if parent has
+        // made payment before, show the balance left". Each student's own
+        // non-optional-owed and paid-so-far totals ship as data attributes
+        // on their checkbox, so the form can compute a live combined
+        // total/balance in JS as children are ticked, no round trip per
+        // change. Same "paid" simplification FeeBalanceService already
+        // uses everywhere else: every verified payment ever recorded for
+        // the student, not scoped fee-item-by-fee-item.
+        $term = $this->resolveActiveTerm($request);
+        $balancesByStudent = $students->mapWithKeys(function (Student $student) use ($balances, $term) {
+            $classId = $student->currentClassArm?->school_class_id;
+            $owed = ($classId && $term) ? $balances->nonOptionalOwedForClass($classId, $term) : 0.0;
+            $paid = $balances->paidByStudent($student->id);
+
+            return [$student->id => ['owed' => $owed, 'paid' => $paid, 'balance' => max(0, $owed - $paid)]];
+        });
+
         return view('school.finance.payments.create', [
             'school' => $school,
             'accent' => $school->branding()['color'],
             'students' => $students,
+            'balancesByStudent' => $balancesByStudent,
             // A fee item may only apply to certain classes (user request
             // 2026-07-25); eager loading schoolClasses lets the create
             // form's JS filter the picker to only what the chosen
@@ -368,6 +388,15 @@ class PaymentController extends Controller
         $school = $this->school($request);
         $user = Auth::user();
         $familyStudentIds = app(FamilyScope::class)->studentIds($user, $school);
+
+        // "All Fees" (user request 2026-07-26) is a computed convenience
+        // in the "what is this for" picker, not a real catalog row: it
+        // drives the amount calculator client side, but is not itself
+        // tied to one specific fee item, so it saves the same way a
+        // General payment does (fee_item_id null).
+        if ($request->input('fee_item_id') === 'all_fees') {
+            $request->merge(['fee_item_id' => null]);
+        }
 
         $data = $request->validate([
             'student_ids' => ['required', 'array', 'min:1'],

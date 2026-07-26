@@ -758,6 +758,71 @@ class FinanceTest extends TestCase
     }
 
     /**
+     * "All Fees" payment plan (user request 2026-07-26): "add an item of
+     * all fees... based on the child or children selected... calculate
+     * the total amount to be paid, this is only for non optional items...
+     * if parent has made payment before, show the balance left." The
+     * Submit Payment page ships each child's own non-optional-owed and
+     * already-paid totals as data attributes for the client side
+     * calculator to read; an optional item must never count toward the
+     * owed total, and a prior verified payment must reduce the balance.
+     */
+    public function test_the_submit_payment_page_ships_the_non_optional_owed_and_paid_totals_for_the_all_fees_plan(): void
+    {
+        [$school, $parent] = $this->schoolWithMember('parent', 'finallfeesone');
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $arm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $class->id]);
+        $tuition = FeeItem::create(['name' => 'Tuition', 'amount' => 10000, 'term_id' => $term->id, 'is_optional' => false]);
+        $uniform = FeeItem::create(['name' => 'Uniform', 'amount' => 3000, 'term_id' => $term->id, 'is_optional' => true]);
+        $child = Student::create(['admission_number' => 'FAF1', 'first_name' => 'Ada', 'last_name' => 'Fees', 'current_class_arm_id' => $arm->id]);
+        StudentGuardian::create(['student_id' => $child->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        Payment::forceCreate(['student_id' => $child->id, 'amount' => 4000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_VERIFIED, 'submitted_by_user_id' => $parent->id]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($parent)->get("http://{$school->slug}.localhost/finance/payments/create");
+
+        $response->assertOk()
+            ->assertSee('All Fees (non-optional items)')
+            ->assertSee('data-owed="10000"', false)
+            ->assertSee('data-paid="4000"', false);
+    }
+
+    /**
+     * Submitting with the synthetic "all_fees" picker value saves the
+     * same way a General payment does (fee_item_id null), since it is a
+     * client side amount calculator, not a real fee item.
+     */
+    public function test_a_parent_can_submit_an_all_fees_payment(): void
+    {
+        [$school, $parent] = $this->schoolWithMember('parent', 'finallfeestwo');
+
+        app(TenantManager::class)->use($school);
+        $child = Student::create(['admission_number' => 'FAF2', 'first_name' => 'Bode', 'last_name' => 'Fees']);
+        StudentGuardian::create(['student_id' => $child->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        app(TenantManager::class)->forget();
+
+        $evidence = UploadedFile::fake()->image('receipt.jpg');
+        $this->actingAs($parent)->post("http://{$school->slug}.localhost/finance/payments", [
+            'student_ids' => [$child->id],
+            'fee_item_id' => 'all_fees',
+            'amount' => 6000,
+            'evidence' => $evidence,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $payment = Payment::first();
+        app(TenantManager::class)->forget();
+
+        $this->assertNotNull($payment);
+        $this->assertNull($payment->fee_item_id);
+        $this->assertEqualsWithDelta(6000.0, (float) $payment->amount, 0.01);
+    }
+
+    /**
      * Found live 2026-07-25 (user report: "finance menu is missing from
      * parent view"): the parent role already holds finance.view/
      * finance.create, and PaymentController/FeeItemController already let

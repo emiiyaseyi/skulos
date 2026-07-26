@@ -54,13 +54,13 @@
             @foreach($students as $student)
               @php($old = old('student_ids', []))
               <label style="display:flex;align-items:center;gap:.5rem;font-weight:600">
-                <input type="checkbox" name="student_ids[]" value="{{ $student->id }}" class="student-checkbox" data-class-id="{{ $student->currentClassArm?->schoolClass?->id }}" @checked(in_array($student->id, $old))>
+                <input type="checkbox" name="student_ids[]" value="{{ $student->id }}" class="student-checkbox" data-class-id="{{ $student->currentClassArm?->schoolClass?->id }}" data-owed="{{ $balancesByStudent[$student->id]['owed'] ?? 0 }}" data-paid="{{ $balancesByStudent[$student->id]['paid'] ?? 0 }}" @checked(in_array($student->id, $old))>
                 {{ $student->fullName() }} ({{ $student->admission_number }})
               </label>
             @endforeach
           </div>
         @else
-          <input type="hidden" name="student_ids[]" value="{{ $students->first()->id }}" class="student-checkbox" checked data-class-id="{{ $students->first()->currentClassArm?->schoolClass?->id }}">
+          <input type="hidden" name="student_ids[]" value="{{ $students->first()->id }}" class="student-checkbox" checked data-class-id="{{ $students->first()->currentClassArm?->schoolClass?->id }}" data-owed="{{ $balancesByStudent[$students->first()->id]['owed'] ?? 0 }}" data-paid="{{ $balancesByStudent[$students->first()->id]['paid'] ?? 0 }}">
           <p style="font-weight:700">{{ $students->first()->fullName() }} ({{ $students->first()->admission_number }})</p>
         @endif
         <p class="hint" id="splitHint" style="display:none"></p>
@@ -72,6 +72,15 @@
         <label for="fee_item_id">What is this for (optional)</label>
         <select id="fee_item_id" name="fee_item_id">
           <option value="">General payment</option>
+          {{--
+            "All Fees" payment plan (user request 2026-07-26): "add an
+            item of all fees... based on the child or children selected,
+            ask if they want full or partial payment, this is only for
+            non optional items, then calculate the total amount to be
+            paid." Picking this reveals the plan below instead of a
+            single fee item's own amount.
+          --}}
+          <option value="all_fees">All Fees (non-optional items)</option>
           @foreach($feeItems as $item)
             <option value="{{ $item->id }}" data-classes="{{ $item->schoolClasses->pluck('id')->join(',') }}" @selected(old('fee_item_id') == $item->id)>{{ $item->name }} &middot; ₦{{ number_format((float) $item->amount, 2) }} ({{ $item->term?->name }})</option>
           @endforeach
@@ -87,6 +96,35 @@
         </select>
         <p class="hint">This fee can be paid in installments. Choose one if this payment is for a specific installment.</p>
         @error('fee_item_installment_id')<p class="err">{{ $message }}</p>@enderror
+      </div>
+
+      {{--
+        All Fees payment plan (user request 2026-07-26): full or partial
+        payment against the combined non-optional total for whichever
+        children are ticked above, with a live balance so a parent who
+        already paid something sees what is actually left, not the
+        original full amount again.
+      --}}
+      <div class="field" id="allFeesPlan" style="display:none;border:1px solid var(--line);border-radius:10px;padding:.8rem .9rem">
+        <label style="margin-bottom:.3rem">Payment plan</label>
+        <p id="allFeesSummary" class="muted" style="font-size:.85rem;margin-bottom:.6rem"></p>
+        <div style="display:flex;gap:1.2rem;flex-wrap:wrap;margin-bottom:.6rem">
+          <label style="display:flex;align-items:center;gap:.4rem;font-weight:600">
+            <input type="radio" name="paymentPlanMode" value="full" checked>
+            <span id="fullPaymentLabel">Full Payment</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:.4rem;font-weight:600">
+            <input type="radio" name="paymentPlanMode" value="partial">
+            Partial Payment
+          </label>
+        </div>
+        <div id="percentRow" style="display:none;gap:.5rem;flex-wrap:wrap;margin-bottom:.3rem">
+          <button type="button" class="btn btn-ghost btn-sm percent-btn" data-percent="25">25%</button>
+          <button type="button" class="btn btn-ghost btn-sm percent-btn" data-percent="50">50%</button>
+          <button type="button" class="btn btn-ghost btn-sm percent-btn" data-percent="75">75%</button>
+          <button type="button" class="btn btn-ghost btn-sm percent-btn" data-percent="90">90%</button>
+        </div>
+        <p class="hint">The amount below is filled in for you and can still be edited.</p>
       </div>
 
       <div class="field">
@@ -210,12 +248,78 @@
       }
 
       var amountInput = document.getElementById('amount');
+
+      {{-- All Fees payment plan (user request 2026-07-26): full or
+           partial payment against the combined non-optional total for
+           whichever children are ticked, with a live balance so a parent
+           who already paid something sees what is actually left. --}}
+      var allFeesPlan = document.getElementById('allFeesPlan');
+      var allFeesSummary = document.getElementById('allFeesSummary');
+      var fullPaymentLabel = document.getElementById('fullPaymentLabel');
+      var percentRow = document.getElementById('percentRow');
+
+      function selectedBalanceTotals(){
+        var owed = 0, paid = 0;
+        selectedStudentEls().forEach(function(el){
+          owed += parseFloat(el.dataset.owed || '0');
+          paid += parseFloat(el.dataset.paid || '0');
+        });
+
+        return {owed: owed, paid: paid, balance: Math.max(0, owed - paid)};
+      }
+
+      function planMode(){
+        var checked = document.querySelector('input[name="paymentPlanMode"]:checked');
+
+        return checked ? checked.value : 'full';
+      }
+
+      function applyPaymentPlanMode(){
+        var totals = selectedBalanceTotals();
+        percentRow.style.display = planMode() === 'partial' ? 'flex' : 'none';
+        if (planMode() === 'full') {
+          amountInput.value = totals.balance.toFixed(2);
+          refreshSplitHint();
+        }
+      }
+
+      function refreshAllFeesPlan(){
+        if (feeItemSelect.value !== 'all_fees') {
+          allFeesPlan.style.display = 'none';
+          return;
+        }
+        allFeesPlan.style.display = '';
+        var totals = selectedBalanceTotals();
+        fullPaymentLabel.textContent = totals.paid > 0 ? 'Complete Payment' : 'Full Payment';
+        var parts = ['Non optional fees owed: ₦' + totals.owed.toLocaleString(undefined, {minimumFractionDigits: 2})];
+        if (totals.paid > 0) {
+          parts.push('Already paid: ₦' + totals.paid.toLocaleString(undefined, {minimumFractionDigits: 2}));
+        }
+        parts.push('Balance: ₦' + totals.balance.toLocaleString(undefined, {minimumFractionDigits: 2}));
+        allFeesSummary.textContent = parts.join(' · ');
+        applyPaymentPlanMode();
+      }
+
+      document.querySelectorAll('input[name="paymentPlanMode"]').forEach(function(radio){
+        radio.addEventListener('change', applyPaymentPlanMode);
+      });
+      document.querySelectorAll('.percent-btn').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var totals = selectedBalanceTotals();
+          var pct = parseFloat(btn.dataset.percent);
+          amountInput.value = (totals.balance * pct / 100).toFixed(2);
+          refreshSplitHint();
+        });
+      });
+      feeItemSelect?.addEventListener('change', refreshAllFeesPlan);
+
       studentEls.forEach(function(el){
-        el.addEventListener('change', function(){ refreshFeeItemsForStudents(); refreshSplitHint(); });
+        el.addEventListener('change', function(){ refreshFeeItemsForStudents(); refreshSplitHint(); refreshAllFeesPlan(); });
       });
       amountInput?.addEventListener('input', refreshSplitHint);
       refreshFeeItemsForStudents();
       refreshSplitHint();
+      refreshAllFeesPlan();
     </script>
   @endif
 </div>

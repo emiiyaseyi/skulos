@@ -32,6 +32,24 @@ class FeeBalanceService
             ->sum('amount');
     }
 
+    /**
+     * Same as owedForClass(), restricted to non-optional fee items only
+     * (user request 2026-07-26, "All Fees" payment plan on Submit Payment:
+     * "based on the child or children selected... calculate the total
+     * amount to be paid, this is only for non optional items"). An
+     * optional item (uniform, sportswear) is something a parent opts into
+     * separately, not part of the one combined "pay everything" total.
+     */
+    public function nonOptionalOwedForClass(int $schoolClassId, Term $term): float
+    {
+        return (float) FeeItem::where('term_id', $term->id)->active()
+            ->where('approval_status', FeeItem::APPROVAL_APPROVED)
+            ->where('is_optional', false)
+            ->with('schoolClasses')->get()
+            ->filter(fn (FeeItem $f) => $f->appliesToClass($schoolClassId))
+            ->sum('amount');
+    }
+
     public function paidByStudent(int $studentId): float
     {
         return (float) Payment::where('student_id', $studentId)->where('status', Payment::STATUS_VERIFIED)->sum('amount');
