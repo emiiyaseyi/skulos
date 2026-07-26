@@ -34,5 +34,43 @@
   @case('search') {!! $s !!}<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg> @break
   @case('layout') {!! $s !!}<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 9v12"/></svg> @break
   @case('trend') {!! $s !!}<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg> @break
+  {{--
+    The icons below were added 2026-07-26 (user report, FEEDBACK LIST.docx,
+    2026-07-25: "recheck all the menu icons, as I don't want similar icons
+    representing items there only if it means same thing"). Each one gives
+    a nav item that was silently sharing an icon with an unrelated screen
+    its own distinct glyph; a shared icon is left alone only where the two
+    labels genuinely point at the exact same real route (Staff Portal/
+    Teacher Portal, Student Fields/Parent Settings/Staff Settings, etc.),
+    matching the "only if it means same thing" carve-out in the report.
+  --}}
+  @case('compass') {!! $s !!}<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-1.8 5.2-5.2 1.8 1.8-5.2z"/></svg> @break
+  @case('sliders') {!! $s !!}<path d="M4 6h16M4 12h10M4 18h7"/><circle cx="17" cy="6" r="2"/><circle cx="11" cy="12" r="2"/><circle cx="8" cy="18" r="2"/></svg> @break
+  @case('field') {!! $s !!}<rect x="2" y="7" width="20" height="10" rx="2"/><path d="M6 12h.01M10 12h8"/></svg> @break
+  @case('widgets') {!! $s !!}<rect x="3" y="3" width="10" height="7" rx="1.5"/><rect x="15" y="3" width="6" height="18" rx="1.5"/><rect x="3" y="12" width="10" height="9" rx="1.5"/></svg> @break
+  @case('workload') {!! $s !!}<path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> @break
+  @case('approve') {!! $s !!}<circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></svg> @break
+  @case('schedule') {!! $s !!}<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M8 10v9M14 10v9"/></svg> @break
+  @case('terms') {!! $s !!}<path d="M6 2h12M6 22h12"/><path d="M6 2c0 6 4 8 6 10-2 2-6 4-6 10M18 2c0 6-4 8-6 10 2 2 6 4 6 10"/></svg> @break
+  @case('narrative') {!! $s !!}<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg> @break
+  @case('toggle') {!! $s !!}<rect x="2" y="7" width="20" height="10" rx="5"/><circle cx="16" cy="12" r="3"/></svg> @break
+  @case('fee') {!! $s !!}<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><path d="M7 7h.01"/></svg> @break
+  @case('renew') {!! $s !!}<path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg> @break
+  @case('history') {!! $s !!}<rect x="3" y="4" width="14" height="16" rx="2"/><path d="M6.5 9h7M6.5 13h5"/><circle cx="17.5" cy="17" r="3.2"/><path d="M17.5 15.5V17l1 .8"/></svg> @break
+  @case('house') {!! $s !!}<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg> @break
+  @case('campus') {!! $s !!}<path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> @break
+  @case('builder') {!! $s !!}<rect x="4" y="4" width="7" height="16" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg> @break
+  @case('traits') {!! $s !!}<path d="m12 2.5 2.9 6 6.6.9-4.8 4.6 1.1 6.5-5.8-3.2-5.8 3.2 1.1-6.5-4.8-4.6 6.6-.9z"/></svg> @break
+  @case('structure') {!! $s !!}<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg> @break
+  @case('broadsheet') {!! $s !!}<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 9h20M2 14h20M9 4v16M15 4v16"/></svg> @break
+  @case('scale') {!! $s !!}<path d="M12 3v18M7 21h10"/><path d="M5 7h6M13 7h6"/><path d="M5 7 2 13a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z"/></svg> @break
+  @case('pencil') {!! $s !!}<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg> @break
+  @case('percent') {!! $s !!}<path d="M6 6l12 12"/><circle cx="8" cy="8" r="2"/><circle cx="16" cy="16" r="2"/></svg> @break
+  @case('copies') {!! $s !!}<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> @break
+  @case('inbox') {!! $s !!}<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg> @break
+  @case('warning') {!! $s !!}<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg> @break
+  @case('parents') {!! $s !!}<circle cx="9" cy="7" r="3"/><path d="M4 20a5 5 0 0 1 10 0"/><circle cx="18" cy="9" r="2"/><path d="M15 20a4 4 0 0 1 7-2.5"/></svg> @break
+  @case('insight') {!! $s !!}<path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg> @break
+  @case('stats') {!! $s !!}<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 17V11M12 17V7M16 17v-4"/></svg> @break
   @default {!! $s !!}<circle cx="12" cy="12" r="9"/></svg>
 @endswitch

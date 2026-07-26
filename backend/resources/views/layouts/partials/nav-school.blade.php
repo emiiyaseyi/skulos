@@ -154,14 +154,14 @@
     // config('skulos.plan_feature_catalog'), used by the Billing plan
     // editor checklist) is untouched.
     'user_role_management' => ['school.roles.index', 'Roles &amp; Permissions', 'roles'],
-    'parent_portal' => ['school.parents.directory', 'Parent Portal', 'students'],
+    'parent_portal' => ['school.parents.directory', 'Parent Portal', 'parents'],
     'student_portal' => ['school.students', 'Student Portal', 'students'],
     'attendance_management' => ['school.attendance.index', 'Attendance', 'attendance'],
-    'attendance_dashboard' => ['school.attendance.dashboard', 'Attendance Dashboard', 'attendance'],
+    'attendance_dashboard' => ['school.attendance.dashboard', 'Attendance Dashboard', 'stats'],
     // Same real screen as attendance_dashboard above (2026-07-18): a real
     // per-class/per-student attendance breakdown already exists there,
     // "Attendance Reports" is not a separate, distinct capability.
-    'attendance_reports' => ['school.attendance.dashboard', 'Attendance Dashboard', 'attendance'],
+    'attendance_reports' => ['school.attendance.dashboard', 'Attendance Dashboard', 'stats'],
     'student_performance_dashboard' => ['school.examinations.performance-dashboard', 'Student Performance Dashboard', 'trend'],
     // Same real screen as student_performance_dashboard above (2026-07-18):
     // it already IS a school-wide analytics dashboard (score distributions,
@@ -177,7 +177,7 @@
     'in_app_notifications' => ['school.notifications.index', 'Notifications', 'comms'],
     'announcements' => ['school.announcements.index', 'Announcements', 'mail'],
     'parent_broadcast' => ['school.messages.index', 'Messages', 'chat'],
-    'communication_history' => ['school.announcements.history', 'Communication History', 'clock'],
+    'communication_history' => ['school.announcements.history', 'Communication History', 'history'],
     // Already fully built end to end, just never wired into this catalog
     // (2026-07-18): AnnouncementController::store() ->
     // NotificationService::dispatchAnnouncement() ->
@@ -186,7 +186,7 @@
     // the school-facing on/off switch was missing (channelEnabled('email')
     // previously read a hardcoded config default with no override), added
     // to this same Communication Settings screen alongside it.
-    'email_notifications' => ['school.settings.communication.edit', 'Notifications', 'chat'],
+    'email_notifications' => ['school.settings.communication.edit', 'Notifications', 'toggle'],
     // Same real screen as in_app_notifications above (2026-07-18, user
     // report: "I AM STILL SEEING COMING SOON UNDER SOME FEATURES"): the
     // scheduled skulos:notify-birthdays-anniversaries command (built
@@ -195,12 +195,12 @@
     // there is no separate "Birthday Notifications" screen because there
     // is no separate destination for what this feature produces.
     'birthday_anniversary_notifications' => ['school.notifications.index', 'Notifications', 'comms'],
-    'school_houses' => ['school.houses.index', 'Houses', 'school'],
+    'school_houses' => ['school.houses.index', 'Houses', 'house'],
     'school_sections' => ['school.academics.index', 'Classes &amp; Subjects', 'academics'],
     'classes_arms' => ['school.academics.index', 'Classes &amp; Subjects', 'academics'],
     'subject_management' => ['school.academics.index', 'Classes &amp; Subjects', 'academics'],
-    'academic_sessions_terms' => ['school.settings.calendar.edit', 'Sessions &amp; Terms', 'calendar'],
-    'continuous_assessment' => ['school.examinations.structure', 'Assessment Structure', 'results'],
+    'academic_sessions_terms' => ['school.settings.calendar.edit', 'Sessions &amp; Terms', 'terms'],
+    'continuous_assessment' => ['school.examinations.structure', 'Assessment Structure', 'structure'],
     // "Results" and "Report Cards" merged into one nav line (user
     // directive 2026-07-15), same merge pattern as Staff/Teacher Portal:
     // both feature keys share one label and route, whichever renders
@@ -222,15 +222,15 @@
     // Nested under Academic > Examinations alongside Enter Scores/Grading
     // (user directive 2026-07-18: "add a submenu for term broadsheets
     // too"), not its own top-level Reports & Analytics line any more.
-    'student_reports' => ['school.reports.students.index', 'Term Broadsheets', 'results'],
-    'unlimited_grading_systems' => ['school.examinations.grading', 'Grading', 'results'],
+    'student_reports' => ['school.reports.students.index', 'Term Broadsheets', 'broadsheet'],
+    'unlimited_grading_systems' => ['school.examinations.grading', 'Grading', 'scale'],
     // Already fully built, just never wired into this catalog (2026-07-18):
     // ReportCardService::forStudent() already computes both overall
     // position/class size (shown by default, "overall_position" field)
     // and per-subject position (opt-in, "subject_position" field, modern
     // template) from ResultService::classBroadsheet()/subjectStats(); the
     // toggle for both lives on the existing Report settings screen.
-    'class_position_ranking' => ['school.report-cards.edit', 'Report settings', 'settings'],
+    'class_position_ranking' => ['school.report-cards.edit', 'Report settings', 'sliders'],
     // Advance tier plan feature 'advanced_report_cards' wired 2026-07-18
     // to the behavioural/psychomotor traits catalog: a real, distinct
     // capability Foundation's plain "basic_report_cards" does not have
@@ -239,7 +239,7 @@
     // the traits catalog itself, and the class teacher entry screen that
     // depends on it, only make sense once behavioural/psychomotor rating
     // is actually a feature the school pays for).
-    'advanced_report_cards' => ['school.report-cards.traits.index', 'Behavioural Traits', 'assignments'],
+    'advanced_report_cards' => ['school.report-cards.traits.index', 'Behavioural Traits', 'traits'],
     // Already fully built, just never wired into this catalog (2026-07-18):
     // the drag-and-drop report card layout designer (ReportCardController::
     // editLayout()/updateLayout(), school.report-cards.layout.edit) is
@@ -258,9 +258,9 @@
     // instead once a class teacher can also see their own class's full
     // grid from here, not just their personal schedule.
     'timetable_management' => $isRestrictedNav
-        ? ['school.timetable.mine', 'Timetable', 'calendar']
-        : ['school.timetable.index', 'Timetable', 'calendar'],
-    'student_promotion' => ['school.settings.calendar.edit', 'Sessions &amp; Terms', 'calendar'],
+        ? ['school.timetable.mine', 'Timetable', 'schedule']
+        : ['school.timetable.index', 'Timetable', 'schedule'],
+    'student_promotion' => ['school.settings.calendar.edit', 'Sessions &amp; Terms', 'terms'],
     // Repointed from school.campuses (2026-07-18): a real, dedicated
     // School Profile screen now exists (SchoolPortalController::
     // editProfile(), built 2026-07-17), so the feature key genuinely
@@ -278,14 +278,14 @@
     'bank_transfer_payment_option' => ['school.finance.payments.index', 'Payments', 'billing'],
     'payment_evidence_upload' => ['school.finance.payments.index', 'Payments', 'billing'],
     'payment_verification' => ['school.finance.payments.index', 'Payments', 'billing'],
-    'basic_fee_records' => ['school.finance.fee-items.index', 'Fee Records', 'billing'],
+    'basic_fee_records' => ['school.finance.fee-items.index', 'Fee Records', 'fee'],
     // Advance tier plan feature 'installment_payment_plans' wired 2026-07-18:
     // same real screen as basic_fee_records (a fee item's own page there
     // is where the installment schedule is actually managed, per-fee-item,
     // once a school turns "Allow this fee to be paid in installments" on
     // for it), not a separate screen.
-    'installment_payment_plans' => ['school.finance.fee-items.index', 'Fee Records', 'billing'],
-    'custom_report_builder' => ['school.reports.builder.index', 'Report Builder', 'pages'],
+    'installment_payment_plans' => ['school.finance.fee-items.index', 'Fee Records', 'fee'],
+    'custom_report_builder' => ['school.reports.builder.index', 'Report Builder', 'builder'],
     // Advance tier plan feature wired 2026-07-18: a whole school,
     // subject-level ranking + grade distribution, distinct from the
     // Student Performance Dashboard above (class/student level, current
@@ -296,11 +296,11 @@
     // subject teachers"): a teacher's own scoped view of only the
     // classes/subjects their TeachingAssignment rows say they teach,
     // distinct from Academic Insights above (school wide, leadership only).
-    'subject_insights' => ['school.reports.subject-insights.index', 'Subject Insights', 'trend'],
+    'subject_insights' => ['school.reports.subject-insights.index', 'Subject Insights', 'insight'],
     // Advance tier plan feature wired 2026-07-18: real teaching-load data
     // (TeachingAssignment + class teacher/assistant assignment), not a
     // timetable (Timetable Management stays deferred).
-    'teacher_workload' => ['school.staff.workload', 'Teacher Workload', 'staff'],
+    'teacher_workload' => ['school.staff.workload', 'Teacher Workload', 'workload'],
   ];
 
   // The report card browse/review page lives under Academic in the plan
@@ -402,7 +402,7 @@
     // CALENDAR SHOULD BE MERGE AS ONE AND PLACED UNDER ACADEMICS"), see
     // 'academic_calendar' in $builtRoutes below, its own catalog category
     // is already 'academic', so no forceGroup override is needed.
-    'Main' => [$link('school.dashboard', 'Dashboard', 'dashboard'), $link('school.setup', 'Guided Setup', 'settings')],
+    'Main' => [$link('school.dashboard', 'Dashboard', 'dashboard'), $link('school.setup', 'Guided Setup', 'compass')],
   ];
 
   foreach (config('skulos.plan_feature_catalog') as $categoryKey => $category) {
@@ -504,7 +504,7 @@
   // teacher needs this for.
   if ($navRbac->check($navUser, $school, 'examinations.view') && ! isset($renderedRoutes['school.examinations.index'])) {
     $renderedRoutes['school.examinations.index'] = true;
-    $academicSubgroups['Examinations']['enter_scores'] = $link('school.examinations.index', 'Enter Scores', 'results');
+    $academicSubgroups['Examinations']['enter_scores'] = $link('school.examinations.index', 'Enter Scores', 'pencil');
   }
 
   // Narrative Evaluation (user request 2026-07-18: "add a new settings
@@ -518,7 +518,7 @@
   if (! $isRestrictedNav && $navRbac->check($navUser, $school, 'examinations.approve_results')
       && ! isset($renderedRoutes['school.examinations.narrative-evaluation'])) {
     $renderedRoutes['school.examinations.narrative-evaluation'] = true;
-    $academicSubgroups['Examinations']['narrative_evaluation'] = $link('school.examinations.narrative-evaluation', 'Narrative Evaluation', 'chat');
+    $academicSubgroups['Examinations']['narrative_evaluation'] = $link('school.examinations.narrative-evaluation', 'Narrative Evaluation', 'narrative');
   }
 
   // Term Calculation (user request 2026-07-24: "add a settings under
@@ -529,7 +529,7 @@
   if (! $isRestrictedNav && $navRbac->check($navUser, $school, 'examinations.approve_results')
       && ! isset($renderedRoutes['school.examinations.report-card-calculation'])) {
     $renderedRoutes['school.examinations.report-card-calculation'] = true;
-    $academicSubgroups['Examinations']['report_card_calculation'] = $link('school.examinations.report-card-calculation', 'Term Calculation', 'results');
+    $academicSubgroups['Examinations']['report_card_calculation'] = $link('school.examinations.report-card-calculation', 'Term Calculation', 'percent');
   }
 
   // Bulk Generate Report Cards (user request 2026-07-23: "add a bulk way
@@ -550,7 +550,7 @@
       && $navRbac->check($navUser, $school, 'report_cards.bulk_generate_all')
       && ! isset($renderedRoutes['school.report-cards.bulk-generate'])) {
     $renderedRoutes['school.report-cards.bulk-generate'] = true;
-    $academicSubgroups['Examinations']['bulk_generate'] = $link('school.report-cards.bulk-generate', 'Bulk Generate Report Cards', 'results');
+    $academicSubgroups['Examinations']['bulk_generate'] = $link('school.report-cards.bulk-generate', 'Bulk Generate Report Cards', 'copies');
   }
 
   // "Report settings" (template and field choices for the report card
@@ -563,7 +563,7 @@
   // report_cards.view for the Report Cards screen itself.
   if (! $isRestrictedNav && ! isset($renderedRoutes['school.report-cards.edit'])) {
     $renderedRoutes['school.report-cards.edit'] = true;
-    $groups['Reports & Analytics'][] = $link('school.report-cards.edit', 'Report settings', 'settings');
+    $groups['Reports & Analytics'][] = $link('school.report-cards.edit', 'Report settings', 'sliders');
   }
 
   // "Pending review" is a sub screen of Report Cards, not its own catalog
@@ -576,7 +576,7 @@
   if (! $isRestrictedNav && $school?->hasFeature('basic_report_cards')
       && ! isset($renderedRoutes['school.report-cards.pending-review'])) {
     $renderedRoutes['school.report-cards.pending-review'] = true;
-    $groups['Reports & Analytics'][] = $link('school.report-cards.pending-review', 'Pending review', 'results');
+    $groups['Reports & Analytics'][] = $link('school.report-cards.pending-review', 'Pending review', 'inbox');
   }
 
   // Module granted add ons (Library, Hostel, ...) are a separate system
@@ -641,7 +641,7 @@
   // labels" pattern Staff Portal/Teacher Portal already use above.
   if (! $isRestrictedNav) {
     $settingsSubgroups['School'] = array_merge($settingsSubgroups['School'], [
-      $link('school.campuses', 'Campuses', 'school'),
+      $link('school.campuses', 'Campuses', 'campus'),
       // Same real screen the top-level Academic group's own "Calendar"
       // link already points at (academic_calendar, merged there
       // 2026-07-16); the user's Settings tree separately lists it here
@@ -671,10 +671,10 @@
       return $entry;
     };
     $settingsSubgroups['Users'] = array_merge($settingsSubgroups['Users'], [
-      $linkWithAnchor('school.students.settings.edit', 'student-fields', 'Student Fields', 'students'),
-      $linkWithAnchor('school.students.settings.edit', 'identifier-settings', 'Parent Settings', 'students'),
-      $linkWithAnchor('school.students.settings.edit', 'identifier-settings', 'Staff Settings', 'staff'),
-      $link('school.settings.custom-fields.index', 'Custom Fields', 'settings'),
+      $linkWithAnchor('school.students.settings.edit', 'student-fields', 'Student Fields', 'field'),
+      $linkWithAnchor('school.students.settings.edit', 'identifier-settings', 'Parent Settings', 'field'),
+      $linkWithAnchor('school.students.settings.edit', 'identifier-settings', 'Staff Settings', 'field'),
+      $link('school.settings.custom-fields.index', 'Custom Fields', 'field'),
     ]);
     // Previously only reachable from a small link tucked in the account
     // footer at the very bottom of the sidebar (user report 2026-07-24:
@@ -685,9 +685,9 @@
     // already use, added here too as a real, findable nav entry, not a
     // replacement for the footer shortcut.
     if ($navRbac->check($navUser, $school, 'staff.update')) {
-      $settingsSubgroups['Users'][] = $link('school.profile.approvals', 'Profile Approvals', 'staff');
+      $settingsSubgroups['Users'][] = $link('school.profile.approvals', 'Profile Approvals', 'approve');
     }
-    $communicationSettingsLinks = [$link('school.settings.mail.edit', 'Mail Settings', 'mail')];
+    $communicationSettingsLinks = [$link('school.settings.mail.edit', 'Mail Settings', 'sliders')];
     // "Notifications" here is the exact same route the email_notifications
     // catalog entry above already renders (and marks in $renderedRoutes)
     // once a school's plan includes that feature (2026-07-18's forceGroup
@@ -698,11 +698,11 @@
     // dedup in this file already is.
     if (! isset($renderedRoutes['school.settings.communication.edit'])) {
       $renderedRoutes['school.settings.communication.edit'] = true;
-      $communicationSettingsLinks[] = $link('school.settings.communication.edit', 'Notifications', 'chat');
+      $communicationSettingsLinks[] = $link('school.settings.communication.edit', 'Notifications', 'toggle');
     }
     $settingsSubgroups['Communication'] = array_merge($settingsSubgroups['Communication'], $communicationSettingsLinks);
     $settingsSubgroups['Appearance'] = array_merge($settingsSubgroups['Appearance'], [
-      $link('school.dashboard.edit', 'Dashboard', 'settings'),
+      $link('school.dashboard.edit', 'Dashboard', 'widgets'),
       $link('school.settings.landing-pages.edit', 'Landing Pages', 'pages'),
     ]);
     $settingsSubgroups['Security'] = array_merge($settingsSubgroups['Security'], [
@@ -720,7 +720,7 @@
       $link('school.maintenance.index', 'Storage &amp; Health', 'health'),
     ]);
     $settingsSubgroups['Analytics'] = array_merge($settingsSubgroups['Analytics'], [
-      $link('school.settings.at-risk-thresholds.edit', 'At Risk Thresholds', 'results'),
+      $link('school.settings.at-risk-thresholds.edit', 'At Risk Thresholds', 'warning'),
     ]);
   }
 
@@ -735,7 +735,7 @@
   // than anything School/Users/Communication/Appearance/Security/
   // Analytics-shaped.
   if (in_array($scopedRoleSlug, config('skulos.subscription_visible_role_slugs', []), true)) {
-    $settingsSubgroups['System'][] = $link('school.subscription.index', 'Subscription', 'billing');
+    $settingsSubgroups['System'][] = $link('school.subscription.index', 'Subscription', 'renew');
   }
 
   // "Guided Setup" itself is a first-run admin task (creating sessions,
