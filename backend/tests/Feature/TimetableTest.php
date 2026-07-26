@@ -214,6 +214,31 @@ class TimetableTest extends TestCase
             ->assertSee('own teaching schedule');
     }
 
+    /**
+     * User report 2026-07-25: timetable export was only reachable from
+     * the admin only Master Timetable, so a teacher, parent, or student
+     * viewing their own "My Timetable" had no way to export it at all.
+     */
+    public function test_a_teacher_can_export_their_own_timetable_as_csv(): void
+    {
+        [$school, $teacherUser] = $this->schoolWithMember('subject-teacher', 'ttexportmine');
+        [$classArmA, , $subject, $staffA, , $period] = $this->seedAcademics($school);
+
+        app(TenantManager::class)->use($school);
+        $staffA->update(['user_id' => $teacherUser->id]);
+        TimetableEntry::create(['class_arm_id' => $classArmA->id, 'timetable_period_id' => $period->id, 'day_of_week' => 'monday', 'subject_id' => $subject->id, 'staff_id' => $staffA->id]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacherUser)->get(route('school.timetable.mine', ['school' => $school->slug]))
+            ->assertOk()->assertSee('Export CSV');
+
+        $response = $this->actingAs($teacherUser)->get(route('school.timetable.mine.export', ['school' => $school->slug]));
+        $response->assertOk();
+        $csv = $response->streamedContent();
+        $this->assertStringContainsString('Day,Period,Time,Subject,Teacher', $csv);
+        $this->assertStringContainsString('Mathematics', $csv);
+    }
+
     public function test_a_student_sees_their_class_schedule_on_my_timetable(): void
     {
         [$school, $studentUser] = $this->schoolWithMember('student', 'ttsix');

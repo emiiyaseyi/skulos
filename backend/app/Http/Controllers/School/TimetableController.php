@@ -215,6 +215,33 @@ class TimetableController extends Controller
     {
         $this->authorizeAction($request, 'timetable.view');
         $school = $this->school($request);
+        $resolved = $this->resolveMineGrid($request, $timetable);
+
+        return view('school.timetable.mine', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'periods' => $timetable->periods(),
+            'weekDays' => $timetable->weekDays(),
+            'grid' => $resolved['grid'],
+            'subtitle' => $resolved['subtitle'],
+            'children' => $resolved['children'],
+            'selectedChildId' => $resolved['children']->isNotEmpty() ? ($request->integer('student_id') ?: $resolved['children']->first()?->id) : null,
+            'ownClassArm' => $resolved['ownClassArm'],
+            'view' => $resolved['view'],
+        ]);
+    }
+
+    /**
+     * Resolves exactly which grid "My Timetable" shows for the signed in
+     * user (their own teaching schedule, the class they lead, or a
+     * chosen child's), shared by mine() and mineExport() so the CSV
+     * download below always matches whatever is currently on screen.
+     *
+     * @return array{grid: array, subtitle: string, children: \Illuminate\Support\Collection, ownClassArm: ?ClassArm, view: string}
+     */
+    protected function resolveMineGrid(Request $request, TimetableService $timetable): array
+    {
+        $school = $this->school($request);
         $user = Auth::user();
 
         $staff = Staff::where('user_id', $user->id)->first();
@@ -247,18 +274,44 @@ class TimetableController extends Controller
             }
         }
 
-        return view('school.timetable.mine', [
-            'school' => $school,
-            'accent' => $school->branding()['color'],
-            'periods' => $timetable->periods(),
-            'weekDays' => $timetable->weekDays(),
-            'grid' => $grid,
-            'subtitle' => $subtitle,
-            'children' => $children,
-            'selectedChildId' => $children->isNotEmpty() ? ($request->integer('student_id') ?: $children->first()?->id) : null,
-            'ownClassArm' => $ownClassArm,
-            'view' => $view,
-        ]);
+        return compact('grid', 'subtitle', 'children', 'ownClassArm', 'view');
+    }
+
+    /**
+     * A CSV export of "My Timetable" (user request 2026-07-25: timetable
+     * export was only ever available from the admin only Master
+     * Timetable screen, not from the personal/class view every teacher,
+     * parent, and student actually lands on). Same flat day/period row
+     * shape and the same timetable.view gate the page itself already
+     * uses, so anyone who can see their own schedule can also export it.
+     * PDF is covered by the page's own Print button, same as the master
+     * export.
+     */
+    public function mineExport(Request $request, TimetableService $timetable): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $this->authorizeAction($request, 'timetable.view');
+        $resolved = $this->resolveMineGrid($request, $timetable);
+        $weekDays = $timetable->weekDays();
+        $teachingPeriods = $timetable->periods()->where('is_teaching_period', true);
+        $grid = $resolved['grid'];
+
+        return response()->streamDownload(function () use ($weekDays, $teachingPeriods, $grid) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Day', 'Period', 'Time', 'Subject', 'Teacher']);
+            foreach ($weekDays as $dayKey => $dayLabel) {
+                foreach ($teachingPeriods as $period) {
+                    $entry = $grid[$dayKey.':'.$period->id] ?? null;
+                    fputcsv($out, [
+                        $dayLabel,
+                        $period->name,
+                        $period->timeLabel(),
+                        $entry?->subject?->name ?? '',
+                        $entry?->staff?->fullName() ?? '',
+                    ]);
+                }
+            }
+            fclose($out);
+        }, 'my-timetable.csv');
     }
 
     /**

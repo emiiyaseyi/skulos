@@ -12,6 +12,11 @@
   .tt-grid .tt-cell span{color:var(--mut-dim);font-size:.76rem}
   .tt-break-row td{background:var(--bg);color:var(--mut-dim);font-style:italic;text-align:center}
   .tt-free{color:var(--mut-dim)}
+  @media print{
+    .appbar,.side,.impersonate-bar,.page-head .btn,.page-head form{display:none !important}
+    .content{padding:0 !important}
+    .card{box-shadow:none;border:none;break-inside:avoid;margin-bottom:.6rem !important}
+  }
 </style>
 @endpush
 
@@ -21,15 +26,21 @@
     <h1 class="title">Timetable</h1>
     <p class="subtitle">{{ $subtitle }}</p>
   </div>
-  @if($children->count() > 1)
-    <form method="GET" style="display:flex;gap:.5rem;align-items:center">
-      <select name="student_id" onchange="this.form.submit()">
-        @foreach($children as $child)
-          <option value="{{ $child->id }}" @selected($selectedChildId === $child->id)>{{ $child->fullName() }}</option>
-        @endforeach
-      </select>
-    </form>
-  @endif
+  <div class="stack" style="flex-direction:row;gap:.6rem;align-items:center">
+    @if($children->count() > 1)
+      <form method="GET" style="display:flex;gap:.5rem;align-items:center">
+        <select name="student_id" onchange="this.form.submit()">
+          @foreach($children as $child)
+            <option value="{{ $child->id }}" @selected($selectedChildId === $child->id)>{{ $child->fullName() }}</option>
+          @endforeach
+        </select>
+      </form>
+    @endif
+    @if(! empty($grid))
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.mine.export', array_filter(['school' => $school->slug, 'view' => request()->query('view'), 'student_id' => $selectedChildId])) }}">Export CSV</a>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="window.print()">Print / Save as PDF</button>
+    @endif
+  </div>
 </div>
 
 {{--
