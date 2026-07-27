@@ -2067,6 +2067,7 @@ return [
         'class_average' => ['label' => 'Class average per subject', 'group' => 'academic', 'default' => false],
         'subject_highest' => ['label' => 'Subject highest score', 'group' => 'academic', 'default' => false],
         'subject_lowest' => ['label' => 'Subject lowest score', 'group' => 'academic', 'default' => false],
+        'subject_remark' => ['label' => 'Subject remark (from the grading scale)', 'group' => 'academic', 'default' => true],
         // Superseded 2026-07-24 by the dedicated Term Calculation
         // settings screen (Examinations > Term Calculation,
         // ReportCardCumulativePolicy): a single on/off checkbox here

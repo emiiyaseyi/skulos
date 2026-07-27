@@ -355,7 +355,16 @@ class StudentScreenTest extends TestCase
      * ReportCardController::show(), but nothing on the student profile
      * page linked to it.
      */
-    public function test_the_profile_page_links_to_the_report_card_when_a_current_term_exists(): void
+    /**
+     * User request 2026-07-26: "Academic report should be removed from
+     * the student profile, it should have a stand alone submenu under
+     * student portal." The profile now always links out to that
+     * standalone page (StudentController::academicReport()) rather than
+     * embedding the report or linking straight to the PDF render itself;
+     * that destination page is the one that behaves differently with or
+     * without a current term.
+     */
+    public function test_the_profile_page_links_to_the_standalone_academic_report_page(): void
     {
         [$school, $admin] = $this->schoolWithMember('school-owner', 'profilereport');
 
@@ -364,8 +373,12 @@ class StudentScreenTest extends TestCase
         $studentId = $student->id;
         app(TenantManager::class)->forget();
 
-        $noTerm = $this->actingAs($admin)->get("http://{$school->slug}.localhost/students/{$studentId}");
-        $noTerm->assertOk()->assertDontSee('Report card');
+        $this->actingAs($admin)->get("http://{$school->slug}.localhost/students/{$studentId}")
+            ->assertOk()->assertSee('Academic report')
+            ->assertSee(route('school.students.academic-report', ['school' => $school->slug, 'studentId' => $studentId]), false);
+
+        $noTerm = $this->actingAs($admin)->get("http://{$school->slug}.localhost/students/{$studentId}/academic-report");
+        $noTerm->assertOk()->assertSee('No current term is set for your school yet.');
 
         app(TenantManager::class)->use($school);
         $session = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026']);
@@ -373,9 +386,8 @@ class StudentScreenTest extends TestCase
         $term->makeCurrent();
         app(TenantManager::class)->forget();
 
-        $withTerm = $this->actingAs($admin)->get("http://{$school->slug}.localhost/students/{$studentId}");
-        $withTerm->assertOk()->assertSee('Report card')
-            ->assertSee(route('school.report-cards.show', ['school' => $school->slug, 'studentId' => $studentId, 'termId' => $term->id]), false);
+        $withTerm = $this->actingAs($admin)->get("http://{$school->slug}.localhost/students/{$studentId}/academic-report");
+        $withTerm->assertOk()->assertSee('First Term');
     }
 
     public function test_a_guardian_can_be_added_from_the_profile_page(): void

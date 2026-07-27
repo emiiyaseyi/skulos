@@ -294,6 +294,8 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::post('/students/{studentId}/edit', [\App\Http\Controllers\School\StudentController::class, 'update'])->name('school.students.update');
         Route::post('/students/{studentId}/photo', [\App\Http\Controllers\School\StudentController::class, 'updatePhoto'])->name('school.students.photo.update');
         Route::post('/students/{studentId}/report-feedback', [\App\Http\Controllers\School\StudentController::class, 'submitReportFeedback'])->name('school.students.report-feedback.store');
+        Route::get('/student-portal/report', [\App\Http\Controllers\School\StudentController::class, 'myAcademicReport'])->name('school.students.my-academic-report');
+        Route::get('/students/{studentId}/academic-report', [\App\Http\Controllers\School\StudentController::class, 'academicReport'])->name('school.students.academic-report');
         Route::post('/students/{studentId}/guardians', [\App\Http\Controllers\School\StudentController::class, 'storeGuardian'])->name('school.students.guardians.store');
         Route::post('/students/guardians/{guardianId}/edit', [\App\Http\Controllers\School\StudentController::class, 'updateGuardian'])->name('school.students.guardians.update');
         Route::delete('/students/guardians/{guardianId}', [\App\Http\Controllers\School\StudentController::class, 'destroyGuardian'])->name('school.students.guardians.destroy');
@@ -677,6 +679,8 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/pending-review', [$reportCards, 'pendingReview'])->name('pending-review');
             Route::get('/bulk-generate', [$reportCards, 'bulkGenerateAllForm'])->name('bulk-generate');
             Route::post('/bulk-generate', [$reportCards, 'bulkGenerateAll'])->name('bulk-generate.submit');
+            Route::get('/bulk-release', [$reportCards, 'bulkReleaseAllForm'])->name('bulk-release');
+            Route::post('/bulk-release', [$reportCards, 'bulkReleaseAll'])->name('bulk-release.submit');
             Route::get('/classes/{classId}', [$reportCards, 'classIndex'])->name('class-index');
             Route::get('/classes/{classId}/print', [$reportCards, 'classPrint'])->name('class.print');
             Route::post('/classes/{classId}/generate', [$reportCards, 'generateClass'])->name('class.generate');

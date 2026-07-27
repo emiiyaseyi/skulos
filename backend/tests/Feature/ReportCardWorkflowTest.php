@@ -845,4 +845,87 @@ class ReportCardWorkflowTest extends TestCase
         $this->actingAs($teacher)->post("http://{$school->slug}.localhost/report-cards/bulk-generate", ['term_id' => $termId])
             ->assertRedirect()->assertSessionHas('status');
     }
+
+    /**
+     * Bulk Release (user request 2026-07-26: "same way we have bulk
+     * generate report cards, lets add a bulk release all report card
+     * (approved only, non approved, all genereated report cards)").
+     */
+    public function test_owner_can_bulk_release_only_approved_report_cards(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rcreleaseone');
+        [$classId, $studentId] = $this->seedClassWithStudent($school);
+
+        app(TenantManager::class)->use($school);
+        $term = Term::current()->first();
+        $section = Section::create(['name' => 'Secondary', 'sequence' => 2]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS 1', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id]);
+        $notApprovedStudent = Student::create(['admission_number' => 'B1', 'first_name' => 'Bode', 'last_name' => 'Ade', 'current_class_arm_id' => $arm->id]);
+        ReportCardReview::create(['student_id' => $studentId, 'term_id' => $term->id, 'status' => ReportCardReview::STATUS_APPROVED, 'review_stage' => 0]);
+        ReportCardReview::create(['student_id' => $notApprovedStudent->id, 'term_id' => $term->id, 'status' => ReportCardReview::STATUS_PENDING_REVIEW, 'review_stage' => 0]);
+        $termId = $term->id;
+        $notApprovedId = $notApprovedStudent->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/bulk-release?term_id={$termId}")
+            ->assertOk()->assertSee('Release approved only (1)', false);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/bulk-release", ['term_id' => $termId, 'scope' => 'approved'])
+            ->assertRedirect()->assertSessionHas('status');
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame(ReportCardReview::STATUS_RELEASED, ReportCardReview::where('student_id', $studentId)->where('term_id', $termId)->first()->status);
+        $this->assertSame(ReportCardReview::STATUS_PENDING_REVIEW, ReportCardReview::where('student_id', $notApprovedId)->where('term_id', $termId)->first()->status, 'a not-yet-approved card must be untouched by the approved-only scope');
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_owner_can_bulk_release_all_generated_report_cards_regardless_of_approval(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rcreleasetwo');
+        [$classId, $studentId] = $this->seedClassWithStudent($school);
+
+        app(TenantManager::class)->use($school);
+        $term = Term::current()->first();
+        ReportCardReview::create(['student_id' => $studentId, 'term_id' => $term->id, 'status' => ReportCardReview::STATUS_PENDING_REVIEW, 'review_stage' => 0]);
+        $termId = $term->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/bulk-release", ['term_id' => $termId, 'scope' => 'all'])
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame(ReportCardReview::STATUS_RELEASED, ReportCardReview::where('student_id', $studentId)->where('term_id', $termId)->first()->status);
+        app(TenantManager::class)->forget();
+    }
+
+    /** An already released report card must never have its released_at silently overwritten by a later bulk release run. */
+    public function test_bulk_release_never_touches_an_already_released_report_card(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rcreleasethree');
+        [$classId, $studentId] = $this->seedClassWithStudent($school);
+
+        app(TenantManager::class)->use($school);
+        $term = Term::current()->first();
+        $originalReleasedAt = now()->subDays(3);
+        ReportCardReview::create(['student_id' => $studentId, 'term_id' => $term->id, 'status' => ReportCardReview::STATUS_RELEASED, 'released_at' => $originalReleasedAt, 'review_stage' => 0]);
+        $termId = $term->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/bulk-release", ['term_id' => $termId, 'scope' => 'all']);
+
+        app(TenantManager::class)->use($school);
+        $review = ReportCardReview::where('student_id', $studentId)->where('term_id', $termId)->first();
+        $this->assertSame($originalReleasedAt->toDateTimeString(), $review->released_at->toDateTimeString());
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_a_class_teacher_cannot_bulk_release(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('class-teacher', 'rcreleasefour');
+        $this->seedClassWithStudent($school);
+
+        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/report-cards/bulk-release")->assertForbidden();
+        $this->actingAs($teacher)->post("http://{$school->slug}.localhost/report-cards/bulk-release")->assertForbidden();
+    }
 }

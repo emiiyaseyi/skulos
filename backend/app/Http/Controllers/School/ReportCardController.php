@@ -242,13 +242,33 @@ class ReportCardController extends Controller
         ]);
     }
 
+    /**
+     * A parent/student may reach this WITHOUT report_cards.view (2026-07-26,
+     * "there should be a button to view the detailed report card which is
+     * the pdf format" on the family-facing Academic Report page), but only
+     * for their OWN child's report, and only once it has actually been
+     * released (never trust the client, the same ReportCardReview::
+     * VISIBLE_TO_FAMILY gate the Academic Report page itself already uses).
+     */
     public function show(Request $request, ReportCardService $cards, ReportCardPreferences $prefs, ReportCardLayout $layout): \Illuminate\View\View
     {
-        $this->authorizeAction($request, 'report_cards.view');
         $school = $this->school($request);
+        $user = Auth::user();
+        $roleSlug = optional($user->roleIn($school))->slug;
+        $isFamilyScoped = in_array($roleSlug, config('skulos.family_scoped_roles', []), true);
+        if (! $isFamilyScoped) {
+            $this->authorizeAction($request, 'report_cards.view');
+        }
+
         $student = Student::with('currentClassArm.schoolClass')->findOrFail($request->route('studentId'));
         $this->assertStudentVisible($request, $student);
         $term = Term::findOrFail($request->route('termId'));
+
+        if ($isFamilyScoped) {
+            $released = ReportCardReview::where('student_id', $student->id)->where('term_id', $term->id)
+                ->whereIn('status', ReportCardReview::VISIBLE_TO_FAMILY)->exists();
+            abort_unless($released, 404);
+        }
 
         // Narrative Evaluation (2026-07-18, per-term 2026-07-26): overrides
         // the school's own global template choice for this one student's
@@ -749,6 +769,71 @@ class ReportCardController extends Controller
 
         return redirect()->route('school.report-cards.pending-review', ['school' => $this->school($request)->slug])
             ->with('status', "{$created} report card(s) generated across {$classesCovered} class(es), ready for review.");
+    }
+
+    /**
+     * Bulk Release, the same shape as Bulk Generate above (user request
+     * 2026-07-26: "same way we have bulk generate report cards, lets add
+     * a bulk release all report card (approved only, non approved, all
+     * genereated report cards)"). Only ever acts on a review row that
+     * already exists for this term (a report card that was never
+     * generated has nothing to release), and never re-releases one
+     * that is already released/locked/archived, so released_at is
+     * never silently overwritten by re-running this.
+     */
+    public function bulkReleaseAllForm(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'report_cards.release');
+        $school = $this->school($request);
+
+        $terms = Term::with('session')->orderByDesc('starts_on')->get();
+        $termId = $request->integer('term_id') ?: null;
+        $term = ($termId ? $terms->firstWhere('id', $termId) : null) ?? $terms->firstWhere('is_current', true) ?? $terms->first();
+
+        $counts = ['approved' => 0, 'non_approved' => 0, 'already_released' => 0];
+        if ($term) {
+            $reviews = ReportCardReview::where('term_id', $term->id)->get(['status']);
+            foreach ($reviews as $review) {
+                if (in_array($review->status, ReportCardReview::VISIBLE_TO_FAMILY, true)) {
+                    $counts['already_released']++;
+                } elseif ($review->status === ReportCardReview::STATUS_APPROVED) {
+                    $counts['approved']++;
+                } else {
+                    $counts['non_approved']++;
+                }
+            }
+        }
+
+        return view('school.report-cards.bulk-release', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'terms' => $terms,
+            'term' => $term,
+            'counts' => $counts,
+        ]);
+    }
+
+    public function bulkReleaseAll(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.release');
+        $term = $this->resolveTerm($request);
+        $data = $request->validate(['scope' => ['required', Rule::in(['approved', 'non_approved', 'all'])]]);
+
+        $query = ReportCardReview::where('term_id', $term->id)
+            ->whereNotIn('status', ReportCardReview::VISIBLE_TO_FAMILY);
+
+        if ($data['scope'] === 'approved') {
+            $query->where('status', ReportCardReview::STATUS_APPROVED);
+        } elseif ($data['scope'] === 'non_approved') {
+            $query->where('status', '!=', ReportCardReview::STATUS_APPROVED);
+        }
+        // 'all' releases every not-yet-released review row for this term,
+        // approved or not, no further filter beyond the base query above.
+
+        $count = $query->update(['status' => ReportCardReview::STATUS_RELEASED, 'released_at' => now()]);
+
+        return redirect()->route('school.report-cards.bulk-release', ['school' => $this->school($request)->slug, 'term_id' => $term->id])
+            ->with('status', "{$count} report card(s) released for {$term->name}.");
     }
 
     /** Which staff member auto reviews every report card generated for this class (user request 2026-07-11). */

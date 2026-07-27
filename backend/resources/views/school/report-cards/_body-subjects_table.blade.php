@@ -40,7 +40,7 @@
       @if($template === 'modern' && $show('class_average'))<th class="num">Class Avg</th>@endif
       @if($template === 'modern' && $show('subject_highest'))<th class="num">Highest</th>@endif
       @if($template === 'modern' && $show('subject_lowest'))<th class="num">Lowest</th>@endif
-      @if($template !== 'compact')<th>Remark</th>@endif
+      @if($template !== 'compact' && $show('subject_remark'))<th>Remark</th>@endif
     </tr>
   </thead>
   <tbody>
@@ -64,7 +64,7 @@
         @if($template === 'modern' && $show('class_average'))<td class="num">{{ $subject['class_average'] }}</td>@endif
         @if($template === 'modern' && $show('subject_highest'))<td class="num">{{ $subject['highest'] }}</td>@endif
         @if($template === 'modern' && $show('subject_lowest'))<td class="num">{{ $subject['lowest'] }}</td>@endif
-        @if($template !== 'compact')<td>{{ $subject['remark'] }}</td>@endif
+        @if($template !== 'compact' && $show('subject_remark'))<td>{{ $subject['remark'] }}</td>@endif
       </tr>
     @endforeach
   </tbody>

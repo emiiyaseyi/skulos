@@ -493,6 +493,14 @@
     $groups['Academic'][] = $link('school.assignments.index', 'Assignments', 'assignments');
   }
 
+  // Academic Report, its own standalone entry under Academic (user
+  // request 2026-07-26, then corrected 2026-07-27: "Academic report
+  // should be under academics"), a parent/student never had a way to
+  // reach it besides opening a child's profile first.
+  if ($isFamilyScoped) {
+    $groups['Academic'][] = $link('school.students.my-academic-report', 'Academic Report', 'results');
+  }
+
   // "Enter Scores" (school.examinations.index), the real score-entry
   // screen teachers use, was previously only reachable one click away via
   // a button on the Report Cards page (2026-07-15's Results/Report Cards
@@ -551,6 +559,18 @@
       && ! isset($renderedRoutes['school.report-cards.bulk-generate'])) {
     $renderedRoutes['school.report-cards.bulk-generate'] = true;
     $academicSubgroups['Examinations']['bulk_generate'] = $link('school.report-cards.bulk-generate', 'Bulk Generate Report Cards', 'copies');
+  }
+
+  // Bulk Release (user request 2026-07-26: "same way we have bulk
+  // generate report cards, lets add a bulk release all report card"),
+  // the same shape and gating as Bulk Generate just above, on
+  // report_cards.release since that is the exact permission the action
+  // itself checks.
+  if (! $isRestrictedNav && $school?->hasFeature('basic_report_cards')
+      && $navRbac->check($navUser, $school, 'report_cards.release')
+      && ! isset($renderedRoutes['school.report-cards.bulk-release'])) {
+    $renderedRoutes['school.report-cards.bulk-release'] = true;
+    $academicSubgroups['Examinations']['bulk_release'] = $link('school.report-cards.bulk-release', 'Bulk Release Report Cards', 'approve');
   }
 
   // "Report settings" (template and field choices for the report card
@@ -770,7 +790,7 @@
   // scoped to Settings specifically), pushed into the otherwise-flat
   // Academic group rather than making the whole group nested.
   $examEntries = [];
-  foreach (['enter_scores', 'term_broadsheets', 'grading', 'narrative_evaluation', 'report_card_calculation', 'bulk_generate'] as $examKey) {
+  foreach (['enter_scores', 'term_broadsheets', 'grading', 'narrative_evaluation', 'report_card_calculation', 'bulk_generate', 'bulk_release'] as $examKey) {
     if (isset($academicSubgroups['Examinations'][$examKey])) {
       $examEntries[] = $academicSubgroups['Examinations'][$examKey];
     }

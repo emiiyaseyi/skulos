@@ -443,55 +443,7 @@ class StudentController extends Controller
         // a resource exists" convention.
         app(StudentAccessGuard::class)->assertVisible($user, $school, $student);
 
-        // A parent/student must never see a report card that has not been
-        // released yet (user request 2026-07-26: "parent should not be
-        // able to see report cards that are yet to be release"), and
-        // should be able to switch to any PREVIOUS term that has been
-        // released ("parent should be able to switch to previous terms
-        // report cards that has been release") — staff is unaffected,
-        // still sees the current term's live, in-progress scores by
-        // default, since a teacher genuinely needs to see them before
-        // release. A term counts as released once it has ever reached
-        // ReportCardReview::VISIBLE_TO_FAMILY (released, and still
-        // visible once locked/archived afterward, those are later stages
-        // of the same released card, not an un-release).
         $roleSlug = optional($user->roleIn($school))->slug;
-        $isFamilyScoped = in_array($roleSlug, config('skulos.family_scoped_roles', []), true);
-        $allTerms = Term::with('session')->get()
-            ->sortByDesc(fn (Term $t) => sprintf('%05d-%05d', $t->academic_session_id ?? 0, $t->sequence ?? 0))
-            ->values();
-
-        $currentTerm = Term::current()->first();
-        if ($isFamilyScoped) {
-            $releasedTermIds = ReportCardReview::where('student_id', $student->id)
-                ->whereIn('status', ReportCardReview::VISIBLE_TO_FAMILY)
-                ->pluck('term_id');
-            $availableTerms = $allTerms->whereIn('id', $releasedTermIds)->values();
-            $currentTermReleased = $currentTerm && $releasedTermIds->contains($currentTerm->id);
-        } else {
-            $availableTerms = $allTerms;
-            $currentTermReleased = true;
-        }
-
-        $requestedTermId = $request->query('term_id');
-        $term = $requestedTermId ? $availableTerms->firstWhere('id', (int) $requestedTermId) : null;
-        if (! $term) {
-            $term = $isFamilyScoped ? $availableTerms->first() : ($currentTerm ?: $availableTerms->first());
-        }
-
-        $report = $term ? app(ResultService::class)->studentReport($student->id, $term->id, GradingScale::default()) : [];
-        // Whether $term itself is one the family scoped viewer is allowed
-        // to see; always true for staff, and by construction always true
-        // for a family scoped viewer too ($term only ever comes from
-        // $availableTerms, already filtered to released terms), kept as
-        // its own flag so the view never has to re-derive this logic.
-        $canSeeThisTermsReport = ! $isFamilyScoped || $availableTerms->contains('id', $term?->id);
-        // Existing feedback this family already left on this exact term,
-        // so the form does not invite a second, confusing submission.
-        $existingFeedback = ($isFamilyScoped && $term)
-            ? ReportCardFeedback::where('student_id', $student->id)->where('term_id', $term->id)
-                ->where('submitted_by', $roleSlug)->latest()->first()
-            : null;
 
         // A class teacher (and their assistant) can always see guardian
         // details, a subject teacher only if the school has opted in
@@ -518,14 +470,6 @@ class StudentController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'student' => $student,
-            'term' => $term,
-            'report' => $report,
-            'isFamilyScoped' => $isFamilyScoped,
-            'availableTerms' => $availableTerms,
-            'canSeeThisTermsReport' => $canSeeThisTermsReport,
-            'currentTermReleased' => $currentTermReleased,
-            'currentTerm' => $currentTerm,
-            'existingFeedback' => $existingFeedback,
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'students.update'),
             // Provisioning a login is a school-administration action, not
             // a routine per-record edit (user report 2026-07-22: "class
@@ -550,6 +494,118 @@ class StudentController extends Controller
             'guardianCustomValues' => $student->guardians->mapWithKeys(
                 fn ($guardian) => [$guardian->id => $customFields->valuesFor('guardian', $guardian->id)]
             ),
+        ]);
+    }
+
+    /**
+     * The Academic Report, its own standalone page (user request
+     * 2026-07-26: "Academic report should be removed from the student
+     * profile, it should have a stand alone submenu under student
+     * portal"), not a card embedded in the student profile any more.
+     * A parent/student never sees a report card that has not been
+     * released yet ("parent should not be able to see report cards that
+     * are yet to be release"), and can switch to any PREVIOUS term that
+     * has been released ("switch to previous terms report cards that
+     * has been release") — staff is unaffected, still sees the current
+     * term's live, in-progress scores by default, since a teacher
+     * genuinely needs to see them before release. A term counts as
+     * released once it has ever reached ReportCardReview::VISIBLE_TO_
+     * FAMILY (released, and still visible once locked/archived
+     * afterward, those are later stages of the same released card, not
+     * an un-release).
+     */
+    public function academicReport(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'students.view');
+        $school = $this->school($request);
+        $user = Auth::user();
+        $student = Student::with('currentClassArm.schoolClass')->findOrFail($request->route('studentId'));
+        app(StudentAccessGuard::class)->assertVisible($user, $school, $student);
+
+        $roleSlug = optional($user->roleIn($school))->slug;
+        $isFamilyScoped = in_array($roleSlug, config('skulos.family_scoped_roles', []), true);
+        $allTerms = Term::with('session')->get()
+            ->sortByDesc(fn (Term $t) => sprintf('%05d-%05d', $t->academic_session_id ?? 0, $t->sequence ?? 0))
+            ->values();
+
+        $currentTerm = Term::current()->first();
+        if ($isFamilyScoped) {
+            $releasedTermIds = ReportCardReview::where('student_id', $student->id)
+                ->whereIn('status', ReportCardReview::VISIBLE_TO_FAMILY)
+                ->pluck('term_id');
+            $availableTerms = $allTerms->whereIn('id', $releasedTermIds)->values();
+            $currentTermReleased = $currentTerm && $releasedTermIds->contains($currentTerm->id);
+        } else {
+            $availableTerms = $allTerms;
+            $currentTermReleased = true;
+        }
+
+        $requestedTermId = $request->query('term_id');
+        $term = $requestedTermId ? $availableTerms->firstWhere('id', (int) $requestedTermId) : null;
+        if (! $term) {
+            $term = $isFamilyScoped ? $availableTerms->first() : ($currentTerm ?: $availableTerms->first());
+        }
+
+        $report = $term ? app(ResultService::class)->studentReport($student->id, $term->id, GradingScale::default()) : [];
+        $canSeeThisTermsReport = ! $isFamilyScoped || $availableTerms->contains('id', $term?->id);
+        $existingFeedback = ($isFamilyScoped && $term)
+            ? ReportCardFeedback::where('student_id', $student->id)->where('term_id', $term->id)
+                ->where('submitted_by', $roleSlug)->latest()->first()
+            : null;
+
+        // "There should be a button to view the detailed report card
+        // which is the pdf format" (user request 2026-07-26): only once
+        // the term is actually visible to this viewer (staff always;
+        // family scoped only when released), ReportCardController::
+        // show() re-checks this same release gate itself regardless.
+        $canOpenFullReportCard = $term && $canSeeThisTermsReport
+            && ($isFamilyScoped || app(Rbac::class)->check($user, $school, 'report_cards.view'));
+
+        return view('school.students.academic-report', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'student' => $student,
+            'term' => $term,
+            'report' => $report,
+            'isFamilyScoped' => $isFamilyScoped,
+            'availableTerms' => $availableTerms,
+            'canSeeThisTermsReport' => $canSeeThisTermsReport,
+            'currentTermReleased' => $currentTermReleased,
+            'currentTerm' => $currentTerm,
+            'existingFeedback' => $existingFeedback,
+            'canOpenFullReportCard' => $canOpenFullReportCard,
+            'showRemark' => app(\App\Services\ReportCards\ReportCardPreferences::class)->shows('subject_remark'),
+        ]);
+    }
+
+    /**
+     * "Academic Report" as its own nav entry (user request 2026-07-26)
+     * needs somewhere to land without already knowing a student id: a
+     * parent/student with exactly one linked child/self goes straight to
+     * their own report, more than one gets a quick picker, staff (who
+     * has no single "own" student) lands on the Students list instead,
+     * the same place they would naturally start from anyway.
+     */
+    public function myAcademicReport(Request $request): \Illuminate\View\View|\Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.view');
+        $school = $this->school($request);
+        $user = Auth::user();
+
+        $studentIds = app(FamilyScope::class)->studentIds($user, $school);
+        if ($studentIds === null) {
+            return redirect()->route('school.students', ['school' => $school->slug]);
+        }
+
+        $students = Student::whereIn('id', $studentIds)->with('currentClassArm.schoolClass')->orderBy('first_name')->get();
+        if ($students->count() === 1) {
+            return redirect()->route('school.students.academic-report', ['school' => $school->slug, 'studentId' => $students->first()->id]);
+        }
+
+        return view('school.students.academic-report-picker', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'students' => $students,
         ]);
     }
 
