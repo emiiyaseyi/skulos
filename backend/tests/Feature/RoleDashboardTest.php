@@ -575,7 +575,7 @@ class RoleDashboardTest extends TestCase
         $this->assertSame('1', $labels['Days Present']);
     }
 
-    public function test_parent_dashboard_shows_childrens_attendance_today(): void
+    public function test_parent_dashboard_shows_childrens_attendance_this_term(): void
     {
         // Pin "today" to a known weekday — see the comment on the admin
         // dashboard attendance test above for why.
@@ -585,6 +585,8 @@ class RoleDashboardTest extends TestCase
         $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
         $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 4', 'sequence' => 1]);
         $arm = ClassArm::create(['school_class_id' => $class->id]);
+        $academicSession = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026', 'starts_on' => now()->subMonth(), 'ends_on' => now()->addMonths(3), 'is_current' => true]);
+        \App\Models\Tenant\Term::create(['academic_session_id' => $academicSession->id, 'name' => 'Term 1', 'sequence' => 1, 'starts_on' => now()->subMonth(), 'ends_on' => now()->addMonths(3), 'is_current' => true]);
         $child = Student::create(['admission_number' => 'PC1', 'first_name' => 'Kid', 'last_name' => 'One', 'current_class_arm_id' => $arm->id]);
         StudentGuardian::create(['student_id' => $child->id, 'guardian_user_id' => $parentUser->id, 'name' => 'Mum']);
         app(\App\Services\Attendance\AttendanceService::class)->markClass($arm->id, now(), [$child->id => 'present']);
@@ -593,7 +595,7 @@ class RoleDashboardTest extends TestCase
         $data = app(RoleDashboard::class)->build($parentUser, $school);
         $labels = collect($data['figs'])->pluck('n', 'l');
 
-        $this->assertSame('100%', $labels['Attendance Today']);
+        $this->assertSame('100%', $labels['Attendance This Term']);
     }
 
     /**

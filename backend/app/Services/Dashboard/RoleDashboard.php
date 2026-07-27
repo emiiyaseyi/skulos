@@ -867,19 +867,64 @@ class RoleDashboard
     protected function parent(User $user): array
     {
         $children = StudentGuardian::where('guardian_user_id', $user->id)->with('student.currentClassArm')->get();
-        $upcomingEvents = \App\Models\Tenant\CalendarEvent::upcoming()->count();
         $childIds = $children->pluck('student.id')->filter()->values();
         $childArmIds = $children->pluck('student.currentClassArm.id')->filter()->unique()->values();
         $upcomingExams = \App\Models\Tenant\CalendarEvent::exams()->upcoming()
             ->where(fn ($q) => $q->whereNull('class_arm_id')->orWhereIn('class_arm_id', $childArmIds))
             ->with('subject', 'classArm')->take(5)->get();
 
-        $todayCounts = Attendance::students()->whereIn('person_id', $childIds)->forDate(now())
-            ->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
-        $marked = $todayCounts->sum();
-        $attendanceRate = $marked > 0 ? round((($todayCounts['present'] ?? 0) / $marked) * 100, 1) : null;
-
         $term = Term::current()->first();
+        $multiChild = $children->count() > 1;
+
+        // Replaced two weak tiles (user report 2026-07-27: "the upcoming
+        // events and the attendance today data... let's have something
+        // more dynamic and interesting to parent"). "Upcoming Events"
+        // was a bare school-wide count with no context, redundant with
+        // the real named exams list the panel below it already renders
+        // (@include('school.widgets._upcoming-exams') further down this
+        // same method's return value); "Attendance Today" read N/A most
+        // of the day, before that day's marking happens. A whole-term
+        // attendance average is meaningful at any hour, and now that
+        // Finance has shipped, a real fees-due figure replaces the "not
+        // available yet" gap this tile used to be, the standing "no
+        // dummy data" rule no longer applies since the figure is real.
+        //
+        // Both tiles are per-child breakdowns, not just one blended
+        // number, once there is more than one child (user request
+        // 2026-07-27: "is it for one child or for all children, there
+        // should be an indication if its more than one child and also,
+        // parent can click on the card to view... a pop up"). Non
+        // optional fee items only ("the fees due should be excluding
+        // non optional items", matching the Submit Payment "All Fees"
+        // total already used for the same reason).
+        $feePerChild = app(\App\Services\Finance\FeeBalanceService::class)->nonOptionalOutstandingPerChild($user, $term)
+            ->map(fn ($row) => ['name' => $row['student']->fullName(), 'due' => $row['due']])
+            ->values();
+        $feesDue = $feePerChild->sum('due');
+
+        $attendancePerChild = $children->map(function ($g) use ($term) {
+            $student = $g->student;
+            if (! $student) {
+                return null;
+            }
+            $counts = $term
+                ? Attendance::students()->where('person_id', $student->id)
+                    ->whereBetween('date', [$term->starts_on ?? $term->created_at, now()])
+                    ->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status')
+                : collect();
+            $marked = $counts->sum();
+
+            return ['name' => $student->fullName(), 'rate' => $marked > 0 ? round((($counts['present'] ?? 0) / $marked) * 100, 1) : null];
+        })->filter()->values();
+
+        $termAttendanceCounts = $term
+            ? Attendance::students()->whereIn('person_id', $childIds)
+                ->whereBetween('date', [$term->starts_on ?? $term->created_at, now()])
+                ->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status')
+            : collect();
+        $termMarked = $termAttendanceCounts->sum();
+        $termAttendanceRate = $termMarked > 0 ? round((($termAttendanceCounts['present'] ?? 0) / $termMarked) * 100, 1) : null;
+
         $reportsReleased = $term
             ? ReportCardReview::whereIn('student_id', $childIds)->where('term_id', $term->id)
                 ->where('status', ReportCardReview::STATUS_RELEASED)->count()
@@ -889,19 +934,16 @@ class RoleDashboard
             'kind' => 'parent',
             'figs' => [
                 ['n' => number_format($children->count()), 'l' => 'My Children', 'ic' => 'students', 'c' => '#0EA5A0', 'pct' => '60%'],
-                // Fees and Messages are real figures once the Finance and
-                // Messaging modules exist (deferred, see the tracker), a
-                // literal 0 here would misleadingly read as "nothing due" /
-                // "no messages" rather than "not available yet" (standing
-                // "no dummy data" rule), so these two tiles are left out
-                // entirely for now rather than shown with a fabricated
-                // value.
-                ['n' => number_format($upcomingEvents), 'l' => 'Upcoming Events', 'ic' => 'calendar', 'c' => '#E14F63', 'pct' => $upcomingEvents > 0 ? '70%' : '10%'],
-                ['n' => $attendanceRate !== null ? "{$attendanceRate}%" : 'N/A', 'l' => 'Attendance Today', 'ic' => 'students', 'c' => '#12A97B', 'pct' => $attendanceRate !== null ? "{$attendanceRate}%" : '0%'],
+                $feesDue > 0
+                    ? ['n' => '₦'.number_format($feesDue, 2), 'l' => $multiChild ? 'Fees Due (all children)' : 'Fees Due', 'ic' => 'billing', 'c' => '#E14F63', 'pct' => '70%', 'popup' => 'fees-due-popup']
+                    : ['n' => 'Payment Completed', 'l' => $multiChild ? 'Fees, all children' : 'Fees', 'ic' => 'approve', 'c' => '#12A97B', 'pct' => '10%', 'popup' => $feePerChild->isNotEmpty() ? 'fees-due-popup' : null],
+                ['n' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : 'N/A', 'l' => $multiChild ? 'Attendance This Term (avg)' : 'Attendance This Term', 'ic' => 'attendance', 'c' => '#12A97B', 'pct' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : '0%', 'popup' => $attendancePerChild->isNotEmpty() ? 'attendance-term-popup' : null],
                 ['n' => number_format($reportsReleased), 'l' => 'Report Cards Released', 'ic' => 'results', 'c' => '#6D4FE0', 'pct' => $reportsReleased > 0 ? '70%' : '10%'],
             ],
             'panel' => [
                 'type' => 'children',
+                'feePerChild' => $feePerChild->all(),
+                'attendancePerChild' => $attendancePerChild->all(),
                 'children' => $children->map(function ($g) {
                     $latestReport = $g->student
                         ? ReportCardReview::where('student_id', $g->student->id)

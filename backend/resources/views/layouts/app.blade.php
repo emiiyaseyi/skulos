@@ -245,7 +245,7 @@ h1.title{font-size:1.55rem;font-weight:800;letter-spacing:-.01em}
 .subtitle{color:var(--mut);font-size:.92rem;margin-top:.2rem}
 .grid{display:grid;gap:1.1rem}
 .grid > *{min-width:0}
-.cols-2{grid-template-columns:repeat(2,1fr)}.cols-3{grid-template-columns:repeat(3,1fr)}.cols-4{grid-template-columns:repeat(4,1fr)}
+.cols-2{grid-template-columns:repeat(2,1fr)}.cols-3{grid-template-columns:repeat(3,1fr)}.cols-4{grid-template-columns:repeat(4,1fr)}.cols-5{grid-template-columns:repeat(5,1fr)}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:1.4rem;box-shadow:var(--shadow)}
 .card h3{font-size:1rem;font-weight:800;margin-bottom:.2rem}
 .card p{color:var(--mut);font-size:.9rem}
@@ -413,7 +413,7 @@ tr:last-child td{border-bottom:none}
   .side.open{transform:none}
   .menu-toggle{display:inline-grid}
   .content{padding:1.4rem 1.1rem 3rem}
-  .cols-4{grid-template-columns:repeat(2,1fr)}.cols-3{grid-template-columns:1fr}.cols-2{grid-template-columns:1fr}
+  .cols-4{grid-template-columns:repeat(2,1fr)}.cols-3{grid-template-columns:1fr}.cols-2{grid-template-columns:1fr}.cols-5{grid-template-columns:repeat(2,1fr)}
   .scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:55;display:none}
   .scrim.show{display:block}
   .appbar-search{width:9rem !important}
@@ -467,6 +467,7 @@ tr:last-child td{border-bottom:none}
      Term Broadsheets insight cards). One column each below true phone
      width, matching the same collapse .cols-3/.cols-2 already get. */
   .cols-4{grid-template-columns:1fr}
+  .cols-5{grid-template-columns:1fr}
   /* The messaging FAB (messaging-widget.blade.php's .mw-fab) is a fixed
      bottom-right circle, 2.8rem tall with a 1rem offset from the viewport
      edge at this same breakpoint, a ~3.8rem footprint the page's own

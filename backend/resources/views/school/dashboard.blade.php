@@ -197,18 +197,24 @@
          so the existing per-layout markup below stays untouched; a fig
          with no href (not every role's dashboard sets one yet) simply
          renders without the overlay, unclickable exactly as before. --}}
+    {{-- A fig with a 'popup' key instead of 'href' opens an in page
+         dialog rather than navigating (user request 2026-07-27: "parent
+         can click on the card to view... a pop up"), same full-cover
+         transparent-link overlay technique, just a button instead of an
+         anchor since it never leaves the page. --}}
+    @php $figLinkAttrs = ! empty($f['href']) ? 'href="'.e($f['href']).'"' : (! empty($f['popup']) ? 'href="javascript:void(0)" data-open-popup="'.e($f['popup']).'"' : null); @endphp
     @switch($layout)
       @case('erp')
-        <div class="fig fig-erp{{ $figExtraClass }}" style="--fc:{{ $f['c'] }}">@if(! empty($f['href']))<a class="fig-link" href="{{ $f['href'] }}" aria-label="{{ strip_tags($f['l']) }}"></a>@endif<span class="fic">@include('layouts.partials.icon',['name'=>$f['ic']])</span><span><b>{{ $f['n'] }}</b><span>{{ $f['l'] }}</span></span></div>
+        <div class="fig fig-erp{{ $figExtraClass }}" style="--fc:{{ $f['c'] }}">@if($figLinkAttrs)<a class="fig-link" {!! $figLinkAttrs !!} aria-label="{{ strip_tags($f['l']) }}"></a>@endif<span class="fic">@include('layouts.partials.icon',['name'=>$f['ic']])</span><span><b>{{ $f['n'] }}</b><span>{{ $f['l'] }}</span></span></div>
         @break
       @case('modern')
-        <div class="fig fig-modern{{ $figExtraClass }}" style="--fc:{{ $f['c'] }}">@if(! empty($f['href']))<a class="fig-link" href="{{ $f['href'] }}" aria-label="{{ strip_tags($f['l']) }}"></a>@endif<span class="ring"><i>@include('layouts.partials.icon',['name'=>$f['ic']])</i></span><span><b>{{ $f['n'] }}</b><span>{{ $f['l'] }}</span></span></div>
+        <div class="fig fig-modern{{ $figExtraClass }}" style="--fc:{{ $f['c'] }}">@if($figLinkAttrs)<a class="fig-link" {!! $figLinkAttrs !!} aria-label="{{ strip_tags($f['l']) }}"></a>@endif<span class="ring"><i>@include('layouts.partials.icon',['name'=>$f['ic']])</i></span><span><b>{{ $f['n'] }}</b><span>{{ $f['l'] }}</span></span></div>
         @break
       @case('vibrant')
-        <div class="fig fig-vibrant{{ $figExtraClass }}" style="--fc:{{ $f['c'] }}">@if(! empty($f['href']))<a class="fig-link" href="{{ $f['href'] }}" aria-label="{{ strip_tags($f['l']) }}"></a>@endif<span class="fic">@include('layouts.partials.icon',['name'=>$f['ic']])</span><b>{{ $f['n'] }}</b><span>{{ $f['l'] }}</span></div>
+        <div class="fig fig-vibrant{{ $figExtraClass }}" style="--fc:{{ $f['c'] }}">@if($figLinkAttrs)<a class="fig-link" {!! $figLinkAttrs !!} aria-label="{{ strip_tags($f['l']) }}"></a>@endif<span class="fic">@include('layouts.partials.icon',['name'=>$f['ic']])</span><b>{{ $f['n'] }}</b><span>{{ $f['l'] }}</span></div>
         @break
       @default
-        <div class="fig fig-classic{{ $figExtraClass }}" style="--fc:{{ $f['c'] }}">@if(! empty($f['href']))<a class="fig-link" href="{{ $f['href'] }}" aria-label="{{ strip_tags($f['l']) }}"></a>@endif<span class="fic">@include('layouts.partials.icon',['name'=>$f['ic']])</span><span><b>{{ $f['n'] }}</b><span>{{ $f['l'] }}</span></span></div>
+        <div class="fig fig-classic{{ $figExtraClass }}" style="--fc:{{ $f['c'] }}">@if($figLinkAttrs)<a class="fig-link" {!! $figLinkAttrs !!} aria-label="{{ strip_tags($f['l']) }}"></a>@endif<span class="fic">@include('layouts.partials.icon',['name'=>$f['ic']])</span><span><b>{{ $f['n'] }}</b><span>{{ $f['l'] }}</span></span></div>
     @endswitch
   @endforeach
 </div>
@@ -243,5 +249,36 @@ document.getElementById('figsMoreToggle')?.addEventListener('click', function(){
   var open = grid.classList.toggle('show-more');
   this.textContent = open ? this.dataset.lessLabel : this.dataset.moreLabel;
 });
+
+// A stat tile's per-child breakdown popup (user request 2026-07-27:
+// "parent can click on the card to view... a pop up"), same accessible
+// dialog helper the payment countdown popup already established.
+(function(){
+  var closeCurrent = null;
+  function close(scrim){
+    scrim.classList.remove('show');
+    if (closeCurrent) { closeCurrent(); closeCurrent = null; }
+  }
+  document.addEventListener('click', function(e){
+    var opener = e.target.closest('[data-open-popup]');
+    if (opener) {
+      e.preventDefault();
+      var scrim = document.getElementById(opener.dataset.openPopup);
+      if (!scrim) return;
+      scrim.classList.add('show');
+      var closeBtn = scrim.querySelector('[data-close-popup]');
+      closeCurrent = window.SkulosDialog?.open(scrim, {autofocus: closeBtn, onEscape: function(){ close(scrim); }});
+      return;
+    }
+    var closer = e.target.closest('[data-close-popup]');
+    if (closer) {
+      close(document.getElementById(closer.dataset.closePopup));
+      return;
+    }
+    if (e.target.classList.contains('stat-popup-scrim')) {
+      close(e.target);
+    }
+  });
+})();
 </script>
 @endpush

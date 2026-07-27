@@ -87,4 +87,35 @@ class FeeBalanceService
 
         return $outstanding;
     }
+
+    /**
+     * Per-child breakdown of what $guardianUser's linked children still
+     * owe this term, non-optional fee items only (user request
+     * 2026-07-27, parent dashboard "Fees Due" tile: "the fees due should
+     * be excluding non optional items", matching the same "All Fees"
+     * total the Submit Payment plan already uses, an optional item like
+     * a uniform is something a parent opts into separately). Zero
+     * children back an empty collection, not a guessed figure.
+     *
+     * @return \Illuminate\Support\Collection<int, array{student: Student, due: float}>
+     */
+    public function nonOptionalOutstandingPerChild(User $guardianUser, ?Term $term = null): \Illuminate\Support\Collection
+    {
+        $term ??= Term::current()->first();
+        $students = Student::whereIn('id', StudentGuardian::where('guardian_user_id', $guardianUser->id)->pluck('student_id'))
+            ->with('currentClassArm.schoolClass')->get();
+
+        if (! $term) {
+            return $students->map(fn (Student $s) => ['student' => $s, 'due' => 0.0]);
+        }
+
+        $owedByClass = [];
+
+        return $students->map(function (Student $student) use ($term, &$owedByClass) {
+            $classId = $student->currentClassArm?->school_class_id;
+            $owed = $classId ? ($owedByClass[$classId] ??= $this->nonOptionalOwedForClass($classId, $term)) : 0.0;
+
+            return ['student' => $student, 'due' => max(0, $owed - $this->paidByStudent($student->id))];
+        });
+    }
 }
