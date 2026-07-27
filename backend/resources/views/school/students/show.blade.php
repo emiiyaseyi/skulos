@@ -29,6 +29,9 @@
          under student portal." Moved to its own page; this is just the
          way in from here. --}}
     <a class="btn btn-ghost btn-sm" href="{{ route('school.students.academic-report', ['school' => $school->slug, 'studentId' => $student->id]) }}">Academic report</a>
+    @if($canViewTimetable)
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.mine', ['school' => $school->slug, 'student_id' => $student->id]) }}">Timetable</a>
+    @endif
     @if($isParent)
       <a class="btn btn-ghost btn-sm" href="{{ route('school.students.profile-change.create', ['school' => $school->slug, 'studentId' => $student->id]) }}">Request changes</a>
     @endif

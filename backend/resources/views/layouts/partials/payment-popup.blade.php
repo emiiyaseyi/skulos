@@ -33,7 +33,7 @@
     </p>
     <div class="pay-actions">
       <button class="btn btn-ghost btn-sm" type="button" id="payPopupDismiss">I'll pay later</button>
-      <a class="btn btn-primary btn-sm" href="{{ route('school.finance.payments.create', ['school' => $school->slug]) }}">Pay now</a>
+      <a class="btn btn-primary btn-sm" id="payPopupPayNow" href="{{ route('school.finance.payments.create', ['school' => $school->slug]) }}">Pay now</a>
     </div>
   </div>
 </div>
@@ -50,18 +50,37 @@
   var scrim = document.getElementById('payPopupScrim');
   var dismissBtn = document.getElementById('payPopupDismiss');
   if (!scrim) return;
-  var key = 'skulos-pay-popup-{{ $school->slug }}-' + new Date().toISOString().slice(0, 10);
+  // Shows again on every fresh login, not just once per calendar day
+  // (user directive 2026-07-27: "the payment pop up ought to be on
+  // every login for the parents until the complete payment"). Session
+  // storage rather than local storage: dismissing hides it for the
+  // rest of THIS browser session (so it is not shown again on every
+  // single page navigation while the parent is actively looking around
+  // the portal), but a real balance still owed means it shows again the
+  // next time they sign in, indefinitely, since the server side
+  // condition (a real outstanding balance inside the reminder window)
+  // is the only thing that ever stops it, never a client side dismissal
+  // that outlives the session.
+  var key = 'skulos-pay-popup-{{ $school->slug }}';
   try {
-    if (localStorage.getItem(key)) return;
+    if (sessionStorage.getItem(key)) return;
   } catch(e) {}
   scrim.classList.add('show');
   function dismiss(){
     scrim.classList.remove('show');
-    try { localStorage.setItem(key, '1'); } catch(e) {}
+    try { sessionStorage.setItem(key, '1'); } catch(e) {}
     closeFocus?.();
   }
   var closeFocus = window.SkulosDialog?.open(scrim, {autofocus: dismissBtn, onEscape: dismiss});
   dismissBtn?.addEventListener('click', dismiss);
+  // "Pay now" leaves this page rather than dismissing in place, but the
+  // popup still visibly hung there for the moment before navigation
+  // completed (user report 2026-07-27: "when on click on pay now, it
+  // take user to the payment page but the pop up still does not
+  // close"), unlike "I'll pay later" which hides immediately. Same
+  // dismiss() call, letting the click's own default navigation proceed
+  // right after.
+  document.getElementById('payPopupPayNow')?.addEventListener('click', dismiss);
 })();
 </script>
 @endif

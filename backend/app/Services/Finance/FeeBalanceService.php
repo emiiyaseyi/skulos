@@ -89,6 +89,22 @@ class FeeBalanceService
     }
 
     /**
+     * Same as outstandingForGuardian(), non-optional fee items only (user
+     * request 2026-07-27: "the fees due should be excluding non optional
+     * items"), the same definition the parent dashboard's "Fees Due" tile
+     * and the Submit Payment "All Fees" total already use. The payment
+     * countdown popup switched to this too (2026-07-27, found live: it
+     * still showed the old including-optional total after the dashboard
+     * tile had already been fixed, "it did not factor in that the parent
+     * has paid some amount before" — actually already correctly netted
+     * against payments, the real bug was the optional-items inclusion).
+     */
+    public function nonOptionalOutstandingForGuardian(User $guardianUser, ?Term $term = null): float
+    {
+        return $this->nonOptionalOutstandingPerChild($guardianUser, $term)->sum('due');
+    }
+
+    /**
      * Per-child breakdown of what $guardianUser's linked children still
      * owe this term, non-optional fee items only (user request
      * 2026-07-27, parent dashboard "Fees Due" tile: "the fees due should

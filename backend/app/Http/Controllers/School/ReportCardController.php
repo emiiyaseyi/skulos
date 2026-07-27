@@ -853,7 +853,16 @@ class ReportCardController extends Controller
         // 'all' releases every not-yet-released review row for this term,
         // approved or not, no further filter beyond the base query above.
 
+        $studentIds = $query->pluck('student_id');
         $count = $query->update(['status' => ReportCardReview::STATUS_RELEASED, 'released_at' => now()]);
+
+        // Same family notification release() sends, just per student here
+        // (user report 2026-07-27: "parent did not get notification for
+        // release report card"), a bulk release previously told nobody at
+        // all despite being the more commonly used release path.
+        foreach (Student::whereIn('id', $studentIds)->get() as $student) {
+            $this->notifyFamilyOfRelease($student, $term);
+        }
 
         return redirect()->route('school.report-cards.bulk-release', ['school' => $this->school($request)->slug, 'term_id' => $term->id])
             ->with('status', "{$count} report card(s) released for {$term->name}.");
@@ -1127,7 +1136,37 @@ class ReportCardController extends Controller
         $review->released_at = now();
         $review->save();
 
+        $this->notifyFamilyOfRelease($student, $term);
+
         return back()->with('status', "{$student->fullName()}'s report card released.");
+    }
+
+    /**
+     * A parent (every linked guardian) and the student's own login, if
+     * either has one, told their report card is ready to view (user
+     * report 2026-07-27: "parent did not get notification for release
+     * report card"). Was never wired up at all on any of the three
+     * release paths (this single one, and both bulk ones below),
+     * release only ever changed the underlying ReportCardReview status,
+     * nothing told the family it had happened.
+     */
+    protected function notifyFamilyOfRelease(Student $student, Term $term): void
+    {
+        $userIds = \App\Models\Tenant\StudentGuardian::where('student_id', $student->id)
+            ->whereNotNull('guardian_user_id')->pluck('guardian_user_id');
+        if ($student->user_id) {
+            $userIds->push($student->user_id);
+        }
+
+        foreach ($userIds->unique() as $userId) {
+            \App\Models\Tenant\Notification::create([
+                'user_id' => $userId,
+                'category' => 'report_card_released',
+                'type' => \App\Models\Tenant\Notification::typeFor('report_card_released'),
+                'title' => 'Report card released',
+                'body' => "{$student->fullName()}'s {$term->name} report card is now available.",
+            ]);
+        }
     }
 
     /**

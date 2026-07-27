@@ -547,7 +547,7 @@ tr:last-child td{border-bottom:none}
         // 2026-07-25), not always the school's system wide current term.
         $financeTermId = \App\Models\Tenant\Setting::grab('finance_active_term_id');
         $financeTerm = $financeTermId ? \App\Models\Tenant\Term::find($financeTermId) : \App\Models\Tenant\Term::current()->first();
-        $outstanding = app(\App\Services\Finance\FeeBalanceService::class)->outstandingForGuardian(auth()->user(), $financeTerm);
+        $outstanding = app(\App\Services\Finance\FeeBalanceService::class)->nonOptionalOutstandingForGuardian(auth()->user(), $financeTerm);
         if ($outstanding > 0) {
           $paymentPopup = ['daysUntilDue' => $daysUntilDue, 'dueDate' => $dueDate->format('d M Y'), 'amountDue' => $outstanding];
         }

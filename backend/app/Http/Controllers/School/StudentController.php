@@ -487,6 +487,12 @@ class StudentController extends Controller
             // to class-teacher-then-admin approval (user request 2026-07-26).
             'isParent' => $roleSlug === 'parent',
             'siblings' => $siblings,
+            // A direct way to this child's timetable from their profile
+            // (user report 2026-07-27: "examination timetable button is
+            // missing here where the parent will see the timetable for
+            // the child"); My Timetable already supported a ?student_id=
+            // per-child picker, it just had no entry point from here.
+            'canViewTimetable' => \Illuminate\Support\Facades\Route::has('school.timetable.mine') && app(Rbac::class)->check(Auth::user(), $school, 'timetable.view'),
             // Provisioning a login is a school-administration action, not
             // a routine per-record edit (user report 2026-07-22: "class
             // teacher or subject teacher should not have option to see or
