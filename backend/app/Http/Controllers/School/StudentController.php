@@ -445,6 +445,18 @@ class StudentController extends Controller
 
         $roleSlug = optional($user->roleIn($school))->slug;
 
+        // A quick way to jump to a sibling's own profile without going
+        // back to My Children first (user request 2026-07-27: "for a
+        // parent that have more than one child, let's add a child
+        // switcher to the academic report page and the child profile
+        // page too"). Empty for anyone not family scoped, or a parent/
+        // student with only the one linked child.
+        $isFamilyScoped = in_array($roleSlug, config('skulos.family_scoped_roles', []), true);
+        $siblings = $isFamilyScoped
+            ? Student::whereIn('id', app(FamilyScope::class)->studentIds($user, $school))
+                ->with('currentClassArm.schoolClass')->orderBy('first_name')->get()
+            : collect();
+
         // A class teacher (and their assistant) can always see guardian
         // details, a subject teacher only if the school has opted in
         // (user directive 2026-07-12), every unrestricted role always
@@ -471,6 +483,10 @@ class StudentController extends Controller
             'accent' => $school->branding()['color'],
             'student' => $student,
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'students.update'),
+            // A parent can ask to change their own child's details, subject
+            // to class-teacher-then-admin approval (user request 2026-07-26).
+            'isParent' => $roleSlug === 'parent',
+            'siblings' => $siblings,
             // Provisioning a login is a school-administration action, not
             // a routine per-record edit (user report 2026-07-22: "class
             // teacher or subject teacher should not have option to see or
@@ -524,6 +540,11 @@ class StudentController extends Controller
 
         $roleSlug = optional($user->roleIn($school))->slug;
         $isFamilyScoped = in_array($roleSlug, config('skulos.family_scoped_roles', []), true);
+        // Child switcher (user request 2026-07-27), same as show()'s own.
+        $siblings = $isFamilyScoped
+            ? Student::whereIn('id', app(FamilyScope::class)->studentIds($user, $school))
+                ->with('currentClassArm.schoolClass')->orderBy('first_name')->get()
+            : collect();
         $allTerms = Term::with('session')->get()
             ->sortByDesc(fn (Term $t) => sprintf('%05d-%05d', $t->academic_session_id ?? 0, $t->sequence ?? 0))
             ->values();
@@ -548,6 +569,56 @@ class StudentController extends Controller
 
         $report = $term ? app(ResultService::class)->studentReport($student->id, $term->id, GradingScale::default()) : [];
         $canSeeThisTermsReport = ! $isFamilyScoped || $availableTerms->contains('id', $term?->id);
+
+        // Analytics summary shown above the scores table (user request
+        // 2026-07-27: "an insightful section for parents before they see
+        // the report card... highest score, lowest score, % performance
+        // in current term vs previous term"). "Previous term" is only
+        // ever the chronologically preceding entry in $availableTerms
+        // (family scoped stays release-gated the same way the switcher
+        // already is; staff can compare against any term), never a
+        // fabricated figure, if there is nothing to compare against yet
+        // the comparison is simply omitted rather than shown as zero.
+        $analytics = null;
+        if ($term && ! empty($report)) {
+            $scale = GradingScale::default();
+            $totals = collect($report)->pluck('total');
+            $average = round($totals->avg(), 1);
+            $maxScore = $totals->max();
+
+            // "Needs attention" must mean genuinely at risk, not merely
+            // whichever subject happens to be lowest (real bug found live
+            // 2026-07-27: a student scoring 100 in everything still had
+            // one subject arbitrarily labelled "needs attention"). Uses
+            // the school's own configured at-risk score threshold
+            // (Settings > At Risk Thresholds), never a hardcoded cutoff.
+            $riskThreshold = (Setting::grab('at_risk_thresholds', config('skulos.at_risk_thresholds', ['attendance_pct' => 75, 'score_pct' => 40])))['score_pct'] ?? 40;
+
+            $highestSubjects = collect($report)->filter(fn ($r) => $r['total'] == $maxScore)->keys();
+            $atRiskSubjects = collect($report)->filter(fn ($r) => $r['total'] < $riskThreshold)->keys();
+
+            $termIndex = $availableTerms->search(fn (Term $t) => $t->id === $term->id);
+            $previousTerm = ($termIndex !== false && $availableTerms->has($termIndex + 1)) ? $availableTerms[$termIndex + 1] : null;
+            $previousAverage = null;
+            if ($previousTerm) {
+                $previousReport = app(ResultService::class)->studentReport($student->id, $previousTerm->id, GradingScale::default());
+                if (! empty($previousReport)) {
+                    $previousAverage = round(collect($previousReport)->pluck('total')->avg(), 1);
+                }
+            }
+
+            $analytics = [
+                'average' => $average,
+                'overallGrade' => $scale?->bandFor($totals->avg())?->grade,
+                'highestSubjects' => $highestSubjects,
+                'highestScore' => $maxScore,
+                'atRiskSubjects' => $atRiskSubjects,
+                'riskThreshold' => $riskThreshold,
+                'previousTerm' => $previousTerm,
+                'previousAverage' => $previousAverage,
+                'diff' => $previousAverage !== null ? round($average - $previousAverage, 1) : null,
+            ];
+        }
         $existingFeedback = ($isFamilyScoped && $term)
             ? ReportCardFeedback::where('student_id', $student->id)->where('term_id', $term->id)
                 ->where('submitted_by', $roleSlug)->latest()->first()
@@ -575,6 +646,8 @@ class StudentController extends Controller
             'existingFeedback' => $existingFeedback,
             'canOpenFullReportCard' => $canOpenFullReportCard,
             'showRemark' => app(\App\Services\ReportCards\ReportCardPreferences::class)->shows('subject_remark'),
+            'analytics' => $analytics,
+            'siblings' => $siblings,
         ]);
     }
 
@@ -838,6 +911,23 @@ class StudentController extends Controller
         $password = Setting::grab('default_parent_password', config('skulos.default_parent_password'));
         $syntheticEmail = 'guardian-'.$guardian->id.'@parents.'.$school->slug.'.skulos.local';
         $result = $accounts->provisionAuto($school, $guardian->name, $guardian->email, $guardian->phone, 'parent', $password, $syntheticEmail);
+
+        // A guardian sharing an email with one already provisioned for a
+        // sibling reuses that same login (see provisionAuto's own doc)
+        // rather than diverging into a second account, but that account
+        // keeps whichever phone it was FIRST given, this form's own
+        // submission is silently ignored for it. Left unsynced, the two
+        // records disagree, "Guardian details" on this student shows one
+        // phone, that person's own account shows another, a real bug
+        // found live 2026-07-27. Syncing the freshly saved row back to
+        // the account's actual identity (never the synthetic email
+        // placeholder) keeps every screen agreeing on the same contact.
+        if (! $result['isNew']) {
+            $guardian->update([
+                'phone' => $result['user']->phone ?: $guardian->phone,
+                'email' => ($result['user']->email && ! str_ends_with($result['user']->email, '.skulos.local')) ? $result['user']->email : $guardian->email,
+            ]);
+        }
         $guardian->update(['guardian_user_id' => $result['user']->id]);
 
         $loginIdentifier = $guardian->email ?: $guardian->phone;

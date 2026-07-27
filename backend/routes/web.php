@@ -296,6 +296,33 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::post('/students/{studentId}/report-feedback', [\App\Http\Controllers\School\StudentController::class, 'submitReportFeedback'])->name('school.students.report-feedback.store');
         Route::get('/student-portal/report', [\App\Http\Controllers\School\StudentController::class, 'myAcademicReport'])->name('school.students.my-academic-report');
         Route::get('/students/{studentId}/academic-report', [\App\Http\Controllers\School\StudentController::class, 'academicReport'])->name('school.students.academic-report');
+
+        // A parent's requested change to their child's profile, class
+        // teacher then school admin approval (user request 2026-07-26).
+        Route::prefix('students/change-requests')->name('school.students.profile-change.')->group(function () {
+            $changes = \App\Http\Controllers\School\StudentProfileChangeController::class;
+            Route::get('/class-teacher', [$changes, 'classTeacherIndex'])->name('class-teacher.index');
+            Route::post('/{requestId}/class-teacher/approve', [$changes, 'classTeacherApprove'])->name('class-teacher.approve');
+            Route::post('/{requestId}/class-teacher/reject', [$changes, 'classTeacherReject'])->name('class-teacher.reject');
+            Route::post('/class-teacher/bulk-approve', [$changes, 'classTeacherBulkApprove'])->name('class-teacher.bulk-approve');
+            Route::post('/class-teacher/bulk-reject', [$changes, 'classTeacherBulkReject'])->name('class-teacher.bulk-reject');
+            Route::get('/admin', [$changes, 'adminIndex'])->name('admin.index');
+            Route::post('/{requestId}/admin/approve', [$changes, 'adminApprove'])->name('admin.approve');
+            Route::post('/{requestId}/admin/reject', [$changes, 'adminReject'])->name('admin.reject');
+            Route::post('/admin/bulk-approve', [$changes, 'adminBulkApprove'])->name('admin.bulk-approve');
+            Route::post('/admin/bulk-reject', [$changes, 'adminBulkReject'])->name('admin.bulk-reject');
+        });
+        // A single admin oversight screen across every "someone is
+        // waiting on a decision" flow (user request 2026-07-27).
+        Route::prefix('approvals')->name('school.approvals.')->group(function () {
+            $approvals = \App\Http\Controllers\School\ApprovalOversightController::class;
+            Route::get('/', [$approvals, 'index'])->name('index');
+            Route::get('/history', [$approvals, 'history'])->name('history');
+            Route::post('/nudge', [$approvals, 'nudge'])->name('nudge');
+            Route::post('/bulk-nudge', [$approvals, 'bulkNudge'])->name('bulk-nudge');
+        });
+        Route::get('/students/{studentId}/request-changes', [\App\Http\Controllers\School\StudentProfileChangeController::class, 'create'])->name('school.students.profile-change.create');
+        Route::post('/students/{studentId}/request-changes', [\App\Http\Controllers\School\StudentProfileChangeController::class, 'store'])->name('school.students.profile-change.store');
         Route::post('/students/{studentId}/guardians', [\App\Http\Controllers\School\StudentController::class, 'storeGuardian'])->name('school.students.guardians.store');
         Route::post('/students/guardians/{guardianId}/edit', [\App\Http\Controllers\School\StudentController::class, 'updateGuardian'])->name('school.students.guardians.update');
         Route::delete('/students/guardians/{guardianId}', [\App\Http\Controllers\School\StudentController::class, 'destroyGuardian'])->name('school.students.guardians.destroy');
@@ -675,6 +702,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/review-stage', [$reportCards, 'updateReviewStage'])->name('review-stage');
             Route::post('/suggested-remark', [$reportCards, 'updateSuggestedRemark'])->name('suggested-remark');
             Route::post('/review-chain', [$reportCards, 'updateReviewChain'])->name('review-chain');
+            Route::post('/sections/{sectionId}/signer', [$reportCards, 'updateSectionSigner'])->name('section.signer');
             Route::get('/preview/{template?}', [$reportCards, 'preview'])->name('preview');
             Route::get('/pending-review', [$reportCards, 'pendingReview'])->name('pending-review');
             Route::get('/bulk-generate', [$reportCards, 'bulkGenerateAllForm'])->name('bulk-generate');

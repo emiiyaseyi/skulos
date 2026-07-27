@@ -501,6 +501,19 @@
     $groups['Academic'][] = $link('school.students.my-academic-report', 'Academic Report', 'results');
   }
 
+  // A class/subject teacher's own queue of parent-submitted profile
+  // change requests routed to their classes (user request 2026-07-26:
+  // "parent should be able to edit their child details... class teacher
+  // has to approve the changes first"). Shown unconditionally to every
+  // teacher-scoped role the same way Academic Report is shown
+  // unconditionally to every family-scoped one above; an individual
+  // teacher with nothing currently routed to them just sees an empty
+  // queue, the same shape as Pending review for an admin with nothing
+  // pending.
+  if ($isTeacherScoped) {
+    $groups['Academic'][] = $link('school.students.profile-change.class-teacher.index', 'Change Requests', 'inbox');
+  }
+
   // "Enter Scores" (school.examinations.index), the real score-entry
   // screen teachers use, was previously only reachable one click away via
   // a button on the Report Cards page (2026-07-15's Results/Report Cards
@@ -706,6 +719,22 @@
     // replacement for the footer shortcut.
     if ($navRbac->check($navUser, $school, 'staff.update')) {
       $settingsSubgroups['Users'][] = $link('school.profile.approvals', 'Profile Approvals', 'approve');
+    }
+    // Final admin approval queue for a parent's requested student
+    // profile change, after the class teacher has already approved it
+    // (user request 2026-07-26). Same students.manage_settings tier the
+    // controller itself gates on.
+    if ($navRbac->check($navUser, $school, 'students.manage_settings')) {
+      $settingsSubgroups['Users'][] = $link('school.students.profile-change.admin.index', 'Student Change Requests', 'approve');
+    }
+    // A single admin oversight screen merging every approval flow above
+    // into one list, with nudge and bulk nudge (user request 2026-07-27:
+    // "admin should have an approval page where the admin can see all
+    // approval request sent to admin, sent to other users, class
+    // teachers, report card reviewers, and any one"). Same tier as the
+    // Student Change Requests entry right above it.
+    if ($navRbac->check($navUser, $school, 'students.manage_settings')) {
+      $settingsSubgroups['Users'][] = $link('school.approvals.index', 'Approvals', 'approve');
     }
     $communicationSettingsLinks = [$link('school.settings.mail.edit', 'Mail Settings', 'sliders')];
     // "Notifications" here is the exact same route the email_notifications

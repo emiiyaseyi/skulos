@@ -29,12 +29,25 @@
          under student portal." Moved to its own page; this is just the
          way in from here. --}}
     <a class="btn btn-ghost btn-sm" href="{{ route('school.students.academic-report', ['school' => $school->slug, 'studentId' => $student->id]) }}">Academic report</a>
+    @if($isParent)
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.students.profile-change.create', ['school' => $school->slug, 'studentId' => $student->id]) }}">Request changes</a>
+    @endif
     @if($canManage)
       <a class="btn btn-primary btn-sm" href="{{ route('school.students.edit', ['school' => $school->slug, 'studentId' => $student->id]) }}">Edit</a>
     @endif
     <a class="btn btn-ghost btn-sm" href="{{ route('school.students', ['school' => $school->slug]) }}">Back to Students</a>
   </div>
 </div>
+
+@if($siblings->count() > 1)
+  <div style="margin-bottom:1.25rem;max-width:16rem">
+    <select aria-label="Switch to another child" onchange="if(this.value) location.href=this.value">
+      @foreach($siblings as $sibling)
+        <option value="{{ route('school.students.show', ['school' => $school->slug, 'studentId' => $sibling->id]) }}" @selected($sibling->id === $student->id)>{{ $sibling->fullName() }} &middot; {{ $sibling->currentClassArm?->label() ?? 'No class set' }}</option>
+      @endforeach
+    </select>
+  </div>
+@endif
 
 <div class="grid cols-2" style="align-items:start;margin-bottom:1.25rem">
   <div class="card">
@@ -77,7 +90,7 @@
     @else
       <div style="overflow-x:auto;margin-bottom:.8rem">
       <table>
-        <thead><tr><th>Name</th><th>Relationship</th><th>Contact</th><th>Login (Parent Portal)</th>@if($canMessageGuardians)<th>Message</th>@endif @if($canManage)<th>Edit</th>@endif</tr></thead>
+        <thead><tr><th>Name</th><th>Relationship</th><th>Phone</th><th>Email</th><th>Login (Parent Portal)</th>@if($canMessageGuardians)<th>Message</th>@endif @if($canManage)<th>Edit</th>@endif</tr></thead>
         <tbody>
           @foreach($student->guardians as $guardian)
             <tr>
@@ -88,7 +101,8 @@
                 @endforeach
               </td>
               <td class="muted">{{ $guardian->relationship ?: 'Not set' }}</td>
-              <td class="muted">{{ $guardian->phone ?: $guardian->email ?: 'Not set' }}</td>
+              <td class="muted">{{ $guardian->phone ?: 'Not set' }}</td>
+              <td class="muted">{{ $guardian->email ?: 'Not set' }}</td>
               <td>
                 @if(! $guardian->user)
                   @if($canManageLogins)

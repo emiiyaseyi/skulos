@@ -1061,6 +1061,13 @@ return [
         // noticing the fields had quietly changed).
         'profile_change_approved' => ['label' => 'Your profile change was approved', 'type' => 'system'],
         'profile_change_rejected' => ['label' => 'Your profile change was rejected', 'type' => 'system'],
+        // A parent's requested change to their child's profile (user
+        // request 2026-07-26), the two review stages plus the two
+        // decisions told back to the parent who asked.
+        'student_profile_change_pending_class_teacher' => ['label' => 'Student profile change awaiting your review', 'type' => 'urgent'],
+        'student_profile_change_pending_admin' => ['label' => 'Student profile change awaiting your review', 'type' => 'urgent'],
+        'student_profile_change_approved' => ['label' => 'Your requested change was approved', 'type' => 'system'],
+        'student_profile_change_rejected' => ['label' => 'Your requested change was rejected', 'type' => 'system'],
     ],
 
     /*
@@ -2055,6 +2062,17 @@ return [
         'school_email' => ['label' => 'School email address (header)', 'group' => 'identity', 'default' => true],
         'school_phone' => ['label' => 'School phone number (header)', 'group' => 'identity', 'default' => true],
         'school_alternate_phone' => ['label' => 'School alternate phone number (header)', 'group' => 'identity', 'default' => true],
+        // Top right of the header, same size as the school logo (user
+        // request 2026-07-24, then again 2026-07-27 once it was noticed
+        // still missing on the non layout-designer templates): shows
+        // whichever photo the student's own profile has uploaded. A
+        // school not wanting a photo section at all turns this whole
+        // thing off; one still wanting the space to always show a face
+        // (even a generic one) for an unphotographed student turns the
+        // avatar fallback on too, a separate choice from the header
+        // toggle itself.
+        'student_photo_header' => ['label' => 'Student photo (header)', 'group' => 'identity', 'default' => true],
+        'student_photo_avatar_fallback' => ['label' => 'Use a generic avatar when no student photo is uploaded', 'group' => 'identity', 'default' => true],
         'admission_number' => ['label' => 'Admission number', 'group' => 'identity', 'default' => true],
         'gender' => ['label' => 'Gender', 'group' => 'identity', 'default' => true],
         'date_of_birth' => ['label' => 'Date of birth', 'group' => 'identity', 'default' => true],
