@@ -8,31 +8,28 @@
   </div>
 </div>
 
-<div class="card">
-  @if($familyStudents->isEmpty())
-    <p class="muted">
+@if($familyStudents->isEmpty())
+  <div class="card">
+    <p class="muted" style="margin-bottom:0">
       @if($roleSlug === 'parent')
         No child is linked to your account yet. Contact the school office if this seems wrong.
       @else
         Your student record has not been linked to this login yet. Contact the school office if this seems wrong.
       @endif
     </p>
-  @else
-    <div style="overflow-x:auto">
-    <table>
-      <thead><tr><th>Name</th><th>Admission No.</th><th>Class</th><th></th></tr></thead>
-      <tbody>
-        @foreach($familyStudents as $student)
-          <tr>
-            <td><strong>{{ $student->fullName() }}</strong></td>
-            <td class="muted" style="font-variant-numeric:tabular-nums">{{ $student->admission_number }}</td>
-            <td class="muted">{{ $student->currentClassArm?->label() ?? 'Not set' }}</td>
-            <td><a class="btn btn-ghost btn-sm" href="{{ route('school.students.show', ['school' => $school->slug, 'studentId' => $student->id]) }}">View report</a></td>
-          </tr>
-        @endforeach
-      </tbody>
-    </table>
-    </div>
-  @endif
-</div>
+  </div>
+@else
+  <div class="grid {{ $familyStudents->count() > 1 ? 'cols-2' : '' }}" style="{{ $familyStudents->count() === 1 ? 'max-width:22rem;margin:0 auto' : '' }}">
+    @foreach($familyStudents as $student)
+      <div class="card" style="text-align:center">
+        <div style="display:flex;justify-content:center;margin-bottom:.8rem">
+          <x-student-avatar :student="$student" size="7rem" />
+        </div>
+        <h3 style="margin-bottom:.15rem">{{ $student->fullName() }}</h3>
+        <p class="muted" style="margin-bottom:1rem">{{ $student->currentClassArm?->label() ?? 'Class not set' }}</p>
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.students.show', ['school' => $school->slug, 'studentId' => $student->id]) }}">View Profile</a>
+      </div>
+    @endforeach
+  </div>
+@endif
 @endsection

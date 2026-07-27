@@ -9,17 +9,21 @@
   </div>
 </div>
 
-<div class="card">
-  @if($students->isEmpty())
-    <p class="muted">No child is linked to your account yet.</p>
-  @else
-    <div class="stack" style="gap:.6rem">
-      @foreach($students as $s)
-        <a class="btn btn-ghost" style="justify-content:flex-start" href="{{ route('school.students.academic-report', ['school' => $school->slug, 'studentId' => $s->id]) }}">
-          {{ $s->fullName() }} &middot; {{ $s->currentClassArm?->label() ?? 'No class set' }}
-        </a>
-      @endforeach
-    </div>
-  @endif
-</div>
+@if($students->isEmpty())
+  <div class="card">
+    <p class="muted" style="margin-bottom:0">No child is linked to your account yet.</p>
+  </div>
+@else
+  <div class="grid {{ $students->count() > 1 ? 'cols-2' : '' }}" style="{{ $students->count() === 1 ? 'max-width:22rem;margin:0 auto' : '' }}">
+    @foreach($students as $s)
+      <a class="card" style="text-align:center;text-decoration:none;color:inherit" href="{{ route('school.students.academic-report', ['school' => $school->slug, 'studentId' => $s->id]) }}">
+        <div style="display:flex;justify-content:center;margin-bottom:.8rem">
+          <x-student-avatar :student="$s" size="7rem" />
+        </div>
+        <h3 style="margin-bottom:.15rem">{{ $s->fullName() }}</h3>
+        <p class="muted" style="margin-bottom:0">{{ $s->currentClassArm?->label() ?? 'No class set' }}</p>
+      </a>
+    @endforeach
+  </div>
+@endif
 @endsection

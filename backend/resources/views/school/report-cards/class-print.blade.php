@@ -14,6 +14,9 @@
   .rc-head .rc-logo,.rc-head .rc-photo{flex:none;margin:0}
   .rc-head h1{font-size:2.1rem;font-weight:800}
   .rc-head p{font-size:.7rem;color:#555;margin:.15rem 0 0}
+  .rc-contact-line{display:flex;flex-wrap:wrap;justify-content:center;gap:.15rem .8rem}
+  .rc-contact-item{display:inline-flex;align-items:center;gap:.25rem}
+  .rc-contact-item svg{width:.65rem;height:.65rem;flex-shrink:0}
   .rc-head .term{font-size:.78rem;font-weight:700;margin-top:.3rem;text-transform:uppercase;letter-spacing:.04em}
   .rc-id{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;font-size:.7rem;margin-bottom:.8rem}
   .rc-id div b{display:block;font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:#777;font-weight:700}
@@ -27,7 +30,7 @@
   .rc-summary .box{background:#f7f7f8;border-radius:8px;padding:.5rem;text-align:center}
   .rc-summary .box b{font-size:1rem;display:block}
   .rc-summary .box span{font-size:.6rem;text-transform:uppercase;color:#777;font-weight:700}
-  .rc-remarks div{margin-bottom:.5rem;font-size:.72rem}
+  .rc-remarks div{margin-bottom:.5rem;font-size:.72rem;text-align:center}
   .rc-remarks b{display:block;font-size:.64rem;text-transform:uppercase;letter-spacing:.03em;color:#777;margin-bottom:.1rem}
   .rc-tally{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.7rem}
   .rc-tally span{background:#f3f4f6;border-radius:6px;padding:.2rem .5rem;font-size:.66rem;font-weight:700}
@@ -36,7 +39,8 @@
   .rc-compact .rc-table{font-size:.64rem}
   .rc-logo{width:76px;height:76px;object-fit:contain;display:block;margin:0 auto .4rem}
   {{-- Student Photo layout designer block, mirrors render.blade.php (2026-07-24, was missing here so bulk class printing dropped the photo silently). --}}
-  .rc-photo{width:76px;height:76px;object-fit:cover;border-radius:10px;display:block;margin:0 auto .4rem;border:1px solid #d8d8d8}
+  .rc-photo{width:76px;height:76px;object-fit:cover;border-radius:10px;display:block;margin:0 auto .4rem;border:1px solid #d8d8d8;overflow:hidden}
+  .rc-photo svg{width:100%;height:100%;display:block}
   .rc-photo-placeholder{display:grid;place-items:center;background:#f3f4f6;color:#888;font-weight:800;font-size:1.15rem}
   .rc-head-custom{display:flex;flex-direction:column;align-items:center;gap:.25rem}
   .rc-head-custom .rc-logo{margin-bottom:0}
@@ -53,7 +57,7 @@
   .rc-traits{width:100%;border-collapse:collapse;font-size:.68rem}
   .rc-traits td{padding:.22rem 0;border-bottom:1px dashed #e2e2e2}
   .rc-traits td.val{text-align:right;font-weight:700}
-  .rc-legend{display:flex;flex-wrap:wrap;gap:.4rem;font-size:.62rem}
+  .rc-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem;font-size:.62rem}
   .rc-legend span{background:#f3f4f6;border-radius:6px;padding:.2rem .45rem}
   .rc-signoff{display:flex;justify-content:space-around;gap:1.2rem;text-align:center;margin-top:1rem;padding-top:.7rem;border-top:1px solid #e2e2e2}
   .rc-signoff img{max-height:44px;max-width:120px;object-fit:contain;display:block;margin:0 auto .25rem}

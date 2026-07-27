@@ -119,6 +119,7 @@ class ReportCardController extends Controller
             // appear here too", so it no longer needs a detour to
             // Branding just to set it).
             'canManageBranding' => app(Rbac::class)->check(Auth::user(), $school, 'school_info.update'),
+            'sections' => Section::orderBy('sequence')->get(),
         ]);
     }
 
@@ -202,6 +203,28 @@ class ReportCardController extends Controller
         $prefs->setFooterAlign($data['footer_align'] ?? 'center');
 
         return back()->with('status', 'Your report card look has been updated.');
+    }
+
+    /**
+     * A section's own report card signature signer (user request
+     * 2026-07-27: "signature signer should be the section head by
+     * default... Admin can change the name of the signer in the report
+     * card setting for each of the section the school has"). Blank
+     * clears back to the Head Teacher/Principal heuristic, Section::
+     * signerLabel() already applies.
+     */
+    public function updateSectionSigner(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.update');
+        $section = Section::findOrFail($request->route('sectionId'));
+
+        $data = $request->validate([
+            'signer_name' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $section->update(['signer_name' => $data['signer_name'] ?: null]);
+
+        return back()->with('status', "Report card signer updated for {$section->name}.");
     }
 
     /** The active grading scale's bands as the render view's grade key legend, most generous band first. */

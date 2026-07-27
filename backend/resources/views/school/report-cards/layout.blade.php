@@ -10,6 +10,9 @@
   .rc-head{text-align:center;border-bottom:3px solid var(--accent);padding-bottom:1rem;margin-bottom:1rem;display:flex;flex-direction:column;gap:.3rem}
   .rc-head h1{font-size:1.4rem;font-weight:800}
   .rc-head p{font-size:.85rem;color:#555}
+  .rc-contact-line{display:flex;flex-wrap:wrap;justify-content:center;gap:.15rem .8rem}
+  .rc-contact-item{display:inline-flex;align-items:center;gap:.25rem}
+  .rc-contact-item svg{width:.75rem;height:.75rem;flex-shrink:0}
   .rc-head .term{font-size:.95rem;font-weight:700;margin-top:.4rem;text-transform:uppercase;letter-spacing:.04em}
   /* 2 columns here vs the real render's 4 (render.blade.php): this
      designer canvas is deliberately narrower (a sidebar sits beside it),
@@ -27,7 +30,7 @@
   .rc-summary .box{background:#f7f7f8;border-radius:8px;padding:.5rem;text-align:center}
   .rc-summary .box b{font-size:.95rem;display:block}
   .rc-summary .box span{font-size:.6rem;text-transform:uppercase;color:#777;font-weight:700}
-  .rc-remarks div{margin-bottom:.5rem;font-size:.78rem}
+  .rc-remarks div{margin-bottom:.5rem;font-size:.78rem;text-align:center}
   .rc-remarks b{display:block;font-size:.65rem;text-transform:uppercase;color:#777;margin-bottom:.1rem}
   .rc-signoff{display:flex;justify-content:space-around;gap:1rem;text-align:center;margin-top:1rem;padding-top:.8rem;border-top:1px solid #e2e2e2;font-size:.72rem}
   .rc-signoff img{max-height:40px;max-width:100px;object-fit:contain;display:block;margin:0 auto .2rem}
@@ -36,7 +39,7 @@
   .rc-twocol{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
   .rc-traits{width:100%;border-collapse:collapse;font-size:.75rem}
   .rc-traits td{padding:.25rem 0;border-bottom:1px dashed #e2e2e2}
-  .rc-legend{display:flex;flex-wrap:wrap;gap:.4rem;font-size:.68rem}
+  .rc-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem;font-size:.68rem}
   .rc-legend span{background:#f3f4f6;border-radius:6px;padding:.2rem .5rem}
   .rc-tally{display:flex;gap:.3rem;flex-wrap:wrap;margin-bottom:.6rem}
   .rc-tally span{background:#f3f4f6;border-radius:6px;padding:.2rem .5rem;font-size:.68rem;font-weight:700}

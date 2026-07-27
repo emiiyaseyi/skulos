@@ -217,6 +217,11 @@ class ReportCardService
             'traits' => $traits,
             'stamp_url' => $stampPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($stampPath) : null,
             'signature_url' => $signaturePath ? \Illuminate\Support\Facades\Storage::disk('public')->url($signaturePath) : null,
+            // Who the signature under the signoff belongs to (user
+            // request 2026-07-27): the student's own section's signer,
+            // defaulting to Head Teacher/Principal, admin-overridable
+            // per section under Report Settings.
+            'signer_name' => ($classArm?->schoolClass?->section)?->signerLabel() ?? 'Head Teacher',
             'trend' => $this->overallTrend($subjectRows, $term->name, $overallAverage),
         ];
     }
@@ -301,6 +306,7 @@ class ReportCardService
             ],
             'stamp_url' => null,
             'signature_url' => null,
+            'signer_name' => 'Head Teacher',
             'trend' => ['First Term' => 74.3, 'Second Term' => 76.75, 'Third Term' => 78.25],
         ];
     }

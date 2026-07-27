@@ -17,7 +17,18 @@ class Section extends Model
 
     protected $connection = 'tenant';
 
-    protected $fillable = ['name', 'sequence', 'grading_scale_id'];
+    protected $fillable = ['name', 'sequence', 'grading_scale_id', 'signer_name'];
+
+    /**
+     * The name shown under the signature image on this section's report
+     * cards. Left unset, falls back to a Head Teacher/Principal
+     * heuristic keyed off the section's own name (user request
+     * 2026-07-27), admin-overridable per section under Report Settings.
+     */
+    public function signerLabel(): string
+    {
+        return $this->signer_name ?: (stripos($this->name, 'secondary') !== false ? 'Principal' : 'Head Teacher');
+    }
 
     protected function casts(): array
     {

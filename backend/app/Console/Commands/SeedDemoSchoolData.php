@@ -305,8 +305,12 @@ class SeedDemoSchoolData extends Command
         $gender = random_int(0, 1) === 0 ? 'Male' : 'Female';
         [$first, $last] = $this->randomName($gender, $student->last_name);
         $relationship = $gender === 'Male' ? 'Father' : 'Mother';
-        $email = $identifier === 'email' || random_int(0, 1) === 0 ? $this->realisticEmail($first, $last) : null;
-        $phone = $identifier === 'phone' || random_int(0, 1) === 0 ? $this->realisticPhone() : null;
+        // Every guardian gets both, not a coin flip between the two (user
+        // request 2026-07-27: "so we have both phone and email field for
+        // all guardians - update seeded data with this"), regardless of
+        // which one the school's own parent_identifier setting requires.
+        $email = $this->realisticEmail($first, $last);
+        $phone = $this->realisticPhone();
 
         // Sign in is always by email platform wide (StudentController::
         // createGuardianLogin has the same requirement for a real school),

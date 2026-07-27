@@ -51,19 +51,52 @@
     literal directive names in this very comment turned out to trigger
     the same quirk a second way, so it is deliberately paraphrased here.
   --}}
-  @php($contactParts = collect([$show('school_address') ? $school->address : null, $show('school_website') ? $school->website : null, $show('school_email') ? $school->email : null, $show('school_phone') ? $school->phone : null, $show('school_alternate_phone') ? $school->alternate_phone : null])->filter()->values())
+  @php($rcAddress = $show('school_address') ? $school->address : null)
+  @php($rcWebsite = $show('school_website') ? $school->website : null)
+  @php($rcEmail = $show('school_email') ? $school->email : null)
+  @php($rcPhones = collect([$show('school_phone') ? $school->phone : null, $show('school_alternate_phone') ? $school->alternate_phone : null])->filter()->values())
+  @php($rcHasContact = $rcAddress || $rcWebsite || $rcEmail || $rcPhones->isNotEmpty())
+  {{-- Icon glyphs kept small and inline rather than pulled from the
+       shared nav icon partial, this row needs a muted monochrome mark
+       sized to the report card's own tiny contact text, not the nav's
+       accent colored square (user request 2026-07-27: "let's add little
+       icons representing website, email and phone number"). --}}
+  @php($rcIcoWebsite = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>')
+  @php($rcIcoMail = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 6-10 7L2 6"/></svg>')
+  @php($rcIcoPhone = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>')
   <div class="rc-head">
     @if($logoUrl)<img class="rc-logo" src="{{ $logoUrl }}" alt="" />@endif
     <div class="rc-head-text">
       <h1>{{ $school->name }}</h1>
-      @if($contactParts->isNotEmpty())
-        <p>{{ $contactParts->implode(' • ') }}</p>
+      @if($rcHasContact)
+        @if($rcAddress)<p>{{ $rcAddress }}</p>@endif
+        @if($rcWebsite || $rcEmail || $rcPhones->isNotEmpty())
+          <p class="rc-contact-line">
+            @if($rcWebsite)<span class="rc-contact-item">{!! $rcIcoWebsite !!}<a href="{{ str_starts_with($rcWebsite, 'http') ? $rcWebsite : 'https://'.$rcWebsite }}">{{ $rcWebsite }}</a></span>@endif
+            @if($rcEmail)<span class="rc-contact-item">{!! $rcIcoMail !!}<a href="mailto:{{ $rcEmail }}">{{ $rcEmail }}</a></span>@endif
+            @if($rcPhones->isNotEmpty())<span class="rc-contact-item">{!! $rcIcoPhone !!}{{ $rcPhones->implode(' • ') }}</span>@endif
+          </p>
+        @endif
       @elseif($school->motto)
         <p>{{ $school->motto }}</p>
       @endif
-      <div class="term">{{ $data['term']['name'] }} Report &middot; {{ $data['term']['session'] }}</div>
+      @php($rcSessionYears = $data['term']['session'] ? trim(preg_replace('/\s*Session$/i', '', $data['term']['session'])) : null)
+      <div class="term">{{ $data['term']['name'] }} Report @if($rcSessionYears && ! str_contains($data['term']['name'], $rcSessionYears))&middot; {{ $data['term']['session'] }}@endif</div>
     </div>
-    @if($data['identity']['photo_url'] ?? null)<img class="rc-photo" src="{{ $data['identity']['photo_url'] }}" alt="" />@endif
+    @if($show('student_photo_header'))
+      @if($data['identity']['photo_url'] ?? null)
+        <img class="rc-photo" src="{{ $data['identity']['photo_url'] }}" alt="" />
+      @elseif($show('student_photo_avatar_fallback'))
+        @php($rcIsFemale = strtolower((string) ($data['identity']['gender'] ?? '')) === 'female')
+        <div class="rc-photo">
+          @if($rcIsFemale)
+            <svg viewBox="0 0 100 100" role="img" aria-label="Avatar"><rect width="100" height="100" fill="#f4e0ea"/><circle cx="50" cy="42" r="20" fill="#c98bab"/><path d="M28 40c0-14 10-24 22-24s22 10 22 24c0 4-1 8-2 10-2-10-8-6-8-16-6 6-20 6-26 0 0 10-6 6-8 16-1-2-2-6-2-10z" fill="#6b3550"/><path d="M18 96c2-20 14-32 32-32s30 12 32 32z" fill="#c98bab"/></svg>
+          @else
+            <svg viewBox="0 0 100 100" role="img" aria-label="Avatar"><rect width="100" height="100" fill="#dfe7f2"/><circle cx="50" cy="42" r="20" fill="#7a97bd"/><path d="M30 40c0-13 9-22 20-22s20 9 20 22" fill="#3c526f"/><path d="M18 96c2-20 14-32 32-32s30 12 32 32z" fill="#7a97bd"/></svg>
+          @endif
+        </div>
+      @endif
+    @endif
   </div>
 
   @if($isEval)

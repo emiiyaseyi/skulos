@@ -184,4 +184,29 @@
     <button class="btn btn-ghost btn-sm" type="submit">Reset all classes to the school default</button>
   </form>
 </div>
+
+<div class="card" style="margin-top:1.25rem">
+  <h3 style="margin-bottom:.4rem">Signature signer</h3>
+  <p class="muted" style="margin-bottom:.8rem">Who the signature above is shown as belonging to on each section's report cards. Left blank, a section defaults to Head Teacher, or Principal for a section named Secondary.</p>
+
+  <div style="overflow-x:auto">
+  <table>
+    <thead><tr><th>Section</th><th>Signer</th><th></th></tr></thead>
+    <tbody>
+      @foreach($sections as $section)
+        <tr>
+          <td>{{ $section->name }}</td>
+          <td>
+            <form method="POST" action="{{ route('school.report-cards.section.signer', ['school' => $school->slug, 'sectionId' => $section->id]) }}" style="display:flex;gap:.5rem;align-items:center;margin:0">
+              @csrf
+              <input name="signer_name" value="{{ $section->signer_name }}" placeholder="{{ $section->signerLabel() }}" style="width:auto;flex:1" />
+              <button class="btn btn-ghost btn-sm" type="submit">Save</button>
+            </form>
+          </td>
+        </tr>
+      @endforeach
+    </tbody>
+  </table>
+  </div>
+</div>
 @endsection
