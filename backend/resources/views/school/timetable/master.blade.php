@@ -22,8 +22,18 @@
     <h1 class="title">Master Timetable</h1>
     <p class="subtitle">Every class's weekly schedule, in one place.</p>
   </div>
-  <div class="stack" style="flex-direction:row;gap:.6rem">
-    <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.master.export', ['school' => $school->slug]) }}">Export CSV</a>
+  <div class="stack" style="flex-direction:row;gap:.6rem;align-items:center">
+    @if($terms->isNotEmpty())
+      <form method="GET" style="display:flex;gap:.5rem;align-items:center">
+        <select name="term_id" onchange="this.form.submit()">
+          <option value="" @selected(! $term)>All terms</option>
+          @foreach($terms as $t)
+            <option value="{{ $t->id }}" @selected($term && $term->id === $t->id)>{{ $t->session?->name }} {{ $t->name }}</option>
+          @endforeach
+        </select>
+      </form>
+    @endif
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.master.export', array_filter(['school' => $school->slug, 'term_id' => $term?->id])) }}">Export CSV</a>
     <button type="button" class="btn btn-ghost btn-sm" onclick="window.print()">Print / Save as PDF</button>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.index', ['school' => $school->slug]) }}">Back to Timetable</a>
   </div>

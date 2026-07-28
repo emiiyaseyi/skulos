@@ -41,6 +41,20 @@
         @endforeach
       </select>
     </div>
+    {{-- User request 2026-07-28: "Timetable pages should also have term
+         switcher too." "All terms" (no term_id) is the universal grid
+         every school already had, unchanged; picking a real term edits
+         that term's own override on top of it, without touching the
+         universal rows. --}}
+    <div class="field" style="margin:0;min-width:14rem">
+      <label for="term_id">Term</label>
+      <select id="term_id" name="term_id" onchange="this.form.submit()">
+        <option value="" @selected(! $term)>All terms</option>
+        @foreach($terms as $t)
+          <option value="{{ $t->id }}" @selected($term && $term->id === $t->id)>{{ $t->session?->name }} {{ $t->name }}</option>
+        @endforeach
+      </select>
+    </div>
   </form>
 </div>
 
@@ -49,7 +63,8 @@
 @elseif(! $selectedArm)
   <div class="card"><p class="muted">Select a class above to build its timetable.</p></div>
 @else
-  <form method="POST" action="{{ route('school.timetable.save', ['school' => $school->slug, 'classArmId' => $selectedArm->id]) }}">
+  <p class="hint" style="margin-bottom:.6rem">{{ $term ? "Editing {$term->name}'s own override. A cell not set here for this term still shows its all-terms value." : 'Editing the all-terms grid, shown for every term that has no override of its own.' }}</p>
+  <form method="POST" action="{{ route('school.timetable.save', array_filter(['school' => $school->slug, 'classArmId' => $selectedArm->id, 'term_id' => $term?->id])) }}">
     @csrf
     <div class="card">
       <div style="overflow-x:auto">

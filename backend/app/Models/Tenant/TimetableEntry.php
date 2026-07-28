@@ -18,11 +18,17 @@ class TimetableEntry extends Model
 
     protected $connection = 'tenant';
 
-    protected $fillable = ['class_arm_id', 'timetable_period_id', 'day_of_week', 'subject_id', 'staff_id'];
+    protected $fillable = ['class_arm_id', 'term_id', 'timetable_period_id', 'day_of_week', 'subject_id', 'staff_id'];
 
     public function classArm(): BelongsTo
     {
         return $this->belongsTo(ClassArm::class);
+    }
+
+    /** Null means "applies to every term" (TimetableService's universal fallback), not "no term set up yet". */
+    public function term(): BelongsTo
+    {
+        return $this->belongsTo(Term::class);
     }
 
     public function period(): BelongsTo

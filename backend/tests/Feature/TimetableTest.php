@@ -85,6 +85,22 @@ class TimetableTest extends TestCase
         return [$classArmA, $classArmB, $subject, $staffA, $staffB, $period];
     }
 
+    /** Two real terms, both created inside the currently connected tenant. Returns [termOne, termTwo]. */
+    protected function twoTerms(): array
+    {
+        $session = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026']);
+        $termOne = \App\Models\Tenant\Term::create([
+            'academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1, 'is_current' => true,
+            'starts_on' => now()->subDays(10), 'ends_on' => now()->addDays(50),
+        ]);
+        $termTwo = \App\Models\Tenant\Term::create([
+            'academic_session_id' => $session->id, 'name' => 'Second Term', 'sequence' => 2, 'is_current' => false,
+            'starts_on' => now()->addDays(60), 'ends_on' => now()->addDays(110),
+        ]);
+
+        return [$termOne, $termTwo];
+    }
+
     public function test_an_admin_can_apply_default_periods(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'ttone');
@@ -137,6 +153,117 @@ class TimetableTest extends TestCase
             ->assertSee('Mathematics')
             ->assertSee('Ada Teacher')
             ->assertSee('Free'); // classArmB's Monday period 1 has nothing booked
+    }
+
+    /**
+     * User request 2026-07-28: "Timetable pages should also have term
+     * switcher too." A term-specific save must never touch the
+     * universal (term_id NULL) rows every already-provisioned school's
+     * timetable already is, and a cell the selected term never
+     * overrode must still fall back to the universal one.
+     */
+    public function test_saving_for_a_specific_term_does_not_touch_the_universal_grid(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'tttermone');
+        [$classArmA, , $subject, $staffA] = $this->seedAcademics($school);
+        app(TenantManager::class)->use($school);
+        $period = TimetablePeriod::first();
+        $secondSubject = Subject::create(['name' => 'English Language']);
+        $classArmA->schoolClass->subjects()->attach($secondSubject->id);
+        [$termOne] = $this->twoTerms();
+        app(TenantManager::class)->forget();
+
+        // The universal grid: Mathematics on Monday.
+        $this->actingAs($owner)->post(route('school.timetable.save', ['school' => $school->slug, 'classArmId' => $classArmA->id]), [
+            'cells' => ['monday' => [$period->id => ['subject_id' => $subject->id, 'staff_id' => $staffA->id]]],
+        ])->assertRedirect();
+
+        // Term One's own override: English Language instead, same slot.
+        $this->actingAs($owner)->post(route('school.timetable.save', ['school' => $school->slug, 'classArmId' => $classArmA->id, 'term_id' => $termOne->id]), [
+            'cells' => ['monday' => [$period->id => ['subject_id' => $secondSubject->id, 'staff_id' => $staffA->id]]],
+        ])->assertRedirect();
+
+        // "All terms" still shows the untouched universal grid.
+        $this->actingAs($owner)->get(route('school.timetable.index', ['school' => $school->slug, 'class_arm_id' => $classArmA->id]))
+            ->assertOk()->assertSee('Mathematics');
+
+        // Term One shows its own override for the same slot.
+        $this->actingAs($owner)->get(route('school.timetable.index', ['school' => $school->slug, 'class_arm_id' => $classArmA->id, 'term_id' => $termOne->id]))
+            ->assertOk()->assertSee('English Language');
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame(2, TimetableEntry::count());
+        $this->assertNull(TimetableEntry::where('subject_id', $subject->id)->value('term_id'));
+        $this->assertSame($termOne->id, TimetableEntry::where('subject_id', $secondSubject->id)->value('term_id'));
+        app(TenantManager::class)->forget();
+    }
+
+    /** A cell a term never overrode still falls back to the universal row, for the same class arm, on the same request. */
+    public function test_a_terms_grid_falls_back_to_the_universal_row_for_an_unoverridden_cell(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'tttermfallback');
+        [$classArmA, , $subject, $staffA] = $this->seedAcademics($school);
+        app(TenantManager::class)->use($school);
+        $period = TimetablePeriod::first();
+        [$termOne] = $this->twoTerms();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post(route('school.timetable.save', ['school' => $school->slug, 'classArmId' => $classArmA->id]), [
+            'cells' => ['monday' => [$period->id => ['subject_id' => $subject->id, 'staff_id' => $staffA->id]]],
+        ]);
+
+        // Term One never saved anything of its own, so it still shows the universal cell.
+        $this->actingAs($owner)->get(route('school.timetable.index', ['school' => $school->slug, 'class_arm_id' => $classArmA->id, 'term_id' => $termOne->id]))
+            ->assertOk()->assertSee('Mathematics');
+    }
+
+    /** A teacher genuinely double booked within the same term (or the universal grid) is skipped, matching the pre-term-switcher behaviour. */
+    public function test_a_teacher_conflict_is_still_caught_within_the_same_term(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'tttermconflict');
+        [$classArmA, $classArmB, $subject, $staffA] = $this->seedAcademics($school);
+        app(TenantManager::class)->use($school);
+        $period = TimetablePeriod::first();
+        [$termOne] = $this->twoTerms();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post(route('school.timetable.save', ['school' => $school->slug, 'classArmId' => $classArmA->id, 'term_id' => $termOne->id]), [
+            'cells' => ['monday' => [$period->id => ['subject_id' => $subject->id, 'staff_id' => $staffA->id]]],
+        ]);
+
+        // Same teacher, same term, same day/period, a different class: skipped.
+        $response = $this->actingAs($owner)->post(route('school.timetable.save', ['school' => $school->slug, 'classArmId' => $classArmB->id, 'term_id' => $termOne->id]), [
+            'cells' => ['monday' => [$period->id => ['subject_id' => $subject->id, 'staff_id' => $staffA->id]]],
+        ]);
+
+        $response->assertRedirect();
+        app(TenantManager::class)->use($school);
+        $this->assertNull(TimetableEntry::where('class_arm_id', $classArmB->id)->first());
+        app(TenantManager::class)->forget();
+    }
+
+    /** The identical teacher/day/period booked in a DIFFERENT term is not a conflict, a school can restructure who teaches what between terms. */
+    public function test_a_teacher_booked_in_a_different_term_is_not_a_conflict(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'tttermnoconflict');
+        [$classArmA, $classArmB, $subject, $staffA] = $this->seedAcademics($school);
+        app(TenantManager::class)->use($school);
+        $period = TimetablePeriod::first();
+        [$termOne, $termTwo] = $this->twoTerms();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post(route('school.timetable.save', ['school' => $school->slug, 'classArmId' => $classArmA->id, 'term_id' => $termOne->id]), [
+            'cells' => ['monday' => [$period->id => ['subject_id' => $subject->id, 'staff_id' => $staffA->id]]],
+        ]);
+
+        $response = $this->actingAs($owner)->post(route('school.timetable.save', ['school' => $school->slug, 'classArmId' => $classArmB->id, 'term_id' => $termTwo->id]), [
+            'cells' => ['monday' => [$period->id => ['subject_id' => $subject->id, 'staff_id' => $staffA->id]]],
+        ]);
+
+        $response->assertRedirect();
+        app(TenantManager::class)->use($school);
+        $this->assertNotNull(TimetableEntry::where('class_arm_id', $classArmB->id)->where('term_id', $termTwo->id)->first());
+        app(TenantManager::class)->forget();
     }
 
     public function test_a_scoped_teacher_cannot_reach_the_master_timetable(): void

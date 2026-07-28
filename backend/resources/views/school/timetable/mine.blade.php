@@ -35,10 +35,27 @@
             <option value="{{ $child->id }}" @selected($selectedChildId === $child->id && request()->query('student_id') !== 'all')>{{ $child->fullName() }}</option>
           @endforeach
         </select>
+        @if($term)<input type="hidden" name="term_id" value="{{ $term->id }}" />@endif
+      </form>
+    @endif
+    @if($terms->isNotEmpty())
+      {{-- User request 2026-07-28: "Timetable pages should also have
+           term switcher too." "All terms" (no term_id) shows the
+           universal grid every school already had before this feature,
+           unchanged; picking a real term layers that term's own saved
+           overrides on top, if the admin has ever saved any for it. --}}
+      <form method="GET" style="display:flex;gap:.5rem;align-items:center">
+        @if(request()->query('student_id'))<input type="hidden" name="student_id" value="{{ request()->query('student_id') }}" />@endif
+        <select name="term_id" onchange="this.form.submit()">
+          <option value="" @selected(! $term)>All terms</option>
+          @foreach($terms as $t)
+            <option value="{{ $t->id }}" @selected($term && $term->id === $t->id)>{{ $t->session?->name }} {{ $t->name }}</option>
+          @endforeach
+        </select>
       </form>
     @endif
     @if(! empty($grid))
-      <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.mine.export', array_filter(['school' => $school->slug, 'view' => request()->query('view'), 'student_id' => $selectedChildId])) }}">Export CSV</a>
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.mine.export', array_filter(['school' => $school->slug, 'view' => request()->query('view'), 'student_id' => $selectedChildId, 'term_id' => $term?->id])) }}">Export CSV</a>
       <button type="button" class="btn btn-ghost btn-sm" onclick="window.print()">Print / Save as PDF</button>
     @endif
     @if($children->isNotEmpty())
@@ -60,8 +77,8 @@
 @isset($ownClassArm)
   <div class="card" style="margin-bottom:1.1rem;padding:.6rem">
     <div style="display:flex;gap:.5rem">
-      <a class="btn btn-sm {{ $view === 'class' ? 'btn-primary' : 'btn-ghost' }}" href="{{ route('school.timetable.mine', ['school' => $school->slug, 'view' => 'class']) }}">Class Timetable</a>
-      <a class="btn btn-sm {{ $view === 'personal' ? 'btn-primary' : 'btn-ghost' }}" href="{{ route('school.timetable.mine', ['school' => $school->slug, 'view' => 'personal']) }}">My Timetable</a>
+      <a class="btn btn-sm {{ $view === 'class' ? 'btn-primary' : 'btn-ghost' }}" href="{{ route('school.timetable.mine', array_filter(['school' => $school->slug, 'view' => 'class', 'term_id' => $term?->id])) }}">Class Timetable</a>
+      <a class="btn btn-sm {{ $view === 'personal' ? 'btn-primary' : 'btn-ghost' }}" href="{{ route('school.timetable.mine', array_filter(['school' => $school->slug, 'view' => 'personal', 'term_id' => $term?->id])) }}">My Timetable</a>
     </div>
   </div>
 @endisset

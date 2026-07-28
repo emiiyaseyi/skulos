@@ -131,6 +131,21 @@ class TimetableController extends Controller
         return back()->with('status', count($data['period_ids']).' period(s) removed, along with any class assignments in those slots.');
     }
 
+    /**
+     * NULL is a real, intentional state here (the universal grid every
+     * already-provisioned school's timetable already is), not "term not
+     * found, abort" the way ReportCardController::resolveTerm() treats
+     * it — so this is its own small helper rather than reusing that
+     * one. No query param, or an unrecognised one, means "All terms",
+     * never a silent default to whichever term happens to be current.
+     */
+    protected function resolveOptionalTerm(Request $request): ?Term
+    {
+        $termId = $request->query('term_id');
+
+        return $termId ? Term::find($termId) : null;
+    }
+
     public function index(Request $request, TimetableService $timetable): \Illuminate\View\View|\Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'timetable.update');
@@ -159,7 +174,17 @@ class TimetableController extends Controller
                 ->with('status', 'Set up your period catalog first, then come back and build this class\'s timetable.');
         }
 
-        $grid = $selectedArm ? $timetable->gridForClassArm($selectedArm->id) : [];
+        // A real term switcher (user request 2026-07-28), a school that
+        // never touches this stays on "All terms" (the universal grid,
+        // $term null) exactly as before; picking a specific term shows
+        // that term's own overrides layered on top of the universal
+        // rows, and Save below then writes to that term specifically.
+        $terms = Term::with('session')->get()
+            ->sortByDesc(fn (Term $t) => sprintf('%05d-%05d', $t->academic_session_id ?? 0, $t->sequence ?? 0))
+            ->values();
+        $term = $this->resolveOptionalTerm($request);
+
+        $grid = $selectedArm ? $timetable->gridForClassArm($selectedArm->id, $term) : [];
         $subjects = $selectedArm ? $selectedArm->offeredSubjects()->sortBy('name')->values() : collect();
         // Every active staff member, not just those already teaching this
         // class, a timetable is exactly where an admin adds a teacher to
@@ -177,26 +202,35 @@ class TimetableController extends Controller
             'grid' => $grid,
             'subjects' => $subjects,
             'staffOptions' => $staffOptions,
+            'terms' => $terms,
+            'term' => $term,
         ]);
     }
 
     public function save(Request $request, TimetableService $timetable): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'timetable.update');
+        $school = $this->school($request);
         $classArm = ClassArm::findOrFail($request->route('classArmId'));
+        $term = $this->resolveOptionalTerm($request);
 
         $data = $request->validate([
             'cells' => ['nullable', 'array'],
         ]);
 
-        $conflicts = $timetable->saveClassArmWeek($classArm, $data['cells'] ?? []);
+        $conflicts = $timetable->saveClassArmWeek($classArm, $data['cells'] ?? [], $term);
 
-        $status = 'Timetable saved for '.$classArm->label().'.';
+        $status = 'Timetable saved for '.$classArm->label().($term ? " ({$term->name})" : ' (all terms)').'.';
         if ($conflicts) {
             $status .= ' '.count($conflicts).' slot(s) skipped due to a teacher conflict.';
         }
 
-        return back()->with($conflicts ? 'error' : 'status', $status);
+        // An explicit redirect back to the same class+term (rather than
+        // back(), whatever the submitting form's own URL happened to
+        // carry) so the just-saved term selection is never silently
+        // lost after a save, regardless of how the form itself is built.
+        return redirect()->route('school.timetable.index', array_filter(['school' => $school->slug, 'class_arm_id' => $classArm->id, 'term_id' => $term?->id]))
+            ->with($conflicts ? 'error' : 'status', $status);
     }
 
     /**
@@ -230,6 +264,8 @@ class TimetableController extends Controller
             'ownClassArm' => $resolved['ownClassArm'],
             'view' => $resolved['view'],
             'allGrids' => $resolved['allGrids'],
+            'term' => $resolved['term'],
+            'terms' => $resolved['terms'],
         ]);
     }
 
@@ -238,8 +274,12 @@ class TimetableController extends Controller
      * user (their own teaching schedule, the class they lead, or a
      * chosen child's), shared by mine() and mineExport() so the CSV
      * download below always matches whatever is currently on screen.
+     * $term follows the same "All terms" (universal grid) default as
+     * the admin builder above (resolveOptionalTerm()), a real term
+     * switcher here too (user request 2026-07-28), not just on the
+     * admin builder.
      *
-     * @return array{grid: array, subtitle: string, children: \Illuminate\Support\Collection, ownClassArm: ?ClassArm, view: string}
+     * @return array{grid: array, subtitle: string, children: \Illuminate\Support\Collection, ownClassArm: ?ClassArm, view: string, term: ?Term, terms: \Illuminate\Support\Collection}
      */
     protected function resolveMineGrid(Request $request, TimetableService $timetable): array
     {
@@ -248,6 +288,10 @@ class TimetableController extends Controller
 
         $staff = Staff::where('user_id', $user->id)->first();
         $studentIds = app(FamilyScope::class)->studentIds($user, $school);
+        $term = $this->resolveOptionalTerm($request);
+        $terms = Term::with('session')->get()
+            ->sortByDesc(fn (Term $t) => sprintf('%05d-%05d', $t->academic_session_id ?? 0, $t->sequence ?? 0))
+            ->values();
 
         $grid = [];
         $subtitle = 'No schedule linked to your account yet.';
@@ -260,10 +304,10 @@ class TimetableController extends Controller
             $view = ($ownClassArm && $request->query('view') !== 'personal') ? 'class' : 'personal';
 
             if ($view === 'class') {
-                $grid = $timetable->gridForClassArm($ownClassArm->id);
+                $grid = $timetable->gridForClassArm($ownClassArm->id, $term);
                 $subtitle = $ownClassArm->label().'\'s full weekly schedule, every subject and teacher.';
             } else {
-                $grid = $timetable->gridForStaff($staff->id);
+                $grid = $timetable->gridForStaff($staff->id, $term);
                 $subtitle = 'Your own teaching schedule, every class you are booked into.';
             }
         } elseif ($studentIds !== null && $studentIds->isNotEmpty()) {
@@ -277,25 +321,25 @@ class TimetableController extends Controller
             if ($request->query('student_id') === 'all' && $children->count() > 1) {
                 $allGrids = $children->filter(fn (Student $s) => $s->currentClassArm)->map(fn (Student $s) => [
                     'student' => $s,
-                    'grid' => $timetable->gridForClassArm($s->currentClassArm->id),
+                    'grid' => $timetable->gridForClassArm($s->currentClassArm->id, $term),
                     'subtitle' => $s->currentClassArm->label().'\'s weekly schedule.',
                 ])->values();
                 $subtitle = 'Every child\'s weekly schedule.';
 
-                return compact('grid', 'subtitle', 'children', 'ownClassArm', 'view', 'allGrids');
+                return compact('grid', 'subtitle', 'children', 'ownClassArm', 'view', 'allGrids', 'term', 'terms');
             }
 
             $studentId = $request->integer('student_id') ?: $children->first()?->id;
             $selectedChild = $children->firstWhere('id', $studentId) ?? $children->first();
             if ($selectedChild?->currentClassArm) {
-                $grid = $timetable->gridForClassArm($selectedChild->currentClassArm->id);
+                $grid = $timetable->gridForClassArm($selectedChild->currentClassArm->id, $term);
                 $subtitle = $selectedChild->currentClassArm->label().'\'s weekly schedule.';
             }
         }
 
         $allGrids = collect();
 
-        return compact('grid', 'subtitle', 'children', 'ownClassArm', 'view', 'allGrids');
+        return compact('grid', 'subtitle', 'children', 'ownClassArm', 'view', 'allGrids', 'term', 'terms');
     }
 
     /**
@@ -453,13 +497,19 @@ class TimetableController extends Controller
     {
         $this->authorizeAction($request, 'timetable.update');
         $school = $this->school($request);
+        $term = $this->resolveOptionalTerm($request);
+        $terms = Term::with('session')->get()
+            ->sortByDesc(fn (Term $t) => sprintf('%05d-%05d', $t->academic_session_id ?? 0, $t->sequence ?? 0))
+            ->values();
 
         return view('school.timetable.master', [
             'school' => $school,
             'accent' => $school->branding()['color'],
             'periods' => $timetable->periods(),
             'weekDays' => $timetable->weekDays(),
-            'classGrids' => $timetable->masterGrid(),
+            'classGrids' => $timetable->masterGrid($term),
+            'term' => $term,
+            'terms' => $terms,
         ]);
     }
 
@@ -479,7 +529,7 @@ class TimetableController extends Controller
         $this->authorizeAction($request, 'timetable.update');
         $weekDays = $timetable->weekDays();
         $teachingPeriods = $timetable->periods()->where('is_teaching_period', true);
-        $classGrids = $timetable->masterGrid();
+        $classGrids = $timetable->masterGrid($this->resolveOptionalTerm($request));
 
         return response()->streamDownload(function () use ($weekDays, $teachingPeriods, $classGrids) {
             $out = fopen('php://output', 'w');
