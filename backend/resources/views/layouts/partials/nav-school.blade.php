@@ -1043,6 +1043,24 @@
       pairs.forEach(function(p){ setOpen(p, p === pair ? open : false); });
       persist();
       updateToggleAllIcon();
+      // Keep the just-opened group's own header near the top of the
+      // scrollable sidebar (user report, repeated: "when the menu
+      // opens, the current menu tab should not go to the bottom of the
+      // menu section but should be at the top"). layouts/app.blade.php
+      // already fixed this exact complaint for a full PAGE LOAD landing
+      // on an active link (direct .side scrollTop math, not
+      // activeLink.scrollIntoView(), which does not reliably stop at
+      // .side since it's position:sticky, not a plain scroll parent),
+      // but that only ever runs once per page load — clicking an
+      // ACCORDION GROUP HEADER never navigates anywhere, so that fix
+      // never covered this specific interaction, this is a real
+      // separate gap, not a duplicate of the already-fixed one.
+      if (open) {
+        var sideEl = document.querySelector('.side');
+        if (sideEl) {
+          sideEl.scrollTop = pair.btn.getBoundingClientRect().top - sideEl.getBoundingClientRect().top + sideEl.scrollTop;
+        }
+      }
     });
   });
 

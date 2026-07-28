@@ -54,9 +54,9 @@
   .rc-block h3{font-size:.66rem;text-align:center;text-transform:uppercase;letter-spacing:.04em;color:#555;border-bottom:1px solid #e2e2e2;padding-bottom:.25rem;margin-bottom:.4rem}
   .rc-twocol{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
   .rc-cols{display:grid;grid-template-columns:repeat(var(--rc-cols,2),1fr);gap:1rem}
-  .rc-traits{width:100%;border-collapse:collapse;font-size:.68rem}
-  .rc-traits td{padding:.22rem 0;border-bottom:1px dashed #e2e2e2}
-  .rc-traits td.val{text-align:right;font-weight:700}
+  .rc-traits{width:100%;border-collapse:collapse;font-size:.68rem;text-align:center}
+  .rc-traits td{padding:.22rem 0;border-bottom:1px dashed #e2e2e2;text-align:center}
+  .rc-traits td.val{font-weight:700}
   .rc-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem;font-size:.62rem}
   .rc-legend span{background:#f3f4f6;border-radius:6px;padding:.2rem .45rem}
   .rc-signoff{display:flex;justify-content:space-around;gap:1.2rem;text-align:center;margin-top:1rem;padding-top:.7rem;border-top:1px solid #e2e2e2}

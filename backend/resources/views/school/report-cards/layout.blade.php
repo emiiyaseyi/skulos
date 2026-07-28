@@ -37,8 +37,8 @@
   .rc-block{margin-bottom:.8rem}
   .rc-block > h3{font-size:.7rem;text-transform:uppercase;color:#555;border-bottom:1px solid #e2e2e2;padding-bottom:.25rem;margin-bottom:.4rem}
   .rc-twocol{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
-  .rc-traits{width:100%;border-collapse:collapse;font-size:.75rem}
-  .rc-traits td{padding:.25rem 0;border-bottom:1px dashed #e2e2e2}
+  .rc-traits{width:100%;border-collapse:collapse;font-size:.75rem;text-align:center}
+  .rc-traits td{padding:.25rem 0;border-bottom:1px dashed #e2e2e2;text-align:center}
   .rc-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem;font-size:.68rem}
   .rc-legend span{background:#f3f4f6;border-radius:6px;padding:.2rem .5rem}
   .rc-tally{display:flex;gap:.3rem;flex-wrap:wrap;margin-bottom:.6rem}
