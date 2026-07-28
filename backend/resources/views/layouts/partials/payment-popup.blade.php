@@ -61,7 +61,21 @@
   // condition (a real outstanding balance inside the reminder window)
   // is the only thing that ever stops it, never a client side dismissal
   // that outlives the session.
-  var key = 'skulos-pay-popup-{{ $school->slug }}';
+  //
+  // The key includes the real Laravel session id (real bug found live
+  // 2026-07-28, reported twice: "still not seeing the due balance pop
+  // up upon login again on every sign in attempt"), not just the
+  // school slug: sessionStorage is scoped to the browser TAB, not to
+  // Laravel's own auth session, so logging out and back in in the SAME
+  // tab (a real, common thing to do while testing, or on a shared
+  // family device) previously left the OLD dismissal flag in place,
+  // incorrectly suppressing the popup on a login that should count as
+  // fresh. LoginController::login() calls session()->regenerate() on
+  // every sign in, so the session id genuinely changes on every fresh
+  // login even for the same user in the same tab, giving this key the
+  // "resets on login, stable within one login" behaviour the feature
+  // actually needs.
+  var key = 'skulos-pay-popup-{{ $school->slug }}-{{ session()->getId() }}';
   try {
     if (sessionStorage.getItem(key)) return;
   } catch(e) {}
