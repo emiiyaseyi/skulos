@@ -46,21 +46,36 @@ class TimetableController extends Controller
         );
     }
 
+    /**
+     * $section_id (query string, like the term switcher elsewhere in
+     * this controller) picks which catalog is being viewed/edited: absent
+     * or empty means the shared/default catalog, a real section id means
+     * that section's own independent catalog (falling back to a live
+     * read-only preview of the shared one if that section has no rows of
+     * its own yet, so the page is never just blank before anything has
+     * been customized).
+     */
     public function periods(Request $request, TimetableService $timetable): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'timetable.update');
+        $sectionId = $request->integer('section_id') ?: null;
+        $sections = \App\Models\Tenant\Section::orderBy('sequence')->get();
 
         return view('school.timetable.periods', [
             'school' => $this->school($request),
             'accent' => $this->school($request)->branding()['color'],
-            'periods' => $timetable->periods(),
+            'sections' => $sections,
+            'sectionId' => $sectionId,
+            'hasOwnPeriods' => $sectionId ? TimetablePeriod::where('section_id', $sectionId)->exists() : true,
+            'periods' => $timetable->periodsForSection($sectionId),
         ]);
     }
 
     public function applyDefaultPeriods(Request $request, TimetableService $timetable): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'timetable.update');
-        $created = $timetable->applyDefaultPeriods();
+        $sectionId = $request->integer('section_id') ?: null;
+        $created = $timetable->applyDefaultPeriods($sectionId);
 
         return back()->with('status', $created > 0 ? "{$created} default period(s) added." : 'Every default period already exists.');
     }
@@ -68,6 +83,7 @@ class TimetableController extends Controller
     public function storePeriod(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'timetable.update');
+        $sectionId = $request->integer('section_id') ?: null;
         $data = $request->validate([
             'name' => ['required', 'string', 'max:60'],
             'starts_at' => ['required', 'date_format:H:i'],
@@ -76,8 +92,9 @@ class TimetableController extends Controller
         ]);
 
         TimetablePeriod::create([
+            'section_id' => $sectionId,
             'name' => $data['name'],
-            'sequence' => (TimetablePeriod::max('sequence') ?? 0) + 1,
+            'sequence' => (TimetablePeriod::where('section_id', $sectionId)->max('sequence') ?? 0) + 1,
             'starts_at' => $data['starts_at'],
             'ends_at' => $data['ends_at'],
             'is_teaching_period' => (bool) ($data['is_teaching_period'] ?? false),
@@ -132,6 +149,39 @@ class TimetableController extends Controller
     }
 
     /**
+     * Turns a section from previewing the shared catalog into having its
+     * own independent one (copies every shared period in), an explicit
+     * action rather than an implicit side effect of editing a previewed
+     * row (see TimetableService::forkSectionPeriods()'s own docblock).
+     */
+    public function forkSectionPeriods(Request $request, TimetableService $timetable): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'timetable.update');
+        $school = $this->school($request);
+        $sectionId = $request->integer('section_id');
+        abort_unless($sectionId, 404);
+
+        $timetable->forkSectionPeriods($sectionId);
+
+        return redirect()->route('school.timetable.periods', ['school' => $school->slug, 'section_id' => $sectionId])
+            ->with('status', 'This section now has its own period catalog, separate from the shared default.');
+    }
+
+    /** Reverts a section back to inheriting/previewing the shared catalog, deleting its own rows. */
+    public function resetSectionPeriods(Request $request, TimetableService $timetable): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'timetable.update');
+        $school = $this->school($request);
+        $sectionId = $request->integer('section_id');
+        abort_unless($sectionId, 404);
+
+        $timetable->resetSectionPeriods($sectionId);
+
+        return redirect()->route('school.timetable.periods', ['school' => $school->slug, 'section_id' => $sectionId])
+            ->with('status', 'This section now follows the shared default period catalog again.');
+    }
+
+    /**
      * NULL is a real, intentional state here (the universal grid every
      * already-provisioned school's timetable already is), not "term not
      * found, abort" the way ReportCardController::resolveTerm() treats
@@ -178,7 +228,10 @@ class TimetableController extends Controller
             abort(404);
         }
 
-        $periods = $timetable->periods();
+        // Section-specific period durations (2026-07-28): a class arm's
+        // own section catalog if it has one, else the shared/default
+        // catalog every section without its own falls back to.
+        $periods = $timetable->periodsForSection($selectedArm?->schoolClass?->section_id);
         // A school that has never set up its period catalog yet is a
         // completely normal, anticipated state (found live 2026-07-21: a
         // real school hit a raw 422 error page just from picking a class
@@ -272,7 +325,7 @@ class TimetableController extends Controller
         return view('school.timetable.mine', [
             'school' => $school,
             'accent' => $school->branding()['color'],
-            'periods' => $timetable->periods(),
+            'periods' => $resolved['periods'],
             'weekDays' => $timetable->weekDays(),
             'grid' => $resolved['grid'],
             'subtitle' => $resolved['subtitle'],
@@ -296,7 +349,7 @@ class TimetableController extends Controller
      * switcher here too (user request 2026-07-28), not just on the
      * admin builder.
      *
-     * @return array{grid: array, subtitle: string, children: \Illuminate\Support\Collection, ownClassArm: ?ClassArm, view: string, term: ?Term, terms: \Illuminate\Support\Collection}
+     * @return array{grid: array, subtitle: string, children: \Illuminate\Support\Collection, ownClassArm: ?ClassArm, view: string, term: ?Term, terms: \Illuminate\Support\Collection, periods: \Illuminate\Support\Collection}
      */
     protected function resolveMineGrid(Request $request, TimetableService $timetable): array
     {
@@ -315,6 +368,7 @@ class TimetableController extends Controller
         $children = collect();
         $ownClassArm = null;
         $view = 'personal';
+        $periods = $timetable->periods();
 
         if ($staff) {
             $ownClassArm = ClassArm::with('schoolClass.section', 'arm')->where('class_teacher_staff_id', $staff->id)->first();
@@ -323,9 +377,18 @@ class TimetableController extends Controller
             if ($view === 'class') {
                 $grid = $timetable->gridForClassArm($ownClassArm->id, $term);
                 $subtitle = $ownClassArm->label().'\'s full weekly schedule, every subject and teacher.';
+                $periods = $timetable->periodsForSection($ownClassArm->schoolClass?->section_id);
             } else {
                 $grid = $timetable->gridForStaff($staff->id, $term);
                 $subtitle = 'Your own teaching schedule, every class you are booked into.';
+                // A personal cross-class schedule can span more than one
+                // section at once (a subject teacher teaching both
+                // Primary and Secondary, each with their own period
+                // durations), so the row axis is the union of every
+                // section actually appearing in this grid, not one
+                // section's catalog picked arbitrarily.
+                $sectionIds = collect($grid)->map(fn ($entry) => $entry->classArm?->schoolClass?->section_id)->unique();
+                $periods = $timetable->periodsUnion($sectionIds);
             }
         } elseif ($studentIds !== null && $studentIds->isNotEmpty()) {
             $children = Student::whereIn('id', $studentIds)->with('currentClassArm.schoolClass.section', 'currentClassArm.arm')->get();
@@ -342,8 +405,9 @@ class TimetableController extends Controller
                     'subtitle' => $s->currentClassArm->label().'\'s weekly schedule.',
                 ])->values();
                 $subtitle = 'Every child\'s weekly schedule.';
+                $periods = $timetable->periodsUnion($children->map(fn (Student $s) => $s->currentClassArm?->schoolClass?->section_id));
 
-                return compact('grid', 'subtitle', 'children', 'ownClassArm', 'view', 'allGrids', 'term', 'terms');
+                return compact('grid', 'subtitle', 'children', 'ownClassArm', 'view', 'allGrids', 'term', 'terms', 'periods');
             }
 
             $studentId = $request->integer('student_id') ?: $children->first()?->id;
@@ -351,12 +415,13 @@ class TimetableController extends Controller
             if ($selectedChild?->currentClassArm) {
                 $grid = $timetable->gridForClassArm($selectedChild->currentClassArm->id, $term);
                 $subtitle = $selectedChild->currentClassArm->label().'\'s weekly schedule.';
+                $periods = $timetable->periodsForSection($selectedChild->currentClassArm->schoolClass?->section_id);
             }
         }
 
         $allGrids = collect();
 
-        return compact('grid', 'subtitle', 'children', 'ownClassArm', 'view', 'allGrids', 'term', 'terms');
+        return compact('grid', 'subtitle', 'children', 'ownClassArm', 'view', 'allGrids', 'term', 'terms', 'periods');
     }
 
     /**
@@ -374,7 +439,7 @@ class TimetableController extends Controller
         $this->authorizeAction($request, 'timetable.view');
         $resolved = $this->resolveMineGrid($request, $timetable);
         $weekDays = $timetable->weekDays();
-        $teachingPeriods = $timetable->periods()->where('is_teaching_period', true);
+        $teachingPeriods = $resolved['periods']->where('is_teaching_period', true);
         $grid = $resolved['grid'];
 
         return response()->streamDownload(function () use ($weekDays, $teachingPeriods, $grid) {
@@ -519,12 +584,19 @@ class TimetableController extends Controller
             ->sortByDesc(fn (Term $t) => $t->chronologicalSortKey())
             ->values();
 
+        $classGrids = $timetable->masterGrid($term);
+        // The whole school spans every section at once, so the row axis
+        // is the union of each section's own effective catalog (2026-07-28,
+        // section-specific period durations), not one shared set assumed
+        // to apply everywhere.
+        $periods = $timetable->periodsUnion($classGrids->map(fn ($row) => $row['arm']->schoolClass?->section_id));
+
         return view('school.timetable.master', [
             'school' => $school,
             'accent' => $school->branding()['color'],
-            'periods' => $timetable->periods(),
+            'periods' => $periods,
             'weekDays' => $timetable->weekDays(),
-            'classGrids' => $timetable->masterGrid($term),
+            'classGrids' => $classGrids,
             'term' => $term,
             'terms' => $terms,
         ]);
@@ -545,8 +617,9 @@ class TimetableController extends Controller
     {
         $this->authorizeAction($request, 'timetable.update');
         $weekDays = $timetable->weekDays();
-        $teachingPeriods = $timetable->periods()->where('is_teaching_period', true);
         $classGrids = $timetable->masterGrid($this->resolveOptionalTerm($request));
+        $teachingPeriods = $timetable->periodsUnion($classGrids->map(fn ($row) => $row['arm']->schoolClass?->section_id))
+            ->where('is_teaching_period', true);
 
         return response()->streamDownload(function () use ($weekDays, $teachingPeriods, $classGrids) {
             $out = fopen('php://output', 'w');

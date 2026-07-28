@@ -654,6 +654,8 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/periods', [$timetable, 'storePeriod'])->name('periods.store');
             Route::post('/periods/apply-defaults', [$timetable, 'applyDefaultPeriods'])->name('periods.apply-defaults');
             Route::post('/periods/bulk-destroy', [$timetable, 'bulkDestroyPeriods'])->name('periods.bulk-destroy');
+            Route::post('/periods/fork-section', [$timetable, 'forkSectionPeriods'])->name('periods.fork-section');
+            Route::post('/periods/reset-section', [$timetable, 'resetSectionPeriods'])->name('periods.reset-section');
             Route::post('/periods/{periodId}', [$timetable, 'updatePeriod'])->name('periods.update');
             Route::delete('/periods/{periodId}', [$timetable, 'destroyPeriod'])->name('periods.destroy');
             Route::get('/mine', [$timetable, 'mine'])->name('mine');

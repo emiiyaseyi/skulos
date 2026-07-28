@@ -30,9 +30,87 @@ use Illuminate\Support\Collection;
  */
 class TimetableService
 {
+    /** The shared/default catalog only (section_id null), the original pre-2026-07-28 behaviour. */
     public function periods(): Collection
     {
-        return TimetablePeriod::orderBy('sequence')->get();
+        return TimetablePeriod::whereNull('section_id')->orderBy('sequence')->get();
+    }
+
+    /**
+     * A section's own effective period catalog (2026-07-28, "section-
+     * specific default timetable period durations", a real gap since a
+     * school's Nursery/Primary periods often run a different length than
+     * Secondary's). A section with any period rows of its own uses ONLY
+     * those, a full independent catalog; a section with none falls back
+     * entirely to the shared/default catalog. $sectionId null always
+     * means the shared catalog itself, same as periods() above.
+     */
+    public function periodsForSection(?int $sectionId): Collection
+    {
+        if ($sectionId === null) {
+            return $this->periods();
+        }
+
+        $own = TimetablePeriod::where('section_id', $sectionId)->orderBy('sequence')->get();
+
+        return $own->isNotEmpty() ? $own : $this->periods();
+    }
+
+    /**
+     * The row axis for a view that spans more than one section at once
+     * (a staff member's personal cross-class schedule, "all children at
+     * once", or the whole-school Master Timetable): each distinct
+     * section's own effective catalog (periodsForSection() above),
+     * unioned and de-duplicated by id, sorted by start time so periods
+     * from different sections interleave sensibly rather than one
+     * section's whole block coming before another's.
+     *
+     * @param  iterable<int|null>  $sectionIds
+     */
+    public function periodsUnion(iterable $sectionIds): Collection
+    {
+        $distinct = collect($sectionIds)->unique()->values();
+        if ($distinct->isEmpty()) {
+            return $this->periods();
+        }
+
+        return $distinct
+            ->flatMap(fn (?int $id) => $this->periodsForSection($id))
+            ->unique('id')
+            ->sortBy(fn (TimetablePeriod $p) => $p->starts_at.'-'.$p->sequence)
+            ->values();
+    }
+
+    /**
+     * Turns a section from "previewing the shared catalog" into "has its
+     * own independent catalog": copies every shared period into new rows
+     * scoped to $sectionId, a no-op if that section already has rows of
+     * its own. An explicit action (a button on the periods screen) rather
+     * than an implicit side effect of editing a previewed row, so nothing
+     * a previewing admin sees can silently vanish just from clicking Edit
+     * on one row.
+     */
+    public function forkSectionPeriods(int $sectionId): Collection
+    {
+        $existing = TimetablePeriod::where('section_id', $sectionId)->orderBy('sequence')->get();
+        if ($existing->isNotEmpty()) {
+            return $existing;
+        }
+
+        return $this->periods()->map(fn (TimetablePeriod $p) => TimetablePeriod::create([
+            'section_id' => $sectionId,
+            'name' => $p->name,
+            'sequence' => $p->sequence,
+            'starts_at' => $p->starts_at,
+            'ends_at' => $p->ends_at,
+            'is_teaching_period' => $p->is_teaching_period,
+        ]));
+    }
+
+    /** Deletes a section's own periods, reverting it back to previewing/inheriting the shared catalog. */
+    public function resetSectionPeriods(int $sectionId): int
+    {
+        return TimetablePeriod::where('section_id', $sectionId)->delete();
     }
 
     public function weekDays(): array
@@ -41,15 +119,17 @@ class TimetableService
     }
 
     /**
-     * Seed the school's period catalog from config('skulos.
-     * default_timetable_periods'), skipping any name that already
-     * exists (same idempotent, never-overwrite-a-customization shape
-     * GradingController::applyDefaults() already uses). Returns how many
-     * were actually created.
+     * Seed a period catalog from config('skulos.default_timetable_periods'),
+     * skipping any name that already exists in that same catalog (same
+     * idempotent, never-overwrite-a-customization shape
+     * GradingController::applyDefaults() already uses). $sectionId null
+     * seeds the shared/default catalog; a given section seeds that
+     * section's own independent catalog instead. Returns how many were
+     * actually created.
      */
-    public function applyDefaultPeriods(): int
+    public function applyDefaultPeriods(?int $sectionId = null): int
     {
-        $existingNames = TimetablePeriod::pluck('name')->all();
+        $existingNames = TimetablePeriod::where('section_id', $sectionId)->pluck('name')->all();
         $created = 0;
 
         foreach (array_values(config('skulos.default_timetable_periods', [])) as $index => $period) {
@@ -58,6 +138,7 @@ class TimetableService
             }
 
             TimetablePeriod::create([
+                'section_id' => $sectionId,
                 'name' => $period['name'],
                 'sequence' => $index + 1,
                 'starts_at' => $period['starts_at'],

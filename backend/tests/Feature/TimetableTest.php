@@ -114,6 +114,71 @@ class TimetableTest extends TestCase
         app(TenantManager::class)->forget();
     }
 
+    /** User report 2026-07-28 audit gap: a school's Nursery/Primary periods often run a different length than Secondary's. */
+    public function test_a_section_previews_the_shared_catalog_until_it_has_periods_of_its_own(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'ttsecprev');
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        TimetablePeriod::create(['name' => 'Period 1', 'sequence' => 1, 'starts_at' => '08:00', 'ends_at' => '08:40', 'is_teaching_period' => true]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)->get(route('school.timetable.periods', ['school' => $school->slug, 'section_id' => $section->id]));
+
+        $response->assertOk()
+            ->assertSee('Following the shared default catalog')
+            ->assertSee('Period 1')
+            ->assertDontSee('Remove selected');
+    }
+
+    public function test_forking_a_section_gives_it_its_own_independent_period_catalog(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'ttsecfork');
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        TimetablePeriod::create(['name' => 'Period 1', 'sequence' => 1, 'starts_at' => '08:00', 'ends_at' => '08:40', 'is_teaching_period' => true]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post(route('school.timetable.periods.fork-section', ['school' => $school->slug]), ['section_id' => $section->id])
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame(1, TimetablePeriod::where('section_id', $section->id)->count());
+        $forked = TimetablePeriod::where('section_id', $section->id)->first();
+        // Retiming the section's own forked copy must never touch the shared row it was copied from.
+        $forked->update(['starts_at' => '08:00', 'ends_at' => '08:35']);
+        $sharedStillIntact = TimetablePeriod::whereNull('section_id')->first();
+        $this->assertSame('08:40', substr((string) $sharedStillIntact->ends_at, 0, 5));
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get(route('school.timetable.periods', ['school' => $school->slug, 'section_id' => $section->id]))
+            ->assertOk()->assertDontSee('Following the shared default catalog');
+    }
+
+    /** The real end-to-end use case: a class arm in a section with its own, shorter periods uses THOSE times, not the shared catalog. */
+    public function test_a_class_arms_grid_uses_its_own_sections_periods_once_forked(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'ttsecgrid');
+        app(TenantManager::class)->use($school);
+        $primary = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $secondary = Section::create(['name' => 'Secondary', 'sequence' => 2]);
+        $primaryClass = SchoolClass::create(['section_id' => $primary->id, 'name' => 'Basic 1', 'sequence' => 1]);
+        $secondaryClass = SchoolClass::create(['section_id' => $secondary->id, 'name' => 'JSS 1', 'sequence' => 1]);
+        $arm = Arm::create(['name' => 'A']);
+        $primaryArm = ClassArm::create(['school_class_id' => $primaryClass->id, 'arm_id' => $arm->id]);
+        $secondaryArm = ClassArm::create(['school_class_id' => $secondaryClass->id, 'arm_id' => $arm->id]);
+        TimetablePeriod::create(['name' => 'Period 1', 'sequence' => 1, 'starts_at' => '08:00', 'ends_at' => '08:40', 'is_teaching_period' => true]);
+        // Primary's own, shorter period, same name as the shared one but a different time.
+        TimetablePeriod::create(['section_id' => $primary->id, 'name' => 'Period 1', 'sequence' => 1, 'starts_at' => '08:00', 'ends_at' => '08:30', 'is_teaching_period' => true]);
+        app(TenantManager::class)->forget();
+
+        $primaryResponse = $this->actingAs($owner)->get(route('school.timetable.index', ['school' => $school->slug, 'class_arm_id' => $primaryArm->id]));
+        $secondaryResponse = $this->actingAs($owner)->get(route('school.timetable.index', ['school' => $school->slug, 'class_arm_id' => $secondaryArm->id]));
+
+        $primaryResponse->assertOk()->assertSee('08:00 to 08:30', false);
+        $secondaryResponse->assertOk()->assertSee('08:00 to 08:40', false);
+    }
+
     public function test_an_admin_can_build_a_class_weekly_grid(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'tttwo');
