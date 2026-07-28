@@ -129,6 +129,7 @@ class ExaminationScreenTest extends TestCase
         $scale = \App\Models\Tenant\GradingScale::create(['name' => 'Standard', 'is_default' => true]);
         \App\Models\Tenant\GradingBand::create(['grading_scale_id' => $scale->id, 'min_score' => 70, 'max_score' => 100, 'grade' => 'A']);
         \App\Models\Tenant\Comment::create(['min_score' => 70, 'max_score' => 100, 'text' => 'Excellent performance.', 'is_active' => true]);
+        \App\Models\Tenant\Setting::put(\App\Http\Controllers\School\ReportCardController::SETTING_SUGGESTED_REMARK_ENABLED, true);
         app(TenantManager::class)->forget();
 
         $response = $this->actingAs($teacher)->get("http://{$school->slug}.localhost/examinations?pair={$f['classArm']->id}:{$f['subject']->id}");

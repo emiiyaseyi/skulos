@@ -521,6 +521,13 @@ class ReportCardWorkflowTest extends TestCase
         [$school, $owner] = $this->schoolWithMember('school-owner', 'rcsuggestremark');
 
         app(TenantManager::class)->use($school);
+        $this->assertFalse(\App\Http\Controllers\School\ReportCardController::suggestedRemarkEnabled());
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/suggested-remark", ['enabled' => '1'])
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
         $this->assertTrue(\App\Http\Controllers\School\ReportCardController::suggestedRemarkEnabled());
         app(TenantManager::class)->forget();
 
