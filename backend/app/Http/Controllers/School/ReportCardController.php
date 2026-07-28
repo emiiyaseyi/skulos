@@ -67,9 +67,14 @@ class ReportCardController extends Controller
         return (bool) Setting::grab(self::SETTING_REVIEW_ENABLED, true);
     }
 
+    /**
+     * Default changed to off (user directive 2026-07-27: the subject
+     * remark should not show "under the subject scores entry, parent
+     * report and under report cards by default", an admin opts it on).
+     */
     public static function suggestedRemarkEnabled(): bool
     {
-        return (bool) Setting::grab(self::SETTING_SUGGESTED_REMARK_ENABLED, true);
+        return (bool) Setting::grab(self::SETTING_SUGGESTED_REMARK_ENABLED, false);
     }
 
     protected function authorizeAction(Request $request, string $permission): void

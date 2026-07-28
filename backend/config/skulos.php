@@ -1777,6 +1777,72 @@ return [
     ],
 
     /*
+    | A second, genuinely distinct comment bank in a school leadership
+    | voice (user report 2026-07-27, real report card seen live: "why is
+    | class teacher and head teacher comment the same thing... update
+    | your comment bank to have a distinct comment"). The class teacher
+    | bank above speaks day to day, classroom level; this one speaks the
+    | way a Principal/Head of School addresses a whole term's standing,
+    | never reused word for word. Same 5 score bands, seeded into the
+    | same tenant `comments` table tagged `audience = 'principal'`
+    | (CommentBank::suggestionFor() filters on it), so a class teacher
+    | remark and a principal/head of school remark for the identical
+    | score can never land on the same sentence.
+    */
+    'default_principal_comment_bank' => [
+        ['min' => 90, 'max' => 100, 'comments' => [
+            'The school is proud of this outstanding result and encourages you to continue setting the standard for your peers.',
+            'An excellent term overall. The school has every confidence you will continue to excel.',
+            'Your results this term reflect real credit on you and your family. Well done.',
+            'The school commends this exceptional achievement and looks forward to even greater things from you.',
+            'You have set a fine example this term. Keep up this excellent standard.',
+            'A truly commendable result. The school is confident you will continue to reach for excellence.',
+            'This is an excellent report, and the school is pleased to note your consistent hard work.',
+            'The school recognises your outstanding effort this term and encourages you to aim even higher.',
+        ]],
+        ['min' => 80, 'max' => 89, 'comments' => [
+            'A very good term\'s work. The school encourages you to keep striving for the highest standard.',
+            'This is a pleasing result and the school is confident of further improvement.',
+            'Well done on a strong term. The school looks forward to seeing continued progress.',
+            'A commendable report overall. Keep up the good work and aim higher next term.',
+            'The school is pleased with this result and encourages continued effort.',
+            'A good term\'s work. Continue to build on this solid foundation.',
+            'The school notes your steady progress this term with satisfaction.',
+            'A very good result. The school expects even better in the terms ahead.',
+        ]],
+        ['min' => 70, 'max' => 79, 'comments' => [
+            'A satisfactory term overall. The school encourages greater consistency going forward.',
+            'This is a fair result with clear room for improvement. The school expects more focused effort next term.',
+            'The school notes reasonable progress this term and encourages continued commitment.',
+            'A fairly good report. The school urges greater dedication in the coming term.',
+            'This result shows promise. The school encourages you to work towards your full potential.',
+            'The school is satisfied with this term\'s effort but expects further improvement.',
+            'A decent term overall. Greater focus will bring better results next term.',
+            'The school encourages you to build on this term\'s progress with renewed effort.',
+        ]],
+        ['min' => 60, 'max' => 69, 'comments' => [
+            'This term\'s result requires improvement. The school expects greater commitment going forward.',
+            'The school is concerned about this result and urges more serious attention to studies.',
+            'There is a need for greater effort next term. The school encourages you to seek support where needed.',
+            'This result falls below expectation. The school urges renewed focus and discipline.',
+            'The school notes the need for significant improvement and encourages closer attention to studies.',
+            'More is expected of you. The school urges greater commitment in the coming term.',
+            'This result is a concern. The school encourages you to work more closely with your teachers.',
+            'The school expects a marked improvement in effort and result next term.',
+        ]],
+        ['min' => 0, 'max' => 59, 'comments' => [
+            'This result is unsatisfactory. The school requires immediate and sustained improvement.',
+            'The school is deeply concerned about this result and expects urgent attention to studies.',
+            'Serious effort is required next term. The school urges full commitment from you and your family.',
+            'This performance falls well short of expectation. The school insists on greater seriousness with studies.',
+            'The school requires a marked change in attitude and effort going forward.',
+            'Urgent improvement is needed. The school encourages close collaboration between home and school.',
+            'This result cannot continue. The school expects full commitment and discipline next term.',
+            'The school urges you to take your studies far more seriously in the term ahead.',
+        ]],
+    ],
+
+    /*
     | Report card looks a school can choose (same pattern as dashboard and
     | login layouts): one active template + per-field visibility, both
     | admin editable and stored in tenant settings. See ReportCardService /
@@ -2086,7 +2152,12 @@ return [
         'class_average' => ['label' => 'Class average per subject', 'group' => 'academic', 'default' => false],
         'subject_highest' => ['label' => 'Subject highest score', 'group' => 'academic', 'default' => false],
         'subject_lowest' => ['label' => 'Subject lowest score', 'group' => 'academic', 'default' => false],
-        'subject_remark' => ['label' => 'Subject remark (from the grading scale)', 'group' => 'academic', 'default' => true],
+        // Default changed to off (user directive 2026-07-27: "that
+        // remark should not be seen only if admin want it in settings,
+        // so it should not be seen under the subject scores entry,
+        // parent report and under report cards by default"), an admin
+        // opts it on from Report Settings rather than opting it off.
+        'subject_remark' => ['label' => 'Subject remark (from the grading scale)', 'group' => 'academic', 'default' => false],
         // Superseded 2026-07-24 by the dedicated Term Calculation
         // settings screen (Examinations > Term Calculation,
         // ReportCardCumulativePolicy): a single on/off checkbox here
