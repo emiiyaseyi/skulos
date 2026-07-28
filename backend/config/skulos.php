@@ -550,6 +550,48 @@ return [
                 'start_route' => 'school.notifications.index',
             ],
         ],
+        // For Teachers (2026-07-28, user request: "Help & Knowledge Base
+        // role-relevance for OTHER roles" — the same shape of fix "For
+        // Parents" above already got: a class/subject teacher's Help
+        // list was showing the same admin only articles above, now
+        // hidden via hidden_for_teacher_scoped, with genuinely
+        // teacher-relevant content here instead. "Taking attendance" is
+        // deliberately NOT duplicated here, the existing "Attendance &
+        // Timetable" category's own article already covers it and was
+        // never hidden from a teacher in the first place.
+        'For Teachers' => [
+            [
+                'title' => 'Entering scores for your subject',
+                'body' => 'Enter each student\'s score per assessment component for a class and subject.',
+                'steps' => [
+                    'Go to Enter Scores.',
+                    'Pick the class, subject, and term.',
+                    'Enter each student\'s score per component. The total, grade, and a suggested remark (if turned on) update live as you type.',
+                    'Scores save automatically a few seconds after you stop typing, or use the Save button.',
+                ],
+                'start_route' => 'school.examinations.index',
+            ],
+            [
+                'title' => 'Viewing your timetable',
+                'body' => 'Your own weekly teaching schedule, or your class\'s full grid if you are a class teacher.',
+                'steps' => [
+                    'Go to My Timetable.',
+                    'A class teacher can switch between their own teaching schedule and their class\'s full grid.',
+                    'Export or print the grid from the same page.',
+                ],
+                'start_route' => 'school.timetable.mine',
+            ],
+            [
+                'title' => "Messaging a student's guardian",
+                'body' => "A direct message to a guardian of one of your students, or a guardian messaging you back.",
+                'steps' => [
+                    'Go to Messages.',
+                    "Pick a guardian from one of your students, or open an existing conversation.",
+                    'Send your message. The guardian is notified.',
+                ],
+                'start_route' => 'school.chat.index',
+            ],
+        ],
     ],
 
     /*
@@ -567,6 +609,7 @@ return [
         'Communication' => 'comms',
         'Reports & Analytics' => 'trend',
         'For Parents' => 'parents',
+        'For Teachers' => 'staff',
     ],
 
     /*
@@ -603,23 +646,33 @@ return [
     | rather than inventing a new one.
     */
     'knowledge_base_start_routes' => [
-        'school.roles.index' => ['label' => 'User & Role Management', 'permission' => 'staff.update', 'hidden_for_family_scoped' => true],
-        'school.students.create' => ['label' => 'Add a Student', 'permission' => 'students.create', 'hidden_for_family_scoped' => true],
-        'school.students.import' => ['label' => 'Import Students', 'permission' => 'students.bulk', 'hidden_for_family_scoped' => true],
-        'school.students.settings.edit' => ['label' => 'Student Field Settings', 'permission' => 'students.manage_settings', 'hidden_for_family_scoped' => true],
-        'school.houses.index' => ['label' => 'Houses', 'permission' => 'students.view', 'hidden_for_family_scoped' => true],
-        'school.settings.custom-fields.index' => ['label' => 'Custom Fields', 'permission' => 'school_info.manage_settings', 'hidden_for_family_scoped' => true],
+        // hidden_for_teacher_scoped (added 2026-07-28, user request:
+        // "Help & Knowledge Base role-relevance for OTHER roles" —
+        // teacher_scoped_roles, config('skulos.teacher_scoped_roles'),
+        // share the same broad permission codes these admin/leadership
+        // screens check for a completely different, narrower reason
+        // (their own class/subject only), the identical shape
+        // hidden_for_family_scoped already fixed for parents/students
+        // above. 'school.attendance.index' is deliberately the one
+        // exception left visible to teachers: taking attendance IS a
+        // genuine class teacher task, not an admin-only workflow.
+        'school.roles.index' => ['label' => 'User & Role Management', 'permission' => 'staff.update', 'hidden_for_family_scoped' => true, 'hidden_for_teacher_scoped' => true],
+        'school.students.create' => ['label' => 'Add a Student', 'permission' => 'students.create', 'hidden_for_family_scoped' => true, 'hidden_for_teacher_scoped' => true],
+        'school.students.import' => ['label' => 'Import Students', 'permission' => 'students.bulk', 'hidden_for_family_scoped' => true, 'hidden_for_teacher_scoped' => true],
+        'school.students.settings.edit' => ['label' => 'Student Field Settings', 'permission' => 'students.manage_settings', 'hidden_for_family_scoped' => true, 'hidden_for_teacher_scoped' => true],
+        'school.houses.index' => ['label' => 'Houses', 'permission' => 'students.view', 'hidden_for_family_scoped' => true, 'hidden_for_teacher_scoped' => true],
+        'school.settings.custom-fields.index' => ['label' => 'Custom Fields', 'permission' => 'school_info.manage_settings', 'hidden_for_family_scoped' => true, 'hidden_for_teacher_scoped' => true],
         'school.attendance.index' => ['label' => 'Take Attendance', 'permission' => 'attendance.view', 'hidden_for_family_scoped' => true],
-        'school.timetable.periods' => ['label' => 'Timetable Periods', 'permission' => 'timetable.update', 'hidden_for_family_scoped' => true],
-        'school.timetable.exam.index' => ['label' => 'Examination Timetable', 'permission' => 'timetable.update', 'hidden_for_family_scoped' => true],
-        'school.examinations.structure' => ['label' => 'Assessment Structure', 'permission' => 'examinations.view', 'hidden_for_family_scoped' => true],
-        'school.examinations.grading' => ['label' => 'Grading', 'permission' => 'examinations.view', 'hidden_for_family_scoped' => true],
-        'school.report-cards.layout.edit' => ['label' => 'Report Card Layout Designer', 'permission' => 'report_cards.view', 'hidden_for_family_scoped' => true],
-        'school.report-cards.pending-review' => ['label' => 'Report Cards Pending Review', 'permission' => 'report_cards.assign_review', 'hidden_for_family_scoped' => true],
-        'school.announcements.create' => ['label' => 'Compose an Announcement', 'permission' => 'communication.broadcast', 'hidden_for_family_scoped' => true],
-        'school.announcements.history' => ['label' => 'Communication History', 'permission' => 'communication.view', 'hidden_for_family_scoped' => true],
-        'school.reports.builder.index' => ['label' => 'Report Builder', 'permission' => 'analytics.view', 'hidden_for_family_scoped' => true],
-        'school.examinations.academic-insights' => ['label' => 'Academic Insights', 'permission' => 'examinations.approve_results', 'hidden_for_family_scoped' => true],
+        'school.timetable.periods' => ['label' => 'Timetable Periods', 'permission' => 'timetable.update', 'hidden_for_family_scoped' => true, 'hidden_for_teacher_scoped' => true],
+        'school.timetable.exam.index' => ['label' => 'Examination Timetable', 'permission' => 'timetable.update', 'hidden_for_family_scoped' => true, 'hidden_for_teacher_scoped' => true],
+        'school.examinations.structure' => ['label' => 'Assessment Structure', 'permission' => 'examinations.view', 'hidden_for_family_scoped' => true, 'hidden_for_teacher_scoped' => true],
+        'school.examinations.grading' => ['label' => 'Grading', 'permission' => 'examinations.view', 'hidden_for_family_scoped' => true, 'hidden_for_teacher_scoped' => true],
+        'school.report-cards.layout.edit' => ['label' => 'Report Card Layout Designer', 'permission' => 'report_cards.view', 'hidden_for_family_scoped' => true, 'hidden_for_teacher_scoped' => true],
+        'school.report-cards.pending-review' => ['label' => 'Report Cards Pending Review', 'permission' => 'report_cards.assign_review', 'hidden_for_family_scoped' => true, 'hidden_for_teacher_scoped' => true],
+        'school.announcements.create' => ['label' => 'Compose an Announcement', 'permission' => 'communication.broadcast', 'hidden_for_family_scoped' => true, 'hidden_for_teacher_scoped' => true],
+        'school.announcements.history' => ['label' => 'Communication History', 'permission' => 'communication.view', 'hidden_for_family_scoped' => true, 'hidden_for_teacher_scoped' => true],
+        'school.reports.builder.index' => ['label' => 'Report Builder', 'permission' => 'analytics.view', 'hidden_for_family_scoped' => true, 'hidden_for_teacher_scoped' => true],
+        'school.examinations.academic-insights' => ['label' => 'Academic Insights', 'permission' => 'examinations.approve_results', 'hidden_for_family_scoped' => true, 'hidden_for_teacher_scoped' => true],
         // Parent/student relevant destinations (2026-07-26), every one
         // reachable with only the permissions the parent/student role
         // already holds, no {studentId}-style extra route parameter
@@ -632,6 +685,13 @@ return [
         // gate (NotificationController's own doc comment), no permission
         // to check.
         'school.notifications.index' => ['label' => 'Notifications'],
+        // Teacher relevant destinations (2026-07-28), same shape as the
+        // parent/student block above: no {classId}/{studentId}-style
+        // extra route parameter, so the "Start here" button always
+        // resolves with just {school}.
+        'school.examinations.index' => ['label' => 'Enter Scores', 'permission' => 'examinations.view'],
+        'school.timetable.mine' => ['label' => 'My Timetable', 'permission' => 'timetable.view'],
+        'school.chat.index' => ['label' => 'Messages', 'permission' => 'communication.view'],
     ],
 
     /*

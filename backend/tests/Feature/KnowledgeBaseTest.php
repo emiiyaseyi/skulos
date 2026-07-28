@@ -264,6 +264,47 @@ class KnowledgeBaseTest extends TestCase
             ->assertSee('Seeing who has acknowledged an announcement');
     }
 
+    /**
+     * User request 2026-07-28: "Help & Knowledge Base role-relevance for
+     * OTHER roles" — the same shape of fix test_a_parent_does_not_see_
+     * admin_only_articles above already covers, now for a class teacher.
+     */
+    public function test_a_class_teacher_does_not_see_admin_only_articles_despite_holding_the_same_permission(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('class-teacher', 'kbteacherfilter');
+        $this->seed(\Database\Seeders\KnowledgeBaseSeeder::class);
+
+        $response = $this->actingAs($teacher)->get("http://{$school->slug}.localhost/help");
+
+        $response->assertOk()
+            ->assertDontSee('Setting up school houses')
+            ->assertDontSee('Seeing who has acknowledged an announcement');
+    }
+
+    public function test_a_class_teacher_sees_the_new_for_teachers_category_with_real_content(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('class-teacher', 'kbteachercontent');
+        $this->seed(\Database\Seeders\KnowledgeBaseSeeder::class);
+
+        $response = $this->actingAs($teacher)->get("http://{$school->slug}.localhost/help");
+
+        $response->assertOk()
+            ->assertSee('For Teachers')
+            ->assertSee(e("Entering scores for your subject"), false)
+            ->assertSee(e("Messaging a student's guardian"), false);
+    }
+
+    /** Taking attendance is a genuine class teacher task, deliberately NOT hidden by the teacher-scoped exclusion, unlike the admin-only articles above. */
+    public function test_a_class_teacher_still_sees_the_take_attendance_article(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('class-teacher', 'kbteacherattendance');
+        $this->seed(\Database\Seeders\KnowledgeBaseSeeder::class);
+
+        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/help")
+            ->assertOk()
+            ->assertSee('Taking attendance');
+    }
+
     public function test_deleting_a_category_removes_its_articles(): void
     {
         $admin = $this->superAdmin();

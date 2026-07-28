@@ -38,6 +38,15 @@ use Illuminate\Support\Facades\Auth;
  * ones to hide regardless, the same "shares a permission but isn't
  * really for them" exclusion nav-school.blade.php's own
  * $alwaysHiddenForScoped already applies to the sidebar.
+ *
+ * A third, identical check narrows this further for a class/subject
+ * teacher or class assistant (2026-07-28 user request: "Help &
+ * Knowledge Base role-relevance for OTHER roles"): the same shape of
+ * problem the family-scoped fix above already solved, a teacher_scoped_
+ * role (config('skulos.teacher_scoped_roles')) also shares several of
+ * these same broad permission codes for their own class/subject only,
+ * not for browsing school administration articles.
+ * ['hidden_for_teacher_scoped'] flags exactly which ones to hide.
  */
 class KnowledgeBaseController extends Controller
 {
@@ -53,10 +62,20 @@ class KnowledgeBaseController extends Controller
         return $roleSlug && in_array($roleSlug, config('skulos.family_scoped_roles', []), true);
     }
 
-    protected function articleVisible(\App\Models\KnowledgeBaseArticle $article, array $startRoutes, Rbac $rbac, $user, \App\Models\School $school, bool $familyScoped): bool
+    protected function isTeacherScoped(\App\Models\School $school): bool
+    {
+        $roleSlug = optional(Auth::user()?->roleIn($school))->slug;
+
+        return $roleSlug && in_array($roleSlug, config('skulos.teacher_scoped_roles', []), true);
+    }
+
+    protected function articleVisible(\App\Models\KnowledgeBaseArticle $article, array $startRoutes, Rbac $rbac, $user, \App\Models\School $school, bool $familyScoped, bool $teacherScoped): bool
     {
         $meta = $startRoutes[$article->start_route] ?? [];
         if ($familyScoped && ($meta['hidden_for_family_scoped'] ?? false)) {
+            return false;
+        }
+        if ($teacherScoped && ($meta['hidden_for_teacher_scoped'] ?? false)) {
             return false;
         }
 
@@ -73,6 +92,7 @@ class KnowledgeBaseController extends Controller
         $rbac = app(Rbac::class);
         $startRoutes = config('skulos.knowledge_base_start_routes', []);
         $familyScoped = $this->isFamilyScoped($school);
+        $teacherScoped = $this->isTeacherScoped($school);
 
         $categories = KnowledgeBaseCategory::with(['articles' => function ($query) use ($q) {
             $query->where('is_published', true)->orderBy('sequence');
@@ -80,9 +100,9 @@ class KnowledgeBaseController extends Controller
                 $query->where(fn ($w) => $w->where('title', 'like', "%{$q}%")->orWhere('body', 'like', "%{$q}%"));
             }
         }])->orderBy('sequence')->get()
-            ->map(function ($category) use ($startRoutes, $rbac, $user, $school, $familyScoped) {
+            ->map(function ($category) use ($startRoutes, $rbac, $user, $school, $familyScoped, $teacherScoped) {
                 $category->setRelation('articles', $category->articles->filter(
-                    fn ($article) => $this->articleVisible($article, $startRoutes, $rbac, $user, $school, $familyScoped)
+                    fn ($article) => $this->articleVisible($article, $startRoutes, $rbac, $user, $school, $familyScoped, $teacherScoped)
                 ));
 
                 return $category;
@@ -106,7 +126,7 @@ class KnowledgeBaseController extends Controller
 
         $school = $this->school($request);
         $startRoutes = config('skulos.knowledge_base_start_routes', []);
-        $visible = $this->articleVisible($article, $startRoutes, app(Rbac::class), Auth::user(), $school, $this->isFamilyScoped($school));
+        $visible = $this->articleVisible($article, $startRoutes, app(Rbac::class), Auth::user(), $school, $this->isFamilyScoped($school), $this->isTeacherScoped($school));
         abort_unless($visible, 404);
 
         return view('school.knowledge-base.show', [
