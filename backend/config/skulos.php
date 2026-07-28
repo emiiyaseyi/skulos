@@ -1946,6 +1946,12 @@ return [
         // physical stats block, sized for Nursery/Early Years.
         'evaluation' => ['label' => 'Evaluation Sheet', 'description' => 'A scored nursery/primary evaluation sheet with a behavioural traits and physical stats block, plus separate class teacher and head teacher remarks.'],
         'narrative' => ['label' => 'Narrative Evaluation', 'description' => 'A comments-only evaluation sheet (no scores): a written comment per subject instead, for Nursery/Early Years classes that are not scored numerically.'],
+        // Templates 7 and 8 (2026-07-28, user-supplied reference images
+        // under "Templates/Report Card templates"): two more genuinely
+        // distinct visual styles, on top of the same configurable body
+        // sections every other template already shares.
+        'bordered' => ['label' => 'Bordered', 'description' => 'A bold accent colour frame around the whole sheet, with an accent coloured results table header, for a school that wants a strong branded look.'],
+        'vibrant' => ['label' => 'Vibrant', 'description' => 'A colourful, rounded, friendly sheet with a tinted header and softly striped results table, suited to Nursery and Primary classes.'],
     ],
     'default_report_card_template' => 'classic',
 

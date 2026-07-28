@@ -37,6 +37,17 @@
   .rc-modern .rc-head{background:linear-gradient(135deg,var(--accent),#2a2a2a);color:#fff;border-radius:10px 10px 0 0;border-bottom:none;padding:1rem}
   .rc-modern .rc-head p{color:rgba(255,255,255,.85)}
   .rc-compact .rc-table{font-size:.64rem}
+  {{-- bordered / vibrant (Templates 7 and 8, 2026-07-28), same as render.blade.php's own copy. --}}
+  .rc-bordered{border:6px solid var(--accent);padding:1.6rem}
+  .rc-bordered .rc-head{border-bottom:3px solid var(--accent);padding-bottom:.8rem}
+  .rc-bordered .rc-table th{background:var(--accent);color:var(--accent-ink)}
+  .rc-bordered .rc-table td,.rc-bordered .rc-table th{border:1.5px solid var(--accent)}
+  .rc-bordered .rc-summary .box{border:1.5px solid var(--accent)}
+  .rc-vibrant .rc-head{background:color-mix(in srgb, var(--accent) 12%, #fff);border-radius:14px 14px 0 0;border-bottom:none;padding:1rem}
+  .rc-vibrant .rc-table{border-radius:8px;overflow:hidden}
+  .rc-vibrant .rc-table th{background:var(--accent);color:var(--accent-ink)}
+  .rc-vibrant .rc-table tbody tr:nth-child(even){background:color-mix(in srgb, var(--accent) 6%, #fff)}
+  .rc-vibrant .rc-summary .box{background:color-mix(in srgb, var(--accent) 10%, #fff);border-radius:14px}
   .rc-logo{width:76px;height:76px;object-fit:contain;display:block;margin:0 auto .4rem}
   {{-- Student Photo layout designer block, mirrors render.blade.php (2026-07-24, was missing here so bulk class printing dropped the photo silently). --}}
   .rc-photo{width:76px;height:76px;object-fit:cover;border-radius:10px;display:block;margin:0 auto .4rem;border:1px solid #d8d8d8;overflow:hidden}

@@ -61,6 +61,18 @@
   .rc-modern .rc-head p{color:rgba(255,255,255,.85)}
   /* compact */
   .rc-compact .rc-table{font-size:.64rem}
+  {{-- bordered (Template 7, 2026-07-28): a bold accent frame, for a school that wants a strong branded look rather than a plain minimal sheet. --}}
+  .rc-bordered{border:6px solid var(--accent);padding:1.6rem}
+  .rc-bordered .rc-head{border-bottom:3px solid var(--accent);padding-bottom:.8rem}
+  .rc-bordered .rc-table th{background:var(--accent);color:var(--accent-ink)}
+  .rc-bordered .rc-table td,.rc-bordered .rc-table th{border:1.5px solid var(--accent)}
+  .rc-bordered .rc-summary .box{border:1.5px solid var(--accent)}
+  {{-- vibrant (Template 8, 2026-07-28): a colourful, rounded, friendly sheet suited to Nursery/Primary, distinct from compact's identical style at a smaller size. --}}
+  .rc-vibrant .rc-head{background:color-mix(in srgb, var(--accent) 12%, #fff);border-radius:14px 14px 0 0;border-bottom:none;padding:1rem}
+  .rc-vibrant .rc-table{border-radius:8px;overflow:hidden}
+  .rc-vibrant .rc-table th{background:var(--accent);color:var(--accent-ink)}
+  .rc-vibrant .rc-table tbody tr:nth-child(even){background:color-mix(in srgb, var(--accent) 6%, #fff)}
+  .rc-vibrant .rc-summary .box{background:color-mix(in srgb, var(--accent) 10%, #fff);border-radius:14px}
   {{-- Same size as the student photo, both bigger than before (user
        request 2026-07-24: "make the school logo bigger than the current
        size and the child image should also have same size"). --}}

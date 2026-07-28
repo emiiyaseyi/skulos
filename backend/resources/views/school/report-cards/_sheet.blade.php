@@ -9,7 +9,8 @@
 @php($show = fn($f) => $fields[$f] ?? false)
 @php($isEval = in_array($template, ['evaluation', 'narrative'], true))
 @php($logoUrl = $school->logo_path ? \Illuminate\Support\Facades\Storage::url($school->logo_path) : null)
-<div class="rc-sheet {{ $template === 'modern' ? 'rc-modern' : ($template === 'compact' ? 'rc-compact' : ($isEval ? 'rc-eval' : '')) }}">
+@php($rcTemplateClasses = ['modern' => 'rc-modern', 'compact' => 'rc-compact', 'bordered' => 'rc-bordered', 'vibrant' => 'rc-vibrant'])
+<div class="rc-sheet {{ $rcTemplateClasses[$template] ?? ($isEval ? 'rc-eval' : '') }}">
   @if(($layoutEnabled ?? false) && ! empty($layoutZones))
     <div class="rc-head rc-head-custom">
       @foreach(($layoutZones['header'] ?? []) as $block)

@@ -95,6 +95,18 @@ class ReportCardTest extends TestCase
         }
     }
 
+    /** Real gap found in the 2026-07-28 feedback re-audit: only 6 templates existed against a reference describing 8-9. Bordered and Vibrant are genuinely new visual styles, not just a relabeled existing one. */
+    public function test_the_two_new_templates_render_their_own_distinct_style(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'rctemplates');
+
+        $bordered = $this->actingAs($admin)->get("http://{$school->slug}.localhost/report-cards/preview/bordered");
+        $bordered->assertOk()->assertSee('rc-sheet rc-bordered', false);
+
+        $vibrant = $this->actingAs($admin)->get("http://{$school->slug}.localhost/report-cards/preview/vibrant");
+        $vibrant->assertOk()->assertSee('rc-sheet rc-vibrant', false);
+    }
+
     public function test_viewing_report_cards_requires_permission(): void
     {
         [$school, $parent] = $this->schoolWithMember('parent', 'rcthree');
