@@ -178,21 +178,32 @@ class ResultService
      * total, the class average/highest/lowest, and each student's position
      * within that single subject (competition ranking, ties share a spot).
      *
+     * $enteredFrom/$enteredTo optionally narrow to scores whose own
+     * `created_at` (when the score row was actually entered, the only real
+     * per-score timestamp this data model has, there is no separate
+     * "assessed on" date) falls in that range, on top of the term scope
+     * (Subject Insights user request 2026-07-22: "the necessary date,
+     * filter and sort options and calendar date option and term option").
+     *
      * @return array{average: float, highest: float, lowest: float, positions: array<int,int>, totals: array<int,float>}
      */
-    public function subjectStats(int $classArmId, int $subjectId, int $termId): array
+    public function subjectStats(int $classArmId, int $subjectId, int $termId, ?\Carbon\Carbon $enteredFrom = null, ?\Carbon\Carbon $enteredTo = null): array
     {
-        $studentIds = Score::where('class_arm_id', $classArmId)
+        $scoped = fn ($q) => $q
+            ->when($enteredFrom, fn ($qq) => $qq->where('created_at', '>=', $enteredFrom->startOfDay()))
+            ->when($enteredTo, fn ($qq) => $qq->where('created_at', '<=', $enteredTo->endOfDay()));
+
+        $studentIds = $scoped(Score::where('class_arm_id', $classArmId)
             ->where('subject_id', $subjectId)
-            ->where('term_id', $termId)
+            ->where('term_id', $termId))
             ->distinct()
             ->pluck('student_id');
 
         $totals = [];
         foreach ($studentIds as $studentId) {
-            $totals[$studentId] = (float) Score::where('student_id', $studentId)
+            $totals[$studentId] = (float) $scoped(Score::where('student_id', $studentId)
                 ->where('subject_id', $subjectId)
-                ->where('term_id', $termId)
+                ->where('term_id', $termId))
                 ->sum('score');
         }
 

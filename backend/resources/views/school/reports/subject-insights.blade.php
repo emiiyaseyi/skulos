@@ -2,10 +2,14 @@
 @section('title', 'Subject Insights')
 
 @php
-  $sortLink = function($column, $label) use ($sort, $dir, $classArmId, $subjectId, $term, $school) {
+  $sortLink = function($column, $label) use ($sort, $dir, $classArmId, $subjectId, $term, $school, $fromDate, $toDate) {
     $nextDir = ($sort === $column && $dir === 'asc') ? 'desc' : 'asc';
     $arrow = $sort === $column ? ($dir === 'asc' ? ' ↑' : ' ↓') : '';
-    $params = array_filter(['school' => $school->slug, 'class_arm_id' => $classArmId, 'subject_id' => $subjectId, 'term_id' => $term?->id, 'sort' => $column, 'dir' => $nextDir]);
+    $params = array_filter([
+      'school' => $school->slug, 'class_arm_id' => $classArmId, 'subject_id' => $subjectId, 'term_id' => $term?->id,
+      'from_date' => $fromDate?->toDateString(), 'to_date' => $toDate?->toDateString(),
+      'sort' => $column, 'dir' => $nextDir,
+    ]);
 
     return '<a href="'.route('school.reports.subject-insights.index', $params).'" style="color:inherit;text-decoration:none">'.$label.$arrow.'</a>';
   };
@@ -50,6 +54,18 @@
           @endforeach
         </select>
       </div>
+    @endif
+    <div class="field" style="margin:0">
+      <label for="from_date">Scores entered from</label>
+      <input type="date" id="from_date" name="from_date" value="{{ $fromDate?->toDateString() }}" />
+    </div>
+    <div class="field" style="margin:0">
+      <label for="to_date">To</label>
+      <input type="date" id="to_date" name="to_date" value="{{ $toDate?->toDateString() }}" />
+    </div>
+    <button class="btn btn-primary btn-sm" type="submit">Apply</button>
+    @if($fromDate || $toDate)
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.reports.subject-insights.index', array_filter(['school' => $school->slug, 'class_arm_id' => $classArmId, 'subject_id' => $subjectId, 'term_id' => $term?->id])) }}">Clear dates</a>
     @endif
   </form>
 </div>

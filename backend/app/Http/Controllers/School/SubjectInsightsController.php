@@ -73,10 +73,21 @@ class SubjectInsightsController extends Controller
             ->when($classArmId, fn ($c) => $c->where('class_arm_id', $classArmId))
             ->when($subjectId, fn ($c) => $c->where('subject_id', $subjectId));
 
+        // Calendar date range (user request 2026-07-22: "...calendar date
+        // option and term option"), narrowing to scores actually entered in
+        // that window, on top of the term filter. Invalid/reversed input is
+        // silently ignored rather than erroring, same convenience-narrowing
+        // treatment as the class/subject filters above.
+        $enteredFrom = $this->parseDate($request->query('from_date'));
+        $enteredTo = $this->parseDate($request->query('to_date'));
+        if ($enteredFrom && $enteredTo && $enteredFrom->gt($enteredTo)) {
+            [$enteredFrom, $enteredTo] = [$enteredTo, $enteredFrom];
+        }
+
         $rows = collect();
         if ($term) {
-            $rows = $filteredPairs->map(function ($pair) use ($results, $term) {
-                $stats = $results->subjectStats($pair['class_arm_id'], $pair['subject_id'], $term->id);
+            $rows = $filteredPairs->map(function ($pair) use ($results, $term, $enteredFrom, $enteredTo) {
+                $stats = $results->subjectStats($pair['class_arm_id'], $pair['subject_id'], $term->id, $enteredFrom, $enteredTo);
 
                 return [
                     'class_label' => $pair['class_label'],
@@ -103,10 +114,25 @@ class SubjectInsightsController extends Controller
             'subjectOptions' => $subjectOptions,
             'classArmId' => $classArmId,
             'subjectId' => $subjectId,
+            'fromDate' => $enteredFrom,
+            'toDate' => $enteredTo,
             'sort' => $sort,
             'dir' => $dir,
             'rows' => $rows,
             'hasAnyTeachingAssignment' => $pairs->isNotEmpty(),
         ]);
+    }
+
+    protected function parseDate(?string $value): ?\Carbon\Carbon
+    {
+        if (! $value) {
+            return null;
+        }
+
+        try {
+            return \Carbon\Carbon::parse($value);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

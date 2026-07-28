@@ -153,6 +153,37 @@ class SubjectInsightsTest extends TestCase
         $this->assertSame(1, substr_count($response->getContent(), '<td>Mathematics</td>'));
     }
 
+    /** User request 2026-07-22 explicitly named "calendar date option" alongside term/class/subject filters; scores have no separate "assessed on" date, so this narrows to when a score was actually entered (created_at), the only real per-score timestamp the data model has. */
+    public function test_a_date_range_narrows_the_table_to_scores_entered_in_that_window(): void
+    {
+        [$school, ] = $this->schoolWithMember('subject-teacher', 'subinsights6');
+        ['teacherUser' => $teacherUser, 'maths' => $maths, 'armOne' => $armOne, 'term' => $term] = $this->seedAcademics($school);
+        $school->users()->attach($teacherUser->id, ['role_id' => $this->rbac->cloneTemplateRole($school, 'subject-teacher')->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        // Ada's two Maths scores (seeded inside seedAcademics, total 90.0)
+        // both land "today" by default; backdate them out of any window
+        // the test will query, then add one fresh in-window score for a
+        // third student so the filtered and unfiltered totals differ.
+        Score::where('student_id', Student::where('admission_number', 'A1')->first()->id)
+            ->where('subject_id', $maths->id)
+            ->update(['created_at' => now()->subDays(30)]);
+
+        $chidi = Student::create(['admission_number' => 'A3', 'first_name' => 'Chidi', 'last_name' => 'Eze', 'current_class_arm_id' => $armOne->id]);
+        $component = AssessmentComponent::first();
+        Score::create(['student_id' => $chidi->id, 'subject_id' => $maths->id, 'class_arm_id' => $armOne->id, 'term_id' => $term->id, 'assessment_component_id' => $component->id, 'score' => 20]);
+        app(TenantManager::class)->forget();
+
+        $from = now()->subDay()->toDateString();
+        $to = now()->addDay()->toDateString();
+        $response = $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/reports/subject-insights?from_date={$from}&to_date={$to}");
+
+        $response->assertOk()->assertSee('Mathematics');
+        // Only Chidi's in-window score (20) counts now, Ada's backdated 90 is excluded.
+        $this->assertStringContainsString('20.0', $response->getContent());
+        $this->assertStringNotContainsString('90.0', $response->getContent());
+    }
+
     public function test_a_user_without_examinations_view_cannot_reach_subject_insights(): void
     {
         [$school, $parent] = $this->schoolWithMember('parent', 'subinsights3');
