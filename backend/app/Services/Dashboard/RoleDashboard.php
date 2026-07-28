@@ -966,7 +966,10 @@ class RoleDashboard
         return [
             'kind' => 'parent',
             'figs' => [
-                ['n' => number_format($children->count()), 'l' => 'My Children', 'ic' => 'students', 'c' => '#0EA5A0', 'pct' => '60%'],
+                // Singular for exactly one child (user directive
+                // 2026-07-28: "for parents that have one child, it
+                // should show as My child and not my children").
+                ['n' => number_format($children->count()), 'l' => $children->count() === 1 ? 'My Child' : 'My Children', 'ic' => 'students', 'c' => '#0EA5A0', 'pct' => '60%'],
                 $feesDue > 0
                     ? ['n' => '₦'.number_format($feesDue, 2), 'l' => $multiChild ? 'Fees Due (all children)' : 'Fees Due', 'ic' => 'billing', 'c' => '#E14F63', 'pct' => '70%', 'popup' => 'fees-due-popup']
                     : ['n' => 'Payment Completed', 'l' => $multiChild ? 'Fees, all children' : 'Fees', 'ic' => 'approve', 'c' => '#12A97B', 'pct' => '10%', 'popup' => $feePerChild->isNotEmpty() ? 'fees-due-popup' : null],

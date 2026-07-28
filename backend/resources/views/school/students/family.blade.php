@@ -1,9 +1,13 @@
-@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => $roleSlug === 'parent' ? 'My Children' : 'My Report'])
-@section('title', $roleSlug === 'parent' ? 'My Children' : 'My Report')
+{{-- Singular for a parent with exactly one child (user directive
+     2026-07-28: "for parents that have one child, it should show as My
+     child and not my children"). --}}
+@php($myChildrenLabel = $roleSlug === 'parent' ? ($familyStudents->count() === 1 ? 'My Child' : 'My Children') : 'My Report')
+@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => $myChildrenLabel])
+@section('title', $myChildrenLabel)
 @section('content')
 <div class="page-head">
   <div>
-    <h1 class="title">{{ $roleSlug === 'parent' ? 'My Children' : 'My Report' }}</h1>
+    <h1 class="title">{{ $myChildrenLabel }}</h1>
     <p class="subtitle">{{ $roleSlug === 'parent' ? 'View each child\'s profile, class, and academic report.' : 'Your class, house, and academic report.' }}</p>
   </div>
 </div>

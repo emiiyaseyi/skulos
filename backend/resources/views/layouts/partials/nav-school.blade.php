@@ -38,6 +38,16 @@
     'school_profile', 'school_branding',
   ];
 
+  // Family-scoped only (NOT teacher-scoped: a teacher has no other nav
+  // entry into Students at all, this generic catalog line is their only
+  // path there). A parent/student already gets their own explicit "My
+  // Children"/"My Report" line into the exact same school.students
+  // route (below), so the generic "Student Portal" catalog line is a
+  // real duplicate for them (user report 2026-07-28: "no need of having
+  // student portal under parents menu option since we already have my
+  // children menu already and they have same content").
+  $alwaysHiddenForFamilyScoped = ['student_portal', 'student_records', 'export_to_excel', 'bulk_export', 'bulk_import'];
+
   $link = function($routeName, $label, $icon) use ($cur, $slug) {
     $active = $cur === $routeName;
     $url = ($slug && \Illuminate\Support\Facades\Route::has($routeName)) ? route($routeName, ['school' => $slug]) : '#';
@@ -426,6 +436,9 @@
         if (in_array($featureKey, $alwaysHiddenForScoped, true)) {
           continue;
         }
+        if ($isFamilyScoped && in_array($featureKey, $alwaysHiddenForFamilyScoped, true)) {
+          continue;
+        }
         $requiredPerm = config("skulos.nav_permission_map.{$featureKey}");
         if (! $requiredPerm || ! $navRbac->check($navUser, $school, $requiredPerm)) {
           continue;
@@ -800,7 +813,16 @@
   // school-wide Students screen a scoped teacher (who this Main-group
   // override is otherwise shared with) sees.
   if ($isFamilyScoped) {
-    $groups['Main'][] = $link('school.students', $scopedRoleSlug === 'parent' ? 'My Children' : 'My Report', 'students');
+    // Singular for a parent with exactly one child (user directive
+    // 2026-07-28: "for parents that have one child, it should show as
+    // My child and not my children"). A student's own single record
+    // already says "My Report", not "My Children"/"My Reports", so only
+    // the parent label needed a count check.
+    $myChildrenLabel = 'My Children';
+    if ($scopedRoleSlug === 'parent' && app(\App\Services\Rbac\FamilyScope::class)->studentIds($navUser, $school)?->count() === 1) {
+      $myChildrenLabel = 'My Child';
+    }
+    $groups['Main'][] = $link('school.students', $scopedRoleSlug === 'parent' ? $myChildrenLabel : 'My Report', 'students');
   }
 
   // "Chat" (messaging increment 4, 2026-07-15): only the two roles that
