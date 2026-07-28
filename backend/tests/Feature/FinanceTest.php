@@ -1913,4 +1913,64 @@ class FinanceTest extends TestCase
         // are kept, only the callers changed which one they use.
         $this->assertSame(190000.0, $perChildClamped);
     }
+
+    /**
+     * User directive 2026-07-28, reacting to the per-child popup showing
+     * a real overpaid child's raw payment against only their own fee:
+     * "the status ought to show 71,500.00 paid and the balance from
+     * the 200,000 spill to other children using same approach." The
+     * per row figures must visibly explain the pooled total, not just
+     * restate each child's own raw payment next to it.
+     */
+    public function test_fee_balance_service_waterfalls_a_surplus_across_multiple_siblings_per_row(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finwaterfallone');
+        $parent = User::factory()->create();
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $classA = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $classB = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 4', 'sequence' => 2]);
+        $classC = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS 2', 'sequence' => 3]);
+        $armA = \App\Models\Tenant\ClassArm::create(['school_class_id' => $classA->id]);
+        $armB = \App\Models\Tenant\ClassArm::create(['school_class_id' => $classB->id]);
+        $armC = \App\Models\Tenant\ClassArm::create(['school_class_id' => $classC->id]);
+        $feeA = FeeItem::create(['name' => 'Tuition', 'amount' => 71500, 'term_id' => $term->id]);
+        $feeA->schoolClasses()->sync([$classA->id]);
+        $feeB = FeeItem::create(['name' => 'Tuition', 'amount' => 83500, 'term_id' => $term->id]);
+        $feeB->schoolClasses()->sync([$classB->id]);
+        $feeC = FeeItem::create(['name' => 'Tuition', 'amount' => 106500, 'term_id' => $term->id]);
+        $feeC->schoolClasses()->sync([$classC->id]);
+        $childA = Student::create(['admission_number' => 'FW1', 'first_name' => 'Overpaid', 'last_name' => 'One', 'current_class_arm_id' => $armA->id]);
+        $childB = Student::create(['admission_number' => 'FW2', 'first_name' => 'Unpaid', 'last_name' => 'Two', 'current_class_arm_id' => $armB->id]);
+        $childC = Student::create(['admission_number' => 'FW3', 'first_name' => 'Unpaid', 'last_name' => 'Three', 'current_class_arm_id' => $armC->id]);
+        StudentGuardian::create(['student_id' => $childA->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        StudentGuardian::create(['student_id' => $childB->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        StudentGuardian::create(['student_id' => $childC->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        // Child A owes 71500, paid 200000 (128500 surplus). Children B
+        // and C owe 83500 and 106500 respectively, paid nothing.
+        Payment::forceCreate(['student_id' => $childA->id, 'amount' => 200000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_VERIFIED, 'submitted_by_user_id' => $bursar->id]);
+
+        $rows = app(\App\Services\Finance\FeeBalanceService::class)->nonOptionalOutstandingPerChildPooled($parent, $term)->values();
+        app(TenantManager::class)->forget();
+
+        // Child A: fully covered by their own payment, none of the
+        // surplus is attributed back to them.
+        $this->assertSame(71500.0, $rows[0]['owed']);
+        $this->assertSame(71500.0, $rows[0]['paid']);
+        $this->assertSame(0.0, $rows[0]['due']);
+        // Child B: fully covered by Child A's surplus (83500 of the
+        // 128500 applied here first).
+        $this->assertSame(83500.0, $rows[1]['owed']);
+        $this->assertSame(83500.0, $rows[1]['paid']);
+        $this->assertSame(0.0, $rows[1]['due']);
+        // Child C: gets whatever surplus is left (128500 - 83500 =
+        // 45000), leaving a real balance of 106500 - 45000 = 61500.
+        $this->assertSame(106500.0, $rows[2]['owed']);
+        $this->assertSame(45000.0, $rows[2]['paid']);
+        $this->assertSame(61500.0, $rows[2]['due']);
+        // The three rows' balances still sum to the same pooled total.
+        $this->assertSame(61500.0, $rows->sum('due'));
+    }
 }

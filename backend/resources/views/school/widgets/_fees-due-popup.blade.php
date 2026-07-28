@@ -39,11 +39,11 @@
   </div>
 </div>
 <style>
-  .fees-popup-card{max-width:32rem;text-align:left}
+  .fees-popup-card{max-width:44rem;width:calc(100% - 2rem);text-align:left}
   .fees-popup-card h3{text-align:center}
   .fees-popup-table{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:.6rem}
-  .fees-popup-table th{text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--mut-dim);padding:.4rem .5rem;border-bottom:1px solid var(--line)}
-  .fees-popup-table td{padding:.55rem .5rem;border-bottom:1px solid var(--line);white-space:nowrap}
+  .fees-popup-table th{text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--mut-dim);padding:.4rem .6rem;border-bottom:1px solid var(--line)}
+  .fees-popup-table td{padding:.55rem .6rem;border-bottom:1px solid var(--line);white-space:nowrap}
   .fees-popup-table tbody tr:last-child td{border-bottom:none}
 </style>
 @endif

@@ -143,6 +143,45 @@ class FeeBalanceService
     }
 
     /**
+     * Per-child breakdown that visibly explains nonOptionalOutstandingPooled()'s
+     * total (user directive 2026-07-28, reacting to the per-child popup
+     * showing Chukwuemeka's raw 200000 paid against his own 71500 owed:
+     * "the status ought to show 71,500.00 paid and the balance from the
+     * 200,000 spill to other children"). nonOptionalOutstandingPerChild()
+     * above shows each child's own RAW payments, correct but not
+     * self-explanatory once a family pools its balance; this instead
+     * waterfalls each child's own payment against their own fee first,
+     * then carries any surplus down to the next child who still owes
+     * (in the same order the children are returned in), so the numbers
+     * shown per row visibly explain, not just state, the pooled total.
+     * 'paid' and 'due' here always sum to the same combined
+     * owed/pooled-due nonOptionalOutstandingPooled() returns; 'owed' is
+     * still each child's own real figure, unchanged.
+     *
+     * @return \Illuminate\Support\Collection<int, array{student: Student, owed: float, paid: float, due: float}>
+     */
+    public function nonOptionalOutstandingPerChildPooled(User $guardianUser, ?Term $term = null): \Illuminate\Support\Collection
+    {
+        $rows = $this->nonOptionalOutstandingPerChild($guardianUser, $term)->values();
+
+        $surplus = $rows->sum(fn ($row) => max(0, $row['paid'] - $row['owed']));
+
+        return $rows->map(function ($row) use (&$surplus) {
+            $selfPaid = min($row['owed'], $row['paid']);
+            $remaining = $row['owed'] - $selfPaid;
+
+            if ($remaining > 0 && $surplus > 0) {
+                $applied = min($remaining, $surplus);
+                $selfPaid += $applied;
+                $remaining -= $applied;
+                $surplus -= $applied;
+            }
+
+            return ['student' => $row['student'], 'owed' => $row['owed'], 'paid' => $selfPaid, 'due' => $remaining];
+        });
+    }
+
+    /**
      * Per-child breakdown of what $guardianUser's linked children still
      * owe this term, non-optional fee items only (user request
      * 2026-07-27, parent dashboard "Fees Due" tile: "the fees due should
