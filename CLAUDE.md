@@ -4,6 +4,16 @@ This file exists so any future Claude session (or a different agent entirely) ca
 
 ## Session handover (read this first — kept current per user directive 2026-07-26: "always update the CLAUDE.md file on what you are doing, done and what's left"; and 2026-07-27: "so that no feedback is lost in my multiple work flow and responses, immediately i give a feedback or response or chat, update my current tasks list with what i have — update the claude.md with this now". This section is now updated the moment new feedback comes in, not just at session end — if you are reading this mid-session, the "Live queue" block below is the actual current state, more current than the narrative prose further down.)
 
+### Live queue (2026-07-28, third round — working through the 7 real gaps found by the full systematic re-audit below)
+
+User answered the `chart_style` scope question via AskUserQuestion: "all - user can choose any they want." **Done**: `_body-subject_chart.blade.php` (report card Subject Breakdown) now renders bars or a line depending on `chart_style`, mirroring `_body-score_trend.blade.php`'s exact pattern; `role-panel.blade.php`'s class-teacher boys/girls panel renders either the existing donut or two comparison bars (`#6D4FE0`/`#E14F63`, same colors as the legend). Verified via direct `view(...)->render()` calls in tinker for both `chart_style` values on both charts (no live-server round trip needed), confirmed greenfield's own setting was left at `line` afterward (never change the default). New test `RoleDashboardTest::test_the_boys_and_girls_split_switches_to_bars_when_the_school_chooses_that_chart_style`; full `RoleDashboardTest` 32/32 green. Committed and pushed (`94c0c6c`).
+
+Remaining 6 of the 7 gaps (not started, this is now the active queue, in no particular priority order yet — ask the user if they want a specific order): collapsible sections on Staff/Parent list views; a calendar/date-range picker on Subject Insights (filters exist, no date picker); template download/upload for Narrative Evaluation classes; report card templates (6 exist, user's reference describes 8-9); section-specific default timetable period durations (real schema change, one shared period catalog today — already known/deferred per `PopulateTimetables.php`'s own docblock, not a new discovery); exam timetable's visual grid not reusing the plain timetable's own styled table classes (cosmetic).
+
+A fresh full unfiltered `php artisan test` was kicked off in the background before starting on these (the previously tracked task id from earlier in this session no longer resolves, likely expired across the context compaction) — check its result before trusting the tree if picking this up mid-run.
+
+---
+
 ### Live queue (2026-07-28, latest round — user asked twice: first "check the feedback list for new ones," then the stronger "make sure all items there have been completed and done truly")
 
 **First pass (spot-check, ~20 most recent entries)** landed: Fees Due popup redesign/waterfall/CSS-specificity-bug fix, Help Center per-article leak fix, 3 Timetable term switcher corrections, payment popup session-scoping fix. Full detail in the tracker's Build Log.
