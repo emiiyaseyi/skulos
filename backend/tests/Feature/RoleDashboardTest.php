@@ -827,6 +827,33 @@ class RoleDashboardTest extends TestCase
         $this->assertStringNotContainsString('<polyline', $chartSvg);
     }
 
+    /** User request 2026-07-28: chart_style should also apply to the class teacher's boys/girls split, not just genuine trend charts, since the school can pick either presentation for it too. */
+    public function test_the_boys_and_girls_split_switches_to_bars_when_the_school_chooses_that_chart_style(): void
+    {
+        [$school, $teacherUser] = $this->schoolWithMember('class-teacher', 'rdgenderbar');
+        app(TenantManager::class)->use($school);
+
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Basic 3', 'sequence' => 1]);
+        $arm = Arm::create(['name' => 'A']);
+        $staff = Staff::create(['staff_id' => 'STF/GB', 'first_name' => 'F', 'last_name' => 'T', 'user_id' => $teacherUser->id]);
+        $classArm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => $arm->id, 'class_teacher_staff_id' => $staff->id]);
+
+        Student::create(['admission_number' => 'GB1', 'first_name' => 'Boy', 'last_name' => 'One', 'gender' => 'male', 'current_class_arm_id' => $classArm->id]);
+        Student::create(['admission_number' => 'GB2', 'first_name' => 'Girl', 'last_name' => 'One', 'gender' => 'female', 'current_class_arm_id' => $classArm->id]);
+        // A class teacher lacks school_info.update, so set the school-wide
+        // preference directly rather than through the branding form (only
+        // a school-owner/admin can save that, exercised already by the
+        // sibling test above through the real form).
+        \App\Models\Tenant\Setting::put('chart_style', 'bar');
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($teacherUser)->get(route('school.dashboard', ['school' => $school->slug]));
+        $response->assertOk();
+        $response->assertSee('rp-gender-bars', false);
+        $response->assertDontSee('rp-donut" style', false);
+    }
+
     public function test_students_at_risk_flags_low_attendance_and_low_average_but_not_a_healthy_student(): void
     {
         [$school, $admin] = $this->schoolWithMember('school-owner', 'rdrisk');

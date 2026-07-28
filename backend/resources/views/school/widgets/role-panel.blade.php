@@ -1,6 +1,14 @@
 @php
   $total = ($panel['boys'] ?? 0) + ($panel['girls'] ?? 0);
   $boysPct = $total ? round(($panel['boys'] / $total) * 100) : 0;
+  $girlsPct = $total ? round(($panel['girls'] / $total) * 100) : 0;
+  // The boys/girls split respects the same chart_style setting every
+  // other chart does (user directive 2026-07-28: even though it is a
+  // proportion breakdown, not a trend, the school can still choose
+  // either presentation for it) — a donut for 'line', a simple 2-bar
+  // comparison for 'bar', rather than a "line" rendering that would not
+  // mean anything for a two-category split.
+  $genderChartStyle = \App\Models\Tenant\Setting::grab('chart_style', config('skulos.default_chart_style', 'line'));
 @endphp
 
 <style>
@@ -8,6 +16,10 @@
   .rp-donut{width:96px;height:96px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;
     background:conic-gradient(#6D4FE0 calc(var(--boys,0) * 1%), #E14F63 0)}
   .rp-donut i{width:70px;height:70px;border-radius:50%;background:var(--panel);display:grid;place-items:center;font-weight:800;font-size:.85rem;text-align:center}
+  .rp-gender-bars{display:flex;flex-direction:column;gap:.4rem;width:9rem;flex-shrink:0}
+  .rp-gender-bars .track{background:var(--bg);border-radius:6px;height:.6rem;overflow:hidden}
+  .rp-gender-bars .fill{height:100%;border-radius:6px}
+  .rp-gender-bars .lbl{display:flex;justify-content:space-between;font-size:.7rem;color:var(--mut-dim);margin-bottom:.15rem}
   .rp-legend{display:flex;gap:1.2rem;margin-top:.8rem}
   .rp-legend span{display:flex;align-items:center;gap:.4rem;font-size:.82rem}
   .rp-legend i{width:10px;height:10px;border-radius:50%;display:inline-block}
@@ -38,7 +50,20 @@
         @if($panel['read_only'])<span class="badge">View only</span>@endif
       </div>
       <div class="rp-row">
-        <div class="rp-donut" style="--boys:{{ $boysPct }}"><i>{{ $boysPct }}% boys</i></div>
+        @if($genderChartStyle === 'bar')
+          <div class="rp-gender-bars">
+            <div>
+              <div class="lbl"><span>Boys</span><span>{{ $panel['boys'] }} ({{ $boysPct }}%)</span></div>
+              <div class="track"><div class="fill" style="width:{{ $boysPct }}%;background:#6D4FE0"></div></div>
+            </div>
+            <div>
+              <div class="lbl"><span>Girls</span><span>{{ $panel['girls'] }} ({{ $girlsPct }}%)</span></div>
+              <div class="track"><div class="fill" style="width:{{ $girlsPct }}%;background:#E14F63"></div></div>
+            </div>
+          </div>
+        @else
+          <div class="rp-donut" style="--boys:{{ $boysPct }}"><i>{{ $boysPct }}% boys</i></div>
+        @endif
         <div>
           <div class="rp-legend">
             <span><i style="background:#6D4FE0"></i> Boys ({{ $panel['boys'] }})</span>
