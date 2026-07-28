@@ -246,6 +246,23 @@
         if (window.SkulosSearchable) window.SkulosSearchable.enhanceAll(installmentSelect.parentNode);
       }
 
+      {{-- Whether the currently selected fee item group actually prices
+           the currently ticked children differently (real bug found live
+           2026-07-27: 3 children in 3 different classes selected for
+           "School Uniform (Optional)", a class priced item with no
+           universal variant; resolveVariant() with no single shared
+           class id falls back to an arbitrary variant, one price got
+           applied to everyone and then divided evenly, silently wrong
+           for at least 2 of the 3 children, and a payment record would
+           have been saved against the wrong class's fee item entirely
+           since only one fee_item_id is ever submitted per payment). --}}
+      function selectedVariantPrices(groupIndex){
+        return selectedStudentEls().map(function(el){
+          var variant = resolveVariant(groupIndex, el.dataset.classId);
+          return variant ? variant.amount : null;
+        });
+      }
+
       {{-- Resolves the group option actually selected down to a real fee
            item id in the hidden field the form submits, and auto fills
            the amount so picking a specific fee (not an All Fees plan)
@@ -253,16 +270,27 @@
       function refreshFeeItemHidden(){
         var val = feeItemSelect.value;
         if (val.indexOf('group:') === 0) {
-          var variant = resolveVariant(parseInt(val.split(':')[1], 10), currentSelectedClassId());
+          var groupIndex = parseInt(val.split(':')[1], 10);
+          var variant = resolveVariant(groupIndex, currentSelectedClassId());
           feeItemHidden.value = variant ? String(variant.id) : '';
-          if (variant) {
+          var prices = selectedVariantPrices(groupIndex);
+          var pricesVary = prices.some(function(p){ return p !== null; }) && prices.some(function(p){ return p !== prices[0]; });
+          if (pricesVary) {
+            // No single fee item id can correctly represent this
+            // selection, a payment can only ever be saved against one
+            // fee item; block it rather than silently save the wrong
+            // price/item against some of the children.
+            feeItemHidden.value = '';
+            feeItemAmountHint.textContent = 'This fee costs a different amount for the selected children\'s classes. Submit one payment per class, or use "All Fees" instead.';
+            feeItemAmountHint.style.display = '';
+          } else if (variant) {
             feeItemAmountHint.textContent = 'Amount for this fee: ₦' + variant.amount.toLocaleString(undefined, {minimumFractionDigits: 2});
             feeItemAmountHint.style.display = '';
             amountInput.value = variant.amount.toFixed(2);
-            refreshSplitHint();
           } else {
             feeItemAmountHint.style.display = 'none';
           }
+          refreshSplitHint();
         } else {
           feeItemHidden.value = val;
           feeItemAmountHint.style.display = 'none';
@@ -308,7 +336,12 @@
       function refreshSplitHint(){
         var count = selectedStudentEls().length;
         var amount = parseFloat(amountInput.value);
-        if (count > 1 && amount > 0) {
+        var val = feeItemSelect.value;
+        // The amount hint above already carries the "different price per
+        // class, submit separately" warning in this case, showing "split
+        // evenly" underneath it would directly contradict that warning.
+        var blockedByVaryingPrice = val.indexOf('group:') === 0 && ! feeItemHidden.value;
+        if (count > 1 && amount > 0 && ! blockedByVaryingPrice) {
           var share = amount / count;
           splitHint.textContent = 'This will be split evenly: ₦' + share.toLocaleString(undefined, {minimumFractionDigits: 2}) + ' each for ' + count + ' children.';
           splitHint.style.display = '';
@@ -331,13 +364,25 @@
       var percentRow = document.getElementById('percentRow');
 
       function selectedBalanceTotals(inclOptional){
-        var owed = 0, paid = 0;
+        // Balance is the SUM of each child's own clamped balance, never
+        // a single clamp on the combined totals (real bug found live
+        // 2026-07-27: a child who has already paid more than they owe
+        // was letting that surplus silently cover a sibling's separate
+        // unpaid balance, "Balance: 61,500" instead of the real
+        // 190,000 owed across the family once the two other children's
+        // balances are counted properly, matching the same per student
+        // clamp FeeBalanceService::outstandingForGuardian() and the
+        // parent dashboard's own Fees Due figure already use).
+        var owed = 0, paid = 0, balance = 0;
         selectedStudentEls().forEach(function(el){
-          owed += parseFloat((inclOptional ? el.dataset.owedAll : el.dataset.owed) || '0');
-          paid += parseFloat(el.dataset.paid || '0');
+          var childOwed = parseFloat((inclOptional ? el.dataset.owedAll : el.dataset.owed) || '0');
+          var childPaid = parseFloat(el.dataset.paid || '0');
+          owed += childOwed;
+          paid += childPaid;
+          balance += Math.max(0, childOwed - childPaid);
         });
 
-        return {owed: owed, paid: paid, balance: Math.max(0, owed - paid)};
+        return {owed: owed, paid: paid, balance: balance};
       }
 
       function planMode(){

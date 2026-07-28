@@ -10,6 +10,7 @@ use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\GradingScale;
 use App\Models\Tenant\ReportCardReview;
 use App\Models\Tenant\SchoolClass;
+use App\Models\Tenant\Setting;
 use App\Models\Tenant\Staff;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\StudentGuardian;
@@ -897,7 +898,20 @@ class RoleDashboard
         // optional fee items only ("the fees due should be excluding
         // non optional items", matching the Submit Payment "All Fees"
         // total already used for the same reason).
-        $feePerChild = app(\App\Services\Finance\FeeBalanceService::class)->nonOptionalOutstandingPerChild($user, $term)
+        //
+        // Fees are computed against whichever term Submit Payment and
+        // the payment countdown popup are ALSO currently showing (tenant
+        // Setting "finance_active_term_id", a school can deliberately
+        // point Finance at a different term than the academic "current"
+        // one, e.g. pre-collecting next term's fees early), not the
+        // plain academic current term $term above, a real inconsistency
+        // found live 2026-07-27 ("balance here is different from what
+        // the parent is seeing on the dashboard"): this tile alone used
+        // the academic current term while both other Finance surfaces
+        // already used the finance one.
+        $financeTermId = Setting::grab('finance_active_term_id');
+        $financeTerm = $financeTermId ? Term::find($financeTermId) : $term;
+        $feePerChild = app(\App\Services\Finance\FeeBalanceService::class)->nonOptionalOutstandingPerChild($user, $financeTerm)
             ->map(fn ($row) => ['name' => $row['student']->fullName(), 'due' => $row['due']])
             ->values();
         $feesDue = $feePerChild->sum('due');
