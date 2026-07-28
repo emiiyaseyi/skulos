@@ -19,7 +19,7 @@
       <tbody>
         @foreach($rows as $row)
           <tr>
-            <td>{{ $row['name'] }}</td>
+            <td class="fees-popup-name">{{ $row['name'] }}</td>
             <td>₦{{ number_format($row['owed'], 2) }}</td>
             <td>₦{{ number_format($row['paid'], 2) }}</td>
             <td style="color:{{ $row['due'] > 0 ? 'var(--bad)' : 'var(--ok)' }};font-weight:700">
@@ -39,11 +39,19 @@
   </div>
 </div>
 <style>
-  .fees-popup-card{max-width:44rem;width:calc(100% - 2rem);text-align:left}
+  {{-- Wide enough that the 4 columns (child, amount, paid, status) fit
+       without the horizontal scrollbar the previous, narrower version
+       still needed on real data (user report 2026-07-28, twice: "i
+       dont need to use the scroll bar from right to left"). min() so a
+       narrow phone still shrinks safely rather than overflowing the
+       viewport; the .stat-popup-card base this overrides caps out at
+       26rem, nowhere near enough for a 4 column money table. --}}
+  .fees-popup-card{max-width:min(94vw, 62rem);width:min(94vw, 62rem);text-align:left}
   .fees-popup-card h3{text-align:center}
   .fees-popup-table{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:.6rem}
-  .fees-popup-table th{text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--mut-dim);padding:.4rem .6rem;border-bottom:1px solid var(--line)}
-  .fees-popup-table td{padding:.55rem .6rem;border-bottom:1px solid var(--line);white-space:nowrap}
+  .fees-popup-table th{text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--mut-dim);padding:.4rem .8rem;border-bottom:1px solid var(--line)}
+  .fees-popup-table td{padding:.55rem .8rem;border-bottom:1px solid var(--line);white-space:nowrap}
+  .fees-popup-table td.fees-popup-name{white-space:normal;min-width:8rem}
   .fees-popup-table tbody tr:last-child td{border-bottom:none}
 </style>
 @endif
