@@ -911,10 +911,22 @@ class RoleDashboard
         // already used the finance one.
         $financeTermId = Setting::grab('finance_active_term_id');
         $financeTerm = $financeTermId ? Term::find($financeTermId) : $term;
-        $feePerChild = app(\App\Services\Finance\FeeBalanceService::class)->nonOptionalOutstandingPerChild($user, $financeTerm)
+        $feeBalances = app(\App\Services\Finance\FeeBalanceService::class);
+        $feePerChild = $feeBalances->nonOptionalOutstandingPerChild($user, $financeTerm)
             ->map(fn ($row) => ['name' => $row['student']->fullName(), 'due' => $row['due']])
             ->values();
-        $feesDue = $feePerChild->sum('due');
+        // The headline figure is the family's one combined balance, not
+        // the per-child rows summed (user directive 2026-07-27, after
+        // rejecting the per-child clamped total: "he overpaid for
+        // [Chukwuemeka] and so the overpaid amount should cover other
+        // children... calculate the total to be pay by all the
+        // children... then deduct the [total] paid... that should be
+        // the new balance"). $feePerChild below still shows each child's
+        // own status for transparency, it just no longer has to sum to
+        // this figure, since a sibling's surplus is real credit against
+        // the family's shared balance now, not money that vanishes at
+        // that child's own zero floor.
+        $feesDue = $feeBalances->nonOptionalOutstandingPooled($user, $financeTerm);
 
         $attendancePerChild = $children->map(function ($g) use ($term) {
             $student = $g->student;

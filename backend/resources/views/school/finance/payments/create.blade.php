@@ -364,25 +364,24 @@
       var percentRow = document.getElementById('percentRow');
 
       function selectedBalanceTotals(inclOptional){
-        // Balance is the SUM of each child's own clamped balance, never
-        // a single clamp on the combined totals (real bug found live
-        // 2026-07-27: a child who has already paid more than they owe
-        // was letting that surplus silently cover a sibling's separate
-        // unpaid balance, "Balance: 61,500" instead of the real
-        // 190,000 owed across the family once the two other children's
-        // balances are counted properly, matching the same per student
-        // clamp FeeBalanceService::outstandingForGuardian() and the
-        // parent dashboard's own Fees Due figure already use).
-        var owed = 0, paid = 0, balance = 0;
+        // The family's one pooled balance (user directive 2026-07-27,
+        // after directly rejecting a per-child clamped total: "he
+        // overpaid for [one child] and so the overpaid amount should
+        // cover other children... calculate the total to be pay by all
+        // the children... then deduct the [total] paid... that should
+        // be the new balance"), matching FeeBalanceService::
+        // nonOptionalOutstandingPooled(), the same method the parent
+        // dashboard's Fees Due tile and the payment countdown popup now
+        // both use too. A single clamp at the end, not a clamp per
+        // child before summing: one child's surplus payment is real
+        // credit against the rest of the family's balance.
+        var owed = 0, paid = 0;
         selectedStudentEls().forEach(function(el){
-          var childOwed = parseFloat((inclOptional ? el.dataset.owedAll : el.dataset.owed) || '0');
-          var childPaid = parseFloat(el.dataset.paid || '0');
-          owed += childOwed;
-          paid += childPaid;
-          balance += Math.max(0, childOwed - childPaid);
+          owed += parseFloat((inclOptional ? el.dataset.owedAll : el.dataset.owed) || '0');
+          paid += parseFloat(el.dataset.paid || '0');
         });
 
-        return {owed: owed, paid: paid, balance: balance};
+        return {owed: owed, paid: paid, balance: Math.max(0, owed - paid)};
       }
 
       function planMode(){

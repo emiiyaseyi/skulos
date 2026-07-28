@@ -105,6 +105,44 @@ class FeeBalanceService
     }
 
     /**
+     * The family's one combined balance: total non-optional fees owed
+     * across every linked child, minus every payment ever verified for
+     * any of them, clamped once at the end (user directive 2026-07-27,
+     * after directly rejecting the per-child clamped figure this file
+     * used everywhere else: "calculate the total to be pay by all the
+     * children... then deduct the 200000 that has been paid previously
+     * from it, that should be the new balance"). Deliberately NOT the
+     * same number as nonOptionalOutstandingForGuardian()/PerChild() above,
+     * those clamp each child's own balance to zero before summing, which
+     * stops one child's overpayment from ever offsetting a sibling's,
+     * exactly the behaviour rejected here: a family is billed and pays
+     * as one pool, so a surplus on one child's fees is real credit
+     * toward the rest of the family's balance, not money that
+     * disappears at that child's own zero floor.
+     */
+    public function nonOptionalOutstandingPooled(User $guardianUser, ?Term $term = null): float
+    {
+        $term ??= Term::current()->first();
+        if (! $term) {
+            return 0.0;
+        }
+
+        $students = Student::whereIn('id', StudentGuardian::where('guardian_user_id', $guardianUser->id)->pluck('student_id'))
+            ->with('currentClassArm.schoolClass')->get();
+
+        $owedByClass = [];
+        $owed = 0.0;
+        $paid = 0.0;
+        foreach ($students as $student) {
+            $classId = $student->currentClassArm?->school_class_id;
+            $owed += $classId ? ($owedByClass[$classId] ??= $this->nonOptionalOwedForClass($classId, $term)) : 0.0;
+            $paid += $this->paidByStudent($student->id);
+        }
+
+        return max(0, $owed - $paid);
+    }
+
+    /**
      * Per-child breakdown of what $guardianUser's linked children still
      * owe this term, non-optional fee items only (user request
      * 2026-07-27, parent dashboard "Fees Due" tile: "the fees due should

@@ -13,8 +13,8 @@
   to Submit Payment; "I'll pay later" is the confirmation this has NOT
   been paid yet, dismissing only for today, matching how a parent who
   genuinely has already paid would instead see nothing at all, since
-  outstandingForGuardian() only ever returns a positive amount when a
-  real balance remains.
+  nonOptionalOutstandingPooled() only ever returns a positive amount
+  when a real balance remains.
 --}}
 @if($paymentPopup)
 <div class="pay-scrim" id="payPopupScrim" role="alertdialog" aria-modal="true" aria-labelledby="payPopupTitle">

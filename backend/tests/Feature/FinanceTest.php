@@ -1864,4 +1864,53 @@ class FinanceTest extends TestCase
         // Child A fully paid (0 owed), Child B owes 15000-6000 = 9000.
         $this->assertSame(9000.0, $outstanding);
     }
+
+    /**
+     * User directive 2026-07-27, after directly rejecting a per-child
+     * clamped combined balance: "he overpaid for [one child] and so the
+     * overpaid amount should cover other children... calculate the
+     * total to be pay by all the children... then deduct the [total]
+     * paid... that should be the new balance." A family is billed and
+     * pays as one pool, so a surplus on one child's fees must reduce
+     * the balance owed for the rest of the family, not disappear at
+     * that child's own zero floor the way outstandingForGuardian()
+     * (tested above) intentionally still does.
+     */
+    public function test_fee_balance_service_pools_an_overpayment_across_siblings(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'finpooledone');
+        $parent = User::factory()->create();
+
+        app(TenantManager::class)->use($school);
+        $term = $this->currentTerm();
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $classA = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 9', 'sequence' => 1]);
+        $classB = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 10', 'sequence' => 2]);
+        $armA = \App\Models\Tenant\ClassArm::create(['school_class_id' => $classA->id]);
+        $armB = \App\Models\Tenant\ClassArm::create(['school_class_id' => $classB->id]);
+        $feeA = FeeItem::create(['name' => 'Tuition', 'amount' => 71500, 'term_id' => $term->id]);
+        $feeA->schoolClasses()->sync([$classA->id]);
+        $feeB = FeeItem::create(['name' => 'Tuition', 'amount' => 190000, 'term_id' => $term->id]);
+        $feeB->schoolClasses()->sync([$classB->id]);
+        $childA = Student::create(['admission_number' => 'FP1', 'first_name' => 'Overpaid', 'last_name' => 'Sibling', 'current_class_arm_id' => $armA->id]);
+        $childB = Student::create(['admission_number' => 'FP2', 'first_name' => 'Unpaid', 'last_name' => 'Sibling', 'current_class_arm_id' => $armB->id]);
+        StudentGuardian::create(['student_id' => $childA->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        StudentGuardian::create(['student_id' => $childB->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parent->id, 'is_primary' => true]);
+        // Child A overpaid by 128500 (200000 paid vs 71500 owed), Child B
+        // has paid nothing on their own 190000.
+        Payment::forceCreate(['student_id' => $childA->id, 'amount' => 200000, 'method' => 'bank_transfer', 'status' => Payment::STATUS_VERIFIED, 'submitted_by_user_id' => $bursar->id]);
+
+        $pooled = app(\App\Services\Finance\FeeBalanceService::class)->nonOptionalOutstandingPooled($parent, $term);
+        $perChildClamped = app(\App\Services\Finance\FeeBalanceService::class)->outstandingForGuardian($parent, $term);
+        app(TenantManager::class)->forget();
+
+        // Pooled: (71500 + 190000) owed - 200000 paid = 61500, Child A's
+        // surplus reduces Child B's real balance.
+        $this->assertSame(61500.0, $pooled);
+        // The older per-child clamped total intentionally stays a
+        // different, higher figure (Child A's surplus clamped away
+        // instead of carried over): 0 + 190000 = 190000. Both methods
+        // are kept, only the callers changed which one they use.
+        $this->assertSame(190000.0, $perChildClamped);
+    }
 }
