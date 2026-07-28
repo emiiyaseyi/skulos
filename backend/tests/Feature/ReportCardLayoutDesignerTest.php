@@ -219,7 +219,15 @@ class ReportCardLayoutDesignerTest extends TestCase
         $this->assertEquals(['signoff'], $layout->bodyOrder());
     }
 
-    /** User request 2026-07-19, answered by AskUserQuestion: both a score trend line chart and a subject breakdown bar chart. */
+    /**
+     * User request 2026-07-19, answered by AskUserQuestion: both a score
+     * trend and a subject breakdown chart on the card. Originally Subject
+     * Breakdown was a fixed bar chart regardless of chart_style; user
+     * directive 2026-07-28 ("all - user can choose any they want")
+     * extended the same chart_style toggle to it too, so under the
+     * default 'line' style both charts now render as a line, not a mix
+     * of line+bar — see the sibling test below for the 'bar' style.
+     */
     public function test_score_trend_and_subject_breakdown_charts_render_on_the_real_card(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'layouttwelve');
@@ -238,7 +246,29 @@ class ReportCardLayoutDesignerTest extends TestCase
             ->assertSee('Subject Breakdown')
             ->assertSee('<svg', false)
             ->assertSee('<polyline', false)
-            ->assertSee('<rect', false);
+            ->assertDontSee('<rect', false);
+    }
+
+    /** Sibling to the test above: chart_style='bar' switches both charts to bars together, since they now share one setting. */
+    public function test_score_trend_and_subject_breakdown_charts_both_switch_to_bars_together(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'layoutthirteen');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/settings/branding", ['chart_style' => 'bar']);
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/settings/layout", [
+            'enabled' => '1',
+            'header' => ['school_name'],
+            'info' => ['student_name'],
+            'body' => ['score_trend', 'subject_chart'],
+        ])->assertRedirect();
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/preview");
+
+        $response->assertOk()
+            ->assertSee('Score Trend')
+            ->assertSee('Subject Breakdown')
+            ->assertSee('<rect', false)
+            ->assertDontSee('<polyline', false);
     }
 
     public function test_a_non_report_card_viewer_cannot_reach_the_designer(): void
