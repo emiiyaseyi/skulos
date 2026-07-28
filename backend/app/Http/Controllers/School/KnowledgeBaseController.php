@@ -78,6 +78,18 @@ class KnowledgeBaseController extends Controller
         if ($teacherScoped && ($meta['hidden_for_teacher_scoped'] ?? false)) {
             return false;
         }
+        // Per-article flags (2026-07-28), separate from the route-level
+        // ones above: a route can be legitimately reachable by more than
+        // one audience for different reasons (school.timetable.mine,
+        // school.chat.index), so a specific article's own wording/
+        // content can be hidden from a scope even when its route stays
+        // fully visible for another article that reuses the same route.
+        if ($familyScoped && $article->hidden_for_family_scoped) {
+            return false;
+        }
+        if ($teacherScoped && $article->hidden_for_teacher_scoped) {
+            return false;
+        }
 
         $permission = $meta['permission'] ?? null;
 

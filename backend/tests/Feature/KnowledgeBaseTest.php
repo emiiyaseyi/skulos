@@ -294,6 +294,49 @@ class KnowledgeBaseTest extends TestCase
             ->assertSee(e("Messaging a student's guardian"), false);
     }
 
+    /**
+     * User report 2026-07-28, found live after the "For Teachers"
+     * category shipped: "why are parents seeing for teachers knowledge
+     * under their own help base" — "Viewing your timetable" and
+     * "Messaging a student's guardian" both point at routes
+     * (school.timetable.mine, school.chat.index) a parent ALSO
+     * genuinely holds the permission for, so the route-level
+     * hidden_for_family_scoped flag alone (already used for the admin
+     * only articles) was not enough; these specific, teacher-voiced
+     * articles need their own per-article hide.
+     */
+    public function test_a_parent_does_not_see_the_for_teachers_category_at_all(): void
+    {
+        [$school, $parent] = $this->schoolWithMember('parent', 'kbparentnoteacher');
+        $this->seed(\Database\Seeders\KnowledgeBaseSeeder::class);
+
+        $this->actingAs($parent)->get("http://{$school->slug}.localhost/help")
+            ->assertOk()
+            ->assertDontSee('For Teachers')
+            ->assertDontSee('Entering scores for your subject')
+            ->assertDontSee('Viewing your timetable')
+            ->assertDontSee(e("Messaging a student's guardian"), false);
+    }
+
+    /** The same leak confirmed live in the OTHER direction too: a real class teacher could see parent-voiced "For Parents" articles via the same shared-route/shared-permission shape. */
+    public function test_a_class_teacher_does_not_see_parent_specific_for_parents_articles(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('class-teacher', 'kbteachernoparent');
+        $this->seed(\Database\Seeders\KnowledgeBaseSeeder::class);
+
+        $response = $this->actingAs($teacher)->get("http://{$school->slug}.localhost/help");
+
+        $response->assertOk()
+            ->assertDontSee(e("Viewing your child's academic report"), false)
+            ->assertDontSee(e("Paying your child's fees"), false)
+            ->assertDontSee('Checking your payment history');
+        // Generic, non parent-exclusive content under the same category
+        // stays visible, hiding it would remove real content rather
+        // than fix a leak (no other article covers this for a teacher).
+        $response->assertSee('Reading school announcements')
+            ->assertSee('Understanding your notifications');
+    }
+
     /** Taking attendance is a genuine class teacher task, deliberately NOT hidden by the teacher-scoped exclusion, unlike the admin-only articles above. */
     public function test_a_class_teacher_still_sees_the_take_attendance_article(): void
     {

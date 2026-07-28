@@ -496,6 +496,12 @@ return [
         // to parents"). Every article here is something a parent
         // genuinely does on SKULOS, none of the school administration
         // content above ever applied to them in the first place.
+        // hidden_for_teacher_scoped on every one (2026-07-28, same user
+        // report as "For Teachers" above: this category was confirmed
+        // leaking the OTHER way too, showing "Viewing your child's
+        // academic report" etc. to a real class teacher, since a
+        // teacher also genuinely holds students.view/communication.view
+        // for their own unrelated reason).
         'For Parents' => [
             [
                 'title' => "Viewing your child's academic report",
@@ -507,6 +513,7 @@ return [
                     'A full Report Card is also available from the same profile once the school has released it.',
                 ],
                 'start_route' => 'school.students',
+                'hidden_for_teacher_scoped' => true,
             ],
             [
                 'title' => "Paying your child's fees",
@@ -518,6 +525,7 @@ return [
                     'Upload a screenshot or PDF of your transfer as evidence, then submit. You will be notified once the school verifies it.',
                 ],
                 'start_route' => 'school.finance.payments.create',
+                'hidden_for_teacher_scoped' => true,
             ],
             [
                 'title' => 'Checking your payment history',
@@ -528,8 +536,14 @@ return [
                     'Open any payment to see its full detail, including your uploaded evidence.',
                 ],
                 'start_route' => 'school.finance.payments.index',
+                'hidden_for_teacher_scoped' => true,
             ],
             [
+                // Deliberately NOT hidden_for_teacher_scoped: unlike the
+                // 3 above (worded "your child", genuinely parent
+                // exclusive), this content is generic and equally true
+                // for a teacher, hiding it would remove real content
+                // rather than fix a leak.
                 'title' => 'Reading school announcements',
                 'body' => 'Every announcement sent to you, most recent first.',
                 'steps' => [
@@ -540,6 +554,8 @@ return [
                 'start_route' => 'school.announcements.index',
             ],
             [
+                // Same reasoning: generic, universal content, not
+                // hidden_for_teacher_scoped.
                 'title' => 'Understanding your notifications',
                 'body' => 'The bell icon at the top of every screen, and the full Notification Center for everything at once.',
                 'steps' => [
@@ -570,6 +586,15 @@ return [
                     'Scores save automatically a few seconds after you stop typing, or use the Save button.',
                 ],
                 'start_route' => 'school.examinations.index',
+                // hidden_for_family_scoped (2026-07-28, user report: "why
+                // are parents seeing for teachers knowledge under their
+                // own help base"): a route-level hide can't be used here,
+                // school.timetable.mine/school.chat.index are ALSO
+                // legitimately reachable by a parent for their own
+                // reason, so the route itself must stay unhidden while
+                // this specific, teacher-voiced ARTICLE is hidden from a
+                // family-scoped viewer regardless.
+                'hidden_for_family_scoped' => true,
             ],
             [
                 'title' => 'Viewing your timetable',
@@ -580,6 +605,7 @@ return [
                     'Export or print the grid from the same page.',
                 ],
                 'start_route' => 'school.timetable.mine',
+                'hidden_for_family_scoped' => true,
             ],
             [
                 'title' => "Messaging a student's guardian",
@@ -590,6 +616,7 @@ return [
                     'Send your message. The guardian is notified.',
                 ],
                 'start_route' => 'school.chat.index',
+                'hidden_for_family_scoped' => true,
             ],
         ],
     ],

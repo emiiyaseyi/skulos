@@ -48,6 +48,8 @@ class KnowledgeBaseSeeder extends Seeder
                         'body' => $article['body'] ?? '',
                         'steps' => $article['steps'] ?? null,
                         'start_route' => $article['start_route'] ?? null,
+                        'hidden_for_family_scoped' => $article['hidden_for_family_scoped'] ?? false,
+                        'hidden_for_teacher_scoped' => $article['hidden_for_teacher_scoped'] ?? false,
                         'sequence' => $articleSequence,
                         'is_published' => true,
                     ]);
@@ -56,6 +58,16 @@ class KnowledgeBaseSeeder extends Seeder
                         'steps' => empty($existing->steps) ? ($article['steps'] ?? null) : null,
                         'start_route' => $existing->start_route === null ? ($article['start_route'] ?? null) : null,
                     ], fn ($v) => $v !== null));
+                    // Structural scope flags, not editable content, always
+                    // synced from config rather than "fill blanks only"
+                    // (2026-07-28, retrofitted onto already-seeded rows:
+                    // "why are parents seeing for teachers knowledge...
+                    // Update for other users too" needed already-seeded
+                    // articles corrected, not just new ones).
+                    $existing->update([
+                        'hidden_for_family_scoped' => $article['hidden_for_family_scoped'] ?? false,
+                        'hidden_for_teacher_scoped' => $article['hidden_for_teacher_scoped'] ?? false,
+                    ]);
                 }
 
                 $articleSequence++;
