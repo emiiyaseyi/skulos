@@ -131,10 +131,9 @@
     </div>
     @include('school.widgets._upcoming-exams', ['items' => $panel['upcomingExams'] ?? []])
     @include('school.widgets._upcoming-assignments', ['items' => $panel['upcomingAssignments'] ?? []])
-    @include('school.widgets._stat-popup', [
-      'id' => 'fees-due-popup', 'title' => 'Fees due per child', 'rows' => collect($panel['feePerChild'] ?? [])
-        ->map(fn ($r) => ['name' => $r['name'], 'value' => $r['due'] > 0 ? '₦'.number_format($r['due'], 2) : 'Payment completed', 'ok' => $r['due'] <= 0]),
-      'emptyText' => 'Nothing owed right now.',
+    @include('school.widgets._fees-due-popup', [
+      'id' => 'fees-due-popup', 'title' => 'Fees due per child', 'school' => $school,
+      'rows' => collect($panel['feePerChild'] ?? []),
     ])
     @include('school.widgets._stat-popup', [
       'id' => 'attendance-term-popup', 'title' => 'Attendance this term, per child', 'rows' => collect($panel['attendancePerChild'] ?? [])

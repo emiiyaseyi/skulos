@@ -151,7 +151,13 @@ class FeeBalanceService
      * a uniform is something a parent opts into separately). Zero
      * children back an empty collection, not a guessed figure.
      *
-     * @return \Illuminate\Support\Collection<int, array{student: Student, due: float}>
+     * 'owed' and 'paid' are each child's own raw figures (user directive
+     * 2026-07-28: the "Fees due per child" popup should show "the
+     * amount to be pay by each child, the amount paid... and a
+     * status"), 'due' stays the already-clamped max(0, owed-paid) used
+     * everywhere else this method is called.
+     *
+     * @return \Illuminate\Support\Collection<int, array{student: Student, owed: float, paid: float, due: float}>
      */
     public function nonOptionalOutstandingPerChild(User $guardianUser, ?Term $term = null): \Illuminate\Support\Collection
     {
@@ -160,7 +166,7 @@ class FeeBalanceService
             ->with('currentClassArm.schoolClass')->get();
 
         if (! $term) {
-            return $students->map(fn (Student $s) => ['student' => $s, 'due' => 0.0]);
+            return $students->map(fn (Student $s) => ['student' => $s, 'owed' => 0.0, 'paid' => 0.0, 'due' => 0.0]);
         }
 
         $owedByClass = [];
@@ -168,8 +174,9 @@ class FeeBalanceService
         return $students->map(function (Student $student) use ($term, &$owedByClass) {
             $classId = $student->currentClassArm?->school_class_id;
             $owed = $classId ? ($owedByClass[$classId] ??= $this->nonOptionalOwedForClass($classId, $term)) : 0.0;
+            $paid = $this->paidByStudent($student->id);
 
-            return ['student' => $student, 'due' => max(0, $owed - $this->paidByStudent($student->id))];
+            return ['student' => $student, 'owed' => $owed, 'paid' => $paid, 'due' => max(0, $owed - $paid)];
         });
     }
 }

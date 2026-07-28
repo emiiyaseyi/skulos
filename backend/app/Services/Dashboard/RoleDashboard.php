@@ -912,8 +912,12 @@ class RoleDashboard
         $financeTermId = Setting::grab('finance_active_term_id');
         $financeTerm = $financeTermId ? Term::find($financeTermId) : $term;
         $feeBalances = app(\App\Services\Finance\FeeBalanceService::class);
+        // owed/paid/due all carried through (user directive 2026-07-28:
+        // the "Fees due per child" popup should show "the amount to be
+        // pay by each child, the amount paid... and a status"), not
+        // just the clamped 'due' the tile total itself needs.
         $feePerChild = $feeBalances->nonOptionalOutstandingPerChild($user, $financeTerm)
-            ->map(fn ($row) => ['name' => $row['student']->fullName(), 'due' => $row['due']])
+            ->map(fn ($row) => ['name' => $row['student']->fullName(), 'owed' => $row['owed'], 'paid' => $row['paid'], 'due' => $row['due']])
             ->values();
         // The headline figure is the family's one combined balance, not
         // the per-child rows summed (user directive 2026-07-27, after
