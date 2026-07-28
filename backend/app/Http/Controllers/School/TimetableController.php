@@ -7,6 +7,7 @@ use App\Models\School;
 use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\Staff;
 use App\Models\Tenant\Student;
+use App\Models\Tenant\Term;
 use App\Models\Tenant\TimetablePeriod;
 use App\Services\Rbac\FamilyScope;
 use App\Services\Rbac\Rbac;
@@ -228,6 +229,7 @@ class TimetableController extends Controller
             'selectedChildId' => $resolved['children']->isNotEmpty() ? ($request->integer('student_id') ?: $resolved['children']->first()?->id) : null,
             'ownClassArm' => $resolved['ownClassArm'],
             'view' => $resolved['view'],
+            'allGrids' => $resolved['allGrids'],
         ]);
     }
 
@@ -266,6 +268,23 @@ class TimetableController extends Controller
             }
         } elseif ($studentIds !== null && $studentIds->isNotEmpty()) {
             $children = Student::whereIn('id', $studentIds)->with('currentClassArm.schoolClass.section', 'currentClassArm.arm')->get();
+
+            // "See all children's timetable at once" (user request
+            // 2026-07-27: "just the child or see all children timetable
+            // at once if the parent have more than one child"), each
+            // child's own grid stacked on the one page rather than
+            // switching one at a time.
+            if ($request->query('student_id') === 'all' && $children->count() > 1) {
+                $allGrids = $children->filter(fn (Student $s) => $s->currentClassArm)->map(fn (Student $s) => [
+                    'student' => $s,
+                    'grid' => $timetable->gridForClassArm($s->currentClassArm->id),
+                    'subtitle' => $s->currentClassArm->label().'\'s weekly schedule.',
+                ])->values();
+                $subtitle = 'Every child\'s weekly schedule.';
+
+                return compact('grid', 'subtitle', 'children', 'ownClassArm', 'view', 'allGrids');
+            }
+
             $studentId = $request->integer('student_id') ?: $children->first()?->id;
             $selectedChild = $children->firstWhere('id', $studentId) ?? $children->first();
             if ($selectedChild?->currentClassArm) {
@@ -274,7 +293,9 @@ class TimetableController extends Controller
             }
         }
 
-        return compact('grid', 'subtitle', 'children', 'ownClassArm', 'view');
+        $allGrids = collect();
+
+        return compact('grid', 'subtitle', 'children', 'ownClassArm', 'view', 'allGrids');
     }
 
     /**
@@ -312,6 +333,111 @@ class TimetableController extends Controller
             }
             fclose($out);
         }, 'my-timetable.csv');
+    }
+
+    /**
+     * A parent/student's own read only Examination Timetable (user
+     * request 2026-07-27: "this is also applicable to examination
+     * timetable where parent click on the button there to view the
+     * examination timetable and if its not available, it shows not
+     * available... timetable pages should also have term switcher
+     * too"). Unlike examIndex() above (the admin builder, an explicit
+     * scope/date-range picker), this resolves the child's own class and
+     * section automatically and is read only. A term switcher is
+     * buildable here, unlike the plain weekly timetable which has no
+     * term concept anywhere in its schema, because ExamTimetableEntry
+     * rows carry a real exam_date and a Term has real starts_on/ends_on
+     * dates, so filtering is just a date range match, no schema change
+     * needed.
+     */
+    public function examMine(Request $request, \App\Services\Timetable\ExamTimetableService $exams): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'timetable.view');
+        $school = $this->school($request);
+        $user = Auth::user();
+        $studentIds = app(FamilyScope::class)->studentIds($user, $school);
+        abort_if($studentIds === null || $studentIds->isEmpty(), 404);
+
+        $children = Student::whereIn('id', $studentIds)
+            ->with('currentClassArm.schoolClass.section')->get();
+
+        $terms = Term::with('session')->get()
+            ->sortByDesc(fn (Term $t) => sprintf('%05d-%05d', $t->academic_session_id ?? 0, $t->sequence ?? 0))
+            ->values();
+        $termId = $request->integer('term_id') ?: Term::current()->first()?->id;
+        $term = $terms->firstWhere('id', $termId);
+
+        $papers = $exams->papers()->where('is_break', false);
+
+        // "All children at once" (user request 2026-07-27), the same
+        // ?student_id=all pattern the plain weekly timetable already
+        // uses, one card per child rather than switching one at a time.
+        if ($request->query('student_id') === 'all' && $children->count() > 1) {
+            $allExamGrids = $children->map(function (Student $s) use ($term, $exams) {
+                [$entries, $dates] = $this->resolveExamDates($s, $term, $exams);
+
+                return ['student' => $s, 'entries' => $entries, 'dates' => $dates];
+            })->values();
+
+            return view('school.timetable.exam-mine', [
+                'school' => $school,
+                'accent' => $school->branding()['color'],
+                'children' => $children,
+                'selectedChildId' => null,
+                'papers' => $papers,
+                'entries' => [],
+                'dates' => collect(),
+                'allExamGrids' => $allExamGrids,
+                'terms' => $terms,
+                'term' => $term,
+            ]);
+        }
+
+        $studentId = $request->integer('student_id') ?: $children->first()?->id;
+        $selectedChild = $children->firstWhere('id', $studentId) ?? $children->first();
+        [$entries, $dates] = $selectedChild ? $this->resolveExamDates($selectedChild, $term, $exams) : [[], collect()];
+
+        return view('school.timetable.exam-mine', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'children' => $children,
+            'selectedChildId' => $selectedChild?->id,
+            'papers' => $papers,
+            'entries' => $entries,
+            'dates' => $dates,
+            'allExamGrids' => collect(),
+            'terms' => $terms,
+            'term' => $term,
+        ]);
+    }
+
+    /**
+     * @return array{0: array<string, \App\Models\Tenant\ExamTimetableEntry>, 1: \Illuminate\Support\Collection}
+     */
+    protected function resolveExamDates(Student $student, ?Term $term, \App\Services\Timetable\ExamTimetableService $exams): array
+    {
+        $entries = [];
+        $dates = collect();
+        $class = $student->currentClassArm?->schoolClass;
+        if ($class) {
+            // A class specific entry and a whole section entry can both
+            // exist for the same date/paper; both are shown (merged, class
+            // last so it wins the keyBy collision) rather than picking one
+            // scope and silently hiding the other, matching how the admin
+            // builder itself treats scope as two independent grids, never
+            // merged into one on save.
+            $sectionEntries = $class->section ? $exams->entriesFor(\App\Models\Tenant\ExamTimetableEntry::SCOPE_SECTION, $class->section->id) : [];
+            $classEntries = $exams->entriesFor(\App\Models\Tenant\ExamTimetableEntry::SCOPE_CLASS, $class->id);
+            $entries = $sectionEntries + $classEntries;
+
+            $dates = collect($entries)->map(fn ($e) => $e->exam_date)->unique()->sort()->values();
+            if ($term) {
+                $dates = $dates->filter(fn ($d) => (! $term->starts_on || $d >= $term->starts_on->toDateString())
+                    && (! $term->ends_on || $d <= $term->ends_on->toDateString()))->values();
+            }
+        }
+
+        return [$entries, $dates];
     }
 
     /**

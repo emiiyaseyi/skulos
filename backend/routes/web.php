@@ -663,6 +663,10 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::prefix('exam')->name('exam.')->group(function () use ($timetable) {
                 Route::get('/papers', [$timetable, 'examPapers'])->name('papers');
                 Route::post('/papers', [$timetable, 'examPapersUpdate'])->name('papers.update');
+                // A parent/student's own read only exam timetable (user
+                // request 2026-07-27), distinct from the admin builder
+                // below at the bare exam.index route.
+                Route::get('/mine', [$timetable, 'examMine'])->name('mine');
                 Route::get('/', [$timetable, 'examIndex'])->name('index');
                 Route::post('/', [$timetable, 'examSave'])->name('save');
                 Route::get('/template', [$timetable, 'examTemplate'])->name('template');

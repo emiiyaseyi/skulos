@@ -134,7 +134,13 @@ class PopulateTimetables extends Command
             $slotsNeeded = $daysPerSection * $teachingPapers->count();
             $rows = [];
             for ($i = 0; $i < $slotsNeeded && $i < $subjectQueue->count(); $i++) {
-                if ($cursor->isWeekend()) {
+                // A single "if" only advances one day, which lands
+                // squarely on a Sunday whenever the cursor was sitting on
+                // a Saturday (real bug found live 2026-07-27, populating
+                // Third Term 2025/2026's exam dates: "Sun, 12 Jul 2026"
+                // showed up as a real exam date). A weekend is two days,
+                // so skipping it needs a loop, not one hop.
+                while ($cursor->isWeekend()) {
                     $cursor->addDay();
                 }
                 $paper = $teachingPapers[$i % $teachingPapers->count()];

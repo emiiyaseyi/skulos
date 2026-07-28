@@ -30,8 +30,9 @@
     @if($children->count() > 1)
       <form method="GET" style="display:flex;gap:.5rem;align-items:center">
         <select name="student_id" onchange="this.form.submit()">
+          <option value="all" @selected(request()->query('student_id') === 'all')>All children</option>
           @foreach($children as $child)
-            <option value="{{ $child->id }}" @selected($selectedChildId === $child->id)>{{ $child->fullName() }}</option>
+            <option value="{{ $child->id }}" @selected($selectedChildId === $child->id && request()->query('student_id') !== 'all')>{{ $child->fullName() }}</option>
           @endforeach
         </select>
       </form>
@@ -39,6 +40,9 @@
     @if(! empty($grid))
       <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.mine.export', array_filter(['school' => $school->slug, 'view' => request()->query('view'), 'student_id' => $selectedChildId])) }}">Export CSV</a>
       <button type="button" class="btn btn-ghost btn-sm" onclick="window.print()">Print / Save as PDF</button>
+    @endif
+    @if($children->isNotEmpty())
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.exam.mine', array_filter(['school' => $school->slug, 'student_id' => $selectedChildId])) }}">Exam Timetable</a>
     @endif
   </div>
 </div>
@@ -64,48 +68,22 @@
 
 @if($periods->isEmpty())
   <div class="card"><p class="muted">No timetable has been set up yet.</p></div>
+@elseif($allGrids->isNotEmpty())
+  {{-- "See all children's timetable at once" (user request 2026-07-27),
+       one card per child, each with its own real grid, rather than
+       switching one at a time. --}}
+  @foreach($allGrids as $row)
+    <div class="card" style="margin-bottom:1.1rem">
+      <h3 style="margin-bottom:.6rem">{{ $row['student']->fullName() }}</h3>
+      @php($grid = $row['grid'])
+      @include('school.timetable._grid-table')
+    </div>
+  @endforeach
 @elseif(empty($grid) && $children->isEmpty())
   <div class="card"><p class="muted">Nothing is scheduled for you yet.</p></div>
 @else
   <div class="card">
-    <div style="overflow-x:auto">
-    <table class="tt-grid">
-      <thead>
-        <tr>
-          <th>Period</th>
-          @foreach($weekDays as $dayKey => $dayLabel)<th>{{ $dayLabel }}</th>@endforeach
-        </tr>
-      </thead>
-      <tbody>
-        @foreach($periods as $period)
-          @if(! $period->is_teaching_period)
-            <tr class="tt-break-row">
-              <td class="tt-period-col">{{ $period->name }}<span class="tt-period-time">{{ $period->timeLabel() }}</span></td>
-              <td colspan="{{ count($weekDays) }}">{{ $period->name }}</td>
-            </tr>
-          @else
-            <tr>
-              <td class="tt-period-col">{{ $period->name }}<span class="tt-period-time">{{ $period->timeLabel() }}</span></td>
-              @foreach($weekDays as $dayKey => $dayLabel)
-                @php($entry = $grid[$dayKey.':'.$period->id] ?? null)
-                <td class="tt-cell">
-                  @if($entry && $entry->subject)
-                    <b>{{ $entry->subject->name }}</b>
-                    <span>
-                      {{ $entry->staff?->fullName() ?? 'No teacher set' }}
-                      @if(isset($entry->classArm))&middot; {{ $entry->classArm->label() }}@endif
-                    </span>
-                  @else
-                    <span class="tt-free">Free</span>
-                  @endif
-                </td>
-              @endforeach
-            </tr>
-          @endif
-        @endforeach
-      </tbody>
-    </table>
-    </div>
+    @include('school.timetable._grid-table')
   </div>
 @endif
 @endsection
