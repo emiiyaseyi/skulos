@@ -25,15 +25,15 @@
   <div class="stack" style="flex-direction:row;gap:.6rem;align-items:center">
     @if($terms->isNotEmpty())
       <form method="GET" style="display:flex;gap:.5rem;align-items:center">
-        <select name="term_id" onchange="this.form.submit()">
-          <option value="" @selected(! $term)>All terms</option>
+        <select name="term_id" onchange="this.form.submit()" style="min-width:13rem">
+          <option value="all" @selected(! $term)>All terms</option>
           @foreach($terms as $t)
             <option value="{{ $t->id }}" @selected($term && $term->id === $t->id)>{{ $t->session?->name }} {{ $t->name }}</option>
           @endforeach
         </select>
       </form>
     @endif
-    <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.master.export', array_filter(['school' => $school->slug, 'term_id' => $term?->id])) }}">Export CSV</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.master.export', array_filter(['school' => $school->slug, 'term_id' => $term->id ?? 'all'])) }}">Export CSV</a>
     <button type="button" class="btn btn-ghost btn-sm" onclick="window.print()">Print / Save as PDF</button>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.timetable.index', ['school' => $school->slug]) }}">Back to Timetable</a>
   </div>

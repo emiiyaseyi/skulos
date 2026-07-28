@@ -136,14 +136,31 @@ class TimetableController extends Controller
      * already-provisioned school's timetable already is), not "term not
      * found, abort" the way ReportCardController::resolveTerm() treats
      * it — so this is its own small helper rather than reusing that
-     * one. No query param, or an unrecognised one, means "All terms",
-     * never a silent default to whichever term happens to be current.
+     * one. A first visit (no term_id in the query string at all)
+     * defaults to the school's current term (user directive 2026-07-28:
+     * "the timetable term switcher should have the school current term
+     * as the default one"), not undifferentiated "All terms". Explicitly
+     * picking "All terms" from the dropdown uses the sentinel 'all',
+     * the same convention ?student_id=all already uses on this same
+     * screen, deliberately NOT an empty string: every link this
+     * controller/its views build passes term_id through array_filter()
+     * (which drops empty/falsy values), so an empty-string "explicit
+     * all terms" would silently degrade back into "absent" on the very
+     * next link clicked, re-triggering the current-term default instead
+     * of staying on All Terms. 'all' is truthy, so it survives
+     * array_filter() and is never confused with "absent" again.
      */
     protected function resolveOptionalTerm(Request $request): ?Term
     {
         $termId = $request->query('term_id');
+        if ($termId === null) {
+            return Term::current()->first();
+        }
+        if ($termId === 'all') {
+            return null;
+        }
 
-        return $termId ? Term::find($termId) : null;
+        return Term::find($termId);
     }
 
     public function index(Request $request, TimetableService $timetable): \Illuminate\View\View|\Illuminate\Http\RedirectResponse
@@ -174,13 +191,13 @@ class TimetableController extends Controller
                 ->with('status', 'Set up your period catalog first, then come back and build this class\'s timetable.');
         }
 
-        // A real term switcher (user request 2026-07-28), a school that
-        // never touches this stays on "All terms" (the universal grid,
-        // $term null) exactly as before; picking a specific term shows
+        // A real term switcher (user request 2026-07-28), defaulting
+        // to the school's current term; picking a specific term shows
         // that term's own overrides layered on top of the universal
         // rows, and Save below then writes to that term specifically.
+        // "All terms" ($term null) is its own explicit choice.
         $terms = Term::with('session')->get()
-            ->sortByDesc(fn (Term $t) => sprintf('%05d-%05d', $t->academic_session_id ?? 0, $t->sequence ?? 0))
+            ->sortByDesc(fn (Term $t) => $t->chronologicalSortKey())
             ->values();
         $term = $this->resolveOptionalTerm($request);
 
@@ -290,7 +307,7 @@ class TimetableController extends Controller
         $studentIds = app(FamilyScope::class)->studentIds($user, $school);
         $term = $this->resolveOptionalTerm($request);
         $terms = Term::with('session')->get()
-            ->sortByDesc(fn (Term $t) => sprintf('%05d-%05d', $t->academic_session_id ?? 0, $t->sequence ?? 0))
+            ->sortByDesc(fn (Term $t) => $t->chronologicalSortKey())
             ->values();
 
         $grid = [];
@@ -406,7 +423,7 @@ class TimetableController extends Controller
             ->with('currentClassArm.schoolClass.section')->get();
 
         $terms = Term::with('session')->get()
-            ->sortByDesc(fn (Term $t) => sprintf('%05d-%05d', $t->academic_session_id ?? 0, $t->sequence ?? 0))
+            ->sortByDesc(fn (Term $t) => $t->chronologicalSortKey())
             ->values();
         $termId = $request->integer('term_id') ?: Term::current()->first()?->id;
         $term = $terms->firstWhere('id', $termId);
@@ -499,7 +516,7 @@ class TimetableController extends Controller
         $school = $this->school($request);
         $term = $this->resolveOptionalTerm($request);
         $terms = Term::with('session')->get()
-            ->sortByDesc(fn (Term $t) => sprintf('%05d-%05d', $t->academic_session_id ?? 0, $t->sequence ?? 0))
+            ->sortByDesc(fn (Term $t) => $t->chronologicalSortKey())
             ->values();
 
         return view('school.timetable.master', [

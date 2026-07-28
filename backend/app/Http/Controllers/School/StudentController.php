@@ -552,7 +552,7 @@ class StudentController extends Controller
                 ->with('currentClassArm.schoolClass')->orderBy('first_name')->get()
             : collect();
         $allTerms = Term::with('session')->get()
-            ->sortByDesc(fn (Term $t) => sprintf('%05d-%05d', $t->academic_session_id ?? 0, $t->sequence ?? 0))
+            ->sortByDesc(fn (Term $t) => $t->chronologicalSortKey())
             ->values();
 
         $currentTerm = Term::current()->first();

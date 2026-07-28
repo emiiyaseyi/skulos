@@ -64,4 +64,28 @@ class Term extends Model
     {
         return $query->where('is_current', true);
     }
+
+    /**
+     * A sortByDesc() key that puts the most recent academic year first,
+     * then within that year the most recent term first (e.g. Third,
+     * Second, First). Real, chronological year, not this term's own
+     * session's row id (found live on greenfield, user report
+     * 2026-07-28: "why are all the term not organized serially" — a
+     * session created out of order, e.g. a historical 2024/2025 session
+     * added AFTER the 2025/2026 one already existed, gets a HIGHER id
+     * despite being an EARLIER year, so `academic_session_id DESC`
+     * silently sorted years out of order). AcademicSession.starts_on
+     * would be the obviously correct field, but is not reliably
+     * populated (a newly created future session can have it blank
+     * before an admin sets real dates), so the year is instead parsed
+     * from the session's own name, which this app's AcademicSession
+     * seeder/admin form always starts with a 4 digit year
+     * ("2026/2027 Session"): (int) on a string stops at the first non
+     * digit character, so this is robust without needing a strict
+     * format assumption beyond "starts with a year".
+     */
+    public function chronologicalSortKey(): string
+    {
+        return sprintf('%05d-%05d', (int) $this->session?->name, $this->sequence ?? 0);
+    }
 }

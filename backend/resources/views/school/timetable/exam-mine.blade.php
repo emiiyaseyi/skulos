@@ -32,7 +32,7 @@
     @if($terms->isNotEmpty())
       <form method="GET" style="display:flex;gap:.5rem;align-items:center">
         <input type="hidden" name="student_id" value="{{ request()->query('student_id') === 'all' ? 'all' : $selectedChildId }}" />
-        <select name="term_id" onchange="this.form.submit()">
+        <select name="term_id" onchange="this.form.submit()" style="min-width:13rem">
           @foreach($terms as $t)
             <option value="{{ $t->id }}" @selected($term && $term->id === $t->id)>{{ $t->session?->name }} {{ $t->name }}</option>
           @endforeach

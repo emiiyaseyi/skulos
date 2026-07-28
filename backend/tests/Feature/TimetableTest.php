@@ -173,8 +173,11 @@ class TimetableTest extends TestCase
         [$termOne] = $this->twoTerms();
         app(TenantManager::class)->forget();
 
-        // The universal grid: Mathematics on Monday.
-        $this->actingAs($owner)->post(route('school.timetable.save', ['school' => $school->slug, 'classArmId' => $classArmA->id]), [
+        // The universal grid: Mathematics on Monday. term_id=all is the
+        // explicit "All terms" sentinel: absent now defaults to the
+        // school's current term (user directive 2026-07-28), not
+        // universal, so this can no longer rely on omitting it.
+        $this->actingAs($owner)->post(route('school.timetable.save', ['school' => $school->slug, 'classArmId' => $classArmA->id, 'term_id' => 'all']), [
             'cells' => ['monday' => [$period->id => ['subject_id' => $subject->id, 'staff_id' => $staffA->id]]],
         ])->assertRedirect();
 
@@ -184,7 +187,7 @@ class TimetableTest extends TestCase
         ])->assertRedirect();
 
         // "All terms" still shows the untouched universal grid.
-        $this->actingAs($owner)->get(route('school.timetable.index', ['school' => $school->slug, 'class_arm_id' => $classArmA->id]))
+        $this->actingAs($owner)->get(route('school.timetable.index', ['school' => $school->slug, 'class_arm_id' => $classArmA->id, 'term_id' => 'all']))
             ->assertOk()->assertSee('Mathematics');
 
         // Term One shows its own override for the same slot.
@@ -208,7 +211,7 @@ class TimetableTest extends TestCase
         [$termOne] = $this->twoTerms();
         app(TenantManager::class)->forget();
 
-        $this->actingAs($owner)->post(route('school.timetable.save', ['school' => $school->slug, 'classArmId' => $classArmA->id]), [
+        $this->actingAs($owner)->post(route('school.timetable.save', ['school' => $school->slug, 'classArmId' => $classArmA->id, 'term_id' => 'all']), [
             'cells' => ['monday' => [$period->id => ['subject_id' => $subject->id, 'staff_id' => $staffA->id]]],
         ]);
 
@@ -264,6 +267,54 @@ class TimetableTest extends TestCase
         app(TenantManager::class)->use($school);
         $this->assertNotNull(TimetableEntry::where('class_arm_id', $classArmB->id)->where('term_id', $termTwo->id)->first());
         app(TenantManager::class)->forget();
+    }
+
+    /** User directive 2026-07-28: "the timetable term switcher should have the school current term as the default one." */
+    public function test_a_first_visit_with_no_term_selected_defaults_to_the_school_current_term(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'tttermdefault');
+        [$classArmA, , $subject, $staffA] = $this->seedAcademics($school);
+        app(TenantManager::class)->use($school);
+        $period = TimetablePeriod::first();
+        [$termOne] = $this->twoTerms();
+        app(TenantManager::class)->forget();
+
+        // Saved for Term One (the current term) specifically.
+        $this->actingAs($owner)->post(route('school.timetable.save', ['school' => $school->slug, 'classArmId' => $classArmA->id, 'term_id' => $termOne->id]), [
+            'cells' => ['monday' => [$period->id => ['subject_id' => $subject->id, 'staff_id' => $staffA->id]]],
+        ]);
+
+        // No term_id in the URL at all: shows Term One's grid by
+        // default, not the (empty) universal grid.
+        $this->actingAs($owner)->get(route('school.timetable.index', ['school' => $school->slug, 'class_arm_id' => $classArmA->id]))
+            ->assertOk()
+            ->assertSee('Mathematics');
+    }
+
+    /**
+     * User report 2026-07-28: "why are all the term not organized
+     * serially, it should start with the most recent year." Real bug
+     * found live: an AcademicSession created out of chronological
+     * order (a historical session added AFTER a newer one already
+     * existed) gets a higher row id despite being an earlier year, so
+     * sorting terms by their session's own id put years out of order.
+     */
+    public function test_terms_sort_by_real_chronological_year_not_session_creation_order(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'tttermchrono');
+        app(TenantManager::class)->use($school);
+        // Deliberately created out of chronological order: the older
+        // 2024/2025 session is inserted SECOND, getting a higher id
+        // than the newer 2025/2026 session inserted first.
+        $recent = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026 Session']);
+        $older = \App\Models\Tenant\AcademicSession::create(['name' => '2024/2025 Session']);
+        $olderTerm = \App\Models\Tenant\Term::create(['academic_session_id' => $older->id, 'name' => 'First Term', 'sequence' => 1]);
+        $recentTerm = \App\Models\Tenant\Term::create(['academic_session_id' => $recent->id, 'name' => 'First Term', 'sequence' => 1]);
+        $terms = \App\Models\Tenant\Term::with('session')->get()->sortByDesc(fn ($t) => $t->chronologicalSortKey())->values();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame($recentTerm->id, $terms->first()->id);
+        $this->assertSame($olderTerm->id, $terms->last()->id);
     }
 
     public function test_a_scoped_teacher_cannot_reach_the_master_timetable(): void
