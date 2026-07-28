@@ -41,13 +41,24 @@
 <style>
   {{-- Wide enough that the 4 columns (child, amount, paid, status) fit
        without the horizontal scrollbar the previous, narrower version
-       still needed on real data (user report 2026-07-28, twice: "i
-       dont need to use the scroll bar from right to left"). min() so a
-       narrow phone still shrinks safely rather than overflowing the
-       viewport; the .stat-popup-card base this overrides caps out at
-       26rem, nowhere near enough for a 4 column money table. --}}
-  .fees-popup-card{max-width:min(94vw, 62rem);width:min(94vw, 62rem);text-align:left}
-  .fees-popup-card h3{text-align:center}
+       still needed on real data (user report 2026-07-28, three times:
+       "i dont need to use the scroll bar from right to left" /
+       "still not fixed as i have been asking"). The real bug the first
+       two width attempts missed: _stat-popup.blade.php's OWN <style>
+       block (rendered by the attendance popup include right after this
+       one in role-panel.blade.php) declares plain ".stat-popup-card
+       {max-width:26rem}", equal CSS specificity to a plain
+       ".fees-popup-card{...}" rule, so whichever renders LATER in the
+       page wins regardless of which value looks more specific to a
+       human — and attendance's include comes after this one, so its
+       26rem was silently winning every time no matter how wide this
+       file's own number was set. Fixed by using the COMPOUND selector
+       ".stat-popup-card.fees-popup-card" everywhere below (specificity
+       0,2,0/0,2,1, strictly higher than the base's plain 0,1,0/0,1,1),
+       which wins on specificity alone, not on source order, so it can
+       never be silently re-broken by a future reordering of includes. --}}
+  .stat-popup-card.fees-popup-card{max-width:min(94vw, 62rem);width:min(94vw, 62rem);text-align:left}
+  .stat-popup-card.fees-popup-card h3{text-align:center}
   .fees-popup-table{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:.6rem}
   .fees-popup-table th{text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--mut-dim);padding:.4rem .8rem;border-bottom:1px solid var(--line)}
   .fees-popup-table td{padding:.55rem .8rem;border-bottom:1px solid var(--line);white-space:nowrap}
