@@ -2590,6 +2590,22 @@ The user's "FEEDBACK LIST.docx" got a first "16 issues" pass and a newly appende
 - Resolution: as described inline above.
 - QA: `FinanceTest` (66 existing + 1 new = 67, all passing), plus a broader batch (`TimetableTest`, `ExaminationTimetableTest`, `PopulateTimetablesTest`, `NotificationCenterTest`, `RoleDashboardTest`, `ReportCardTest`) re-run together after this correction, 141 passed, 0 failed. Verified live on greenfield with a fresh parent login both for the pooled balance figure and for the notification pin action succeeding end to end.
 
+### Extend Help & Knowledge Base role-relevance to teacher-scoped roles (2026-07-28)
+- Status: Done
+- Started: 2026-07-28
+- Notes: same shape of fix as the earlier "For Parents" work (family-scoped roles), now extended to `teacher_scoped_roles`. A class or subject teacher's Help list was showing the same admin-only articles a parent's list used to see before that earlier fix, for the identical underlying reason: several Knowledge Base entries share a broad permission code for a narrower audience than the article actually needs. New `hidden_for_teacher_scoped` flag alongside the existing `hidden_for_family_scoped` one in `config('skulos.knowledge_base_start_routes')`, applied to every genuinely admin/leadership-tier entry (User & Role Management, Add/Import Students, Student Field Settings, Houses, Custom Fields, Timetable Periods, the admin Examination Timetable builder, Assessment Structure, Grading, Report Card Layout Designer, Report Cards Pending Review, Compose an Announcement, Communication History, Report Builder, Academic Insights). Deliberately NOT applied to `school.attendance.index`, since taking attendance is a genuine class teacher task, not an admin-only workflow. New "For Teachers" category with 3 real articles (entering scores, viewing a timetable, messaging a guardian), using 3 newly-added `start_routes` (`school.examinations.index`, `school.timetable.mine`, `school.chat.index`). `KnowledgeBaseController` got a new `isTeacherScoped()` alongside the existing `isFamilyScoped()`, both checked in `articleVisible()`.
+- Issues/Bugs: Knowledge Base content turned out to be a platform-shared table (`App\Models\KnowledgeBaseCategory`/`KnowledgeBaseArticle`, no tenant `$connection` override), not per-school data; an initial attempt to loop the seeder per tenant found no `knowledge_base_categories` table in any tenant database at all, which is what revealed this.
+- Resolution: `KnowledgeBaseSeeder` only ever needs running once against the default connection, not once per school. Re-ran it once; the new category and articles are live for every school already, no per-school backfill needed.
+- QA: 3 new tests added to `KnowledgeBaseTest`, 21/21 passing. Verified live on greenfield with a real class-teacher login (`kunle.yusuf@outlook.com`): sees "For Teachers" and "Taking attendance", does not see "Setting up school houses".
+
+### Fix two tests left stale by the suggested remark default flip (2026-07-28)
+- Status: Done
+- Started: 2026-07-28
+- Notes: a full unfiltered `php artisan test` run (1164 tests) after the whole batch above surfaced exactly 2 real failures, both stale test assumptions rather than logic bugs: `ExaminationScreenTest::test_the_score_entry_page_ships_grading_and_comment_bands_for_live_recalculation` expected the suggested remark text to appear with no explicit setting, which was true under the old default but not the new one; `ReportCardWorkflowTest::test_an_owner_can_turn_the_suggested_remark_off_and_on` asserted the pre-toggle state was `true`.
+- Issues/Bugs: none beyond the above.
+- Resolution: the score entry test now explicitly turns the setting on via `Setting::put(...)` before asserting the remark text ships, matching the pattern the sibling "turned off" test already used; the toggle test now starts from the correct `false` default and exercises on then off then on again.
+- QA: both files re-run together, 66 passed, 0 failed. Full suite otherwise green at 1162/1164 before this fix (the 2 failures above), 1164/1164 expected on the next full run.
+
 ---
 
 ---
