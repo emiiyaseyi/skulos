@@ -3,6 +3,14 @@
 
 @push('head')
 <style>
+  {{-- Same tt-grid visual language as the weekly timetable (index.blade.php/mine.blade.php's own copy), so this grid doesn't look like a different, unstyled screen. --}}
+  .tt-grid{width:100%;border-collapse:collapse;font-size:.82rem}
+  .tt-grid th,.tt-grid td{border:1px solid var(--line);padding:.5rem;vertical-align:top}
+  .tt-grid th{background:var(--bg);font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--mut-dim)}
+  .tt-grid .tt-period-col{white-space:nowrap;font-weight:700}
+  .tt-grid .tt-period-time{display:block;font-weight:400;color:var(--mut-dim);font-size:.72rem;text-transform:none;letter-spacing:normal}
+  .tt-grid .tt-cell b{display:block}
+  .tt-free{color:var(--mut-dim)}
   @media print{
     .appbar,.side,.impersonate-bar,.page-head .btn,.page-head form{display:none !important}
     .content{padding:0 !important}

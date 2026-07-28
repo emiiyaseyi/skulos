@@ -484,4 +484,26 @@ class TimetableTest extends TestCase
 
         $this->actingAs($owner)->get("http://{$school->slug}.localhost/dashboard")->assertOk();
     }
+
+    /** User report 2026-07-28: the parent-facing Exam Timetable rendered as a bare default table, visually inconsistent with the weekly timetable's own tt-grid styling right next to it in the nav. */
+    public function test_the_parent_facing_exam_timetable_reuses_the_weekly_grids_own_styled_classes(): void
+    {
+        [$school, $parentUser] = $this->schoolWithMember('parent', 'ttexamstyle');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Secondary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS 1', 'sequence' => 1]);
+        $arm = Arm::create(['name' => 'A']);
+        $classArm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => $arm->id]);
+        $subject = Subject::create(['name' => 'Mathematics']);
+        $child = Student::create(['admission_number' => 'EX1', 'first_name' => 'Chika', 'last_name' => 'Obi', 'current_class_arm_id' => $classArm->id]);
+        StudentGuardian::create(['student_id' => $child->id, 'name' => 'Mrs. Obi', 'guardian_user_id' => $parentUser->id]);
+        $paper = \App\Models\Tenant\ExamPaper::create(['name' => 'Paper 1', 'sequence' => 1, 'duration_minutes' => 60, 'is_break' => false, 'starts_at' => '08:00', 'ends_at' => '09:00']);
+        \App\Models\Tenant\ExamTimetableEntry::create(['exam_date' => '2026-11-25', 'exam_paper_id' => $paper->id, 'scope_type' => 'class', 'scope_id' => $classArm->id, 'subject_id' => $subject->id]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($parentUser)->get(route('school.timetable.exam.mine', ['school' => $school->slug]));
+
+        $response->assertOk()->assertSee('table class="tt-grid"', false)->assertSee('Mathematics');
+    }
 }

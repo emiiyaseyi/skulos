@@ -1,25 +1,35 @@
 {{-- One exam date x paper grid, shared by the single-child and "all
-     children at once" views. Expects $papers, $entries, $dates. --}}
+     children at once" views. Expects $papers, $entries, $dates. Reuses the
+     plain weekly timetable's own tt-grid/tt-cell/tt-period-col/tt-free CSS
+     (user report 2026-07-28: this grid rendered as a bare default table,
+     visually inconsistent with the weekly timetable it sits right next to
+     in the nav) rather than a second, parallel visual language. --}}
 @if($dates->isEmpty())
   <p class="muted">No examination timetable is available yet{{ $term ? ' for '.$term->name : '' }}.</p>
 @else
   <div style="overflow-x:auto">
-  <table>
+  <table class="tt-grid">
     <thead>
       <tr>
         <th>Date</th>
         @foreach($papers as $paper)
-          <th>{{ $paper->name }}<div class="muted" style="font-weight:400;font-size:.72rem">{{ $paper->timeLabel() }}</div></th>
+          <th>{{ $paper->name }}<span class="tt-period-time">{{ $paper->timeLabel() }}</span></th>
         @endforeach
       </tr>
     </thead>
     <tbody>
       @foreach($dates as $date)
         <tr>
-          <td class="muted" style="white-space:nowrap">{{ \Illuminate\Support\Carbon::parse($date)->format('D, d M Y') }}</td>
+          <td class="tt-period-col">{{ \Illuminate\Support\Carbon::parse($date)->format('D, d M Y') }}</td>
           @foreach($papers as $paper)
             @php($entry = $entries[$date.':'.$paper->id] ?? null)
-            <td class="muted">{{ $entry?->subject?->name ?? 'Not set' }}</td>
+            <td class="tt-cell">
+              @if($entry && $entry->subject)
+                <b>{{ $entry->subject->name }}</b>
+              @else
+                <span class="tt-free">Not set</span>
+              @endif
+            </td>
           @endforeach
         </tr>
       @endforeach
