@@ -39,7 +39,7 @@
       @else
         <p class="muted">Average score across all recorded assessments in {{ $panel['term'] }}.</p>
         {{-- Same "big stat number" size as the shared .stat card (this widget always renders inside the school portal's .school-theme shell), not an improvised third size, per the 2026-07-28 text consistency audit. --}}
-        <div style="font-family:var(--font-serif);font-size:1.9rem;font-weight:800;margin-top:.4rem">{{ $panel['average'] }}%</div>
+        <div style="font-size:1.9rem;font-weight:800;margin-top:.4rem">{{ $panel['average'] }}%</div>
       @endif
     </div>
     @break

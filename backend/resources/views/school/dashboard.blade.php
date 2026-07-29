@@ -29,7 +29,7 @@
   .school-theme .fig-classic::before{display:none}
   .school-theme .fig-classic .fic{position:absolute;top:.75rem;right:.75rem;width:1.9rem;height:1.9rem;background:none;color:var(--warn);opacity:.6;margin:0}
   .school-theme .fig-classic .fic svg{width:1.9rem;height:1.9rem}
-  .school-theme .fig b{font-family:var(--font-serif);font-size:1.9rem}
+  .school-theme .fig b{font-size:1.9rem}
   /* User directive 2026-07-16: "instead of first two rows, make it one
      row and the show more button" (was 2 rows of 4 = 8). Rows past the
      first 4 (1 complete row, the grid rule's own "resolve to complete

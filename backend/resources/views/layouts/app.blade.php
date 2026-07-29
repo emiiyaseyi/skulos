@@ -79,7 +79,6 @@
   --side:var(--shell); --side-ink:var(--ink); --side-mut:rgba(26,22,19,.62); --side-line:var(--line); --side-active:#F5EEDC;
   --shadow:0 1px 2px rgba(26,22,19,.07),0 10px 26px -16px rgba(26,22,19,.22);
   --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
-  --font-serif:Georgia,'Iowan Old Style','Palatino Linotype','Book Antiqua',serif;
   --radius:10px;
 }
 @media(prefers-color-scheme:dark){.school-theme{
@@ -98,10 +97,12 @@
 :root[data-theme="light"] .school-theme{--bg:#FFFFFF;--panel:#FFFFFF;--shell:#FFFFFF;--ink:#1A1613;--mut:rgba(26,22,19,.68);--mut-dim:rgba(26,22,19,.58);--line:#E4D9BE;--line-deep:#C9B98F;--soft:rgba(26,22,19,.035);--side-mut:rgba(26,22,19,.62);--side-active:#F5EEDC;--shadow:0 1px 2px rgba(26,22,19,.07),0 10px 26px -16px rgba(26,22,19,.22);--ok:#1E9E5A;--warn:#C97A0A;--bad:#D93A2B;}
 :root[data-theme="dark"] .school-theme{--bg:#171310;--panel:#211C17;--shell:#171310;--ink:#F0E9D8;--mut:rgba(240,233,216,.68);--mut-dim:rgba(240,233,216,.55);--line:rgba(240,233,216,.10);--line-deep:rgba(240,233,216,.18);--soft:rgba(240,233,216,.04);--side-mut:rgba(240,233,216,.62);--side-active:#211C17;--shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -16px rgba(0,0,0,.6);--ok:#52C78A;--warn:#E5A83D;--bad:#E86A5C;}
 
-/* numbers and headline-weight text set in serif per the lookbook,
-   uppercase sans labels stay on the base --font everywhere else */
-.school-theme h1.title,.school-theme .appbar h2,.school-theme .card h3,
-.school-theme .stat b,.school-theme .auth-logo,.school-theme .side-brand{font-family:var(--font-serif)}
+{{-- Numbers used to render in a serif font per the original Design
+     Lookbook v4 decision, with uppercase labels staying sans right next
+     to them. User report 2026-07-28 (a real dashboard screenshot): that
+     mismatch reads as inconsistent, not polished. One sans-serif
+     typeface everywhere now, matching the platform admin portal, which
+     never had the serif treatment. --}}
 /* card icon + title centred (standing design system rule) applied to the
    shared stat-card primitive */
 .school-theme .stat-card{flex-direction:column;text-align:center;gap:.5rem}

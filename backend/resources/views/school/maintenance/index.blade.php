@@ -60,8 +60,8 @@
   <div class="card">
     <h3 style="margin-bottom:.7rem">Storage</h3>
     <p class="muted" style="margin-bottom:.2rem">Database size</p>
-    {{-- Same "big stat number" family as .stat b (this page always renders inside .school-theme), 2026-07-28 text consistency audit. --}}
-    <div style="font-family:var(--font-serif);font-size:1.9rem;font-weight:800;margin-bottom:.4rem">{{ \App\Services\Maintenance\StorageService::humanBytes($storage['database_bytes']) }}</div>
+    {{-- Same "big stat number" size as .stat b (this page always renders inside .school-theme), 2026-07-28 text consistency audit. --}}
+    <div style="font-size:1.9rem;font-weight:800;margin-bottom:.4rem">{{ \App\Services\Maintenance\StorageService::humanBytes($storage['database_bytes']) }}</div>
     @if($storage['limit_mb'])
       @php($usedMb = $storage['database_bytes'] ? $storage['database_bytes'] / 1048576 : 0)
       @php($pct = min(100, round($usedMb / $storage['limit_mb'] * 100)))
