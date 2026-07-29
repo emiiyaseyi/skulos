@@ -13,7 +13,7 @@
   @php($widgetId = 'atRisk'.\Illuminate\Support\Str::random(6))
   <div class="card rp-card">
     <h3 style="margin-bottom:.3rem">{{ $title ?? 'Students at risk' }}</h3>
-    <p class="muted" style="font-size:.8rem;margin-bottom:.8rem">{{ $subtitle ?? 'Low attendance or low average this term, an early flag, not a formal report.' }}</p>
+    <p class="muted" style="margin-bottom:.8rem">{{ $subtitle ?? 'Low attendance or low average this term, an early flag, not a formal report.' }}</p>
 
     @if($filterable ?? false)
       <div class="rp-filter-bar">
@@ -39,7 +39,7 @@
     @if(count($items) > 10)
       <div class="rp-pager" id="pager-{{ $widgetId }}">
         <button type="button" class="btn btn-ghost btn-sm" id="prev-{{ $widgetId }}">Previous</button>
-        <span class="muted" id="pageinfo-{{ $widgetId }}" style="font-size:.8rem"></span>
+        <span class="muted" id="pageinfo-{{ $widgetId }}"></span>
         <button type="button" class="btn btn-ghost btn-sm" id="next-{{ $widgetId }}">Next</button>
       </div>
     @endif

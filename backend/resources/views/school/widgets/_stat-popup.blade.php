@@ -28,7 +28,7 @@
   .stat-popup-scrim{position:fixed;inset:0;background:rgba(8,12,20,.6);z-index:205;display:none;place-items:center;padding:1.25rem}
   .stat-popup-scrim.show{display:grid}
   .stat-popup-card{width:100%;max-width:26rem;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:1.8rem;box-shadow:var(--shadow);text-align:center}
-  .stat-popup-card h3{font-size:1.1rem;font-weight:800;margin-bottom:.4rem}
+  .stat-popup-card h3{font-size:1rem;font-weight:800;margin-bottom:.4rem}
   .stat-popup-list{list-style:none;text-align:left;margin:.8rem 0 0;display:flex;flex-direction:column;gap:.5rem}
   .stat-popup-list li{display:flex;justify-content:space-between;align-items:center;gap:.8rem;padding:.55rem .7rem;background:var(--bg);border-radius:8px;font-size:.88rem}
   .stat-popup-actions{margin-top:1.2rem}

@@ -381,11 +381,21 @@ tr:last-child td{border-bottom:none}
 .idle-scrim.show{display:grid}
 .idle-card{width:100%;max-width:22rem;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:1.8rem;box-shadow:var(--shadow);text-align:center}
 .idle-card .idle-count{font-size:2.4rem;font-weight:800;color:var(--bad);margin:.6rem 0 1rem;font-variant-numeric:tabular-nums}
-.idle-card h3{font-size:1.1rem;font-weight:800}
+.idle-card h3{font-size:1rem;font-weight:800}
 .idle-card p{color:var(--mut);margin-top:.3rem}
 .idle-actions{display:flex;gap:.6rem;margin-top:1.3rem}
 .idle-actions button{flex:1}
-.muted{color:var(--mut)}.stack{display:flex;flex-direction:column;gap:.4rem}
+{{-- Text style/size consistency audit (2026-07-28, user report: "some
+     section has different font style and size... i need them look
+     matured, consistent and no looking childish"). .muted never had a
+     default size, so every view that used it invented its own (found
+     five different values, .72-.85rem, spread across 40+ files) for
+     what is conceptually one role, small grey helper/caption text. .85rem
+     was already the single most common of those, so it is the new
+     default; a handful of views intentionally set a smaller size for a
+     denser inline sub-label and still may, that is a real, different
+     role (a micro-label), not this one. --}}
+.muted{color:var(--mut);font-size:.85rem}.stack{display:flex;flex-direction:column;gap:.4rem}
 .row-between{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 .pager{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
 .pager-status{font-size:.85rem}

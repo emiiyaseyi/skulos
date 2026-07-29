@@ -35,7 +35,7 @@
   .sub-scrim{position:fixed;inset:0;background:rgba(8,12,20,.6);z-index:205;display:none;place-items:center;padding:1.25rem}
   .sub-scrim.show{display:grid}
   .sub-card{width:100%;max-width:26rem;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:1.8rem;box-shadow:var(--shadow);text-align:center}
-  .sub-card h3{font-size:1.1rem;font-weight:800;margin-bottom:.4rem}
+  .sub-card h3{font-size:1rem;font-weight:800;margin-bottom:.4rem}
   .sub-actions{display:flex;gap:.6rem;margin-top:1.3rem}
   .sub-actions .btn{flex:1}
 </style>

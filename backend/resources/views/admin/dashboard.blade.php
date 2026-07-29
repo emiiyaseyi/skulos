@@ -9,7 +9,8 @@
   @media(max-width:1000px){.pd-figs{grid-template-columns:repeat(2,1fr)}}
   @media(max-width:640px){.pd-figs{grid-template-columns:1fr}}
   .pd-fig{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:1.2rem 1.3rem;box-shadow:var(--shadow)}
-  .pd-fig b{font-size:1.7rem;font-weight:800;display:block}
+  {{-- Same "big stat number" size as the shared .stat card (layouts/app.blade.php), 2026-07-28 text consistency audit. --}}
+  .pd-fig b{font-size:1.6rem;font-weight:800;display:block}
   .pd-fig span{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim)}
   .pd-donut{width:120px;height:120px;border-radius:50%;margin:0 auto;
     background:conic-gradient(
@@ -127,7 +128,7 @@
   <div class="pd-fig"><b>{{ $schoolsWithoutBackup }}</b><span>Schools Without a Backup</span></div>
 </div>
 @if($crossSchoolTotals['schools_counted'] < $totalSchools)
-  <p class="muted" style="font-size:.78rem;margin:-1rem 0 1.5rem">Students/Staff/Parents totals reflect {{ $crossSchoolTotals['schools_counted'] }} of {{ $totalSchools }} schools, the rest could not be reached just now.</p>
+  <p class="muted" style="margin:-1rem 0 1.5rem">Students/Staff/Parents totals reflect {{ $crossSchoolTotals['schools_counted'] }} of {{ $totalSchools }} schools, the rest could not be reached just now.</p>
 @endif
 
 <div class="grid cols-2" style="align-items:start">
@@ -153,7 +154,7 @@
         </div>
       @endforeach
     </div>
-    <p class="muted" style="font-size:.8rem">New schools provisioned per month, last 6 months.</p>
+    <p class="muted">New schools provisioned per month, last 6 months.</p>
   </div>
 </div>
 
@@ -190,7 +191,7 @@
 
 <div class="card" style="margin-top:1.25rem">
   <h3 style="margin-bottom:.3rem">Server health</h3>
-  <p class="muted" style="font-size:.78rem;margin-bottom:1rem">A self check, not full infrastructure monitoring, which is not wired in yet.</p>
+  <p class="muted" style="margin-bottom:1rem">A self check, not full infrastructure monitoring, which is not wired in yet.</p>
   <div class="grid cols-3">
     <div>
       <div class="muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.2rem">Database</div>

@@ -38,7 +38,8 @@
         <p class="muted">No scores recorded yet{{ $panel['term'] ? " for {$panel['term']}" : '' }}.</p>
       @else
         <p class="muted">Average score across all recorded assessments in {{ $panel['term'] }}.</p>
-        <div style="font-size:2rem;font-weight:800;margin-top:.4rem">{{ $panel['average'] }}%</div>
+        {{-- Same "big stat number" size as the shared .stat card (this widget always renders inside the school portal's .school-theme shell), not an improvised third size, per the 2026-07-28 text consistency audit. --}}
+        <div style="font-family:var(--font-serif);font-size:1.9rem;font-weight:800;margin-top:.4rem">{{ $panel['average'] }}%</div>
       @endif
     </div>
     @break
@@ -104,7 +105,7 @@
       <h3 style="margin-bottom:.7rem">My subjects and classes</h3>
       @foreach($panel['groups'] as $sectionName => $subjects)
         <div style="margin-bottom:.9rem">
-          <div class="muted" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.35rem">{{ $sectionName }}</div>
+          <div class="muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.35rem">{{ $sectionName }}</div>
           <ul class="rp-list">
             @foreach($subjects as $subjectName => $classLabels)
               <li><span><strong>{{ $subjectName }}</strong></span><span class="muted">{{ implode(', ', $classLabels) }}</span></li>
@@ -247,7 +248,7 @@
     </div>
     <div class="card rp-card">
       <h3 style="margin-bottom:.3rem">Recent failed logins</h3>
-      <p class="muted" style="font-size:.8rem;margin-bottom:.8rem">Last 7 days. Tracked passively, no account is locked automatically.</p>
+      <p class="muted" style="margin-bottom:.8rem">Last 7 days. Tracked passively, no account is locked automatically.</p>
       @if(empty($panel['recentFailedLogins']))
         <p class="muted">No failed sign in attempts in the last 7 days.</p>
       @else
@@ -303,7 +304,8 @@
         @else
           <ul class="rp-list">
             @foreach($panel['birthdaysToday'] as $b)
-              <li><span><strong>{{ $b['name'] }}</strong> <span class="muted">{{ $b['age'] !== null ? $b['age'].' yrs' : '' }} {{ $b['class'] }}</span></span><span>&#127881;</span></li>
+              {{-- The party-popper emoji this row used to end with read as informal/childish against the rest of the dashboard's tone (2026-07-28 text consistency audit); "Today's birthdays" already says what this list is. --}}
+              <li><span><strong>{{ $b['name'] }}</strong> <span class="muted">{{ $b['age'] !== null ? $b['age'].' yrs' : '' }} {{ $b['class'] }}</span></span></li>
             @endforeach
           </ul>
         @endif
@@ -360,7 +362,7 @@
       --}}
       <div class="card rp-card">
         <h3 style="margin-bottom:.3rem">Result performance</h3>
-        <p class="muted" style="font-size:.8rem;margin-bottom:.8rem">Average score across every term with results recorded so far.</p>
+        <p class="muted" style="margin-bottom:.8rem">Average score across every term with results recorded so far.</p>
         @include('school.widgets._trend-line', [
           'values' => array_column($panel['resultTrend'], 'average'),
           'labels' => array_column($panel['resultTrend'], 'label'),

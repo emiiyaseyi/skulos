@@ -8,7 +8,8 @@
   .fig{position:relative}
   .fig-link{position:absolute;inset:0;z-index:1;border-radius:inherit}
   .fig:has(.fig-link):hover{box-shadow:0 2px 10px -2px color-mix(in srgb,var(--fc,var(--accent)) 45%,transparent)}
-  .fig b{font-size:1.7rem;font-weight:800;font-variant-numeric:tabular-nums;display:block;line-height:1.1;color:var(--ink)}
+  {{-- Same "big stat number" size as the shared .stat card (layouts/app.blade.php), not a third invented size, per the 2026-07-28 text consistency audit. --}}
+  .fig b{font-size:1.6rem;font-weight:800;font-variant-numeric:tabular-nums;display:block;line-height:1.1;color:var(--ink)}
   .fig span{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
   .fig .fic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;flex-shrink:0}
   .fig .fic svg{width:22px;height:22px}
@@ -28,8 +29,7 @@
   .school-theme .fig-classic::before{display:none}
   .school-theme .fig-classic .fic{position:absolute;top:.75rem;right:.75rem;width:1.9rem;height:1.9rem;background:none;color:var(--warn);opacity:.6;margin:0}
   .school-theme .fig-classic .fic svg{width:1.9rem;height:1.9rem}
-  .school-theme .fig b{font-family:var(--font-serif);font-size:1.7rem}
-  .school-theme .fig span{font-size:.7rem}
+  .school-theme .fig b{font-family:var(--font-serif);font-size:1.9rem}
   /* User directive 2026-07-16: "instead of first two rows, make it one
      row and the show more button" (was 2 rows of 4 = 8). Rows past the
      first 4 (1 complete row, the grid rule's own "resolve to complete
@@ -76,14 +76,15 @@
   .banner{flex:1 1 60%;min-width:260px;border-radius:16px;padding:1.2rem 1.4rem;color:#fff;position:relative;overflow:hidden;
     background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#10121a))}
   .banner h2{font-size:1.25rem;font-weight:800;margin-bottom:.2rem}
-  .banner p{opacity:.9;max-width:46ch;font-size:.9rem}
+  .banner p{opacity:.9;max-width:46ch;font-size:.92rem}
   .banner .bl{position:absolute;border-radius:50%;background:rgba(255,255,255,.12)}
   .banner .bl1{width:160px;height:160px;right:-40px;top:-60px}.banner .bl2{width:100px;height:100px;right:100px;bottom:-50px;background:rgba(255,255,255,.08)}
   .ann-card{flex:1 1 32%;min-width:220px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:1rem 1.2rem;box-shadow:var(--shadow);margin-bottom:1.1rem}
   .banner-row .ann-card{margin-bottom:0}
-  .ann-card h3{font-size:.85rem;margin-bottom:.5rem}
+  {{-- Same size as every other card heading (.card h3), not smaller: this card's title was reading weaker than its siblings on the same page. --}}
+  .ann-card h3{font-size:1rem;font-weight:800;margin-bottom:.5rem}
   .ann-list{list-style:none;display:flex;flex-direction:column;gap:.5rem;max-height:120px;overflow-y:auto}
-  .ann-list li{font-size:.82rem;padding-bottom:.5rem;border-bottom:1px solid var(--line)}
+  .ann-list li{font-size:.88rem;padding-bottom:.5rem;border-bottom:1px solid var(--line)}
   .ann-list li:last-child{border-bottom:none;padding-bottom:0}
   .ann-list .when{color:var(--mut-dim);font-size:.72rem}
 

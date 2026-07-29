@@ -60,7 +60,7 @@
   .stat-popup-card.fees-popup-card{max-width:min(94vw, 62rem);width:min(94vw, 62rem);text-align:left}
   .stat-popup-card.fees-popup-card h3{text-align:center}
   .fees-popup-table{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:.6rem}
-  .fees-popup-table th{text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--mut-dim);padding:.4rem .8rem;border-bottom:1px solid var(--line)}
+  .fees-popup-table th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--mut-dim);padding:.4rem .8rem;border-bottom:1px solid var(--line)}
   .fees-popup-table td{padding:.55rem .8rem;border-bottom:1px solid var(--line);white-space:nowrap}
   .fees-popup-table td.fees-popup-name{white-space:normal;min-width:8rem}
   .fees-popup-table tbody tr:last-child td{border-bottom:none}
