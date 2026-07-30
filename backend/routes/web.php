@@ -767,6 +767,19 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/{studentId}/{termId}', [$reportCards, 'show'])->name('show');
         });
 
+        // Admissions module, Phase 1b: admin-side pipeline/window
+        // configuration. Nested under 'settings' so its route names
+        // (school.admissions.settings.*) never collide with the public
+        // applicant-facing school.admissions.login/dashboard group
+        // outside this authenticated block.
+        Route::prefix('admissions/settings')->name('school.admissions.settings.')->group(function () {
+            $admissionSettings = \App\Http\Controllers\School\AdmissionSettingsController::class;
+            Route::get('/', [$admissionSettings, 'edit'])->name('edit');
+            Route::post('/pipeline', [$admissionSettings, 'updatePipeline'])->name('pipeline');
+            Route::post('/windows', [$admissionSettings, 'storeWindow'])->name('windows.store');
+            Route::post('/windows/{windowId}/toggle', [$admissionSettings, 'toggleWindow'])->name('windows.toggle');
+        });
+
         // Behavioural/psychomotor trait catalog (user request 2026-07-18,
         // "the admin set it" whether each trait is a remark or a score).
         Route::prefix('report-cards/traits')->name('school.report-cards.traits.')->group(function () {

@@ -2484,6 +2484,13 @@ return [
         // Roles & Permissions, not something that comes bundled with
         // everyday per-class report card creation.
         'report_cards' => ['assign_review', 'release', 'bulk_generate_all'],
+        // Admissions module (2026-07-30): configuring the pipeline chain,
+        // fee amounts, and which class/session cycles are open is an
+        // institution wide decision, same tier as school_info/students
+        // manage_settings above, not bundled with everyday
+        // review/decide/document-approve actions (admissions.update
+        // already covers those via the standard action set).
+        'admissions' => ['manage_settings', 'decide', 'review_documents'],
     ],
 
     /*
