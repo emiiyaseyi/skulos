@@ -2757,6 +2757,17 @@ The user's "FEEDBACK LIST.docx" got a first "16 issues" pass and a newly appende
 
 ---
 
+### Unpaginated admin/platform list screens fixed (2026-07-30)
+- Status: Done
+- Started: 2026-07-30
+- Notes: next item on the Codex priority list after the queued-email fix. Delegated an investigation-only pass first rather than guessing which `->get()`/`::all()` calls actually mattered — ranked findings by which tables genuinely grow unbounded (Schools, TrialRequest, the school user roster) versus naturally small/bounded ones (Plan, template Role catalogs) that technically use `->get()` but will never realistically be a problem.
+- Resolution: `->paginate(30)` (`->paginate(50)` for the report builder preview) plus `->links()` on the view, for: `Admin\SchoolAdminController::schools()` (stat tiles switched to their own dedicated `COUNT` queries so they stay accurate platform-wide totals, not just the page shown); `Admin\BillingController::index()` (same unbounded Schools table, rendered a second time here); `Admin\TrialRequestAdminController::index()` (append-only, never purged, actually grows faster than Schools). The real find: `School\RoleManagementController::index()` loaded **every active user in the school** (students and parents included, not just staff) as full `User` models, then called `roleIn()`/`hasModuleOverride()` **per user per module**, each a real query, a genuine N+1 that could hit thousands of queries on a large school. Split into two concerns: the rendered Users management table now paginates properly (those per-user calls only run for the 30 users on the current page); the "click a role, see everyone on it" popup (a real 2026-07-16 feature, needs every member of the role, not one page) now runs its own separate, lean single-join query for just name+role_id instead of being derived from the heavy per-user pipeline. `School\ReportBuilderController::fetchRows()` gained a `paginate` flag: the on-screen preview now paginates at 50/page, while the CSV export path (which legitimately needs every matching row) still calls the same method unpaginated, untouched.
+- Left alone on purpose: `Plan::get()`, template `Role` catalogs, `KnowledgeBaseCategory`, the handful of platform super-admins (naturally bounded, will never realistically be a problem); `PlatformDashboardController`'s `School::all()`/`TrialRequest::all()`/`Plan::all()` (used for in-PHP aggregation, not rendered as a list, better fixed with `COUNT`/`groupBy` at the DB level than pagination, a separate lower-priority follow-up).
+- QA: 5 new regression tests, each creating 35+ rows and proving the pagination boundary actually kicks in (not just "the page still renders") — including one confirming the role-members popup and the CSV export both still see the true total despite the main table pagination. All 5 pass, plus the full existing suite across the 5 touched areas, 90 tests total, 0 failures. Real platform data today (9 provisioned schools, 2 trial requests) is well under the 30-row threshold, so this has no visible live effect on greenfield yet, a forward-looking scale safeguard matching how Codex itself framed the finding.
+- Not built in this pass: remaining Codex items — non-transactional school cloning, missing adversarial `HtmlSanitizer` test coverage, SQLite backups loaded fully into memory, accessibility/UI polish items, and the `PlatformDashboardController` aggregation-query follow-up noted above.
+
+---
+
 ---
 
 ## 0. Reference & Inspiration Links
