@@ -4,6 +4,22 @@ This file exists so any future Claude session (or a different agent entirely) ca
 
 ## Session handover (read this first — kept current per user directive 2026-07-26: "always update the CLAUDE.md file on what you are doing, done and what's left"; and 2026-07-27: "so that no feedback is lost in my multiple work flow and responses, immediately i give a feedback or response or chat, update my current tasks list with what i have — update the claude.md with this now". This section is now updated the moment new feedback comes in, not just at session end — if you are reading this mid-session, the "Live queue" block below is the actual current state, more current than the narrative prose further down.)
 
+### Live queue (2026-07-30, mobile table-stacking — the #1 UI/UX finding from the Codex audit, in progress)
+
+After the backup restore fix (below), user said "CONTINUE" — moved to the next item on the priority list I gave them: only 4 of ~93 table-heavy views used the `.table-stack` mobile pattern (`layouts/app.blade.php`'s existing `@media(max-width:640px)` rule, opt-in via `class="table-stack"` on the `<table>` plus `data-label="ColumnName"` on every `<td>`; already established for score entry/attendance). Working through the rest in reviewable batches (test + verify live + commit each one), not one giant sweep, learning from the earlier muted-text sed mistake.
+
+**Batch 1** (`c87a7f0`, 9 files, 13 tables): both Payments tables (fee-status-by-class + main list, Codex's top pick), the per-class payment breakdown, both Students index tables, Staff index, Report Cards pending-review, both Roles tables, both Fee Items tables (bank accounts + fee items), Messages/broadcast history, Academic Insights.
+
+**Batch 2** (`703c942`, 7 files, 10 tables): Houses (list + the two member tables within a house), the parent-portal "all guardians" list, Trashed Students/Staff, Backups history, Calendar events.
+
+**Deliberately skipped, not missed**: narrow 2-3 column tables (matches the pattern's own existing exemption comment in `app.blade.php`: "a plain 2-3 column table already reads fine... does not need this") — e.g. Staff/Parent directory tables (Class/Teacher, Name/Position), class subject-teacher assignment tables. Also skipped the fee schedule matrix (`finance/fee-items/index.blade.php`'s first table, Fee item × Class): a genuine grid where comparing a price ACROSS classes is the whole point, stacking it into cards would destroy that, matches Codex's own nuanced guidance ("horizontally scrollable grids only where the relationship between columns matters").
+
+**Remaining scope, for whoever picks this up next**: `grep -rlP '<table(?!\s+class="table-stack")>' resources/views` still finds ~66 files with at least one plain table (down from ~93; some already-converted files kept a second, legitimately-narrow table alongside a converted one, so this count isn't 1:1 with "files still needing work"). Good next candidates, roughly in priority order: `admin/schools-index.blade.php`/`admin/trashed.blade.php`/`admin/audit-log.blade.php`/`admin/team.blade.php`/`admin/billing.blade.php` (platform admin side, not yet touched at all), `announcements/index.blade.php`/`announcements/recipients.blade.php`, `examinations/index.blade.php`'s OTHER tables beyond the one already using table-stack, `timetable/*` (genuinely grid-shaped, may need the "compact mobile view" Codex suggested rather than a literal stack — a real design decision, not a mechanical conversion), `report-cards/class-entry.blade.php` (Codex's other named priority, but also genuinely wide/complex — same design-decision caveat as timetable). Each conversion needs a human read of the actual columns (data-label can't be blindly regexed), so budget real per-file time, not a batch script.
+
+Every batch so far: compile-checked through the real Blade compiler, verified live on greenfield (200 status + `table-stack` class present in the rendered HTML), and covered by a real test run before committing (114-182 tests per batch, 0 failures).
+
+---
+
 ### Live queue (2026-07-30, backup restore made safe — a real hazard from an external Codex code/UI audit)
 
 The user ran a separate Codex agent against this same repo for a read-only UI/UX audit, code audit, and a FEEDBACK LIST cross-check (that last one was still running when the user pasted its transcript here). Asked me which item to prioritize; I recommended the backup restore hazard as the one genuinely unrecoverable-data-loss risk on the list, user agreed ("GREAT!").

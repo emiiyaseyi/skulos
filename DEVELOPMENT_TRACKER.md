@@ -2727,6 +2727,19 @@ The user's "FEEDBACK LIST.docx" got a first "16 issues" pass and a newly appende
 
 ---
 
+### Mobile card-stack pattern applied to the highest-traffic tables (2026-07-30, in progress)
+- Status: In progress
+- Started: 2026-07-30
+- Notes: the #1 finding from the Codex UI/UX audit — only 4 of ~93 table-heavy views used the existing `.table-stack` mobile pattern (`layouts/app.blade.php`, `@media(max-width:640px)`: opt in via `class="table-stack"` on a `<table>` plus `data-label="ColumnName"` on every `<td>`, collapses a wide grid into one labelled card per row). User said "CONTINUE" after the backup restore fix, moving to this, the next item on the priority list given. Working through reviewable batches (compile-check, live verify, real test run, commit each batch) rather than one giant sweep, a deliberate choice after the earlier muted-text sed mistake this same session showed the risk of unreviewed broad changes.
+- Resolution so far:
+  - Batch 1 (`c87a7f0`, 9 files, 13 tables): both Payments tables (fee-status-by-class + main list, Codex's top pick), per-class payment breakdown, both Students index tables, Staff index, Report Cards pending-review, both Roles tables, both Fee Items tables, Messages/broadcast history, Academic Insights.
+  - Batch 2 (`703c942`, 7 files, 10 tables): Houses (list + both member tables), parent-portal "all guardians" list, Trashed Students/Staff, Backups history, Calendar events.
+  - Deliberately skipped: narrow 2-3 column tables (matches the pattern's own existing exemption), and the fee schedule matrix (a genuine class × fee-item comparison grid where stacking would destroy the point of the table, matching Codex's own nuanced "only where columns don't need comparing" guidance).
+- QA: every batch compile-checked through the real Blade compiler, verified live on greenfield (200 status + `table-stack` class confirmed present in rendered HTML for every touched page), and covered by a real test run before its commit — batch 1: 182 tests (FinanceTest, StudentScreenTest, StaffPortalTest, ReportCardWorkflowTest, RoleManagementTest, MessageBroadcastTest, AcademicInsightsAndWorkloadTest), batch 2: 114 tests (HouseScreenTest, StaffParentDirectoryTest, CalendarTest, BackupRestoreTest, StudentScreenTest, StaffPortalTest). 0 failures across both.
+- Not built in this pass: `grep -rlP '<table(?!\s+class="table-stack")>' resources/views` still finds ~66 files with at least one plain table. Good next candidates: the platform admin side (schools-index, trashed, audit-log, team, billing — not yet touched at all), announcements index/recipients, remaining examinations tables, timetable (genuinely grid-shaped, may need a "compact mobile view" rather than a literal stack, a real design decision), report-cards/class-entry (Codex's other named priority, also a genuine design-decision case, not a mechanical conversion). Each file needs a human read of its actual columns, not a batch script.
+
+---
+
 ---
 
 ## 0. Reference & Inspiration Links
