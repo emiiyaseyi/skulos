@@ -16,15 +16,15 @@
 
 <div class="card">
   <div style="overflow-x:auto">
-  <table>
+  <table class="table-stack">
     <thead><tr><th>Page</th><th>File</th><th>Last modified</th><th>Size</th><th></th></tr></thead>
     <tbody>
       @foreach($pages as $page)
         <tr>
-          <td><strong>{{ $page['label'] }}</strong></td>
-          <td class="muted">{{ $page['file'] }}</td>
-          <td class="muted">{{ $page['modified'] ? \Illuminate\Support\Carbon::createFromTimestamp($page['modified'])->format('d M Y, g:ia') : 'N/A' }}</td>
-          <td class="muted">{{ $page['size'] ? number_format($page['size'] / 1024, 1).' KB' : 'N/A' }}</td>
+          <td data-label="Page"><strong>{{ $page['label'] }}</strong></td>
+          <td class="muted" data-label="File">{{ $page['file'] }}</td>
+          <td class="muted" data-label="Last modified">{{ $page['modified'] ? \Illuminate\Support\Carbon::createFromTimestamp($page['modified'])->format('d M Y, g:ia') : 'N/A' }}</td>
+          <td class="muted" data-label="Size">{{ $page['size'] ? number_format($page['size'] / 1024, 1).' KB' : 'N/A' }}</td>
           <td>
             @if($page['exists'])
               <a class="btn btn-ghost btn-sm" href="{{ route('admin.marketing-pages.edit', ['page' => $page['file']]) }}">Edit</a>

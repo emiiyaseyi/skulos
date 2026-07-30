@@ -10,7 +10,7 @@
     <p class="muted">No provisioned schools yet.</p>
   @else
   <div style="overflow-x:auto">
-  <table>
+  <table class="table-stack">
     <thead>
       <tr>
         <th>School</th>
@@ -27,11 +27,11 @@
         @php($overdueDays = $backup ? now()->diffInDays($backup->created_at) : null)
         @php($isOverdue = $school->backup_frequency !== 'none' && (! $backup || $overdueDays > match($school->backup_frequency) { 'daily' => 1, 'weekly' => 7, 'monthly' => 31, default => 9999 }))
         <tr>
-          <td><a href="{{ route('admin.schools.show', ['school' => $school->id]) }}">{{ $school->name }}</a></td>
-          <td class="muted" style="text-transform:capitalize">{{ $school->backup_frequency ?: 'none' }}{{ $school->backup_frequency !== 'none' && $school->backup_time ? ' at '.$school->backup_time : '' }}</td>
-          <td class="muted">{{ $backup?->created_at?->format('d M Y, g:ia') ?? 'Never' }}</td>
-          <td class="muted" style="text-transform:capitalize">{{ $backup?->type ?? 'N/A' }}</td>
-          <td>
+          <td data-label="School"><a href="{{ route('admin.schools.show', ['school' => $school->id]) }}">{{ $school->name }}</a></td>
+          <td class="muted" style="text-transform:capitalize" data-label="Schedule">{{ $school->backup_frequency ?: 'none' }}{{ $school->backup_frequency !== 'none' && $school->backup_time ? ' at '.$school->backup_time : '' }}</td>
+          <td class="muted" data-label="Last backup">{{ $backup?->created_at?->format('d M Y, g:ia') ?? 'Never' }}</td>
+          <td class="muted" style="text-transform:capitalize" data-label="Type">{{ $backup?->type ?? 'N/A' }}</td>
+          <td data-label="Status">
             @if($school->backup_frequency === 'none')
               <span class="badge">No schedule</span>
             @elseif($isOverdue)

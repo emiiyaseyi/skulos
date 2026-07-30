@@ -19,15 +19,15 @@
     <p class="muted">No backups yet. Use "Back up now" above to create the first one.</p>
   @else
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr><th>Taken</th><th>Type</th><th>Size</th><th>By</th><th></th></tr></thead>
       <tbody>
         @foreach($backups as $backup)
           <tr>
-            <td>{{ $backup->created_at->toDayDateTimeString() }}</td>
-            <td class="muted" style="text-transform:capitalize">{{ $backup->type }}</td>
-            <td class="muted">{{ $backup->humanSize() }}</td>
-            <td class="muted">{{ $backup->initiator?->name ?? 'System (scheduled)' }}</td>
+            <td data-label="Taken">{{ $backup->created_at->toDayDateTimeString() }}</td>
+            <td class="muted" style="text-transform:capitalize" data-label="Type">{{ $backup->type }}</td>
+            <td class="muted" data-label="Size">{{ $backup->humanSize() }}</td>
+            <td class="muted" data-label="By">{{ $backup->initiator?->name ?? 'System (scheduled)' }}</td>
             <td style="white-space:nowrap">
               <a class="btn btn-ghost btn-sm" href="{{ route('admin.platform-backups.download', ['backupId' => $backup->id]) }}">Download</a>
               <form method="POST" action="{{ route('admin.platform-backups.destroy', ['backupId' => $backup->id]) }}" style="display:inline" onsubmit="return confirm('Remove this backup? This only deletes the file, it does not affect the live platform database.')">

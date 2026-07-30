@@ -27,7 +27,7 @@
     <p class="muted">Nothing sent yet.</p>
   @else
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr><th>Sent</th><th>Type</th><th>Title</th><th>To</th><th>Acknowledged</th></tr></thead>
       <tbody>
         @foreach($items as $item)
@@ -45,16 +45,16 @@
             else { $target .= ' &middot; whole school'; }
           @endphp
           <tr>
-            <td class="muted" style="white-space:nowrap">{{ $item->published_at?->format('d M Y') ?? $item->created_at->format('d M Y') }}</td>
-            <td style="white-space:nowrap">
+            <td class="muted" style="white-space:nowrap" data-label="Sent">{{ $item->published_at?->format('d M Y') ?? $item->created_at->format('d M Y') }}</td>
+            <td style="white-space:nowrap" data-label="Type">
               <span class="badge {{ $item->type === 'broadcast' ? 'badge-warn' : 'badge-ok' }}">{{ $item->type === 'broadcast' ? 'Message' : 'Announcement' }}</span>
             </td>
-            <td>
+            <td data-label="Title">
               <strong>{{ $item->title }}</strong>
               <div class="muted">{{ \Illuminate\Support\Str::limit(strip_tags($item->body), 90) }}</div>
             </td>
-            <td class="muted" style="white-space:nowrap">{!! $target !!}</td>
-            <td style="white-space:nowrap">
+            <td class="muted" style="white-space:nowrap" data-label="To">{!! $target !!}</td>
+            <td style="white-space:nowrap" data-label="Acknowledged">
               @if($delivered === 0)
                 <span class="muted">No recipients</span>
               @else
