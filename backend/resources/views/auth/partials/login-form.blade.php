@@ -15,6 +15,11 @@
     <a class="btn btn-ghost btn-block" href="{{ route('school.login', ['school' => $school->slug, 'as' => 'staff']) }}">Staff</a>
     <a class="btn btn-ghost btn-block" href="{{ route('school.login', ['school' => $school->slug, 'as' => 'parent']) }}">Parent</a>
     <a class="btn btn-ghost btn-block" href="{{ route('school.login', ['school' => $school->slug, 'as' => 'student']) }}">Student</a>
+    {{-- Admissions module (user directive 2026-07-30): a prospective
+         student/parent with no account yet starts here, not at the
+         Student sign-in above (which needs an existing admission
+         number). --}}
+    <a class="btn btn-ghost btn-block" href="{{ route('school.admissions.apply.start', ['school' => $school->slug]) }}">Seek Admission</a>
   </div>
 @else
   @if($errors->any())

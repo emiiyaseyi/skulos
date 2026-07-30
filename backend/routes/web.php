@@ -283,6 +283,16 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/logout', [$applicantAuth, 'logout'])->name('logout');
             Route::get('/dashboard', [\App\Http\Controllers\Admissions\ApplicantDashboardController::class, 'index'])->name('dashboard');
         });
+
+        // Public "Seek Admission" entry point, Phase 1c: no auth needed
+        // to view or submit (a fresh visitor has no account yet), same
+        // as the public Start-a-Trial form's own lack of a guest gate.
+        Route::prefix('apply')->name('apply.')->group(function () {
+            $apply = \App\Http\Controllers\Admissions\PublicApplicationController::class;
+            Route::get('/', [$apply, 'start'])->name('start');
+            Route::post('/', [$apply, 'register'])->middleware('throttle:10,1')->name('submit');
+            Route::get('/submitted/{applicant}', [$apply, 'submitted'])->name('submitted');
+        });
     });
 
     // Impersonation handoff landing point (see SchoolAdminController::
