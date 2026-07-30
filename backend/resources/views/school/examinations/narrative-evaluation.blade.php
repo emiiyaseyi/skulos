@@ -36,7 +36,7 @@
     <input type="hidden" name="term_id" value="{{ $term->id }}" />
     <div class="card">
       <div style="overflow-x:auto">
-      <table>
+      <table class="table-stack">
         <thead>
           <tr>
             <th style="width:2.5rem"><input type="checkbox" id="selectAll" aria-label="Select every class" /></th>
@@ -50,9 +50,9 @@
             @php($isNarrative = $class->isNarrativeEvaluationForTerm($term->id))
             <tr>
               <td><input type="checkbox" class="narrative-check" name="narrative_class_ids[]" value="{{ $class->id }}" @checked($isNarrative) /></td>
-              <td>{{ $class->name }}</td>
-              <td class="muted">{{ $class->section?->name }}</td>
-              <td>
+              <td data-label="Class">{{ $class->name }}</td>
+              <td class="muted" data-label="Section">{{ $class->section?->name }}</td>
+              <td data-label="Style for {{ $term->name }}">
                 @if($isNarrative)
                   <span class="badge badge-ok">Narrative Evaluation</span>
                 @else

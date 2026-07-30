@@ -27,20 +27,20 @@
     <p class="muted">Nobody was delivered this.</p>
   @else
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr><th>Recipient</th><th>Status</th><th>When</th></tr></thead>
       <tbody>
         @foreach($notifications as $n)
           <tr>
-            <td><strong>{{ $n->user?->name ?? 'Removed user' }}</strong>@if($n->user?->email)<div class="muted">{{ $n->user->email }}</div>@endif</td>
-            <td>
+            <td data-label="Recipient"><strong>{{ $n->user?->name ?? 'Removed user' }}</strong>@if($n->user?->email)<div class="muted">{{ $n->user->email }}</div>@endif</td>
+            <td data-label="Status">
               @if($n->read_at)
                 <span class="badge badge-ok">Acknowledged</span>
               @else
                 <span class="badge badge-warn">Pending</span>
               @endif
             </td>
-            <td class="muted">{{ $n->read_at?->diffForHumans() ?? $n->created_at->diffForHumans() }}</td>
+            <td class="muted" data-label="When">{{ $n->read_at?->diffForHumans() ?? $n->created_at->diffForHumans() }}</td>
           </tr>
         @endforeach
       </tbody>

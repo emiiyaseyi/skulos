@@ -112,7 +112,7 @@
         <form id="bulkBandsForm{{ $scale->id }}" method="POST" action="{{ route('school.examinations.grading.bands.bulk-destroy', ['school' => $school->slug]) }}"></form>
       @endif
       <div style="overflow-x:auto">
-      <table>
+      <table class="table-stack">
         <thead><tr>
           @if($canManage)<th style="width:2.2rem"><input type="checkbox" class="band-select-all" data-scale="{{ $scale->id }}" aria-label="Select all bands" /></th>@endif
           <th>Grade</th><th>Score range</th><th>Remark</th>@if($canManage)<th></th>@endif</tr></thead>
@@ -120,9 +120,9 @@
           @foreach($scale->bands->sortByDesc('min_score') as $band)
             <tr>
               @if($canManage)<td><input type="checkbox" form="bulkBandsForm{{ $scale->id }}" class="band-row-check band-row-check-{{ $scale->id }}" name="band_ids[]" value="{{ $band->id }}" aria-label="Select {{ $band->grade }}" /></td>@endif
-              <td><strong>{{ $band->grade }}</strong></td>
-              <td class="muted">{{ rtrim(rtrim(number_format($band->min_score, 2), '0'), '.') }} to {{ rtrim(rtrim(number_format($band->max_score, 2), '0'), '.') }}</td>
-              <td class="muted">{{ $band->remark ?: 'Not set' }}</td>
+              <td data-label="Grade"><strong>{{ $band->grade }}</strong></td>
+              <td class="muted" data-label="Score range">{{ rtrim(rtrim(number_format($band->min_score, 2), '0'), '.') }} to {{ rtrim(rtrim(number_format($band->max_score, 2), '0'), '.') }}</td>
+              <td class="muted" data-label="Remark">{{ $band->remark ?: 'Not set' }}</td>
               @if($canManage)
                 <td style="white-space:nowrap">
                   <button class="btn btn-ghost btn-sm" type="button" onclick="document.getElementById('edit-band-{{ $band->id }}').classList.toggle('show')">Edit</button>

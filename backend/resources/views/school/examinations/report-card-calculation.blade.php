@@ -68,7 +68,7 @@
           <p class="muted">No classes have been set up yet.</p>
         @else
           <div style="overflow-x:auto">
-          <table>
+          <table class="table-stack">
             <thead>
               <tr>
                 <th style="width:2.5rem"><input type="checkbox" id="selectAllClasses" aria-label="Select every class" /></th>
@@ -80,8 +80,8 @@
               @foreach($classes as $class)
                 <tr>
                   <td><input type="checkbox" class="cumulative-class-check" name="class_ids[]" value="{{ $class->id }}" @checked(in_array($class->id, $includedClassIds)) /></td>
-                  <td>{{ $class->name }}</td>
-                  <td class="muted">{{ $class->section?->name }}</td>
+                  <td data-label="Class">{{ $class->name }}</td>
+                  <td class="muted" data-label="Section">{{ $class->section?->name }}</td>
                 </tr>
               @endforeach
             </tbody>

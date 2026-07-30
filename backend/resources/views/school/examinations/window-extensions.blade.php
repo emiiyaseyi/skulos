@@ -16,7 +16,7 @@
   @else
     <form id="bulkExtensionsForm" method="POST" action="{{ route('school.examinations.window-extensions.bulk-action', ['school' => $school->slug]) }}"></form>
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr>
         <th style="width:2.2rem"><input type="checkbox" id="ext-select-all" aria-label="Select all pending requests" /></th>
         <th>Teacher</th><th>Component</th><th>Term</th><th>Reason</th><th>Requested close</th><th>Status</th><th></th>
@@ -29,12 +29,12 @@
                 <input type="checkbox" form="bulkExtensionsForm" class="ext-row-check" name="extension_ids[]" value="{{ $req->id }}" aria-label="Select request from {{ $req->staff?->fullName() }}" />
               @endif
             </td>
-            <td><strong>{{ $req->staff?->fullName() }}</strong></td>
-            <td class="muted">{{ $req->window?->component?->name }}</td>
-            <td class="muted">{{ $req->window?->term?->name }} ({{ $req->window?->term?->session?->name }})</td>
-            <td class="muted" style="max-width:16rem" title="{{ $req->reason }}">{{ \Illuminate\Support\Str::limit($req->reason, 60) }}</td>
-            <td class="muted" style="white-space:nowrap">{{ $req->requested_close_at?->format('d M Y, g:ia') }}</td>
-            <td>
+            <td data-label="Teacher"><strong>{{ $req->staff?->fullName() }}</strong></td>
+            <td class="muted" data-label="Component">{{ $req->window?->component?->name }}</td>
+            <td class="muted" data-label="Term">{{ $req->window?->term?->name }} ({{ $req->window?->term?->session?->name }})</td>
+            <td class="muted" style="max-width:16rem" title="{{ $req->reason }}" data-label="Reason">{{ \Illuminate\Support\Str::limit($req->reason, 60) }}</td>
+            <td class="muted" style="white-space:nowrap" data-label="Requested close">{{ $req->requested_close_at?->format('d M Y, g:ia') }}</td>
+            <td data-label="Status">
               <span class="badge {{ $req->status === 'approved' ? 'badge-ok' : ($req->status === 'rejected' ? 'badge-bad' : 'badge-warn') }}">{{ ucfirst($req->status) }}</span>
             </td>
             <td style="white-space:nowrap">
