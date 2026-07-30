@@ -104,14 +104,9 @@
        selects the rows and columns needed"), --rc-cols set inline per
        row from ReportCardLayout::groupIntoRows(). --}}
   .rc-cols{display:grid;grid-template-columns:repeat(var(--rc-cols,2),1fr);gap:1rem}
-  {{-- Centered, not the previous label-left/value-right receipt style
-       (user directive: "this section of the report card should be
-       central aligned" — the section heading was already centered, the
-       actual Physical & Attendance / Class Teacher Contact data rows
-       were not). --}}
-  .rc-traits{width:100%;border-collapse:collapse;font-size:.68rem;text-align:center}
-  .rc-traits td{padding:.22rem 0;border-bottom:1px dashed #e2e2e2;text-align:center}
-  .rc-traits td.val{font-weight:700}
+  .rc-traits{width:100%;border-collapse:collapse;font-size:.68rem}
+  .rc-traits td{padding:.22rem 0;border-bottom:1px dashed #e2e2e2}
+  .rc-traits td.val{text-align:right;font-weight:700}
   .rc-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem;font-size:.62rem}
   .rc-legend span{background:#f3f4f6;border-radius:6px;padding:.2rem .45rem}
   .rc-signoff{display:flex;justify-content:space-around;gap:1.2rem;text-align:center;margin-top:1rem;padding-top:.7rem;border-top:1px solid #e2e2e2}
