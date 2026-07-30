@@ -31,10 +31,14 @@ class TrialRequestAdminController extends Controller
     {
         $status = $request->query('status', 'pending');
 
+        // Paginated (audit follow-up 2026-07-30): trial requests are
+        // append-only and never purged, so this grows for the life of the
+        // platform, faster than the Schools table it feeds.
         $trials = TrialRequest::query()
             ->when(in_array($status, ['pending', 'approved', 'rejected'], true), fn ($q) => $q->where('status', $status))
             ->orderByDesc('created_at')
-            ->get();
+            ->paginate(30)
+            ->withQueryString();
 
         return view('admin.trial-requests', [
             'trials' => $trials,

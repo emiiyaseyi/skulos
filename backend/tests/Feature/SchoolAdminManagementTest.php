@@ -67,6 +67,27 @@ class SchoolAdminManagementTest extends TestCase
     }
 
     /**
+     * Audit follow-up 2026-07-30: the Schools index used to load every
+     * provisioned school with no bound at all. Proves the fix actually
+     * paginates (not just "still renders") and that the stat tiles stay
+     * accurate platform-wide totals, not just a count of the page shown.
+     */
+    public function test_the_schools_index_paginates_and_stat_tiles_stay_platform_wide(): void
+    {
+        $platformAdmin = $this->superAdmin();
+        School::factory()->count(35)->create(['status' => School::STATUS_ACTIVE]);
+
+        $response = $this->actingAs($platformAdmin)->get(route('admin.schools.index'));
+        $response->assertOk();
+
+        $schools = $response->viewData('schools');
+        $this->assertSame(30, $schools->perPage());
+        $this->assertSame(30, $schools->count(), 'only one page worth of rows should render');
+        $this->assertGreaterThan(30, $schools->total(), 'the paginator must still know the real total');
+        $this->assertSame(35, $response->viewData('stats')['schools'], 'the stat tile must count every school, not just the page shown');
+    }
+
+    /**
      * Regression test for a live bug found 2026-07-12: creating a school
      * with a manually typed, mixed-case slug ("Training") stored it
      * verbatim, which 404'd on its own subdomain (ResolveTenant's lookup

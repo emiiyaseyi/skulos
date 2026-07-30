@@ -69,7 +69,7 @@ class ReportBuilderController extends Controller
         $rows = collect();
         if ($source && count($selectedColumns)) {
             $this->authorizeAction($request, $sources[$source]['permission']);
-            $rows = $this->fetchRows($request, $source, $selectedColumns, $classArmId, $status);
+            $rows = $this->fetchRows($request, $source, $selectedColumns, $classArmId, $status, paginate: true);
         }
 
         $classArms = collect();
@@ -126,9 +126,14 @@ class ReportBuilderController extends Controller
 
     /**
      * @param array<int, string> $columns
-     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     * @param bool $paginate the on-screen preview paginates (audit follow-up
+     *   2026-07-30: this used to load every matching student/staff member
+     *   into memory just to render a preview table, unbounded on a large
+     *   school); a CSV export ($paginate = false, the default) still needs
+     *   every matching row, not one page of them.
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>|\Illuminate\Contracts\Pagination\LengthAwarePaginator<int, array<string, mixed>>
      */
-    protected function fetchRows(Request $request, string $source, array $columns, ?int $classArmId, ?string $status): \Illuminate\Support\Collection
+    protected function fetchRows(Request $request, string $source, array $columns, ?int $classArmId, ?string $status, bool $paginate = false): \Illuminate\Support\Collection|\Illuminate\Contracts\Pagination\LengthAwarePaginator
     {
         $school = $this->school($request);
         $user = Auth::user();
@@ -141,14 +146,15 @@ class ReportBuilderController extends Controller
                 ->when($status, fn ($q) => $q->where('status', $status))
                 ->orderBy('last_name');
 
-            $students = $query->get();
+            $students = $paginate ? $query->paginate(50)->withQueryString() : $query->get();
             $studentIds = $students->pluck('id')->all();
             $term = \App\Models\Tenant\Term::current()->first();
 
-            // Bulk computed once for the whole result set, not once per
-            // row, only when the corresponding column was actually
-            // picked (a plain Students report with none of these ticked
-            // costs nothing extra).
+            // Bulk computed once for the result set actually being
+            // rendered (one page of it, when paginated), not once per row,
+            // only when the corresponding column was actually picked (a
+            // plain Students report with none of these ticked costs
+            // nothing extra).
             $attendanceRates = ($term && in_array('attendance_rate', $columns, true))
                 ? app(\App\Services\Attendance\AttendanceService::class)->ratesByStudent($studentIds, $term->starts_on, $term->ends_on ?? now())
                 : [];
@@ -160,7 +166,7 @@ class ReportBuilderController extends Controller
                     ->with('trait_')->get()->groupBy('student_id')
                 : collect();
 
-            return $students->map(fn (Student $s) => $this->rowFor($s, $columns, [
+            $mapRow = fn (Student $s) => $this->rowFor($s, $columns, [
                 'class' => fn () => $s->currentClassArm?->label(),
                 'house' => fn () => $s->house?->name,
                 'attendance_rate' => fn () => isset($attendanceRates[$s->id]) ? "{$attendanceRates[$s->id]}%" : 'No data',
@@ -168,14 +174,19 @@ class ReportBuilderController extends Controller
                 'behavioural_traits' => fn () => $traitsByStudent->get($s->id, collect())
                     ->map(fn ($rating) => ($rating->trait_?->name ?? 'Unknown').': '.$rating->value)
                     ->implode(', ') ?: 'Not rated',
-            ]));
+            ]);
+
+            return $paginate ? $students->through($mapRow) : $students->map($mapRow);
         }
 
         $query = Staff::query()
             ->when($status, fn ($q) => $q->where('status', $status))
             ->orderBy('last_name');
 
-        return $query->get()->map(fn (Staff $s) => $this->rowFor($s, $columns, []));
+        $staff = $paginate ? $query->paginate(50)->withQueryString() : $query->get();
+        $mapRow = fn (Staff $s) => $this->rowFor($s, $columns, []);
+
+        return $paginate ? $staff->through($mapRow) : $staff->map($mapRow);
     }
 
     /**

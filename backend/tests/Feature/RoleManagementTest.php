@@ -219,6 +219,37 @@ class RoleManagementTest extends TestCase
         $this->assertFalse($this->rbac->check($bursarUser, $school, 'report_cards.view'), 'unticking the box must revoke the extra access');
     }
 
+    /**
+     * Audit follow-up 2026-07-30: the Users table used to load every
+     * active user in the school (students and parents included) as full
+     * models and call roleIn()/hasModuleOverride() (each a real query) per
+     * user per module, a genuine N+1. Proves the fix paginates the table
+     * AND that the "click a role, see everyone on it" popup still sees
+     * every member, not just the page currently showing (it is now a
+     * deliberately separate, unpaginated query).
+     */
+    public function test_the_users_table_paginates_while_the_role_members_popup_still_sees_everyone(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rmeight');
+        $bursarRole = $this->rbac->cloneTemplateRole($school, 'bursar');
+
+        for ($i = 0; $i < 35; $i++) {
+            $user = User::factory()->create(['name' => "Bulk Bursar {$i}"]);
+            $school->users()->attach($user->id, ['role_id' => $bursarRole->id, 'status' => 'active']);
+        }
+
+        $response = $this->actingAs($owner)->get(route('school.roles.index', ['school' => $school->slug]));
+        $response->assertOk();
+
+        $members = $response->viewData('members');
+        $this->assertSame(30, $members->perPage());
+        $this->assertSame(30, $members->count());
+        $this->assertSame(36, $members->total(), '35 bulk users plus the owner');
+
+        $usersByRoleId = $response->viewData('usersByRoleId');
+        $this->assertCount(35, $usersByRoleId[$bursarRole->id], 'the popup data must list every member of the role, not just one page');
+    }
+
     public function test_a_teacher_without_staff_update_cannot_open_the_page(): void
     {
         [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'rmseven');

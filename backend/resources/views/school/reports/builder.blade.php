@@ -92,7 +92,8 @@
           </tbody>
         </table>
         </div>
-        <p class="muted" style="margin-top:.6rem">{{ $rows->count() }} row(s).</p>
+        <div style="margin-top:1rem">{{ $rows->links() }}</div>
+        <p class="muted" style="margin-top:.6rem">{{ $rows->total() }} row(s) match this filter. Use Export CSV to download all of them.</p>
       @endif
     </div>
   @endif

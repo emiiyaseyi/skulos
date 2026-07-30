@@ -99,6 +99,7 @@
       </tbody>
     </table>
     </div>
+    <div style="margin-top:1rem">{{ $schools->links() }}</div>
 
     <div class="row-between" style="margin-top:.8rem;flex-wrap:wrap;gap:.6rem">
       <span class="muted" style="font-size:.85rem">Tick any number of schools above, then choose an action.</span>

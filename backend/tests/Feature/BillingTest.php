@@ -51,6 +51,21 @@ class BillingTest extends TestCase
         return $u;
     }
 
+    /** Audit follow-up 2026-07-30: the Schools table on this page used to load with no bound at all. */
+    public function test_the_schools_table_paginates(): void
+    {
+        $admin = $this->superAdmin();
+        School::factory()->count(35)->create();
+
+        $response = $this->actingAs($admin)->get(route('admin.billing.index'));
+        $response->assertOk();
+
+        $schools = $response->viewData('schools');
+        $this->assertSame(30, $schools->perPage());
+        $this->assertSame(30, $schools->count());
+        $this->assertSame(35, $schools->total());
+    }
+
     public function test_admin_can_create_and_edit_a_plan(): void
     {
         $admin = $this->superAdmin();

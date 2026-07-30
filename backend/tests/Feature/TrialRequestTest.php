@@ -217,4 +217,25 @@ class TrialRequestTest extends TestCase
         $this->actingAs($admin)->get(route('admin.trial-requests.index', ['status' => 'approved']))
             ->assertOk()->assertSee('Approved One')->assertDontSee('Pending One');
     }
+
+    /**
+     * Audit follow-up 2026-07-30: append-only, never purged, so this grows
+     * faster than the Schools table it feeds. Used to load with no bound.
+     */
+    public function test_the_trial_requests_list_paginates(): void
+    {
+        $admin = $this->superAdmin();
+        for ($i = 0; $i < 35; $i++) {
+            TrialRequest::create(['school_name' => "Bulk School {$i}", 'contact_name' => 'Contact', 'email' => "bulk{$i}@example.com"]);
+        }
+
+        $response = $this->actingAs($admin)->get(route('admin.trial-requests.index', ['status' => 'pending']));
+        $response->assertOk();
+
+        $trials = $response->viewData('trials');
+        $this->assertSame(30, $trials->perPage());
+        $this->assertSame(30, $trials->count());
+        $this->assertSame(35, $trials->total());
+        $this->assertSame(35, $response->viewData('counts')['pending'], 'the status tab counts must stay platform wide, not the page shown');
+    }
 }

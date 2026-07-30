@@ -92,6 +92,41 @@ class ReportBuilderTest extends TestCase
         $this->assertStringContainsString('Bola,Coker,"JSS 1 A","Red House"', $csv->getContent());
     }
 
+    /**
+     * Audit follow-up 2026-07-30: the on-screen preview used to load
+     * every matching student into memory, unbounded on a large school.
+     * Proves the preview paginates while the CSV export (which
+     * legitimately needs every matching row, not one page) still returns
+     * everything.
+     */
+    public function test_the_preview_paginates_but_the_csv_export_still_returns_every_row(): void
+    {
+        [$school, $registrar] = $this->schoolWithMember('registrar', 'rbpage');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Secondary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS 1', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => Arm::create(['name' => 'A'])->id]);
+        for ($i = 0; $i < 55; $i++) {
+            Student::create([
+                'admission_number' => "RBP{$i}", 'first_name' => "Student{$i}", 'last_name' => 'Bulk',
+                'current_class_arm_id' => $arm->id, 'status' => 'active',
+            ]);
+        }
+        app(TenantManager::class)->forget();
+
+        $preview = $this->actingAs($registrar)->get("http://{$school->slug}.localhost/reports/builder?source=students&columns[]=first_name&columns[]=last_name");
+        $preview->assertOk();
+        $rows = $preview->viewData('rows');
+        $this->assertSame(50, $rows->perPage());
+        $this->assertSame(50, $rows->count());
+        $this->assertSame(55, $rows->total());
+
+        $csv = $this->actingAs($registrar)->get("http://{$school->slug}.localhost/reports/builder/export?source=students&columns[]=first_name&columns[]=last_name");
+        $csv->assertOk();
+        $this->assertSame(55, substr_count($csv->getContent(), 'Bulk'), 'the export must include every matching row, not one page');
+    }
+
     public function test_a_registrar_cannot_pull_a_staff_report_without_staff_view(): void
     {
         [$school, $user] = $this->schoolWithMember('secretary', 'rbthree'); // has analytics-less grants but no staff.view either, use a role with neither

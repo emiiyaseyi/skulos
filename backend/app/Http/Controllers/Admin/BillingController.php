@@ -30,7 +30,9 @@ class BillingController extends Controller
     {
         return view('admin.billing', [
             'plans' => Plan::orderBy('sort_order')->get(),
-            'schools' => School::with('plan')->orderBy('name')->get(),
+            // Paginated (audit follow-up 2026-07-30): grows with every
+            // provisioned school, same unbounded table as the Schools index.
+            'schools' => School::with('plan')->orderBy('name')->paginate(30)->withQueryString(),
             'optionalModules' => $this->optionalModules(),
             'featureCatalog' => config('skulos.plan_feature_catalog'),
             'addOnCatalog' => config('skulos.add_on_catalog'),

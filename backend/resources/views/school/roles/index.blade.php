@@ -137,6 +137,7 @@
       </tbody>
     </table>
     </div>
+    <div style="margin-top:1rem">{{ $members->links() }}</div>
   @endif
 </div>
 

@@ -147,6 +147,7 @@
     </tbody>
   </table>
   </div>
+  <div style="margin-top:1rem">{{ $schools->links() }}</div>
 </div>
 
 <style>

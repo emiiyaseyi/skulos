@@ -128,10 +128,19 @@ class RoleManagementController extends Controller
             ->groupBy('role_id')
             ->pluck('aggregate', 'role_id');
 
+        // Paginated (audit follow-up 2026-07-30): this used to load every
+        // active user in the school (students and parents included, not
+        // just staff) as full models and call roleIn()/hasModuleOverride()
+        // (each a real query) per user per module, a genuine N+1 that
+        // could run into the thousands of queries on a large school.
+        // Bounding to one page means those per-user calls only ever run
+        // for the 30 users actually being rendered.
         $members = $school->users()
             ->wherePivot('status', 'active')
-            ->get()
-            ->map(function (User $user) use ($school, $rbac) {
+            ->orderBy('users.name')
+            ->paginate(30)
+            ->withQueryString()
+            ->through(function (User $user) use ($school, $rbac) {
                 return [
                     'user' => $user,
                     'role' => $user->roleIn($school),
@@ -139,16 +148,23 @@ class RoleManagementController extends Controller
                         ->filter(fn ($code) => $rbac->hasModuleOverride($school, $user, $code))
                         ->values(),
                 ];
-            })
-            ->sortBy(fn ($row) => $row['user']->name)
-            ->values();
+            });
 
         // Grouped for the "click a role, see who is on it" popup (user
-        // directive 2026-07-16), built here rather than a second endpoint
-        // the popup would have to fetch, this page already loaded every
-        // member and their role.
-        $usersByRoleId = $members->groupBy(fn ($row) => $row['role']?->id)
-            ->map(fn ($rows) => $rows->pluck('user.name')->values());
+        // directive 2026-07-16). Deliberately a separate, lean query
+        // rather than derived from $members above: the popup needs every
+        // member on the role, not just whichever page is showing, and
+        // only ever needs a name and a role_id, not a full User model plus
+        // its role/extra-access lookups.
+        $usersByRoleId = DB::table('school_user')
+            ->join('users', 'users.id', '=', 'school_user.user_id')
+            ->where('school_user.school_id', $school->id)
+            ->where('school_user.status', 'active')
+            ->whereNotNull('school_user.role_id')
+            ->orderBy('users.name')
+            ->get(['school_user.role_id', 'users.name'])
+            ->groupBy('role_id')
+            ->map(fn ($rows) => $rows->pluck('name'));
 
         return view('school.roles.index', [
             'school' => $school,

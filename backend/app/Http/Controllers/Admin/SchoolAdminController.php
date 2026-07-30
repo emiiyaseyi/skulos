@@ -29,17 +29,23 @@ use Illuminate\Validation\Rule;
  */
 class SchoolAdminController extends Controller
 {
-    /** The Schools section: create a school, and the full schools list. */
+    /**
+     * The Schools section: create a school, and the full schools list.
+     * Paginated (audit follow-up 2026-07-30: this table grows with every
+     * provisioned school and had no bound at all). The stat tiles are
+     * counted with their own queries, not derived from the page slice, so
+     * they stay accurate regardless of which page is showing.
+     */
     public function schools(): \Illuminate\View\View
     {
-        $schools = School::with('plan')->orderByDesc('created_at')->get();
+        $schools = School::with('plan')->orderByDesc('created_at')->paginate(30)->withQueryString();
 
         return view('admin.schools-index', [
             'schools' => $schools,
             'stats' => [
-                'schools' => $schools->count(),
-                'active' => $schools->where('status', School::STATUS_ACTIVE)->count(),
-                'pending' => $schools->where('status', School::STATUS_PENDING)->count(),
+                'schools' => School::count(),
+                'active' => School::where('status', School::STATUS_ACTIVE)->count(),
+                'pending' => School::where('status', School::STATUS_PENDING)->count(),
             ],
         ]);
     }

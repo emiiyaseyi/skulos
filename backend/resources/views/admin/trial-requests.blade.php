@@ -90,5 +90,6 @@
       @endif
     </div>
   @endforeach
+  <div style="margin-top:1rem">{{ $trials->links() }}</div>
 @endif
 @endsection
