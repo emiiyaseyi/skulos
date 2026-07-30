@@ -259,6 +259,32 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::post('/password/reset', [\App\Http\Controllers\School\ProfileController::class, 'resetViaToken'])->middleware('throttle:5,1')->name('school.password.reset.submit');
     });
 
+    // Admissions module, Phase 1a (user directive 2026-07-30): an
+    // applicant's own sign-in, entirely separate from the 'web' guard
+    // above (see App\Models\Tenant\Applicant's docblock for why). Public
+    // application entry ("Seek Admission") and the applicant dashboard
+    // itself land here in later Admissions sub-phases.
+    Route::prefix('admissions')->name('school.admissions.')->group(function () {
+        $applicantAuth = \App\Http\Controllers\Admissions\ApplicantAuthController::class;
+
+        Route::middleware('guest:applicant')->group(function () use ($applicantAuth) {
+            Route::get('/login', [$applicantAuth, 'show'])->name('login');
+            Route::post('/login', [$applicantAuth, 'login'])->middleware('throttle:10,1')->name('login.submit');
+        });
+
+        // Not 'auth:applicant': that's Laravel's generic Authenticate
+        // middleware, which on an unauthenticated request falls back to
+        // bootstrap/app.php's global redirectGuestsTo closure (built for
+        // the 'web' guard's school.login route, wrong destination for an
+        // applicant). applicant_active (EnsureApplicantActive) already
+        // covers "not authenticated" AND "authenticated but expired/
+        // locked out/archived" in one place, with the correct redirect.
+        Route::middleware('applicant_active')->group(function () use ($applicantAuth) {
+            Route::post('/logout', [$applicantAuth, 'logout'])->name('logout');
+            Route::get('/dashboard', [\App\Http\Controllers\Admissions\ApplicantDashboardController::class, 'index'])->name('dashboard');
+        });
+    });
+
     // Impersonation handoff landing point (see SchoolAdminController::
     // impersonate()'s docblock): neither 'guest' nor 'auth', the browser
     // is not yet authenticated on this host at this point, only the

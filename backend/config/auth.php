@@ -40,6 +40,19 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Admissions module (2026-07-30): an applicant is not a school
+        // member (see App\Models\Tenant\Applicant's docblock), signs in
+        // separately from the platform's normal 'web' guard. The
+        // Applicant model itself declares $connection = 'tenant', so this
+        // guard correctly follows whichever school's database the
+        // request is already resolved to (ResolveTenant middleware always
+        // runs before this guard is ever consulted, see routes/web.php's
+        // school-domain route group).
+        'applicant' => [
+            'driver' => 'session',
+            'provider' => 'applicants',
+        ],
     ],
 
     /*
@@ -69,6 +82,11 @@ return [
         //     'driver' => 'database',
         //     'table' => 'users',
         // ],
+
+        'applicants' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Tenant\Applicant::class,
+        ],
     ],
 
     /*

@@ -67,6 +67,12 @@ Schedule::command('license:check')->hourly()->withoutOverlapping();
 // peak, once a day, same as the other maintenance jobs.
 Schedule::command('platform:backup')->dailyAt('02:30')->withoutOverlapping();
 
+// Admissions module (2026-07-30): archives any applicant account whose
+// temporary application window has lapsed, even if they never came back
+// to trigger EnsureApplicantActive's own inline check. Daily is enough,
+// the window itself is measured in weeks (default 30 days), not hours.
+Schedule::command('admissions:archive-expired-applicants')->dailyAt('01:00')->withoutOverlapping();
+
 // Audit log hardening (2026-07-20). Export is hourly so a durable,
 // external copy of new audit activity never sits unshipped for long;
 // verify is once daily, off peak, since walking every row on every

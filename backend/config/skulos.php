@@ -964,6 +964,45 @@ return [
     'default_report_card_review_chain' => ['class-teacher'],
 
     /*
+    | Admission pipeline (Admissions module, Phase 1, user directive
+    | 2026-07-30: "Admission Pipeline... think like a CRM", an ordered
+    | sequence an applicant moves through, same configurable-chain shape
+    | as the report card review chain above (Applicant::pipelineChain()).
+    | "admission_pipeline_stages" is the picklist an admin builds a chain
+    | from; "default_admission_pipeline_chain" is what a school starts
+    | with (every stage, in the natural order). A school can trim optional
+    | stages (e.g. skip Interview) but not reorder around the ones later
+    | sub-phases attach real behaviour to (fee payment, document upload,
+    | assessment), so unlike the report card chain this one is a
+    | toggleable subset of a fixed order, not a free reorder.
+    */
+    'admission_pipeline_stages' => [
+        'application_started' => 'Application Started',
+        'application_submitted' => 'Application Submitted',
+        'documents_uploaded' => 'Documents Uploaded',
+        'interview_scheduled' => 'Interview Scheduled',
+        'interview_completed' => 'Interview Completed',
+        'admission_offered' => 'Admission Offered',
+        'acceptance_fee_paid' => 'Acceptance Fee Paid',
+        'enrolled' => 'Enrolled',
+    ],
+    'default_admission_pipeline_chain' => [
+        'application_started', 'application_submitted', 'documents_uploaded',
+        'interview_scheduled', 'interview_completed', 'admission_offered',
+        'acceptance_fee_paid', 'enrolled',
+    ],
+
+    /*
+    | How long an applicant's account stays usable after credentials are
+    | issued (user directive 2026-07-30: "APPLICANT WILL HAVE A TEMPORARY
+    | WINDOW... BY DEFAULT 1 MONTH AND USER IS LOCK OUT AND PROFILE IS
+    | ARCHIVE"), admin-editable per school via the Admissions settings
+    | screen (Setting key "admission_account_ttl_days"), this is only the
+    | platform default a school starts with.
+    */
+    'default_admission_account_ttl_days' => 30,
+
+    /*
     | Who can approve a new fee item before parents ever see it (user
     | request 2026-07-25: "admin can set an approval level for school
     | fees which the school owner, principal, vice principal, head
