@@ -1,6 +1,15 @@
 @extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => 'Class Teacher Entry'])
 @section('title', 'Class Teacher Entry')
 
+@push('head')
+<style>
+  {{-- Wider than table-stack's 11rem default for a stacked remark field, a short input like Height/Club is fine at 11rem but a remark needs room to actually write in. --}}
+  @media(max-width:640px){
+    .ce-table td textarea{max-width:100%;width:100%}
+  }
+</style>
+@endpush
+
 @section('content')
 <div class="page-head">
   <div>
@@ -57,8 +66,18 @@
     <form method="POST" action="{{ route('school.report-cards.class.entry.update', ['school' => $school->slug, 'classId' => $class->id]) }}">
       @csrf
       <input type="hidden" name="term_id" value="{{ $term->id }}" />
+      {{-- A genuine wide data-entry grid, one row per student, every
+           cell a real input/select/textarea (fixed physical stats,
+           traits, per-subject comments, remarks). Same .table-stack
+           mobile treatment already proven on the score entry and
+           attendance screens: below 640px this becomes one card per
+           student with a labelled field for each column, rather than
+           forcing horizontal scrolling through a dozen tiny inputs one
+           handed. The remark textareas get a wider stacked width than
+           the table-stack default (11rem is fine for a short input,
+           too narrow to actually write a remark in). --}}
       <div style="overflow-x:auto">
-      <table>
+      <table class="table-stack ce-table">
         <thead><tr>
           <th style="position:sticky;left:0;background:var(--panel)">Student</th>
           <th>Height</th><th>Weight</th><th>Club</th>
@@ -78,12 +97,12 @@
               $studentRatings = ($ratings->get($student->id) ?? collect())->keyBy('behavioural_trait_id');
             @endphp
             <tr>
-              <td style="position:sticky;left:0;background:var(--panel)"><strong>{{ $student->fullName() }}</strong></td>
-              <td><input name="students[{{ $student->id }}][height]" value="{{ $remark?->height }}" placeholder="e.g. 111cm" style="min-width:6rem" /></td>
-              <td><input name="students[{{ $student->id }}][weight]" value="{{ $remark?->weight }}" placeholder="e.g. 18kg" style="min-width:6rem" /></td>
-              <td><input name="students[{{ $student->id }}][club]" value="{{ $remark?->club }}" style="min-width:7rem" /></td>
+              <td style="position:sticky;left:0;background:var(--panel)" data-label="Student"><strong>{{ $student->fullName() }}</strong></td>
+              <td data-label="Height"><input name="students[{{ $student->id }}][height]" value="{{ $remark?->height }}" placeholder="e.g. 111cm" style="min-width:6rem" /></td>
+              <td data-label="Weight"><input name="students[{{ $student->id }}][weight]" value="{{ $remark?->weight }}" placeholder="e.g. 18kg" style="min-width:6rem" /></td>
+              <td data-label="Club"><input name="students[{{ $student->id }}][club]" value="{{ $remark?->club }}" style="min-width:7rem" /></td>
               @foreach($traits as $trait)
-                <td>
+                <td data-label="{{ $trait->name }}">
                   @if($trait->type === 'score')
                     <input type="number" min="0" max="{{ $trait->max_score }}" name="students[{{ $student->id }}][traits][{{ $trait->id }}]" value="{{ $studentRatings->get($trait->id)?->value }}" style="min-width:5rem" />
                   @else
@@ -97,11 +116,11 @@
                 </td>
               @endforeach
               @foreach($subjects as $subject)
-                <td><input name="students[{{ $student->id }}][comments][{{ $subject->id }}]" value="{{ $comments->get($student->id.'-'.$subject->id)?->first()?->comment }}" style="min-width:14rem" /></td>
+                <td data-label="{{ $subject->name }} comment"><input name="students[{{ $student->id }}][comments][{{ $subject->id }}]" value="{{ $comments->get($student->id.'-'.$subject->id)?->first()?->comment }}" style="min-width:14rem" /></td>
               @endforeach
-              <td><textarea name="students[{{ $student->id }}][class_teacher_remark]" rows="2" style="min-width:14rem">{{ $remark?->class_teacher_remark }}</textarea></td>
+              <td data-label="Class teacher's remark"><textarea name="students[{{ $student->id }}][class_teacher_remark]" rows="2" style="min-width:14rem">{{ $remark?->class_teacher_remark }}</textarea></td>
               @if($canEnterPrincipalRemark)
-                <td><textarea name="students[{{ $student->id }}][principal_remark]" rows="2" style="min-width:14rem">{{ $remark?->principal_remark }}</textarea></td>
+                <td data-label="Head of school's remark"><textarea name="students[{{ $student->id }}][principal_remark]" rows="2" style="min-width:14rem">{{ $remark?->principal_remark }}</textarea></td>
               @endif
             </tr>
           @endforeach
