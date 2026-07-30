@@ -62,7 +62,7 @@
               @else
                 <span class="badge">{{ \App\Models\Tenant\ReportCardReview::statusLabel($status) }}</span>
                 @if($status === \App\Models\Tenant\ReportCardReview::STATUS_PENDING_REVIEW && $review->currentStageRole())
-                  <div class="muted" style="font-size:.72rem">{{ $reviewChainRoles[$review->currentStageRole()] ?? $review->currentStageRole() }}</div>
+                  <div class="muted">{{ $reviewChainRoles[$review->currentStageRole()] ?? $review->currentStageRole() }}</div>
                 @endif
               @endif
             </td>

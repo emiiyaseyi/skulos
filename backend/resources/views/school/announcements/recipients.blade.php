@@ -32,7 +32,7 @@
       <tbody>
         @foreach($notifications as $n)
           <tr>
-            <td><strong>{{ $n->user?->name ?? 'Removed user' }}</strong>@if($n->user?->email)<div class="muted" style="font-size:.8rem">{{ $n->user->email }}</div>@endif</td>
+            <td><strong>{{ $n->user?->name ?? 'Removed user' }}</strong>@if($n->user?->email)<div class="muted">{{ $n->user->email }}</div>@endif</td>
             <td>
               @if($n->read_at)
                 <span class="badge badge-ok">Acknowledged</span>

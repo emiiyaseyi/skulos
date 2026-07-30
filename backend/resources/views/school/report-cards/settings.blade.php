@@ -49,7 +49,7 @@
       <input type="checkbox" @checked($reviewStageEnabled) onchange="this.form.querySelector('[name=enabled]').value=this.checked?'1':'0';this.form.submit()" />
       <span>Require review before a report card can be released</span>
     </label>
-    <span class="muted" style="font-size:.8rem">Turning this off releases every generated report card immediately, skipping approval.</span>
+    <span class="muted">Turning this off releases every generated report card immediately, skipping approval.</span>
   </form>
   <form method="POST" action="{{ route('school.report-cards.suggested-remark', ['school' => $school->slug]) }}" style="display:flex;align-items:center;gap:.6rem;padding-top:.8rem;border-top:1px solid var(--line)">
     @csrf
@@ -58,7 +58,7 @@
       <input type="checkbox" @checked($suggestedRemarkEnabled) onchange="this.form.querySelector('[name=enabled]').value=this.checked?'1':'0';this.form.submit()" />
       <span>Suggest a remark on the score entry screen</span>
     </label>
-    <span class="muted" style="font-size:.8rem">Turning this off stops pre filling a remark from the comment bank; teachers type their own from scratch.</span>
+    <span class="muted">Turning this off stops pre filling a remark from the comment bank; teachers type their own from scratch.</span>
   </form>
 </div>
 
@@ -86,7 +86,7 @@
         </label>
       @endfor
     </div>
-    <p class="muted" style="font-size:.78rem;margin:.6rem 0">Leave a stage as "Not used" to stop the chain there, later stages are then ignored.</p>
+    <p class="muted" style="margin:.6rem 0">Leave a stage as "Not used" to stop the chain there, later stages are then ignored.</p>
     <button class="btn btn-primary btn-sm" type="submit">Save review chain</button>
   </form>
 </div>

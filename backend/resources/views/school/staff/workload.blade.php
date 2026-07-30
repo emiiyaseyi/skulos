@@ -128,7 +128,7 @@
             <tr>
               <td>
                 <a href="{{ route('school.staff.show', ['school' => $school->slug, 'staffId' => $row['staff_id']]) }}">{{ $row['name'] }}</a>
-                @if($row['position'])<div class="muted" style="font-size:.78rem">{{ $row['position'] }}</div>@endif
+                @if($row['position'])<div class="muted">{{ $row['position'] }}</div>@endif
                 @if($row['class_labels'])<div class="muted" style="font-size:.76rem">{{ $row['class_labels'] }}</div>@endif
               </td>
               <td>

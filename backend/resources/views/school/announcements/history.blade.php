@@ -51,7 +51,7 @@
             </td>
             <td>
               <strong>{{ $item->title }}</strong>
-              <div class="muted" style="font-size:.8rem">{{ \Illuminate\Support\Str::limit(strip_tags($item->body), 90) }}</div>
+              <div class="muted">{{ \Illuminate\Support\Str::limit(strip_tags($item->body), 90) }}</div>
             </td>
             <td class="muted" style="white-space:nowrap">{!! $target !!}</td>
             <td style="white-space:nowrap">

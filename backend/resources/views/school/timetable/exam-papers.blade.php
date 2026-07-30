@@ -40,7 +40,7 @@
             <input type="checkbox" name="papers[{{ $index }}][is_break]" value="1" @checked($paper->is_break) />
             <span>Break (not assignable to a subject)</span>
           </label>
-          <span class="muted" style="font-size:.8rem">{{ $paper->timeLabel() }}</span>
+          <span class="muted">{{ $paper->timeLabel() }}</span>
           <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('.row-between').remove()">Remove</button>
         </div>
       @empty

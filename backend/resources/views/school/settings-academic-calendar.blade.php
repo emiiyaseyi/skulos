@@ -70,9 +70,9 @@
                   <form method="POST" action="{{ route('school.settings.calendar.terms.dates', ['school' => $school->slug, 'termId' => $term->id]) }}" style="display:flex;gap:.3rem;align-items:center;margin-bottom:.4rem;flex-wrap:wrap">
                     @csrf
                     <input type="date" name="starts_on" value="{{ $term->starts_on?->toDateString() }}" style="padding:.3rem .4rem;font-size:.8rem" />
-                    <span class="muted" style="font-size:.8rem">to</span>
+                    <span class="muted">to</span>
                     <input type="date" name="ends_on" value="{{ $term->ends_on?->toDateString() }}" style="padding:.3rem .4rem;font-size:.8rem" />
-                    <span class="muted" style="font-size:.8rem">Days open</span>
+                    <span class="muted">Days open</span>
                     {{--
                       Pre-filled with the freshly auto-calculated figure
                       when this term has both dates (user request
@@ -91,7 +91,7 @@
                     <button class="btn btn-ghost btn-sm" type="submit">Save</button>
                   </form>
                 @else
-                  <div class="muted" style="font-size:.8rem;margin-bottom:.4rem">{{ $term->starts_on?->toDateString() ?? '?' }} to {{ $term->ends_on?->toDateString() ?? '?' }}@if($term->total_school_days) &middot; {{ $term->total_school_days }} days open @endif</div>
+                  <div class="muted" style="margin-bottom:.4rem">{{ $term->starts_on?->toDateString() ?? '?' }} to {{ $term->ends_on?->toDateString() ?? '?' }}@if($term->total_school_days) &middot; {{ $term->total_school_days }} days open @endif</div>
                 @endif
               @endforeach
             </td>

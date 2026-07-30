@@ -21,7 +21,7 @@
           <tr>
             <td>
               <a href="{{ route('school.students.show', ['school' => $school->slug, 'studentId' => $student->id]) }}"><strong>{{ $student->fullName() }}</strong></a>
-              <div class="muted" style="font-size:.8rem">{{ $student->admission_number }}</div>
+              <div class="muted">{{ $student->admission_number }}</div>
             </td>
             <td class="muted">{{ $student->currentClassArm?->label() }}</td>
             <td>
@@ -33,7 +33,7 @@
                 @foreach($student->guardians as $guardian)
                   <div style="margin-bottom:.3rem">
                     <strong>{{ $guardian->name }}</strong>@if($guardian->is_primary)<span class="badge badge-ok" style="margin-left:.3rem">Primary</span>@endif
-                    <div class="muted" style="font-size:.8rem">{{ $guardian->relationship ?: 'Not set' }} &middot; {{ $guardian->phone ?: $guardian->email ?: 'Not set' }}</div>
+                    <div class="muted">{{ $guardian->relationship ?: 'Not set' }} &middot; {{ $guardian->phone ?: $guardian->email ?: 'Not set' }}</div>
                   </div>
                 @endforeach
               @endif

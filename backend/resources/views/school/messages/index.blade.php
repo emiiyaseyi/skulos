@@ -43,7 +43,7 @@
                 @endif
                 <div>
                   <strong>{{ $b->title }}</strong>
-                  <div class="muted" style="font-size:.8rem">{{ \Illuminate\Support\Str::limit(strip_tags($b->body), 90) }}</div>
+                  <div class="muted">{{ \Illuminate\Support\Str::limit(strip_tags($b->body), 90) }}</div>
                 </div>
               </div>
             </td>

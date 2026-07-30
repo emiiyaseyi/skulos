@@ -18,7 +18,7 @@
 
 <div class="card" style="margin-bottom:1.25rem">
   <h3 style="margin-bottom:.3rem">Result performance trend</h3>
-  <p class="muted" style="font-size:.8rem;margin-bottom:.8rem">The real school wide average across each of the last {{ count($trend) }} term(s) with recorded scores.</p>
+  <p class="muted" style="margin-bottom:.8rem">The real school wide average across each of the last {{ count($trend) }} term(s) with recorded scores.</p>
   @if(empty($trend))
     <p class="muted">No results have been recorded yet.</p>
   @else
@@ -33,7 +33,7 @@
 @if($classRates->isNotEmpty())
   <div class="card" style="margin-bottom:1.25rem">
     <h3 style="margin-bottom:.3rem">By class</h3>
-    <p class="muted" style="font-size:.8rem;margin-bottom:.8rem">Average score per class for {{ $term?->name }}, highest first.</p>
+    <p class="muted" style="margin-bottom:.8rem">Average score per class for {{ $term?->name }}, highest first.</p>
     <div style="display:flex;flex-direction:column;gap:.6rem">
       @foreach($classRates as $row)
         <div>

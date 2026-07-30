@@ -92,7 +92,7 @@
           </tbody>
         </table>
         </div>
-        <p class="muted" style="margin-top:.6rem;font-size:.82rem">{{ $rows->count() }} row(s).</p>
+        <p class="muted" style="margin-top:.6rem">{{ $rows->count() }} row(s).</p>
       @endif
     </div>
   @endif

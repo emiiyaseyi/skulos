@@ -50,7 +50,7 @@
 
 <div class="card" style="margin-bottom:1.25rem">
   <h3 style="margin-bottom:.3rem">Attendance rate trend</h3>
-  <p class="muted" style="font-size:.8rem;margin-bottom:.8rem">Present rate for each of the last 14 real school days (weekends and holidays excluded).</p>
+  <p class="muted" style="margin-bottom:.8rem">Present rate for each of the last 14 real school days (weekends and holidays excluded).</p>
   @if($trend->filter(fn ($t) => $t['rate'] !== null)->isEmpty())
     <p class="muted">No attendance has been marked in this window yet.</p>
   @else
@@ -65,7 +65,7 @@
 @if($classRates->isNotEmpty())
   <div class="card">
     <h3 style="margin-bottom:.3rem">By class</h3>
-    <p class="muted" style="font-size:.8rem;margin-bottom:.8rem">Present rate per class over the same 14 day window, highest first.</p>
+    <p class="muted" style="margin-bottom:.8rem">Present rate per class over the same 14 day window, highest first.</p>
     <div style="display:flex;flex-direction:column;gap:.6rem">
       @foreach($classRates as $row)
         <div>

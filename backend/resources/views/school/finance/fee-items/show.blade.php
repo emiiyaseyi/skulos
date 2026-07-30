@@ -51,7 +51,7 @@
   <div class="row-between" style="margin-bottom:.6rem;flex-wrap:wrap;gap:.5rem">
     <h3 style="margin:0">Installment schedule</h3>
     @unless($feeItem->allow_installments)
-      <span class="muted" style="font-size:.82rem">Installments are off for this fee item. Turn "Allow this fee to be paid in installments" on above to use this.</span>
+      <span class="muted">Installments are off for this fee item. Turn "Allow this fee to be paid in installments" on above to use this.</span>
     @endunless
   </div>
 

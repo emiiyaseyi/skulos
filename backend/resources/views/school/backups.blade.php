@@ -51,7 +51,7 @@
       <tbody>
         @foreach($backups as $backup)
           <tr>
-            <td>{{ $backup->created_at->toDayDateTimeString() }}@if($backup->restored_at)<div class="muted" style="font-size:.78rem">Restored {{ $backup->restored_at->diffForHumans() }}</div>@endif</td>
+            <td>{{ $backup->created_at->toDayDateTimeString() }}@if($backup->restored_at)<div class="muted">Restored {{ $backup->restored_at->diffForHumans() }}</div>@endif</td>
             <td class="muted">{{ ucfirst($backup->type) }}</td>
             <td class="muted">{{ $backup->humanSize() }}</td>
             <td style="white-space:nowrap">

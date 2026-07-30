@@ -81,7 +81,7 @@
             <td class="muted" style="white-space:nowrap">{{ $assignment->due_on?->format('d M Y') ?? 'No due date' }}</td>
             <td>
               <strong>{{ $assignment->title }}</strong>
-              @if($assignment->description)<div class="muted" style="font-size:.8rem">{{ \Illuminate\Support\Str::limit($assignment->description, 90) }}</div>@endif
+              @if($assignment->description)<div class="muted">{{ \Illuminate\Support\Str::limit($assignment->description, 90) }}</div>@endif
             </td>
             <td class="muted">{{ $assignment->subject?->name }}</td>
             <td class="muted">{{ $assignment->classArm?->label() }}</td>

@@ -82,7 +82,7 @@
       <ul class="stack" style="margin-bottom:1rem">
         @foreach($house->sponsors as $sponsor)
           <li class="row-between" style="gap:.6rem">
-            <span>{{ $sponsor->displayName() }} @if($sponsor->guardian)<span class="muted" style="font-size:.8rem">(parent)</span>@endif</span>
+            <span>{{ $sponsor->displayName() }} @if($sponsor->guardian)<span class="muted">(parent)</span>@endif</span>
             @if($canManage)
               <form method="POST" action="{{ route('school.houses.sponsors.destroy', ['school' => $school->slug, 'houseId' => $house->id, 'sponsorId' => $sponsor->id]) }}">
                 @csrf @method('DELETE')

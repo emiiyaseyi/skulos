@@ -29,7 +29,7 @@
         @if($submission->file_path)
           <a class="btn btn-ghost btn-sm" href="{{ route('school.assignments.submissions.file', ['school' => $school->slug, 'assignmentId' => $assignment->id, 'submissionId' => $submission->id]) }}" target="_blank" rel="noopener">View attached file</a>
         @endif
-        <p class="muted" style="font-size:.82rem;margin-top:.8rem">You can update your submission below at any time.</p>
+        <p class="muted" style="margin-top:.8rem">You can update your submission below at any time.</p>
       @else
         <p class="muted" style="margin-bottom:.8rem">You have not submitted this yet.</p>
       @endif
@@ -78,7 +78,7 @@
               <td class="muted" style="white-space:nowrap">{{ $submission?->submitted_at?->format('d M Y, g:ia') ?? 'N/A' }}</td>
               <td style="white-space:nowrap">
                 @if($submission?->content)
-                  <span class="muted" style="font-size:.82rem" title="{{ $submission->content }}">{{ \Illuminate\Support\Str::limit($submission->content, 40) }}</span>
+                  <span class="muted" title="{{ $submission->content }}">{{ \Illuminate\Support\Str::limit($submission->content, 40) }}</span>
                 @endif
                 @if($submission?->file_path)
                   <a class="btn btn-ghost btn-sm" href="{{ route('school.assignments.submissions.file', ['school' => $school->slug, 'assignmentId' => $assignment->id, 'submissionId' => $submission->id]) }}" target="_blank" rel="noopener">File</a>

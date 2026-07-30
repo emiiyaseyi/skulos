@@ -22,7 +22,7 @@
     <div class="card" style="margin-bottom:1.1rem">
       <div class="row-between" style="margin-bottom:.3rem;flex-wrap:wrap;gap:.6rem">
         <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem"><input type="checkbox" id="trial-select-all" /> Select all pending</label>
-        <span class="muted" style="font-size:.82rem">Bulk decline only, approving stays one school at a time.</span>
+        <span class="muted">Bulk decline only, approving stays one school at a time.</span>
       </div>
       <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end">
         <div class="field" style="margin:0;flex:1;min-width:14rem">
@@ -55,7 +55,7 @@
           <strong>{{ $trial->school_name }}</strong>
           <span class="badge {{ $trial->status === 'approved' ? 'badge-ok' : ($trial->status === 'rejected' ? 'badge-bad' : 'badge-warn') }}">{{ ucfirst($trial->status) }}</span>
         </div>
-        <span class="muted" style="font-size:.82rem">{{ $trial->created_at->diffForHumans() }}</span>
+        <span class="muted">{{ $trial->created_at->diffForHumans() }}</span>
       </div>
       <div style="overflow-x:auto">
       <table style="margin-bottom:.8rem">

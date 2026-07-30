@@ -101,7 +101,7 @@
               <td>
                 <strong>{{ $guardian->name }}</strong>@if($guardian->is_primary)<span class="badge badge-ok" style="margin-left:.4rem">Primary</span>@endif
                 @foreach($guardianCustomFields as $customField)
-                  <div class="muted" style="font-size:.78rem">{{ $customField->label }}: {{ ($guardianCustomValues[$guardian->id][$customField->field_key] ?? null) ?: 'Not set' }}</div>
+                  <div class="muted">{{ $customField->label }}: {{ ($guardianCustomValues[$guardian->id][$customField->field_key] ?? null) ?: 'Not set' }}</div>
                 @endforeach
               </td>
               <td class="muted">{{ $guardian->relationship ?: 'Not set' }}</td>
@@ -140,9 +140,9 @@
                   @if($guardian->user && $teacherParentMessagingEnabled)
                     <a class="btn btn-ghost btn-sm" href="{{ route('school.chat.start', ['school' => $school->slug, 'student_id' => $student->id, 'user_id' => $guardian->user->id]) }}">Message</a>
                   @elseif($guardian->user)
-                    <span class="muted" style="font-size:.82rem">Messaging is off</span>
+                    <span class="muted">Messaging is off</span>
                   @else
-                    <span class="muted" style="font-size:.82rem">No login yet</span>
+                    <span class="muted">No login yet</span>
                   @endif
                 </td>
               @endif

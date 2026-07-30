@@ -93,7 +93,7 @@
         <thead><tr>
           <th>Date</th>
           @foreach($teachingPapers as $paper)
-            <th>{{ $paper->name }}<div class="muted" style="font-weight:400;font-size:.72rem">{{ $paper->timeLabel() }}</div></th>
+            <th>{{ $paper->name }}<div class="muted" style="font-weight:400">{{ $paper->timeLabel() }}</div></th>
           @endforeach
         </tr></thead>
         <tbody>

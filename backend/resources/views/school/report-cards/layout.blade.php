@@ -117,7 +117,7 @@
       <input type="checkbox" id="enabledCheckbox" @checked($enabled) />
       <span>Use this custom layout instead of the active template's fixed arrangement</span>
     </label>
-    <p class="muted" style="font-size:.8rem;margin-top:.4rem">Turned off, every template renders exactly as designed, nothing below has any effect. Turned on, the arrangement below (header, info strip, and every section) replaces it on every template.</p>
+    <p class="muted" style="margin-top:.4rem">Turned off, every template renders exactly as designed, nothing below has any effect. Turned on, the arrangement below (header, info strip, and every section) replaces it on every template.</p>
   </div>
 
   <div class="lb-toolbar" id="toolbar">
@@ -210,7 +210,7 @@
 
 <div class="card" style="margin-top:1.1rem">
   <h3 style="margin-bottom:.3rem">Custom text blocks</h3>
-  <p class="muted" style="font-size:.8rem;margin-bottom:.8rem">Your own free text, an address, a disclaimer, a scholarship note, anything the fixed fields above do not cover. Once added, it behaves like any other section, drag it onto the page from "Available sections".</p>
+  <p class="muted" style="margin-bottom:.8rem">Your own free text, an address, a disclaimer, a scholarship note, anything the fixed fields above do not cover. Once added, it behaves like any other section, drag it onto the page from "Available sections".</p>
 
   @if($customBlocks->isNotEmpty())
     <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1rem">
@@ -219,7 +219,7 @@
           <div class="row-between" style="align-items:flex-start">
             <div>
               <strong>{{ $block->label }}</strong>
-              <p class="muted" style="font-size:.82rem;margin-top:.2rem;white-space:pre-line">{{ \Illuminate\Support\Str::limit($block->content, 140) }}</p>
+              <p class="muted" style="margin-top:.2rem;white-space:pre-line">{{ \Illuminate\Support\Str::limit($block->content, 140) }}</p>
             </div>
             <div style="display:flex;gap:.4rem;white-space:nowrap">
               <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('edit-block-{{ $block->id }}').classList.toggle('show')">Edit</button>

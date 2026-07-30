@@ -200,7 +200,7 @@
   </div>
 
   <b style="font-size:.82rem">Automatic backups</b>
-  <p class="muted" style="font-size:.82rem;margin-bottom:.6rem">Set a default schedule so this happens on its own, without the school admin needing to remember.</p>
+  <p class="muted" style="margin-bottom:.6rem">Set a default schedule so this happens on its own, without the school admin needing to remember.</p>
   <form method="POST" action="{{ route('admin.schools.backups.schedule', $school->id) }}" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1.1rem">
     @csrf
     <div class="field" style="margin-bottom:0">
@@ -251,7 +251,7 @@
   <p class="muted" style="margin-bottom:.8rem">Current plan: <strong style="color:var(--ink)">{{ $school->plan?->name ?? 'No plan set' }}</strong>{{ $school->plan ? ' ('.number_format($school->plan->price_per_student_per_term,2).' per student per term)' : '' }}. Manage plans from <a href="{{ route('admin.billing.index') }}">Billing</a>.</p>
 
   <b style="font-size:.82rem">Optional modules for this school</b>
-  <p class="muted" style="font-size:.82rem;margin-bottom:.6rem">These add to (or override) whatever the plan includes.</p>
+  <p class="muted" style="margin-bottom:.6rem">These add to (or override) whatever the plan includes.</p>
   <div class="module-grid" style="margin-bottom:1.1rem">
     @foreach($optionalModules as $code => $meta)
       <form method="POST" action="{{ route('admin.billing.schools.toggle-feature', $school) }}" style="display:inline">
@@ -263,7 +263,7 @@
   </div>
 
   <b style="font-size:.82rem">Add ons</b>
-  <p class="muted" style="font-size:.82rem;margin-bottom:.6rem">Purchasable on any plan, regardless of tier.</p>
+  <p class="muted" style="margin-bottom:.6rem">Purchasable on any plan, regardless of tier.</p>
   @if($schoolAddOns->isEmpty())
     <p class="muted" style="font-size:.85rem;margin:.4rem 0 .8rem">None on record.</p>
   @else

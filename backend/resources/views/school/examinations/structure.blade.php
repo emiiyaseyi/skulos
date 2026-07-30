@@ -64,7 +64,7 @@
               <td><strong>{{ $component->name }}</strong></td>
               <td class="muted">{{ rtrim(rtrim(number_format($component->max_score, 2), '0'), '.') }}</td>
               @if($canManage && $term)
-                <td class="muted" style="font-size:.8rem">
+                <td class="muted">
                   @if($window && ($window->opens_at || $window->closes_at))
                     {{ $window->opens_at?->format('d M, g:ia') ?? 'Any time' }} &rarr; {{ $window->closes_at?->format('d M, g:ia') ?? 'No close' }}
                   @else
@@ -111,7 +111,7 @@
                     <input type="datetime-local" name="closes_at" value="{{ $window?->closes_at?->format('Y-m-d\TH:i') }}" />
                   </div>
                   <button class="btn btn-primary btn-sm" type="submit">Save window</button>
-                  <span class="muted" style="font-size:.75rem">Leave both blank for always open.</span>
+                  <span class="muted">Leave both blank for always open.</span>
                 </form>
               </td>
             </tr>
@@ -172,7 +172,7 @@
               <td><strong>{{ $component->name }}</strong></td>
               <td class="muted">{{ rtrim(rtrim(number_format($component->max_score, 2), '0'), '.') }}</td>
               @if($canManage && $term)
-                <td class="muted" style="font-size:.8rem">
+                <td class="muted">
                   @if($window && ($window->opens_at || $window->closes_at))
                     {{ $window->opens_at?->format('d M, g:ia') ?? 'Any time' }} &rarr; {{ $window->closes_at?->format('d M, g:ia') ?? 'No close' }}
                   @else
@@ -219,7 +219,7 @@
                     <input type="datetime-local" name="closes_at" value="{{ $window?->closes_at?->format('Y-m-d\TH:i') }}" />
                   </div>
                   <button class="btn btn-primary btn-sm" type="submit">Save window</button>
-                  <span class="muted" style="font-size:.75rem">Leave both blank for always open.</span>
+                  <span class="muted">Leave both blank for always open.</span>
                 </form>
               </td>
             </tr>

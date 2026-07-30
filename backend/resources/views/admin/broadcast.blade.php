@@ -77,7 +77,7 @@
         @endphp
         <tr>
           <td class="muted" style="white-space:nowrap">{{ $b->created_at->format('d M Y') }}</td>
-          <td><strong>{{ $b->title }}</strong><div class="muted" style="font-size:.8rem">{{ $b->schools_reached }} school(s), {{ $b->recipients_reached }} recipient(s)</div></td>
+          <td><strong>{{ $b->title }}</strong><div class="muted">{{ $b->schools_reached }} school(s), {{ $b->recipients_reached }} recipient(s)</div></td>
           <td class="muted" style="white-space:nowrap">{{ config('skulos.platform_message_audiences')[$b->recipient_group] ?? $b->recipient_group }}</td>
           <td style="white-space:nowrap">
             @if($stats['delivered'] === 0)

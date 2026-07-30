@@ -58,7 +58,7 @@
     </div>
     <div class="grid cols-2">
       <div>
-        <div class="muted" style="font-size:.8rem;margin-bottom:.3rem">Class teacher</div>
+        <div class="muted" style="margin-bottom:.3rem">Class teacher</div>
         @if($canManage)
           <form method="POST" action="{{ route('school.academics.arms.assign-teacher', ['school' => $school->slug, 'armId' => $arm->id]) }}" style="display:flex;gap:.4rem">
             @csrf
@@ -75,7 +75,7 @@
         @endif
       </div>
       <div>
-        <div class="muted" style="font-size:.8rem;margin-bottom:.3rem">Assistant class teacher</div>
+        <div class="muted" style="margin-bottom:.3rem">Assistant class teacher</div>
         @if($canManage)
           <form method="POST" action="{{ route('school.academics.arms.assign-teacher', ['school' => $school->slug, 'armId' => $arm->id]) }}" style="display:flex;gap:.4rem">
             @csrf

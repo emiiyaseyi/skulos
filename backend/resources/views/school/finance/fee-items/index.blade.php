@@ -225,7 +225,7 @@
 <div class="card" style="margin-bottom:1.1rem">
   <div class="row-between" style="margin-bottom:.6rem">
     <h3>Bank accounts</h3>
-    <span class="muted" style="font-size:.82rem">Shown to parents on the Submit Payment screen so they know where to send a bank transfer.</span>
+    <span class="muted">Shown to parents on the Submit Payment screen so they know where to send a bank transfer.</span>
   </div>
 
   @if($canManage)

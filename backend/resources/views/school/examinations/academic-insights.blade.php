@@ -35,7 +35,7 @@
 @else
   <div class="card" style="margin-bottom:1.25rem">
     <h3 style="margin-bottom:.3rem">Subject performance</h3>
-    <p class="muted" style="font-size:.8rem;margin-bottom:.8rem">
+    <p class="muted" style="margin-bottom:.8rem">
       Every subject with recorded scores in {{ $term->session?->name }} {{ $term->name }}{{ $classArm ? ' for '.$classArm->label() : ($section ? ' across '.$section->name : ', whole school') }}, strongest first.
     </p>
     @if($subjectAverages->isEmpty())
@@ -109,7 +109,7 @@
 
   <div class="card">
     <h3 style="margin-bottom:.3rem">Grade distribution</h3>
-    <p class="muted" style="font-size:.8rem;margin-bottom:.8rem">Every subject result this term{{ $classArm ? ' for '.$classArm->label() : ($section ? ' across '.$section->name : '') }}, grouped by grade, {{ number_format($gradeTotal) }} total.</p>
+    <p class="muted" style="margin-bottom:.8rem">Every subject result this term{{ $classArm ? ' for '.$classArm->label() : ($section ? ' across '.$section->name : '') }}, grouped by grade, {{ number_format($gradeTotal) }} total.</p>
     @if(empty($gradeDistribution))
       <p class="muted">No results have been recorded for this term yet.</p>
     @else

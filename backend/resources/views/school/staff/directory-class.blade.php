@@ -17,7 +17,7 @@
       <h3 style="margin-bottom:.7rem">{{ $arm->label() }}</h3>
       <div class="grid cols-2" style="margin-bottom:.8rem">
         <div>
-          <div class="muted" style="font-size:.8rem;margin-bottom:.3rem">Class teacher</div>
+          <div class="muted" style="margin-bottom:.3rem">Class teacher</div>
           @if($arm->classTeacher)
             <a href="{{ route('school.staff.show', ['school' => $school->slug, 'staffId' => $arm->classTeacher->id]) }}">{{ $arm->classTeacher->fullName() }}</a>
           @else
@@ -25,7 +25,7 @@
           @endif
         </div>
         <div>
-          <div class="muted" style="font-size:.8rem;margin-bottom:.3rem">Assistant class teacher</div>
+          <div class="muted" style="margin-bottom:.3rem">Assistant class teacher</div>
           @if($arm->assistantTeacher)
             <a href="{{ route('school.staff.show', ['school' => $school->slug, 'staffId' => $arm->assistantTeacher->id]) }}">{{ $arm->assistantTeacher->fullName() }}</a>
           @else
@@ -35,7 +35,7 @@
       </div>
 
       @php($assignments = $subjectTeachers->get($arm->id, collect()))
-      <div class="muted" style="font-size:.8rem;margin-bottom:.4rem">Subject teachers</div>
+      <div class="muted" style="margin-bottom:.4rem">Subject teachers</div>
       @if($assignments->isEmpty())
         <p class="muted" style="font-size:.85rem">No subject teachers assigned yet.</p>
       @else

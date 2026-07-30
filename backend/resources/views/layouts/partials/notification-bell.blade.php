@@ -30,7 +30,7 @@
           @else
             <b>{{ $n->title }}</b>
           @endif
-          @if($n->body)<div class="muted" style="font-size:.8rem">{{ \Illuminate\Support\Str::limit($n->body, 90) }}</div>@endif
+          @if($n->body)<div class="muted">{{ \Illuminate\Support\Str::limit($n->body, 90) }}</div>@endif
           <small>{{ $n->created_at->diffForHumans() }}</small>
         </div>
         @unless($n->read_at)

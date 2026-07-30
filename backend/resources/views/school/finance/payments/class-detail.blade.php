@@ -22,7 +22,7 @@
           <tr>
             <td>
               <a href="{{ route('school.students.show', ['school' => $school->slug, 'studentId' => $row['student']->id]) }}"><strong>{{ $row['student']->fullName() }}</strong></a>
-              <div class="muted" style="font-size:.78rem">{{ $row['student']->admission_number }}</div>
+              <div class="muted">{{ $row['student']->admission_number }}</div>
             </td>
             <td>
               @if($row['status'] === 'paid')

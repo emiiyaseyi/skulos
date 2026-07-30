@@ -25,7 +25,7 @@
             <td>
               <a href="{{ route('school.announcements.show', ['school' => $school->slug, 'announcementId' => $a->id]) }}">
                 <strong>{{ $a->title }}</strong>
-                <div class="muted" style="font-size:.8rem">{{ \Illuminate\Support\Str::limit($a->body, 90) }}</div>
+                <div class="muted">{{ \Illuminate\Support\Str::limit($a->body, 90) }}</div>
               </a>
             </td>
             <td class="muted">{{ ucfirst($a->audience) }}</td>

@@ -101,7 +101,7 @@
       <tbody>
         @foreach($members as $row)
           <tr>
-            <td><strong>{{ $row['user']->name }}</strong><div class="muted" style="font-size:.8rem">{{ $row['user']->email }}</div></td>
+            <td><strong>{{ $row['user']->name }}</strong><div class="muted">{{ $row['user']->email }}</div></td>
             <td>
               <form method="POST" action="{{ route('school.roles.users.assign', ['school' => $school->slug, 'userId' => $row['user']->id]) }}" style="display:flex;gap:.4rem;align-items:center">
                 @csrf

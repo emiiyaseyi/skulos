@@ -141,7 +141,7 @@
             @foreach($components as $component)
               @php $open = $componentOpen[$component->id] ?? true; @endphp
               <th>
-                {{ $component->name }}<div class="muted" style="font-weight:500;font-size:.72rem">out of {{ rtrim(rtrim(number_format($component->max_score, 2), '0'), '.') }}</div>
+                {{ $component->name }}<div class="muted" style="font-weight:500">out of {{ rtrim(rtrim(number_format($component->max_score, 2), '0'), '.') }}</div>
                 @unless($open)
                   <div style="margin-top:.3rem">
                     <span class="badge badge-bad">Closed</span>
@@ -162,7 +162,7 @@
               $savedRemark = $remarks->get($student->id)?->remark;
             @endphp
             <tr>
-              <td><strong>{{ $student->fullName() }}</strong><div class="muted" style="font-size:.78rem">{{ $student->admission_number }}</div></td>
+              <td><strong>{{ $student->fullName() }}</strong><div class="muted">{{ $student->admission_number }}</div></td>
               @foreach($components as $component)
                 @php $open = $componentOpen[$component->id] ?? true; @endphp
                 <td data-label="{{ $component->name }}">
@@ -191,11 +191,11 @@
         </tbody>
       </table>
       </div>
-      <p class="muted" style="margin-top:.6rem;font-size:.82rem">Remarks are suggested from your school's comment bank based on each student's score, in grey until you save. Edit, replace, or clear any of them before saving.</p>
+      <p class="muted" style="margin-top:.6rem">Remarks are suggested from your school's comment bank based on each student's score, in grey until you save. Edit, replace, or clear any of them before saving.</p>
       @if($canSave)
         <div style="display:flex;align-items:center;gap:.8rem;margin-top:1.2rem">
           <button class="btn btn-primary" type="submit">Save scores</button>
-          <span id="autosaveStatus" class="muted" style="font-size:.8rem"></span>
+          <span id="autosaveStatus" class="muted"></span>
         </div>
       @endif
     </form>

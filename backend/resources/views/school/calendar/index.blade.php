@@ -71,9 +71,9 @@
             <td>
               <strong>{{ $event->title }}</strong>
               @if($event->category === 'exam' && ($event->subject || $event->classArm))
-                <div class="muted" style="font-size:.8rem">{{ $event->subject?->name }}{{ $event->subject && $event->classArm ? ' &middot; ' : '' }}{{ $event->classArm?->label() }}</div>
+                <div class="muted">{{ $event->subject?->name }}{{ $event->subject && $event->classArm ? ' &middot; ' : '' }}{{ $event->classArm?->label() }}</div>
               @endif
-              @if($event->description)<div class="muted" style="font-size:.8rem">{{ \Illuminate\Support\Str::limit($event->description, 90) }}</div>@endif
+              @if($event->description)<div class="muted">{{ \Illuminate\Support\Str::limit($event->description, 90) }}</div>@endif
             </td>
             <td class="muted">{{ ucfirst($event->category) }}{{ $event->is_default ? ' (default)' : '' }}</td>
             @if($canCreate)

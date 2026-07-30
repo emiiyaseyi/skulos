@@ -16,7 +16,7 @@
       @endif
 
       <div class="fgroup" style="margin-bottom:.4rem">Option 1: pick your own password</div>
-      <p class="muted" style="font-size:.82rem;margin-bottom:.8rem">{{ $school->name }}'s admin approves it before you can sign in with it, your current password keeps working until then.</p>
+      <p class="muted" style="margin-bottom:.8rem">{{ $school->name }}'s admin approves it before you can sign in with it, your current password keeps working until then.</p>
       <form method="POST" action="{{ route('school.password.forgot.submit', ['school' => $school->slug]) }}" style="margin-bottom:1.6rem">
         @csrf
         <div class="field">
@@ -35,7 +35,7 @@
       </form>
 
       <div class="fgroup" style="margin-bottom:.4rem">Option 2: email me a reset link</div>
-      <p class="muted" style="font-size:.82rem;margin-bottom:.8rem">Applies right away, no approval needed, but only works if your account has an email on file.</p>
+      <p class="muted" style="margin-bottom:.8rem">Applies right away, no approval needed, but only works if your account has an email on file.</p>
       <form method="POST" action="{{ route('school.password.email-link', ['school' => $school->slug]) }}">
         @csrf
         <div class="field" style="margin-bottom:.6rem">
