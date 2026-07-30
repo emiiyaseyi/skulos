@@ -146,15 +146,15 @@
       <p class="muted">No staff in this house yet.</p>
     @else
       <div style="overflow-x:auto">
-      <table>
+      <table class="table-stack">
         <thead><tr><th>Name</th><th>Position</th>@if($canManage)<th>House</th>@endif</tr></thead>
         <tbody>
           @foreach($staffMembers as $staff)
             <tr>
-              <td><strong>{{ $staff->fullName() }}</strong></td>
-              <td class="muted">{{ $staff->position ?? '' }}</td>
+              <td data-label="Name"><strong>{{ $staff->fullName() }}</strong></td>
+              <td class="muted" data-label="Position">{{ $staff->position ?? '' }}</td>
               @if($canManage)
-                <td>
+                <td data-label="House">
                   <form method="POST" action="{{ route('school.houses.members.staff', ['school' => $school->slug, 'staffId' => $staff->id]) }}">
                     @csrf
                     <select name="house_id" onchange="this.form.requestSubmit()">
@@ -196,15 +196,15 @@
       <p class="muted">No parents in this house yet.</p>
     @else
       <div style="overflow-x:auto">
-      <table>
+      <table class="table-stack">
         <thead><tr><th>Name</th><th>Parent of</th>@if($canManage)<th>House</th>@endif</tr></thead>
         <tbody>
           @foreach($parentMembers as $guardian)
             <tr>
-              <td><strong>{{ $guardian->name }}</strong></td>
-              <td class="muted">{{ $guardian->student?->fullName() ?? 'Not set' }}</td>
+              <td data-label="Name"><strong>{{ $guardian->name }}</strong></td>
+              <td class="muted" data-label="Parent of">{{ $guardian->student?->fullName() ?? 'Not set' }}</td>
               @if($canManage)
-                <td>
+                <td data-label="House">
                   <form method="POST" action="{{ route('school.houses.members.parent', ['school' => $school->slug, 'guardianId' => $guardian->id]) }}">
                     @csrf
                     <select name="house_id" onchange="this.form.requestSubmit()">

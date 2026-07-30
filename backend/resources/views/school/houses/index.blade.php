@@ -21,7 +21,7 @@
       <form id="bulkHousesForm" method="POST" action="{{ route('school.houses.bulk-action', ['school' => $school->slug]) }}"></form>
     @endif
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr>
         @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="house-select-all" aria-label="Select all houses" /></th>@endif
         <th>Name</th><th>Members</th><th>Status</th><th></th>
@@ -32,9 +32,9 @@
             @if($canManage)
               <td><input type="checkbox" form="bulkHousesForm" class="house-row-check" name="house_ids[]" value="{{ $house->id }}" aria-label="Select {{ $house->name }}" /></td>
             @endif
-            <td><strong>{{ $house->name }}</strong></td>
-            <td class="muted">{{ $house->students_count }}</td>
-            <td><span class="badge {{ $house->is_active ? 'badge-ok' : 'badge-warn' }}">{{ $house->is_active ? 'Active' : 'Retired' }}</span></td>
+            <td data-label="Name"><strong>{{ $house->name }}</strong></td>
+            <td class="muted" data-label="Members">{{ $house->students_count }}</td>
+            <td data-label="Status"><span class="badge {{ $house->is_active ? 'badge-ok' : 'badge-warn' }}">{{ $house->is_active ? 'Active' : 'Retired' }}</span></td>
             <td style="white-space:nowrap">
               <a class="btn btn-ghost btn-sm" href="{{ route('school.houses.show', ['school' => $school->slug, 'houseId' => $house->id]) }}">View</a>
               @if($canManage)

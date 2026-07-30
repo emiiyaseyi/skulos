@@ -23,7 +23,7 @@
       <form id="bulkTrashedStaffForm" method="POST" action="{{ route('school.staff.trashed.bulk-action', ['school' => $school->slug]) }}"></form>
     @endif
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr>
         @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="trashed-staff-select-all" aria-label="Select all trashed staff" /></th>@endif
         <th>Staff ID</th><th>Name</th><th>Position</th><th>Removed</th>
@@ -34,10 +34,10 @@
             @if($canManage)
               <td><input type="checkbox" form="bulkTrashedStaffForm" class="trashed-staff-row-check" name="staff_ids[]" value="{{ $member->id }}" aria-label="Select {{ $member->fullName() }}" /></td>
             @endif
-            <td class="muted" style="font-variant-numeric:tabular-nums">{{ $member->staff_id }}</td>
-            <td><strong>{{ $member->fullName() }}</strong></td>
-            <td class="muted">{{ $member->position }}</td>
-            <td class="muted">{{ $member->deleted_at->diffForHumans() }}</td>
+            <td class="muted" style="font-variant-numeric:tabular-nums" data-label="Staff ID">{{ $member->staff_id }}</td>
+            <td data-label="Name"><strong>{{ $member->fullName() }}</strong></td>
+            <td class="muted" data-label="Position">{{ $member->position }}</td>
+            <td class="muted" data-label="Removed">{{ $member->deleted_at->diffForHumans() }}</td>
           </tr>
         @endforeach
       </tbody>

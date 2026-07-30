@@ -23,7 +23,7 @@
       <form id="bulkTrashedStudentsForm" method="POST" action="{{ route('school.students.trashed.bulk-action', ['school' => $school->slug]) }}"></form>
     @endif
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr>
         @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="trashed-student-select-all" aria-label="Select all trashed students" /></th>@endif
         <th>Admission No.</th><th>Name</th><th>Removed</th>
@@ -34,9 +34,9 @@
             @if($canManage)
               <td><input type="checkbox" form="bulkTrashedStudentsForm" class="trashed-student-row-check" name="student_ids[]" value="{{ $student->id }}" aria-label="Select {{ $student->fullName() }}" /></td>
             @endif
-            <td class="muted" style="font-variant-numeric:tabular-nums">{{ $student->admission_number }}</td>
-            <td><strong>{{ $student->fullName() }}</strong></td>
-            <td class="muted">{{ $student->deleted_at->diffForHumans() }}</td>
+            <td class="muted" style="font-variant-numeric:tabular-nums" data-label="Admission No.">{{ $student->admission_number }}</td>
+            <td data-label="Name"><strong>{{ $student->fullName() }}</strong></td>
+            <td class="muted" data-label="Removed">{{ $student->deleted_at->diffForHumans() }}</td>
           </tr>
         @endforeach
       </tbody>

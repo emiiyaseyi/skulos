@@ -55,16 +55,16 @@
     <p class="muted">No guardians match your search.</p>
   @else
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr><th>Name</th><th>Relationship</th><th>Contact</th><th>Student</th><th>Class</th><th></th></tr></thead>
       <tbody>
         @foreach($guardians as $guardian)
           <tr>
-            <td><strong>{{ $guardian->name }}</strong></td>
-            <td class="muted">{{ $guardian->relationship ?: 'Not set' }}</td>
-            <td class="muted">{{ $guardian->email ?: $guardian->phone ?: 'Not set' }}</td>
-            <td class="muted">{{ $guardian->student?->fullName() ?? 'Removed student' }}</td>
-            <td class="muted">{{ $guardian->student?->currentClassArm?->label() ?? 'Not set' }}</td>
+            <td data-label="Name"><strong>{{ $guardian->name }}</strong></td>
+            <td class="muted" data-label="Relationship">{{ $guardian->relationship ?: 'Not set' }}</td>
+            <td class="muted" data-label="Contact">{{ $guardian->email ?: $guardian->phone ?: 'Not set' }}</td>
+            <td class="muted" data-label="Student">{{ $guardian->student?->fullName() ?? 'Removed student' }}</td>
+            <td class="muted" data-label="Class">{{ $guardian->student?->currentClassArm?->label() ?? 'Not set' }}</td>
             <td>
               @if($guardian->student)
                 <a class="btn btn-ghost btn-sm" href="{{ route('school.students.show', ['school' => $school->slug, 'studentId' => $guardian->student_id]) }}">View</a>

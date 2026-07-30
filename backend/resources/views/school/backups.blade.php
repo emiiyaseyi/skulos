@@ -46,14 +46,14 @@
     <p class="muted">No backups yet. Use "Back up now" above to create the first one.</p>
   @else
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr><th>Taken</th><th>Type</th><th>Size</th><th></th></tr></thead>
       <tbody>
         @foreach($backups as $backup)
           <tr>
-            <td>{{ $backup->created_at->toDayDateTimeString() }}@if($backup->restored_at)<div class="muted">Restored {{ $backup->restored_at->diffForHumans() }}</div>@endif</td>
-            <td class="muted">{{ ucfirst($backup->type) }}</td>
-            <td class="muted">{{ $backup->humanSize() }}</td>
+            <td data-label="Taken">{{ $backup->created_at->toDayDateTimeString() }}@if($backup->restored_at)<div class="muted">Restored {{ $backup->restored_at->diffForHumans() }}</div>@endif</td>
+            <td class="muted" data-label="Type">{{ ucfirst($backup->type) }}</td>
+            <td class="muted" data-label="Size">{{ $backup->humanSize() }}</td>
             <td style="white-space:nowrap">
               <a class="btn btn-ghost btn-sm" href="{{ route('school.backups.download', ['school' => $school->slug, 'backupId' => $backup->id]) }}">Download</a>
               @if($canManage)

@@ -42,7 +42,7 @@
       <form id="bulkEventsForm" method="POST" action="{{ route('school.calendar.bulk-destroy', ['school' => $school->slug]) }}"></form>
     @endif
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr>
         @if($canCreate && $anyRemovable)<th style="width:2.2rem"><input type="checkbox" id="event-select-all" aria-label="Select all events" /></th>@endif
         <th>Date</th><th>Title</th><th>Category</th>@if($canCreate)<th></th>@endif
@@ -57,7 +57,7 @@
                 @endunless
               </td>
             @endif
-            <td class="muted" style="white-space:nowrap">
+            <td class="muted" style="white-space:nowrap" data-label="Date">
               @if($canCreate)
                 <a href="{{ route('school.calendar.edit', ['school' => $school->slug, 'eventId' => $event->id]) }}">
                   {{ $event->starts_on?->format('d M Y') ?? 'Set a date' }}
@@ -68,14 +68,14 @@
                 @if($event->ends_on && ! $event->ends_on->equalTo($event->starts_on)) &ndash; {{ $event->ends_on->format('d M Y') }} @endif
               @endif
             </td>
-            <td>
+            <td data-label="Title">
               <strong>{{ $event->title }}</strong>
               @if($event->category === 'exam' && ($event->subject || $event->classArm))
                 <div class="muted">{{ $event->subject?->name }}{{ $event->subject && $event->classArm ? ' &middot; ' : '' }}{{ $event->classArm?->label() }}</div>
               @endif
               @if($event->description)<div class="muted">{{ \Illuminate\Support\Str::limit($event->description, 90) }}</div>@endif
             </td>
-            <td class="muted">{{ ucfirst($event->category) }}{{ $event->is_default ? ' (default)' : '' }}</td>
+            <td class="muted" data-label="Category">{{ ucfirst($event->category) }}{{ $event->is_default ? ' (default)' : '' }}</td>
             @if($canCreate)
               <td>
                 @unless($event->is_default)
