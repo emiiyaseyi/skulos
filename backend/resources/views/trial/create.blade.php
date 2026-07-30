@@ -7,7 +7,7 @@
   .trial-shell{min-height:100vh;display:grid;place-items:center;padding:2.5rem 1.25rem}
   .trial-card{width:100%;max-width:34rem;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:2.4rem 2.2rem;box-shadow:var(--shadow)}
   .trial-card .auth-logo{margin:0 auto 1.1rem}
-  .trial-card h1{text-align:center;font-size:1.5rem;font-weight:800}
+  .trial-card h1{text-align:center;font-size:1.4rem;font-weight:800}
   .trial-card p.lead{text-align:center;color:var(--mut);margin:.4rem 0 1.6rem}
   .trial-powered{margin-top:1.4rem;text-align:center;color:var(--mut-dim);font-size:.85rem}
   .trial-powered b em{font-style:normal;color:var(--accent)}
