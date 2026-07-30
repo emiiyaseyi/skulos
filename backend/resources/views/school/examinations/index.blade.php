@@ -145,7 +145,7 @@
                 @unless($open)
                   <div style="margin-top:.3rem">
                     <span class="badge badge-bad">Closed</span>
-                    <button class="btn btn-ghost btn-sm" type="button" style="font-size:.68rem;padding:.15rem .4rem" onclick="document.getElementById('ext-{{ $component->id }}').classList.toggle('show')">Request extension</button>
+                    <button class="btn btn-ghost btn-sm" type="button" onclick="document.getElementById('ext-{{ $component->id }}').classList.toggle('show')">Request extension</button>
                   </div>
                 @endunless
               </th>
