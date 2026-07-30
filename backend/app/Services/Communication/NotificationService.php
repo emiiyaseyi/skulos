@@ -56,7 +56,7 @@ class NotificationService
      * Publish an announcement and deliver it.
      *
      * @param list<array{user_id:int, email?:?string, audience:string}> $recipients
-     * @return array{in_app: int, email_sent: int, email_failed: int}
+     * @return array{in_app: int, email_queued: int}
      */
     public function dispatchAnnouncement(Announcement $announcement, array $recipients): array
     {
@@ -111,7 +111,7 @@ class NotificationService
             }
         }
 
-        $email = ['sent' => 0, 'failed' => 0];
+        $email = ['queued' => 0];
         if ($emailTargets) {
             $email = $this->comms->emailAnnouncement($announcement, $emailTargets);
         }
@@ -124,7 +124,7 @@ class NotificationService
             config('tenancy.connection'),
         );
 
-        return ['in_app' => $inApp, 'email_sent' => $email['sent'], 'email_failed' => $email['failed']];
+        return ['in_app' => $inApp, 'email_queued' => $email['queued']];
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\SendPlatformBroadcastEmailJob;
 use App\Models\Plan;
 use App\Models\School;
 use App\Models\User;
@@ -11,6 +12,7 @@ use Database\Seeders\RbacSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 /**
@@ -132,5 +134,29 @@ class PlatformBroadcastTest extends TestCase
         $user = User::factory()->create();
 
         $this->actingAs($user)->get(route('admin.broadcast.create'))->assertNotFound();
+    }
+
+    /**
+     * Audit follow-up 2026-07-30: this loop used to Mail::send() every
+     * matched leadership recipient inline, across every matched school in
+     * one request, a real timeout risk on an "all schools" audience.
+     * Proves the send is now a genuinely queued unit of work per
+     * recipient, not synchronous code that only happens to run inline
+     * under this test suite's 'sync' queue driver.
+     */
+    public function test_broadcast_dispatches_one_queued_job_per_recipient_instead_of_sending_inline(): void
+    {
+        Mail::fake();
+        Queue::fake();
+        $admin = $this->superAdmin();
+        [$school, $owner, $teacher] = $this->schoolWithOwnerAndTeacher('bcastqueued');
+
+        $this->actingAs($admin)->post(route('admin.broadcast.send'), [
+            'audience' => 'all', 'subject' => 'Queued platform notice', 'body' => 'Body text.',
+        ])->assertRedirect(route('admin.dashboard'));
+
+        Mail::assertNothingSent();
+        Queue::assertPushed(SendPlatformBroadcastEmailJob::class, fn ($job) => $job->email === $owner->email && $job->subjectLine === 'Queued platform notice');
+        Queue::assertNotPushed(SendPlatformBroadcastEmailJob::class, fn ($job) => $job->email === $teacher->email);
     }
 }

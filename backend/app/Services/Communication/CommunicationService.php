@@ -2,13 +2,12 @@
 
 namespace App\Services\Communication;
 
-use App\Mail\AnnouncementMail;
+use App\Jobs\SendAnnouncementEmailJob;
 use App\Models\Tenant\Announcement;
 use App\Models\Tenant\CommunicationLog;
 use App\Models\Tenant\Setting;
 use App\Services\Auditing\Recorder;
-use Illuminate\Support\Facades\Mail;
-use Throwable;
+use App\Services\Tenancy\TenantManager;
 
 /**
  * Publishes announcements and sends notifications on enabled channels.
@@ -43,10 +42,10 @@ class CommunicationService
     }
 
     /**
-     * Mark an announcement published and email the given recipients.
+     * Mark an announcement published and queue an email for each recipient.
      *
      * @param list<string> $emailRecipients
-     * @return array{sent: int, failed: int}
+     * @return array{queued: int}
      */
     public function publishAnnouncement(Announcement $announcement, array $emailRecipients = []): array
     {
@@ -55,7 +54,7 @@ class CommunicationService
             'published_at' => now(),
         ])->save();
 
-        $outcome = ['sent' => 0, 'failed' => 0];
+        $outcome = ['queued' => 0];
 
         if ($this->channelEnabled('email')) {
             $outcome = $this->emailAnnouncement($announcement, $emailRecipients);
@@ -73,14 +72,19 @@ class CommunicationService
     }
 
     /**
+     * Logs each recipient as queued and hands the actual send to
+     * SendAnnouncementEmailJob, off the request thread (audit follow-up
+     * 2026-07-30: this used to Mail::send() every recipient inline here,
+     * a real timeout risk for a large "all" audience broadcast).
+     *
      * @param list<string> $recipients
-     * @return array{sent: int, failed: int}
+     * @return array{queued: int}
      */
     public function emailAnnouncement(Announcement $announcement, array $recipients): array
     {
-        $schoolName = optional(app(\App\Services\Tenancy\TenantManager::class)->current())->name ?? 'Your School';
-        $sent = 0;
-        $failed = 0;
+        $school = app(TenantManager::class)->current();
+        $schoolName = $school?->name ?? 'Your School';
+        $queued = 0;
 
         foreach (array_unique($recipients) as $email) {
             $log = CommunicationLog::create([
@@ -91,33 +95,25 @@ class CommunicationService
                 'announcement_id' => $announcement->id,
             ]);
 
-            try {
-                Mail::to($email)->send(new AnnouncementMail($announcement->title, $announcement->body, $schoolName));
-                $log->update(['status' => CommunicationLog::STATUS_SENT, 'sent_at' => now()]);
-                $sent++;
-            } catch (Throwable $e) {
-                $log->update(['status' => CommunicationLog::STATUS_FAILED, 'error' => mb_substr($e->getMessage(), 0, 250)]);
-                $failed++;
-            }
+            SendAnnouncementEmailJob::dispatch($school->id, $log->id, $email, $announcement->title, $announcement->body, $schoolName);
+            $queued++;
         }
 
-        return ['sent' => $sent, 'failed' => $failed];
+        return ['queued' => $queued];
     }
 
     /**
-     * Send a one off email to a list, logged, outside of an announcement
+     * Queue a one off email to a list, logged, outside of an announcement
      * (fee reminders, result notices, ...).
      *
      * @param list<string> $recipients
-     * @return array{sent: int, failed: int}
+     * @return array{queued: int}
      */
     public function sendEmail(array $recipients, string $subject, string $body): array
     {
-        $announcement = new Announcement(['title' => $subject, 'body' => $body]);
-        // reuse the mailable without persisting an announcement
-        $schoolName = optional(app(\App\Services\Tenancy\TenantManager::class)->current())->name ?? 'Your School';
-        $sent = 0;
-        $failed = 0;
+        $school = app(TenantManager::class)->current();
+        $schoolName = $school?->name ?? 'Your School';
+        $queued = 0;
 
         foreach (array_unique($recipients) as $email) {
             $log = CommunicationLog::create([
@@ -126,16 +122,11 @@ class CommunicationService
                 'subject' => $subject,
                 'status' => CommunicationLog::STATUS_QUEUED,
             ]);
-            try {
-                Mail::to($email)->send(new AnnouncementMail($subject, $body, $schoolName));
-                $log->update(['status' => CommunicationLog::STATUS_SENT, 'sent_at' => now()]);
-                $sent++;
-            } catch (Throwable $e) {
-                $log->update(['status' => CommunicationLog::STATUS_FAILED, 'error' => mb_substr($e->getMessage(), 0, 250)]);
-                $failed++;
-            }
+
+            SendAnnouncementEmailJob::dispatch($school->id, $log->id, $email, $subject, $body, $schoolName);
+            $queued++;
         }
 
-        return ['sent' => $sent, 'failed' => $failed];
+        return ['queued' => $queued];
     }
 }

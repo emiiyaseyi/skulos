@@ -53,7 +53,7 @@ class NotificationDispatchTest extends TestCase
         $result = app(NotificationService::class)->dispatchAnnouncement($announcement, $this->recipients());
 
         $this->assertSame(4, $result['in_app']);
-        $this->assertSame(4, $result['email_sent']);
+        $this->assertSame(4, $result['email_queued']);
         $this->assertSame(4, Notification::count());
         Mail::assertSent(AnnouncementMail::class, 4);
     }
@@ -73,7 +73,7 @@ class NotificationDispatchTest extends TestCase
         $this->assertSame(4, Notification::count());
 
         // Only parents + teachers get email.
-        $this->assertSame(2, $result['email_sent']);
+        $this->assertSame(2, $result['email_queued']);
         Mail::assertSent(AnnouncementMail::class, fn ($m) => $m->hasTo('parent@example.com'));
         Mail::assertSent(AnnouncementMail::class, fn ($m) => $m->hasTo('teacher@example.com'));
         Mail::assertNotSent(AnnouncementMail::class, fn ($m) => $m->hasTo('student@example.com'));

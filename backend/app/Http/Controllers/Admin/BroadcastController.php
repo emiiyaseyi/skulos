@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Mail\PlatformBroadcastMail;
+use App\Jobs\SendPlatformBroadcastEmailJob;
 use App\Models\Plan;
 use App\Models\PlatformBroadcast;
 use App\Models\Role;
@@ -14,18 +14,18 @@ use App\Services\Media\ImageProcessingService;
 use App\Support\HtmlSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Mail;
 
 /**
  * Send Broadcast (Dashboard Design Cross-Check, 2026-07-13: "Blocked, no
  * platform-wide broadcast tool exists"). A message from the SKULOS team to
- * a chosen set of schools' leadership, delivered two ways: an email
- * (unchanged since 2026-07-13, always sent, un-queued at today's real
- * school count) and, since messaging increment 3 (2026-07-15), the same
- * sign-in pop-up + acknowledge mechanism school-level broadcasts use,
- * fanned into each matched school's own tenant database by
- * PlatformBroadcastService so the sender can see who has actually
- * acknowledged it, not just that an email was sent.
+ * a chosen set of schools' leadership, delivered two ways: an email (queued
+ * per recipient via SendPlatformBroadcastEmailJob since 2026-07-30, was
+ * inline Mail::send() in a loop across every matched school before that,
+ * a real timeout risk on an "all schools" audience) and, since messaging
+ * increment 3 (2026-07-15), the same sign-in pop-up + acknowledge
+ * mechanism school-level broadcasts use, fanned into each matched school's
+ * own tenant database by PlatformBroadcastService so the sender can see
+ * who has actually acknowledged it, not just that an email went out.
  *
  * "recipient_group" (which role tier within each matched school) is new in
  * increment 3 and optional: omitting it (as the pre-increment-3 API did)
@@ -78,7 +78,7 @@ class BroadcastController extends Controller
 
         $roleSlugs = config("skulos.platform_message_audience_roles.{$recipientGroup}", []);
         $roleIds = Role::whereIn('slug', $roleSlugs)->pluck('id');
-        $sent = 0;
+        $queued = 0;
         $emailSchoolsReached = 0;
 
         foreach ($schools as $school) {
@@ -92,8 +92,8 @@ class BroadcastController extends Controller
             }
 
             foreach ($recipients as $recipient) {
-                Mail::to($recipient->email)->send(new PlatformBroadcastMail($data['subject'], $body, $school->name));
-                $sent++;
+                SendPlatformBroadcastEmailJob::dispatch($recipient->email, $data['subject'], $body, $school->name);
+                $queued++;
             }
             $emailSchoolsReached++;
         }
@@ -111,11 +111,11 @@ class BroadcastController extends Controller
 
         app(Recorder::class)->record('platform.broadcast_sent', $broadcast, [], [
             'subject' => $data['subject'], 'audience' => $data['audience'], 'recipient_group' => $recipientGroup,
-            'schools_reached' => $emailSchoolsReached, 'emails_sent' => $sent,
+            'schools_reached' => $emailSchoolsReached, 'emails_queued' => $queued,
             'popup_schools_reached' => $popupResult['schools_reached'], 'popup_recipients' => $popupResult['recipients_reached'],
         ]);
 
         return redirect()->route('admin.dashboard')->with('status',
-            "Broadcast sent to {$sent} recipient(s) across {$emailSchoolsReached} school(s), and delivered as a sign-in pop-up to {$popupResult['recipients_reached']} recipient(s).");
+            "Broadcast queued to {$queued} recipient(s) across {$emailSchoolsReached} school(s) by email, and delivered as a sign-in pop-up to {$popupResult['recipients_reached']} recipient(s).");
     }
 }

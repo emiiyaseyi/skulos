@@ -251,7 +251,7 @@ class AnnouncementController extends Controller
         $result = $notifications->dispatchAnnouncement($announcement, $recipients);
 
         return redirect()->route('school.announcements.index', ['school' => $school->slug])->with('status',
-            "Announcement published to {$result['in_app']} recipient(s), {$result['email_sent']} emailed.");
+            "Announcement published to {$result['in_app']} recipient(s), {$result['email_queued']} email(s) queued to send.");
     }
 
     /**

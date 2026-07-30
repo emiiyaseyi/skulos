@@ -147,6 +147,6 @@ class MessageController extends Controller
         $result = $notifications->dispatchAnnouncement($broadcast, $recipients);
 
         return redirect()->route('school.messages.index', ['school' => $school->slug])->with('status',
-            "Broadcast sent to {$result['in_app']} recipient(s), {$result['email_sent']} emailed.");
+            "Broadcast sent to {$result['in_app']} recipient(s), {$result['email_queued']} email(s) queued to send.");
     }
 }

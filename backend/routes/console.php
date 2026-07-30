@@ -8,6 +8,16 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+// Processes queued jobs (announcement/broadcast emails, audit follow-up
+// 2026-07-30: these used to Mail::send() inline in the HTTP request that
+// triggered them, a real timeout risk for a large "all" audience send).
+// --stop-when-empty exits once the queue is drained rather than running
+// forever, since this is invoked fresh every minute by cron via
+// schedule:run, not a persistent daemon; --max-time is a safety cap so a
+// slow SMTP server can never make one run overlap the next minute's tick
+// (withoutOverlapping() already guards this too, belt and suspenders).
+Schedule::command('queue:work --stop-when-empty --max-time=50')->everyMinute()->withoutOverlapping();
+
 // Each school picks its own backup schedule (daily/weekly/monthly + time
 // of day, to the minute); this checks every minute for anything due right
 // now, matching the chosen time exactly. Requires a real cron entry
