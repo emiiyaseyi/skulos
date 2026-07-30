@@ -65,7 +65,7 @@
     </div>
 
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr>
         <th style="width:2.2rem"><input type="checkbox" id="review-select-all" aria-label="Select all report cards" /></th>
         <th>Student</th><th>Class</th><th>Status</th><th>Assigned to</th><th></th>
@@ -74,9 +74,9 @@
         @foreach($reviews as $review)
           <tr data-student="{{ strtolower($review->student?->fullName() ?? '') }}" data-class="{{ strtolower($review->student?->currentClassArm?->schoolClass?->name ?? '') }}" data-status="{{ strtolower(\App\Models\Tenant\ReportCardReview::statusLabel($review->status)) }}" data-assigned="{{ strtolower($review->assignedTo?->fullName() ?? '') }}">
             <td><input type="checkbox" class="review-row-check" value="{{ $review->student_id }}" aria-label="Select {{ $review->student?->fullName() }}" /></td>
-            <td><strong>{{ $review->student?->fullName() }}</strong></td>
-            <td class="muted">{{ $review->student?->currentClassArm?->schoolClass?->name ?? 'Not set' }}</td>
-            <td>
+            <td data-label="Student"><strong>{{ $review->student?->fullName() }}</strong></td>
+            <td class="muted" data-label="Class">{{ $review->student?->currentClassArm?->schoolClass?->name ?? 'Not set' }}</td>
+            <td data-label="Status">
               @if($review->status === \App\Models\Tenant\ReportCardReview::STATUS_NEEDS_CORRECTION)
                 <span class="badge badge-warn">{{ \App\Models\Tenant\ReportCardReview::statusLabel($review->status) }}</span>
               @else
@@ -86,7 +86,7 @@
                 <div class="muted">{{ config('skulos.report_card_review_roles')[$review->currentStageRole()] ?? $review->currentStageRole() }}</div>
               @endif
             </td>
-            <td class="muted">
+            <td class="muted" data-label="Assigned to">
               <form method="POST" action="{{ route('school.report-cards.assign', ['school' => $school->slug, 'studentId' => $review->student_id]) }}">
                 @csrf
                 <select name="assigned_to_staff_id" onchange="this.form.submit()">

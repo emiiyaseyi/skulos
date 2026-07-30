@@ -50,12 +50,12 @@
     <p class="muted">No roles yet.</p>
   @else
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr><th>Role</th><th>Permissions</th><th>Users</th><th></th></tr></thead>
       <tbody>
         @foreach($roles as $role)
           <tr>
-            <td>
+            <td data-label="Role">
               <button type="button" class="role-name-btn" onclick="skulosOpenRoleUsersFor({{ $role->id }}, {{ Js::from($role->name) }})">{{ $role->name }}</button>
               <div class="role-users-data" data-role-id="{{ $role->id }}" hidden>
                 @forelse($usersByRoleId[$role->id] ?? [] as $name)
@@ -64,8 +64,8 @@
                 @endforelse
               </div>
             </td>
-            <td class="muted">{{ $role->permissions_count }}</td>
-            <td class="muted">
+            <td class="muted" data-label="Permissions">{{ $role->permissions_count }}</td>
+            <td class="muted" data-label="Users">
               <button type="button" class="role-name-btn" style="font-weight:400" onclick="skulosOpenRoleUsersFor({{ $role->id }}, {{ Js::from($role->name) }})">{{ $userCountsByRole[$role->id] ?? 0 }}</button>
             </td>
             <td>
@@ -96,13 +96,13 @@
     <p class="muted">No users yet.</p>
   @else
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr><th>Name</th><th>Role</th><th>Extra access</th></tr></thead>
       <tbody>
         @foreach($members as $row)
           <tr>
-            <td><strong>{{ $row['user']->name }}</strong><div class="muted">{{ $row['user']->email }}</div></td>
-            <td>
+            <td data-label="Name"><strong>{{ $row['user']->name }}</strong><div class="muted">{{ $row['user']->email }}</div></td>
+            <td data-label="Role">
               <form method="POST" action="{{ route('school.roles.users.assign', ['school' => $school->slug, 'userId' => $row['user']->id]) }}" style="display:flex;gap:.4rem;align-items:center">
                 @csrf
                 <select name="role_id">
@@ -113,7 +113,7 @@
                 <button class="btn btn-ghost btn-sm" type="submit">Save</button>
               </form>
             </td>
-            <td>
+            <td data-label="Extra access">
               <details>
                 <summary class="btn btn-ghost btn-sm" style="display:inline-block;cursor:pointer">
                   Extra access

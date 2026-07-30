@@ -59,7 +59,7 @@
       <form id="bulkStaffForm" method="POST" action="{{ route('school.staff.bulk-action', ['school' => $school->slug]) }}"></form>
     @endif
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr>
         @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="staff-select-all" aria-label="Select all staff" /></th>@endif
         <th>Staff ID</th><th>Name</th><th>Position</th><th>Status</th><th></th>
@@ -70,10 +70,10 @@
             @if($canManage)
               <td><input type="checkbox" form="bulkStaffForm" class="staff-row-check" name="staff_ids[]" value="{{ $member->id }}" aria-label="Select {{ $member->fullName() }}" /></td>
             @endif
-            <td class="muted" style="font-variant-numeric:tabular-nums">{{ $member->staff_id }}</td>
-            <td><strong>{{ $member->fullName() }}</strong></td>
-            <td class="muted">{{ $member->position }}</td>
-            <td><span class="badge {{ $member->status === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucwords(str_replace('_', ' ', $member->status)) }}</span></td>
+            <td class="muted" style="font-variant-numeric:tabular-nums" data-label="Staff ID">{{ $member->staff_id }}</td>
+            <td data-label="Name"><strong>{{ $member->fullName() }}</strong></td>
+            <td class="muted" data-label="Position">{{ $member->position }}</td>
+            <td data-label="Status"><span class="badge {{ $member->status === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucwords(str_replace('_', ' ', $member->status)) }}</span></td>
             <td><a class="btn btn-ghost btn-sm" href="{{ route('school.staff.show', ['school' => $school->slug, 'staffId' => $member->id]) }}">View</a></td>
           </tr>
         @endforeach

@@ -63,7 +63,7 @@
         <form id="bulkStudentsForm" method="POST" action="{{ route('school.students.bulk-action', ['school' => $school->slug]) }}"></form>
       @endif
       <div style="overflow-x:auto">
-      <table>
+      <table class="table-stack">
         <thead><tr>
           @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="student-select-all" aria-label="Select all students" /></th>@endif
           <th>Admission No.</th><th>Name</th><th>Gender</th><th>Status</th>
@@ -74,10 +74,10 @@
               @if($canManage)
                 <td onclick="event.stopPropagation()"><input type="checkbox" form="bulkStudentsForm" class="student-row-check" name="student_ids[]" value="{{ $student->id }}" aria-label="Select {{ $student->fullName() }}" /></td>
               @endif
-              <td class="muted" style="font-variant-numeric:tabular-nums">{{ $student->admission_number }}</td>
-              <td><strong>{{ $student->fullName() }}</strong></td>
-              <td>{{ $student->gender ? ucfirst($student->gender) : 'Not set' }}</td>
-              <td><span class="badge {{ $student->status === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucfirst($student->status) }}</span></td>
+              <td class="muted" style="font-variant-numeric:tabular-nums" data-label="Admission No.">{{ $student->admission_number }}</td>
+              <td data-label="Name"><strong>{{ $student->fullName() }}</strong></td>
+              <td data-label="Gender">{{ $student->gender ? ucfirst($student->gender) : 'Not set' }}</td>
+              <td data-label="Status"><span class="badge {{ $student->status === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucfirst($student->status) }}</span></td>
             </tr>
           @endforeach
         </tbody>
@@ -224,7 +224,7 @@
         <form id="bulkUnassignedForm" method="POST" action="{{ route('school.students.bulk-action', ['school' => $school->slug]) }}"></form>
       @endif
       <div style="overflow-x:auto">
-      <table>
+      <table class="table-stack">
         <thead><tr>
           @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="unassigned-select-all" aria-label="Select all unassigned students" /></th>@endif
           <th>Admission No.</th><th>Name</th><th></th>
@@ -235,8 +235,8 @@
               @if($canManage)
                 <td onclick="event.stopPropagation()"><input type="checkbox" form="bulkUnassignedForm" class="unassigned-row-check" name="student_ids[]" value="{{ $student->id }}" aria-label="Select {{ $student->fullName() }}" /></td>
               @endif
-              <td class="muted" style="font-variant-numeric:tabular-nums">{{ $student->admission_number }}</td>
-              <td><strong>{{ $student->fullName() }}</strong></td>
+              <td class="muted" style="font-variant-numeric:tabular-nums" data-label="Admission No.">{{ $student->admission_number }}</td>
+              <td data-label="Name"><strong>{{ $student->fullName() }}</strong></td>
               <td><a class="btn btn-ghost btn-sm" href="{{ route('school.students.edit', ['school' => $school->slug, 'studentId' => $student->id]) }}">Assign class</a></td>
             </tr>
           @endforeach

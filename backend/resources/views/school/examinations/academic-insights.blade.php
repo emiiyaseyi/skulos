@@ -54,13 +54,13 @@
         </select>
       </div>
       <div style="overflow-x:auto">
-      <table>
+      <table class="table-stack">
         <thead><tr><th>Subject</th><th>Average</th><th>Highest</th><th>Lowest</th><th>Students assessed</th></tr></thead>
         <tbody id="ai-subject-rows">
           @foreach($subjectAverages as $row)
             <tr data-subject="{{ strtolower($row['subject']) }}" data-average="{{ $row['average'] }}" data-highest="{{ $row['highest'] }}" data-lowest="{{ $row['lowest'] }}" data-students="{{ $row['students_assessed'] }}">
-              <td>{{ $row['subject'] }}</td>
-              <td>
+              <td data-label="Subject">{{ $row['subject'] }}</td>
+              <td data-label="Average">
                 <div style="display:flex;align-items:center;gap:.5rem">
                   <div style="background:var(--soft);border-radius:999px;height:.5rem;width:6rem;overflow:hidden">
                     <div style="background:var(--accent);height:100%;width:{{ $row['average'] }}%"></div>
@@ -68,9 +68,9 @@
                   <span>{{ $row['average'] }}%</span>
                 </div>
               </td>
-              <td>{{ $row['highest'] }}%</td>
-              <td>{{ $row['lowest'] }}%</td>
-              <td>{{ $row['students_assessed'] }}</td>
+              <td data-label="Highest">{{ $row['highest'] }}%</td>
+              <td data-label="Lowest">{{ $row['lowest'] }}%</td>
+              <td data-label="Students assessed">{{ $row['students_assessed'] }}</td>
             </tr>
           @endforeach
         </tbody>

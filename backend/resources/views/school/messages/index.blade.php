@@ -17,7 +17,7 @@
     <p class="muted">No broadcasts sent yet.</p>
   @else
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr><th>Sent</th><th>Title</th><th>To</th><th>Acknowledged</th></tr></thead>
       <tbody>
         @foreach($broadcasts as $b)
@@ -35,8 +35,8 @@
             else { $target .= ' &middot; whole school'; }
           @endphp
           <tr>
-            <td class="muted" style="white-space:nowrap">{{ $b->published_at?->format('d M Y') ?? $b->created_at->format('d M Y') }}</td>
-            <td>
+            <td class="muted" style="white-space:nowrap" data-label="Sent">{{ $b->published_at?->format('d M Y') ?? $b->created_at->format('d M Y') }}</td>
+            <td data-label="Title">
               <div style="display:flex;align-items:center;gap:.6rem">
                 @if($b->image_path)
                   <img src="{{ $b->imageUrl() }}" alt="{{ $b->title }}" style="width:2.4rem;height:2.4rem;object-fit:cover;border-radius:6px;flex-shrink:0" />
@@ -47,8 +47,8 @@
                 </div>
               </div>
             </td>
-            <td class="muted" style="white-space:nowrap">{!! $target !!}</td>
-            <td style="white-space:nowrap">
+            <td class="muted" style="white-space:nowrap" data-label="To">{!! $target !!}</td>
+            <td style="white-space:nowrap" data-label="Acknowledged">
               @if($delivered === 0)
                 <span class="muted">No recipients</span>
               @else

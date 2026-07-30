@@ -256,7 +256,7 @@
       <form id="bulkBankAccountsForm" method="POST" action="{{ route('school.finance.bank-accounts.bulk-action', ['school' => $school->slug]) }}"></form>
     @endif
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr>
         @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="bank-account-select-all" aria-label="Select all bank accounts" /></th>@endif
         <th>Bank</th><th>Account name</th><th>Account number</th><th>Status</th><th></th></tr></thead>
@@ -266,10 +266,10 @@
             @if($canManage)
               <td><input type="checkbox" form="bulkBankAccountsForm" class="bank-account-row-check" name="bank_account_ids[]" value="{{ $account->id }}" aria-label="Select {{ $account->bank_name }}" /></td>
             @endif
-            <td><strong>{{ $account->bank_name }}</strong></td>
-            <td>{{ $account->account_name }}</td>
-            <td class="muted">{{ $account->account_number }}</td>
-            <td><span class="badge {{ $account->is_active ? 'badge-ok' : 'badge-warn' }}">{{ $account->is_active ? 'Visible to parents' : 'Hidden' }}</span></td>
+            <td data-label="Bank"><strong>{{ $account->bank_name }}</strong></td>
+            <td data-label="Account name">{{ $account->account_name }}</td>
+            <td class="muted" data-label="Account number">{{ $account->account_number }}</td>
+            <td data-label="Status"><span class="badge {{ $account->is_active ? 'badge-ok' : 'badge-warn' }}">{{ $account->is_active ? 'Visible to parents' : 'Hidden' }}</span></td>
             <td style="white-space:nowrap">
               @if($canManage)
                 <form method="POST" action="{{ route('school.finance.bank-accounts.toggle-active', ['school' => $school->slug, 'bankAccountId' => $account->id]) }}" style="display:inline">
@@ -334,7 +334,7 @@
       <form id="bulkFeeItemsForm" method="POST" action="{{ route('school.finance.fee-items.bulk-action', ['school' => $school->slug]) }}"></form>
     @endif
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr>
         @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="fee-item-select-all" aria-label="Select all fee items" /></th>@endif
         <th>Name</th><th>Term</th><th>Amount</th><th>Classes</th><th>Installments</th><th>Status</th>
@@ -346,14 +346,14 @@
             @if($canManage)
               <td><input type="checkbox" form="bulkFeeItemsForm" class="fee-item-row-check" name="fee_item_ids[]" value="{{ $item->id }}" aria-label="Select {{ $item->name }}" /></td>
             @endif
-            <td><strong>{{ $item->name }}</strong>@if($item->is_optional)<span class="badge" style="margin-left:.4rem">Optional</span>@endif</td>
-            <td class="muted">{{ $item->term?->name }}</td>
-            <td>₦{{ number_format((float) $item->amount, 2) }}</td>
-            <td class="muted">{{ $item->schoolClasses->isEmpty() ? 'Every class' : $item->schoolClasses->pluck('name')->join(', ') }}</td>
-            <td class="muted">{{ $item->allow_installments ? 'Allowed' : 'Full amount only' }}</td>
-            <td><span class="badge {{ $item->is_active ? 'badge-ok' : 'badge-warn' }}">{{ $item->is_active ? 'Active' : 'Retired' }}</span></td>
+            <td data-label="Name"><strong>{{ $item->name }}</strong>@if($item->is_optional)<span class="badge" style="margin-left:.4rem">Optional</span>@endif</td>
+            <td class="muted" data-label="Term">{{ $item->term?->name }}</td>
+            <td data-label="Amount">₦{{ number_format((float) $item->amount, 2) }}</td>
+            <td class="muted" data-label="Classes">{{ $item->schoolClasses->isEmpty() ? 'Every class' : $item->schoolClasses->pluck('name')->join(', ') }}</td>
+            <td class="muted" data-label="Installments">{{ $item->allow_installments ? 'Allowed' : 'Full amount only' }}</td>
+            <td data-label="Status"><span class="badge {{ $item->is_active ? 'badge-ok' : 'badge-warn' }}">{{ $item->is_active ? 'Active' : 'Retired' }}</span></td>
             @if($feeApprovalEnabled)
-              <td>
+              <td data-label="Approval">
                 @if($item->approval_status === 'pending')
                   <span class="badge badge-warn">Pending</span>
                 @elseif($item->approval_status === 'rejected')

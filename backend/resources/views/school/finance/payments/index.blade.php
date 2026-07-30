@@ -69,16 +69,16 @@
   <div class="card" style="margin-bottom:1.1rem">
     <h3 style="margin-bottom:.6rem">{{ $activeTerm?->name }} fee status by class</h3>
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr><th>Class</th><th>Students</th><th>Paid in full</th><th>Partial</th><th>Not paid</th><th></th></tr></thead>
       <tbody>
         @foreach($classStatus as $row)
           <tr>
-            <td><a href="{{ route('school.finance.payments.class-detail', ['school' => $school->slug, 'classArmId' => $row['arm']->id, 'term_id' => $activeTerm?->id]) }}"><strong>{{ $row['label'] }}</strong></a></td>
-            <td class="muted">{{ $row['studentCount'] }}</td>
-            <td><span class="badge badge-ok">{{ $row['fullyPaid'] }}</span></td>
-            <td><span class="badge badge-warn">{{ $row['partial'] }}</span></td>
-            <td><span class="badge badge-bad">{{ $row['unpaid'] }}</span></td>
+            <td data-label="Class"><a href="{{ route('school.finance.payments.class-detail', ['school' => $school->slug, 'classArmId' => $row['arm']->id, 'term_id' => $activeTerm?->id]) }}"><strong>{{ $row['label'] }}</strong></a></td>
+            <td class="muted" data-label="Students">{{ $row['studentCount'] }}</td>
+            <td data-label="Paid in full"><span class="badge badge-ok">{{ $row['fullyPaid'] }}</span></td>
+            <td data-label="Partial"><span class="badge badge-warn">{{ $row['partial'] }}</span></td>
+            <td data-label="Not paid"><span class="badge badge-bad">{{ $row['unpaid'] }}</span></td>
             <td style="white-space:nowrap">
               <a class="btn btn-ghost btn-sm" href="{{ route('school.finance.payments.class-detail', ['school' => $school->slug, 'classArmId' => $row['arm']->id, 'term_id' => $activeTerm?->id]) }}">View</a>
               @if($canVerify && ($row['partial'] + $row['unpaid']) > 0)
@@ -148,7 +148,7 @@
       <form id="bulkPaymentsForm" method="POST" action="{{ route('school.finance.payments.bulk-action', ['school' => $school->slug]) }}"></form>
     @endif
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr>
         @if($canVerify)<th style="width:2.2rem"><input type="checkbox" id="payment-select-all" aria-label="Select all pending payments" /></th>@endif
         <th>Date</th><th>Student</th><th>For</th><th>Amount</th><th>Status</th><th></th></tr></thead>
@@ -162,11 +162,11 @@
                 @endif
               </td>
             @endif
-            <td class="muted" style="white-space:nowrap">{{ $payment->created_at->format('d M Y') }}</td>
-            <td>{{ $payment->student?->fullName() }}</td>
-            <td class="muted">{{ $payment->feeItem?->name ?? 'General payment' }}@if($payment->installment) &middot; {{ $payment->installment->label }}@endif</td>
-            <td>₦{{ number_format((float) $payment->amount, 2) }}</td>
-            <td>
+            <td class="muted" style="white-space:nowrap" data-label="Date">{{ $payment->created_at->format('d M Y') }}</td>
+            <td data-label="Student">{{ $payment->student?->fullName() }}</td>
+            <td class="muted" data-label="For">{{ $payment->feeItem?->name ?? 'General payment' }}@if($payment->installment) &middot; {{ $payment->installment->label }}@endif</td>
+            <td data-label="Amount">₦{{ number_format((float) $payment->amount, 2) }}</td>
+            <td data-label="Status">
               <span class="badge {{ $payment->status === 'verified' ? 'badge-ok' : ($payment->status === 'rejected' ? 'badge-bad' : 'badge-warn') }}">{{ ucfirst($payment->status) }}</span>
             </td>
             <td><a class="btn btn-ghost btn-sm" href="{{ route('school.finance.payments.show', ['school' => $school->slug, 'paymentId' => $payment->id]) }}">View</a></td>
