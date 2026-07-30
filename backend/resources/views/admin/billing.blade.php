@@ -8,15 +8,15 @@
   <h3 style="margin-bottom:.4rem">Plans</h3>
   <p class="muted" style="margin-bottom:1rem">Per student, per term. Foundation and Advance are open for signup today; Professional and Enterprise show as Coming soon until built, and cannot be assigned to a school until then.</p>
   <div style="overflow-x:auto">
-  <table>
+  <table class="table-stack">
     <thead><tr><th>Plan</th><th>Price / student / term</th><th>Features</th><th>Status</th><th></th></tr></thead>
     <tbody>
       @foreach($plans as $plan)
         <tr>
-          <td><strong>{{ $plan->name }}</strong></td>
-          <td class="muted">&#8358;{{ number_format($plan->price_per_student_per_term, 2) }}</td>
-          <td class="muted">{{ count($plan->features ?? []) }} features, {{ count($plan->modules ?? []) }} modules</td>
-          <td style="white-space:nowrap">
+          <td data-label="Plan"><strong>{{ $plan->name }}</strong></td>
+          <td class="muted" data-label="Price / student / term">&#8358;{{ number_format($plan->price_per_student_per_term, 2) }}</td>
+          <td class="muted" data-label="Features">{{ count($plan->features ?? []) }} features, {{ count($plan->modules ?? []) }} modules</td>
+          <td style="white-space:nowrap" data-label="Status">
             <span class="badge {{ $plan->is_active ? 'badge-ok' : 'badge-warn' }}">{{ $plan->is_active ? 'Offered' : 'Retired' }}</span>
             <span class="badge {{ $plan->is_purchasable ? 'badge-ok' : 'badge-warn' }}">{{ $plan->is_purchasable ? 'Sellable' : 'Coming soon' }}</span>
           </td>
@@ -123,14 +123,14 @@
 <div class="card">
   <h3 style="margin-bottom:.8rem">Schools</h3>
   <div style="overflow-x:auto">
-  <table>
+  <table class="table-stack">
     <thead><tr><th>School</th><th>Current plan</th><th>Change plan</th><th></th></tr></thead>
     <tbody>
       @foreach($schools as $school)
         <tr>
-          <td><strong>{{ $school->name }}</strong></td>
-          <td class="muted">{{ $school->plan?->name ?? 'No plan set' }}</td>
-          <td>
+          <td data-label="School"><strong>{{ $school->name }}</strong></td>
+          <td class="muted" data-label="Current plan">{{ $school->plan?->name ?? 'No plan set' }}</td>
+          <td data-label="Change plan">
             <form method="POST" action="{{ route('admin.billing.schools.assign-plan', $school) }}" style="display:flex;gap:.5rem">
               @csrf
               <select name="plan_id">

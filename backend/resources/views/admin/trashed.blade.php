@@ -15,7 +15,7 @@
   @else
     <form id="bulkRestoreForm" method="POST" action="{{ route('admin.schools.archive.bulk-restore') }}"></form>
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr>
         <th style="width:2.2rem"><input type="checkbox" id="archive-select-all" aria-label="Select all schools" /></th>
         <th>School</th><th>Address</th><th>Deleted</th><th></th>
@@ -24,9 +24,9 @@
         @foreach($schools as $school)
           <tr>
             <td><input type="checkbox" form="bulkRestoreForm" class="archive-row-check" name="school_ids[]" value="{{ $school->id }}" aria-label="Select {{ $school->name }}" /></td>
-            <td><strong>{{ $school->name }}</strong></td>
-            <td class="muted">{{ $school->slug }}.{{ config('app.domain','localhost') }}</td>
-            <td class="muted">{{ $school->deleted_at?->toDayDateTimeString() }}</td>
+            <td data-label="School"><strong>{{ $school->name }}</strong></td>
+            <td class="muted" data-label="Address">{{ $school->slug }}.{{ config('app.domain','localhost') }}</td>
+            <td class="muted" data-label="Deleted">{{ $school->deleted_at?->toDayDateTimeString() }}</td>
             <td>
               <form method="POST" action="{{ route('admin.schools.restore', ['schoolId' => $school->id]) }}">
                 @csrf

@@ -66,7 +66,7 @@
   @else
     <form id="bulkSchoolsForm" method="POST" action="{{ route('admin.schools.bulk-action') }}"></form>
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr>
         <th style="width:2.2rem"><input type="checkbox" id="school-select-all" aria-label="Select all schools" /></th>
         <th>Name</th><th>Address</th><th>Plan</th><th>Next due</th><th>Status</th><th></th>
@@ -75,11 +75,11 @@
       @foreach($schools as $s)
         <tr>
           <td><input type="checkbox" form="bulkSchoolsForm" class="school-row-check" name="school_ids[]" value="{{ $s->id }}" aria-label="Select {{ $s->name }}" /></td>
-          <td><strong>{{ $s->name }}</strong></td>
-          <td class="muted">{{ $s->slug }}.{{ config('app.domain', 'localhost') }}</td>
-          <td class="muted">{{ $s->plan?->name ?? 'No plan set' }}</td>
-          <td class="muted">{{ $s->next_billing_date?->toFormattedDateString() ?? 'Not set' }}</td>
-          <td>
+          <td data-label="Name"><strong>{{ $s->name }}</strong></td>
+          <td class="muted" data-label="Address">{{ $s->slug }}.{{ config('app.domain', 'localhost') }}</td>
+          <td class="muted" data-label="Plan">{{ $s->plan?->name ?? 'No plan set' }}</td>
+          <td class="muted" data-label="Next due">{{ $s->next_billing_date?->toFormattedDateString() ?? 'Not set' }}</td>
+          <td data-label="Status">
             <span class="badge {{ $s->status === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucfirst($s->status) }}</span>
           </td>
           <td style="text-align:right;white-space:nowrap">

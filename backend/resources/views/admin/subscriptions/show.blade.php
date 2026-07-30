@@ -99,7 +99,7 @@
       <form id="bulkPaymentsForm" method="POST" action="{{ route('admin.subscriptions.payments.bulk-action') }}"></form>
     @endif
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr>
         @if($hasPending)<th style="width:2.2rem"><input type="checkbox" id="payment-select-all" aria-label="Select all pending payments" /></th>@endif
         <th>Date</th><th>Amount</th><th>Status</th><th></th>
@@ -114,9 +114,9 @@
                 @endif
               </td>
             @endif
-            <td class="muted">{{ $payment->created_at->format('d M Y') }}</td>
-            <td>₦{{ number_format((float) $payment->amount, 2) }}</td>
-            <td><span class="badge {{ $payment->status === 'verified' ? 'badge-ok' : ($payment->status === 'rejected' ? 'badge-bad' : 'badge-warn') }}">{{ ucfirst($payment->status) }}</span></td>
+            <td class="muted" data-label="Date">{{ $payment->created_at->format('d M Y') }}</td>
+            <td data-label="Amount">₦{{ number_format((float) $payment->amount, 2) }}</td>
+            <td data-label="Status"><span class="badge {{ $payment->status === 'verified' ? 'badge-ok' : ($payment->status === 'rejected' ? 'badge-bad' : 'badge-warn') }}">{{ ucfirst($payment->status) }}</span></td>
             <td style="white-space:nowrap">
               @if($payment->evidence_path)
                 <a class="btn btn-ghost btn-sm" href="{{ route('admin.subscriptions.payments.evidence', ['payment' => $payment->id]) }}" target="_blank" rel="noopener">Evidence</a>

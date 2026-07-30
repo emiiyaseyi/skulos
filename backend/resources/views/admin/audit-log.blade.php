@@ -45,16 +45,16 @@
     <p class="muted">No matching activity.</p>
   @else
     <div style="overflow-x:auto">
-    <table>
+    <table class="table-stack">
       <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Subject</th><th>IP</th></tr></thead>
       <tbody>
         @foreach($logs as $log)
           <tr>
-            <td class="muted" style="white-space:nowrap">{{ $log->created_at?->format('d M Y, H:i') }}</td>
-            <td>{{ $log->user?->name ?? 'System' }}</td>
-            <td>{{ str_replace('.', ' ', $log->action) }}</td>
-            <td class="muted">{{ $log->auditable_type ? class_basename($log->auditable_type).' #'.$log->auditable_id : '' }}</td>
-            <td class="muted">{{ $log->ip_address }}</td>
+            <td class="muted" style="white-space:nowrap" data-label="When">{{ $log->created_at?->format('d M Y, H:i') }}</td>
+            <td data-label="Who">{{ $log->user?->name ?? 'System' }}</td>
+            <td data-label="Action">{{ str_replace('.', ' ', $log->action) }}</td>
+            <td class="muted" data-label="Subject">{{ $log->auditable_type ? class_basename($log->auditable_type).' #'.$log->auditable_id : '' }}</td>
+            <td class="muted" data-label="IP">{{ $log->ip_address }}</td>
           </tr>
         @endforeach
       </tbody>
