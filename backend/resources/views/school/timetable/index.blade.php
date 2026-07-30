@@ -70,7 +70,7 @@
     @csrf
     <div class="card">
       <div style="overflow-x:auto">
-      <table class="tt-grid">
+      <table class="tt-grid table-stack">
         <thead>
           <tr>
             <th>Period</th>
@@ -89,7 +89,7 @@
                 <td class="tt-period-col">{{ $period->name }}<span class="tt-period-time">{{ $period->timeLabel() }}</span></td>
                 @foreach($weekDays as $dayKey => $dayLabel)
                   @php($entry = $grid[$dayKey.':'.$period->id] ?? null)
-                  <td>
+                  <td data-label="{{ $dayLabel }}">
                     <select name="cells[{{ $dayKey }}][{{ $period->id }}][subject_id]">
                       <option value="">Free</option>
                       @foreach($subjects as $subject)

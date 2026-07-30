@@ -8,7 +8,7 @@
   <p class="muted">No examination timetable is available yet{{ $term ? ' for '.$term->name : '' }}.</p>
 @else
   <div style="overflow-x:auto">
-  <table class="tt-grid">
+  <table class="tt-grid table-stack">
     <thead>
       <tr>
         <th>Date</th>
@@ -23,7 +23,7 @@
           <td class="tt-period-col">{{ \Illuminate\Support\Carbon::parse($date)->format('D, d M Y') }}</td>
           @foreach($papers as $paper)
             @php($entry = $entries[$date.':'.$paper->id] ?? null)
-            <td class="tt-cell">
+            <td class="tt-cell" data-label="{{ $paper->name }}">
               @if($entry && $entry->subject)
                 <b>{{ $entry->subject->name }}</b>
               @else

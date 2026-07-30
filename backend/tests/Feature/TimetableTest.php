@@ -569,6 +569,6 @@ class TimetableTest extends TestCase
 
         $response = $this->actingAs($parentUser)->get(route('school.timetable.exam.mine', ['school' => $school->slug]));
 
-        $response->assertOk()->assertSee('table class="tt-grid"', false)->assertSee('Mathematics');
+        $response->assertOk()->assertSee('class="tt-grid table-stack"', false)->assertSee('Mathematics');
     }
 }
