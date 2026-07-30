@@ -79,7 +79,12 @@ class BackupAdminController extends Controller
     public function restore(School $school, string $backupId, BackupService $backups): \Illuminate\Http\RedirectResponse
     {
         $backup = Backup::where('school_id', $school->id)->findOrFail($backupId);
-        $backups->restore($backup);
+
+        try {
+            $backups->restore($backup);
+        } catch (\RuntimeException $e) {
+            return back()->with('error', "Restore for {$school->name} failed, its current data was not touched: ".$e->getMessage());
+        }
 
         return back()->with('status', "{$school->name} restored from the backup taken on ".$backup->created_at->toDayDateTimeString().'.');
     }

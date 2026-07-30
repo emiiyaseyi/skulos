@@ -97,6 +97,45 @@ class BackupRestoreTest extends TestCase
         $this->assertNotNull($backup->fresh()->restored_at);
     }
 
+    /**
+     * Regression test for a real hazard found in a 2026-07-30 code audit:
+     * the old restore() dropped/overwrote the live tenant database before
+     * confirming the backup was even valid, so a corrupt backup file left
+     * the school with an empty database and no way back. The new version
+     * writes to a throwaway location, verifies it, and only swaps it in
+     * if verification passes.
+     */
+    public function test_restoring_a_corrupt_backup_file_leaves_the_live_database_untouched(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('corruptrestore');
+
+        app(TenantManager::class)->use($school);
+        Student::create(['admission_number' => 'SAFE/1', 'first_name' => 'Still', 'last_name' => 'Here']);
+        app(TenantManager::class)->forget();
+
+        $backup = Backup::create([
+            'school_id' => $school->id,
+            'disk' => 'local',
+            'file_path' => "backups/{$school->id}/corrupt.sqlite",
+            'size_bytes' => 20,
+            'type' => Backup::TYPE_MANUAL,
+        ]);
+        Storage::disk('local')->put($backup->file_path, 'this is not a real sqlite database file');
+
+        $response = $this->actingAs($owner)
+            ->post("http://{$school->slug}.localhost/backups/{$backup->id}/restore");
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+        $this->assertNull($backup->fresh()->restored_at);
+
+        app(TenantManager::class)->use($school);
+        $admissionNumbers = Student::pluck('admission_number')->all();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(['SAFE/1'], $admissionNumbers, 'the live database must be untouched after a failed restore');
+    }
+
     public function test_platform_admin_can_also_trigger_and_restore_a_backup(): void
     {
         $admin = User::factory()->create();

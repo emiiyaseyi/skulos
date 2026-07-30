@@ -91,7 +91,12 @@ class BackupController extends Controller
     {
         $this->authorizeAction($request, 'school_info.manage_settings');
         $backup = Backup::where('school_id', $this->school($request)->id)->findOrFail($request->route('backupId'));
-        $backups->restore($backup);
+
+        try {
+            $backups->restore($backup);
+        } catch (\RuntimeException $e) {
+            return back()->with('error', 'Restore failed, your current data was not touched: '.$e->getMessage());
+        }
 
         return back()->with('status', 'Restored from the backup taken on '.$backup->created_at->toDayDateTimeString().'.');
     }
