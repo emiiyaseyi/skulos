@@ -2716,6 +2716,17 @@ The user's "FEEDBACK LIST.docx" got a first "16 issues" pass and a newly appende
 
 ---
 
+### Backup restore made safe against partial/failed imports (2026-07-30)
+- Status: Done
+- Started: 2026-07-30
+- Notes: the user ran a separate Codex agent for a read-only UI/UX audit, code audit, and FEEDBACK LIST cross-check against this repo, then asked which finding to prioritize. Recommended this one: `BackupService::restoreMysql()` dropped the live tenant database before importing the backup, so a failed/partial import left the school with an empty database and no way back — the only finding on Codex's list where the failure mode is unrecoverable data loss rather than a degraded-but-recoverable outcome. The SQLite path had the same shape of bug (direct `file_put_contents()` overwrite of the live file).
+- Resolution: both drivers rewritten to write-verify-swap. SQLite: restore into a temp file, run a real `PRAGMA integrity_check`, only `rename()` over the live file (an atomic directory-entry swap) if that passes; any failure cleans up the temp file, live file untouched. MySQL: import into a throwaway `{db}_restoring_{timestamp}` database first; only once `mysql` actually succeeds does `swapMysqlDatabase()` move it into place via one atomic multi-table `RENAME TABLE` statement (MySQL has no `RENAME DATABASE`), with the live database's own current tables moved aside into a timestamped `{db}_before_restore_{Ymd_His}` database first as a real safety net (deliberately kept, not dropped, at the cost of disk space until an admin or a future retention job clears it) rather than thrown away before the new data is confirmed in place. Both restore controllers (`School\BackupController`, `Admin\BackupAdminController`) now catch a failed restore and flash a clear error instead of a raw 500.
+- Issues/Bugs: none found in this fix itself; this was a fix for a pre-existing bug, not a new feature.
+- QA: new regression test `test_restoring_a_corrupt_backup_file_leaves_the_live_database_untouched` (writes a garbage file as a fake backup, attempts restore, asserts a student created before the attempt is still present afterward and `restored_at` was never set). Full `BackupRestoreTest` 8/8 green, including the pre-existing happy-path restore test (proving the rename-swap still actually restores data correctly, not just safely). **The MySQL path could not be executed** — this dev environment has no MySQL, SQLite stands in for it locally per CLAUDE.md's "Local environment reality" — so `swapMysqlDatabase()`'s `RENAME TABLE`/`SHOW TABLES FROM` SQL was hand-verified against real MySQL syntax rather than tested. Flagged in CLAUDE.md as worth a live smoke test against a real MySQL-backed environment before the first real restore is relied on in production.
+- Not built in this pass: the rest of the Codex code-audit findings (synchronous bulk email/broadcast sends, unpaginated queries in several admin/platform lists, SQLite backups loaded fully into memory, non-transactional school cloning, missing adversarial tests for the hand-written `HtmlSanitizer`) and UI/UX audit findings (mobile table-stacking beyond the 4 views that already use it, sub-44px touch targets below 480px, fixed `min-width` filter fields on narrow screens, no skip-to-content landmark, no scroll cue on wide tables) — all real, all left for the user to prioritize next. The Codex FEEDBACK LIST cross-check itself never finished in the transcript the user shared; its conclusions are unknown.
+
+---
+
 ---
 
 ## 0. Reference & Inspiration Links
