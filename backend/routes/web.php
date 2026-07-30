@@ -291,7 +291,13 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             $apply = \App\Http\Controllers\Admissions\PublicApplicationController::class;
             Route::get('/', [$apply, 'start'])->name('start');
             Route::post('/', [$apply, 'register'])->middleware('throttle:10,1')->name('submit');
-            Route::get('/submitted/{applicant}', [$apply, 'submitted'])->name('submitted');
+            // Signed (Phase 1d): an applicant has no account/password yet
+            // at this point, so this link (generated once at register())
+            // is the only proof of ownership until credentials exist.
+            // Same URI for both verbs deliberately, so one signed link
+            // works to view status AND to submit fee evidence.
+            Route::get('/{applicant}/status', [$apply, 'status'])->middleware('signed')->name('status');
+            Route::post('/{applicant}/status', [$apply, 'submitFeeEvidence'])->middleware(['signed', 'throttle:10,1'])->name('status.evidence');
         });
     });
 
@@ -788,6 +794,16 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/pipeline', [$admissionSettings, 'updatePipeline'])->name('pipeline');
             Route::post('/windows', [$admissionSettings, 'storeWindow'])->name('windows.store');
             Route::post('/windows/{windowId}/toggle', [$admissionSettings, 'toggleWindow'])->name('windows.toggle');
+        });
+
+        // Admissions module, Phase 1d: admin reviews an applicant's
+        // uploaded application-fee evidence.
+        Route::prefix('admissions/fees')->name('school.admissions.fees.')->group(function () {
+            $feeReview = \App\Http\Controllers\School\AdmissionFeeReviewController::class;
+            Route::get('/', [$feeReview, 'index'])->name('index');
+            Route::get('/{paymentId}/evidence', [$feeReview, 'evidence'])->name('evidence');
+            Route::post('/{paymentId}/verify', [$feeReview, 'verify'])->name('verify');
+            Route::post('/{paymentId}/reject', [$feeReview, 'reject'])->name('reject');
         });
 
         // Behavioural/psychomotor trait catalog (user request 2026-07-18,

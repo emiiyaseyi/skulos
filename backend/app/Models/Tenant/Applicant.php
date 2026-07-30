@@ -88,4 +88,35 @@ class Applicant extends Authenticatable
     {
         return $this->pipeline_stage >= count(static::pipelineChain()) - 1;
     }
+
+    public function advanceStage(): void
+    {
+        if (! $this->isFinalStage()) {
+            $this->forceFill(['pipeline_stage' => $this->pipeline_stage + 1])->save();
+        }
+    }
+
+    /**
+     * Called once the application fee is verified (AdmissionFeeReview
+     * Controller): generates the password an applicant needed to be told
+     * about (user directive 2026-07-30: "a generated password they will
+     * see upon confirmation of admission application fee"), opens their
+     * temporary window, and activates the account. The plain password is
+     * returned (not stored anywhere in plain form, the 'hashed' cast on
+     * $password hashes it on save) so the caller can email it once, the
+     * only time it is ever knowable again.
+     */
+    public function issueCredentials(): string
+    {
+        $plain = \Illuminate\Support\Str::password(10);
+        $ttlDays = (int) (Setting::grab('admission_account_ttl_days') ?? config('skulos.default_admission_account_ttl_days', 30));
+
+        $this->forceFill([
+            'password' => $plain,
+            'account_status' => self::STATUS_ACTIVE,
+            'expires_at' => now()->addDays($ttlDays),
+        ])->save();
+
+        return $plain;
+    }
 }

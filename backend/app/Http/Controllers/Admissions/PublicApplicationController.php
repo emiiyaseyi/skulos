@@ -4,9 +4,13 @@ namespace App\Http\Controllers\Admissions;
 
 use App\Http\Controllers\Controller;
 use App\Models\School;
+use App\Models\Tenant\AdmissionPayment;
 use App\Models\Tenant\AdmissionWindow;
 use App\Models\Tenant\Applicant;
+use App\Services\Media\ImageProcessingService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 
 /**
  * Admissions module, Phase 1c: "Seek Admission" public entry point and
@@ -78,13 +82,24 @@ class PublicApplicationController extends Controller
             'account_status' => Applicant::STATUS_PENDING_FEE,
         ]);
 
-        return redirect()->route('school.admissions.apply.submitted', [
+        // Signed, not a plain id in the URL (audit follow-up while
+        // building Phase 1d): an applicant has no account/password yet at
+        // this point, so without a signature anyone could enumerate
+        // /apply/{id} to read another applicant's name/reference, or
+        // worse, once the fee-evidence upload lands on this same page,
+        // submit fake payment proof against someone else's application.
+        // 30 days matches the platform default application window, not
+        // tied to a school's own configured TTL (that setting only
+        // governs the account once it's actually active).
+        $statusUrl = URL::temporarySignedRoute('school.admissions.apply.status', now()->addDays(30), [
             'school' => $school->slug,
             'applicant' => $applicant->id,
         ]);
+
+        return redirect($statusUrl);
     }
 
-    public function submitted(Request $request): \Illuminate\View\View
+    public function status(Request $request): \Illuminate\View\View
     {
         $school = $this->school($request);
         // Read via $request->route(), not a typed method parameter: this
@@ -93,11 +108,50 @@ class PublicApplicationController extends Controller
         // full route parameter list (domain param included), not by
         // name — the recurring gotcha documented in CLAUDE.md.
         $applicant = Applicant::findOrFail($request->route('applicant'));
+        $feePayment = AdmissionPayment::where('applicant_id', $applicant->id)
+            ->where('fee_type', AdmissionPayment::TYPE_APPLICATION)
+            ->latest()
+            ->first();
 
-        return view('admissions.submitted', [
+        return view('admissions.status', [
             'school' => $school,
             'accent' => $school->branding()['color'] ?? null,
             'applicant' => $applicant,
+            'feePayment' => $feePayment,
         ]);
+    }
+
+    public function submitFeeEvidence(Request $request, ImageProcessingService $images): \Illuminate\Http\RedirectResponse
+    {
+        $school = $this->school($request);
+        $applicant = Applicant::findOrFail($request->route('applicant'));
+        abort_if($applicant->account_status !== Applicant::STATUS_PENDING_FEE, 422, 'This application has already moved past the fee stage.');
+
+        $window = AdmissionWindow::where('session_id', $applicant->session_id)
+            ->where('school_class_id', $applicant->school_class_id)
+            ->where('campus_id', $applicant->campus_id)
+            ->firstOrFail();
+
+        $data = $request->validate([
+            'reference' => ['nullable', 'string', 'max:120'],
+            'bank_name' => ['nullable', 'string', 'max:120'],
+            'evidence' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:'.config('skulos.upload_limits.admission_fee_evidence_kb')],
+        ]);
+
+        $file = $request->file('evidence');
+        $evidencePath = $file->getClientOriginalExtension() === 'pdf'
+            ? $file->storeAs("admissions/{$school->slug}/{$applicant->id}", Str::random(24).'.pdf', 'local')
+            : $images->toWebp($file, "admissions/{$school->slug}/{$applicant->id}", disk: 'local');
+
+        AdmissionPayment::create([
+            'applicant_id' => $applicant->id,
+            'fee_type' => AdmissionPayment::TYPE_APPLICATION,
+            'amount' => $window->application_fee_amount,
+            'bank_name' => $data['bank_name'] ?? null,
+            'reference' => $data['reference'] ?? null,
+            'evidence_path' => $evidencePath,
+        ]);
+
+        return back()->with('status', 'Payment evidence received. The school will confirm it shortly.');
     }
 }

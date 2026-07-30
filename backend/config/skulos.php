@@ -2351,6 +2351,9 @@ return [
         // 2026-07-23: "max size of image should be 100kb, admin can
         // reduce or increase it under settings").
         'student_photo_kb' => 100,
+        // Admissions module (2026-07-30): same ceiling as payment
+        // evidence, a bank receipt/proof-of-payment screenshot or PDF.
+        'admission_fee_evidence_kb' => 3072,
     ],
 
     /*

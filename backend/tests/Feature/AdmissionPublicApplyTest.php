@@ -78,8 +78,17 @@ class AdmissionPublicApplyTest extends TestCase
         $this->assertNull($applicant->password, 'no password is issued until the application fee clears');
         $this->assertNotNull($applicant->admission_number);
 
-        $response->assertRedirect("http://{$school->slug}.localhost/admissions/apply/submitted/{$applicant->id}");
-        $this->get($response->headers->get('Location'))->assertOk()->assertSee($applicant->admission_number);
+        // The redirect target is a signed URL (an applicant has no
+        // account/password yet at this point, so the signature is the
+        // only proof of ownership until credentials exist) — assert it
+        // resolves to the right applicant and actually loads, not an
+        // exact string match against a URL containing a dynamic
+        // signature/expiry.
+        $response->assertRedirect();
+        $statusUrl = $response->headers->get('Location');
+        $this->assertStringContainsString("/admissions/apply/{$applicant->id}/status", $statusUrl);
+        $this->assertStringContainsString('signature=', $statusUrl);
+        $this->get($statusUrl)->assertOk()->assertSee($applicant->admission_number);
     }
 
     public function test_the_seek_admission_link_appears_on_the_school_login_page(): void
