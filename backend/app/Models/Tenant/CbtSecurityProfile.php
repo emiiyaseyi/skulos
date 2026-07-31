@@ -20,6 +20,8 @@ class CbtSecurityProfile extends Model
     protected $fillable = [
         'name', 'require_fullscreen', 'block_copy_paste', 'block_right_click',
         'tab_switch_action', 'tab_switch_limit', 'require_camera_check', 'require_object_detection',
+        'require_audio_check', 'require_photo_id', 'require_face_match', 'require_screen_share',
+        'require_environment_scan', 'snapshot_interval_seconds',
     ];
 
     protected function casts(): array
@@ -31,6 +33,12 @@ class CbtSecurityProfile extends Model
             'tab_switch_limit' => 'integer',
             'require_camera_check' => 'boolean',
             'require_object_detection' => 'boolean',
+            'require_audio_check' => 'boolean',
+            'require_photo_id' => 'boolean',
+            'require_face_match' => 'boolean',
+            'require_screen_share' => 'boolean',
+            'require_environment_scan' => 'boolean',
+            'snapshot_interval_seconds' => 'integer',
         ];
     }
 

@@ -39,7 +39,7 @@
             </td>
             <td>
               @if(! $session)
-                <form method="POST" action="{{ route('school.cbt.take.start', ['school' => $school->slug, 'paperId' => $paper->id]) }}">
+                <form method="POST" action="{{ route('school.cbt.precheck.start', ['school' => $school->slug, 'paperId' => $paper->id]) }}">
                   @csrf
                   <button class="btn btn-primary btn-sm" type="submit">Start</button>
                 </form>

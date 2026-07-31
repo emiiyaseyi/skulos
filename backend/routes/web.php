@@ -579,6 +579,18 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/session/{sessionId}/result', [$cbtTake, 'result'])->name('result');
         });
 
+        // SKULOS Assessment Hub, Phase 2d: the pre-exam wizard, sat in
+        // front of the take flow above — `available.blade.php`'s "Begin"
+        // button now points here, not at .take.start directly, so a
+        // session's real timed clock only ever begins once the wizard's
+        // final step completes (see PrecheckWizardService).
+        Route::prefix('assessment/precheck')->name('school.cbt.precheck.')->group(function () {
+            $precheck = \App\Http\Controllers\School\CbtPrecheckController::class;
+            Route::post('/{paperId}/start', [$precheck, 'start'])->name('start');
+            Route::get('/{precheckId}', [$precheck, 'show'])->name('show');
+            Route::post('/{precheckId}/advance', [$precheck, 'advance'])->name('advance');
+        });
+
         Route::get('/setup', [\App\Http\Controllers\School\SetupController::class, 'index'])->name('school.setup');
         Route::post('/notifications/{id}/read', [SchoolPortalController::class, 'markNotificationRead'])->name('school.notifications.read');
         Route::prefix('notifications')->name('school.notifications.')->group(function () {

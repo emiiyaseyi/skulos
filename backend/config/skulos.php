@@ -2486,6 +2486,12 @@ return [
         // evidence — these are the same kind of file (a phone photo or
         // scanned PDF), no reason for a different limit.
         'admission_document_kb' => 3072,
+        // Assessment Hub, Phase 2d: the pre-exam wizard's photo ID upload
+        // (same ceiling as every other phone-photo/scan upload in this
+        // app) and its short environment-scan webcam clip (video, so a
+        // higher ceiling — capped client-side to 15 seconds already).
+        'cbt_photo_id_kb' => 3072,
+        'cbt_environment_video_kb' => 15360,
     ],
 
     /*
@@ -2516,10 +2522,41 @@ return [
     | actually reads them.
     */
     'default_cbt_security_profiles' => [
-        ['name' => 'Basic', 'require_fullscreen' => false, 'block_copy_paste' => false, 'block_right_click' => false, 'tab_switch_action' => 'none', 'tab_switch_limit' => null, 'require_camera_check' => false, 'require_object_detection' => false],
-        ['name' => 'Medium', 'require_fullscreen' => false, 'block_copy_paste' => true, 'block_right_click' => true, 'tab_switch_action' => 'warn', 'tab_switch_limit' => null, 'require_camera_check' => false, 'require_object_detection' => false],
-        ['name' => 'High', 'require_fullscreen' => true, 'block_copy_paste' => true, 'block_right_click' => true, 'tab_switch_action' => 'lock', 'tab_switch_limit' => 3, 'require_camera_check' => false, 'require_object_detection' => false],
-        ['name' => 'Maximum', 'require_fullscreen' => true, 'block_copy_paste' => true, 'block_right_click' => true, 'tab_switch_action' => 'lock', 'tab_switch_limit' => 1, 'require_camera_check' => true, 'require_object_detection' => true],
+        ['name' => 'Basic', 'require_fullscreen' => false, 'block_copy_paste' => false, 'block_right_click' => false, 'tab_switch_action' => 'none', 'tab_switch_limit' => null, 'require_camera_check' => false, 'require_object_detection' => false, 'require_audio_check' => false, 'require_photo_id' => false, 'require_face_match' => false, 'require_screen_share' => false, 'require_environment_scan' => false, 'snapshot_interval_seconds' => null],
+        ['name' => 'Medium', 'require_fullscreen' => false, 'block_copy_paste' => true, 'block_right_click' => true, 'tab_switch_action' => 'warn', 'tab_switch_limit' => null, 'require_camera_check' => false, 'require_object_detection' => false, 'require_audio_check' => false, 'require_photo_id' => false, 'require_face_match' => false, 'require_screen_share' => false, 'require_environment_scan' => false, 'snapshot_interval_seconds' => null],
+        ['name' => 'High', 'require_fullscreen' => true, 'block_copy_paste' => true, 'block_right_click' => true, 'tab_switch_action' => 'lock', 'tab_switch_limit' => 3, 'require_camera_check' => false, 'require_object_detection' => false, 'require_audio_check' => false, 'require_photo_id' => false, 'require_face_match' => false, 'require_screen_share' => false, 'require_environment_scan' => false, 'snapshot_interval_seconds' => null],
+        // Maximum is the only tier requiring the full identity/environment
+        // wizard steps (photo ID, face match, audio, screen share, a 360
+        // environment scan) as well as periodic in-exam AI checks
+        // (Phase 2e/2g, snapshot_interval_seconds) — matches "Maximum is
+        // the only camera tier" already locked in by CbtPaperBuilderTest.
+        ['name' => 'Maximum', 'require_fullscreen' => true, 'block_copy_paste' => true, 'block_right_click' => true, 'tab_switch_action' => 'lock', 'tab_switch_limit' => 1, 'require_camera_check' => true, 'require_object_detection' => true, 'require_audio_check' => true, 'require_photo_id' => true, 'require_face_match' => true, 'require_screen_share' => true, 'require_environment_scan' => true, 'snapshot_interval_seconds' => 15],
+    ],
+
+    /*
+    | SKULOS Assessment Hub, Phase 2d: the pre-exam wizard's fixed step
+    | order (mirrors the reference Learn-Proctor-Secure-Browser repo's own
+    | 15-step flow). Every taker sees welcome/closetabs/browser/internet/
+    | privacy/fullscreen/ready; the rest are shown only if the paper's own
+    | CbtSecurityProfile requires that specific signal — see
+    | App\Models\Tenant\CbtPrecheckSession::activeSteps().
+    */
+    'precheck_wizard_steps' => [
+        'welcome' => 'Welcome',
+        'closetabs' => 'Close Other Tabs & Apps',
+        'browser' => 'Browser Check',
+        'internet' => 'Internet Check',
+        'camera' => 'Camera Check',
+        'audio' => 'Audio Check',
+        'photoid' => 'Photo ID',
+        'face' => 'Face Verification',
+        'screenshare' => 'Screen Share',
+        'keystroke' => 'Keystroke Baseline',
+        'monitor' => 'Monitor Check',
+        'environment' => 'Environment Scan',
+        'privacy' => 'Privacy Consent',
+        'fullscreen' => 'Fullscreen Mode',
+        'ready' => 'Ready',
     ],
 
     /*
@@ -2543,6 +2580,12 @@ return [
         'noise_threshold' => 5,
     ],
     'cbt_risk_thresholds' => ['medium' => 30, 'high' => 60],
+
+    // Phase 2d: the pre-exam wizard's 'keystroke' step asks a Maximum-tier
+    // taker to type this exact sentence, establishing a typing-pattern
+    // baseline (matches the reference repo's own fixed-sentence approach,
+    // not something a school would plausibly want to customise).
+    'cbt_keystroke_baseline_sentence' => 'The quick brown fox jumps over the lazy dog.',
 
     /*
     | Roles restricted to only their own assigned classes/students rather
