@@ -311,6 +311,22 @@
     // (TeachingAssignment + class teacher/assistant assignment), not a
     // timetable (Timetable Management stays deferred).
     'teacher_workload' => ['school.staff.workload', 'Teacher Workload', 'workload'],
+    // Admissions module (2026-07-30/31 audit follow-up: real screens were
+    // built this session — pipeline settings + admission windows, the
+    // custom application form builder — but never mapped here, so a
+    // school with the module enabled saw nothing in nav at all, despite
+    // the automatic-appear mechanism itself already working correctly for
+    // every other feature. 'applicant_tracking' points at fee review for
+    // now, the closest real "watch applicants move through the process"
+    // screen that exists yet; repoint it to the dedicated pipeline board
+    // once that lands (Phase 1g), same as school_profile's own repoint
+    // above once its real screen existed. 'admission_letters'/
+    // 'online_document_upload' stay unmapped (render as "Soon") until
+    // offer-letter generation and document upload/approval (Phase 1f)
+    // are actually built.
+    'online_admissions' => ['school.admissions.settings.edit', 'Admissions Settings', 'settings'],
+    'admission_workflow' => ['school.admissions.form-builder.index', 'Admission Form Builder', 'builder'],
+    'applicant_tracking' => ['school.admissions.fees.index', 'Application Fee Review', 'billing'],
   ];
 
   // The report card browse/review page lives under Academic in the plan
@@ -416,7 +432,19 @@
   ];
 
   foreach (config('skulos.plan_feature_catalog') as $categoryKey => $category) {
-    if (! $school?->hasAnyFeatureInCategory($categoryKey)) {
+    // A school can get an optional module two independent ways: a full
+    // Plan change (Plan::features, what hasFeature()/
+    // hasAnyFeatureInCategory() check) or a direct per-school toggle
+    // (BillingController::toggleFeature() -> Rbac::setModuleState(), no
+    // plan change at all) — see feature_category_module_map's docblock
+    // in config/skulos.php for why these need bridging here, found live
+    // 2026-07-31 when a module toggled the second way stayed invisible
+    // in nav despite real screens existing behind it.
+    $categoryModuleCode = config("skulos.feature_category_module_map.{$categoryKey}");
+    $categoryModuleEnabled = $school && $categoryModuleCode
+      && $navRbac->moduleState($school, $categoryModuleCode) === \App\Models\Module::STATE_ENABLED;
+
+    if (! $school?->hasAnyFeatureInCategory($categoryKey) && ! $categoryModuleEnabled) {
       continue;
     }
 
@@ -429,7 +457,17 @@
       if ($categoryKey === 'support' && $featureKey !== 'knowledge_base') {
         continue;
       }
-      if (! $school->hasFeature($featureKey)) {
+      // The module-toggle fallback only ever rescues a feature key that
+      // has a REAL screen behind it (isset($builtRoutes[...]) below) —
+      // it must not resurrect every OTHER marketing feature key in the
+      // category as a phantom "Soon" placeholder too. "Soon" is reserved
+      // for a feature the school's actual PLAN claims but that has no
+      // screen yet; a bare module toggle makes no such claim about
+      // anything beyond what is actually built (regression caught by
+      // PlanFeatureNavTest's own "no Soon items" assertion for a fully
+      // plan-featured school once this fallback was first added).
+      $rescuedByModuleToggle = $categoryModuleEnabled && isset($builtRoutes[$featureKey]);
+      if (! $school->hasFeature($featureKey) && ! $rescuedByModuleToggle) {
         continue;
       }
       if ($isRestrictedNav) {

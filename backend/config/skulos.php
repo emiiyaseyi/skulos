@@ -85,6 +85,29 @@ return [
     ],
 
     /*
+    | Bridges the two independent ways a school ever gets an optional
+    | module: a full Plan change (Plan::features, checked by School::
+    | hasFeature()/hasAnyFeatureInCategory(), what the nav below was
+    | originally built against), and a direct per-school module toggle
+    | (BillingController::toggleFeature() -> Rbac::setModuleState(),
+    | Billing's "Toggle feature" action on one school, no plan change at
+    | all). These are genuinely different mechanisms with no shared
+    | column, so a module enabled only the second way used to never
+    | appear in nav at all, regardless of built screens behind it (found
+    | live 2026-07-31: the user toggled 'admissions' this way on a real
+    | school and it stayed invisible). Only optional (non-core) plan_
+    | feature_catalog categories that map to exactly one RBAC module need
+    | an entry here; core categories bundle several always-on modules and
+    | have no single toggle to fall back to.
+    */
+    'feature_category_module_map' => [
+        'admissions' => 'admissions',
+        'finance' => 'finance',
+        'learning' => 'lms',
+        'human_resources' => 'hr',
+    ],
+
+    /*
     | The full commercial feature catalog behind pricing (tracker section 14,
     | sourced from "SKULOS PRICING PLAN AND FEATURES.docx"). This is the
     | admin-editable checklist a Plan's "features" column picks from for
@@ -2410,6 +2433,13 @@ return [
         // member" proxy — Knowledge Base needs no real permission of its
         // own, it is a help resource, not a management screen.
         'knowledge_base' => 'calendar.view',
+        // Admissions module (2026-07-30/31 audit follow-up: newly enabled
+        // modules must show in nav automatically, this entry was simply
+        // missing when the screens were built — the automatic-appear
+        // mechanism itself already existed and needed no new code).
+        'online_admissions' => 'admissions.manage_settings',
+        'admission_workflow' => 'admissions.manage_settings',
+        'applicant_tracking' => 'admissions.decide',
         'student_records' => 'students.view',
         'staff_records' => 'staff.view',
         'attendance_management' => 'attendance.view',

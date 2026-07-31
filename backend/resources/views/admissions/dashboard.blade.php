@@ -15,8 +15,14 @@
     </form>
   </div>
 
-  <div class="card">
+  <div class="card" style="margin-bottom:1rem">
     <p class="muted">Your application window is open until {{ $applicant->expires_at?->toFormattedDateString() ?? 'further notice' }}.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:.6rem">Application form</h3>
+    <p class="muted" style="margin-bottom:.8rem">Complete the school's application form with your details.</p>
+    <a class="btn btn-primary btn-sm" href="{{ route('school.admissions.form', ['school' => $school->slug]) }}">Continue application form</a>
   </div>
 </div>
 @endsection

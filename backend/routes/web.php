@@ -282,6 +282,12 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::middleware('applicant_active')->group(function () use ($applicantAuth) {
             Route::post('/logout', [$applicantAuth, 'logout'])->name('logout');
             Route::get('/dashboard', [\App\Http\Controllers\Admissions\ApplicantDashboardController::class, 'index'])->name('dashboard');
+
+            // Admissions module, Phase 1e: the school's own custom
+            // application form, one step at a time.
+            $form = \App\Http\Controllers\Admissions\ApplicationFormController::class;
+            Route::get('/form', [$form, 'show'])->name('form');
+            Route::post('/form', [$form, 'save'])->name('form.save');
         });
 
         // Public "Seek Admission" entry point, Phase 1c: no auth needed
@@ -804,6 +810,19 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/{paymentId}/evidence', [$feeReview, 'evidence'])->name('evidence');
             Route::post('/{paymentId}/verify', [$feeReview, 'verify'])->name('verify');
             Route::post('/{paymentId}/reject', [$feeReview, 'reject'])->name('reject');
+        });
+
+        // Admissions module, Phase 1e: the school's own custom
+        // application form builder (sections + fields).
+        Route::prefix('admissions/form-builder')->name('school.admissions.form-builder.')->group(function () {
+            $formBuilder = \App\Http\Controllers\School\AdmissionFormBuilderController::class;
+            Route::get('/', [$formBuilder, 'index'])->name('index');
+            Route::post('/sections', [$formBuilder, 'storeSection'])->name('sections.store');
+            Route::delete('/sections/{sectionId}', [$formBuilder, 'destroySection'])->name('sections.destroy');
+            Route::post('/fields', [$formBuilder, 'storeField'])->name('fields.store');
+            Route::post('/fields/{fieldId}', [$formBuilder, 'updateField'])->name('fields.update');
+            Route::delete('/fields/{fieldId}', [$formBuilder, 'destroyField'])->name('fields.destroy');
+            Route::post('/fields/bulk-action', [$formBuilder, 'bulkFieldAction'])->name('fields.bulk-action');
         });
 
         // Behavioural/psychomotor trait catalog (user request 2026-07-18,

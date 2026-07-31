@@ -792,4 +792,53 @@ class PlanFeatureNavTest extends TestCase
             ->assertOk()
             ->assertSee('id="navSearchInput"', false);
     }
+
+    /**
+     * Found live 2026-07-31: a school gets an optional module two
+     * genuinely independent ways — a full Plan change (Plan::features,
+     * what every other test in this file exercises), or a direct
+     * per-school toggle (BillingController::toggleFeature() ->
+     * Rbac::setModuleState(), no plan change involved at all, e.g.
+     * "Toggle feature" on one school's Billing detail page). A module
+     * enabled only the second way used to never appear in nav, even with
+     * real screens behind it, since the nav's gate only ever checked
+     * hasFeature()/hasAnyFeatureInCategory() (Plan::features), never
+     * module state. feature_category_module_map bridges the two.
+     */
+    public function test_a_module_enabled_by_direct_toggle_alone_still_appears_in_nav_with_no_plan_change(): void
+    {
+        $plan = Plan::create([
+            'name' => 'Test Plan modtoggle', 'slug' => 'plan-modtoggle',
+            'price_per_student_per_term' => 500, 'modules' => [], 'features' => ['student_records'],
+        ]);
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'modtoggleone', 'plan_id' => $plan->id]));
+        $owner = User::factory()->create();
+        $role = $this->rbac->cloneTemplateRole($school, 'school-owner');
+        $school->users()->attach($owner->id, ['role_id' => $role->id, 'status' => 'active']);
+
+        // Confirms the plan alone would NOT have surfaced this (the real
+        // bug's exact starting condition), before toggling the module.
+        $this->assertFalse($school->hasFeature('online_admissions'));
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()->assertDontSee('Admissions Settings');
+
+        $this->rbac->setModuleState($school, 'admissions', \App\Models\Module::STATE_ENABLED);
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()
+            ->assertSee('Admissions Settings')
+            ->assertSee('Admission Form Builder')
+            ->assertSee('Application Fee Review')
+            // The module-toggle fallback only ever rescues a feature key
+            // with a REAL screen built (the three above); it must not
+            // resurrect every other marketing catalog key in the same
+            // category as a phantom "Soon" entry too — "Soon" is reserved
+            // for a feature the school's actual PLAN claims but has no
+            // screen yet, and a bare module toggle makes no such claim
+            // (this is the exact regression an earlier version of this
+            // fix introduced, caught by the "no Soon items" assertion on
+            // the finance-plan test above).
+            ->assertDontSee('Admission Letters')
+            ->assertDontSee('Online Document Upload');
+    }
 }
