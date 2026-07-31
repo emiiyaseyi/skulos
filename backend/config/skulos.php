@@ -1016,6 +1016,48 @@ return [
     ],
 
     /*
+    | Seeded once into a real tenant table (AdmissionFormSection::
+    | ensureSeeded(), same "config feeds a one-time DB seed" pattern as
+    | grading_scales/comment_bank) the first time any school's Admission
+    | Form Builder or applicant-facing form is touched, so a freshly
+    | provisioned school has a real, sensible starter form instead of a
+    | blank one (user directive 2026-07-31: "the form builder should be
+    | pre loaded with current form currently used by all schools"). Every
+    | field here is deliberately optional — a starting point an admin is
+    | free to edit or remove, not a new hard requirement on applicants.
+    | Core identity fields (name, DOB, phone, email) are already
+    | collected on the apply form itself (Phase 1c), not duplicated here.
+    */
+    'default_admission_form_sections' => [
+        ['label' => 'Learner Details', 'step' => 1, 'fields' => [
+            ['label' => 'Previous School', 'type' => 'text'],
+            // 'geo': the same reusable Country/State/LGA cascading picker
+            // (with search) Student/Staff forms already use, not a plain
+            // text field — see AdmissionFormField::TYPES's own docblock.
+            ['label' => 'State of Origin', 'type' => 'geo'],
+            ['label' => 'Religion', 'type' => 'select', 'options' => ['Christianity', 'Islam', 'Other']],
+            ['label' => 'Blood Group', 'type' => 'select', 'options' => ['A', 'B', 'AB', 'O']],
+        ]],
+        ['label' => 'Guardian Details', 'step' => 2, 'fields' => [
+            ['label' => 'Guardian Role', 'type' => 'select', 'options' => ['Father', 'Mother', 'Sponsor']],
+            ['label' => "Guardian's Occupation", 'type' => 'text'],
+            ['label' => 'Home Address', 'type' => 'textarea'],
+        ]],
+        // A bounded second slot, not a free-repeat "add guardian" button
+        // (user directive 2026-07-31: "applicant can add another guardian
+        // if needed") — a real dynamic repeater is a bigger structural
+        // change to this EAV shape (one value per applicant+field, no
+        // group/instance concept) than a default-seed content fix
+        // warrants; this covers the common two-guardian case plainly.
+        ['label' => 'Second Guardian (optional)', 'step' => 2, 'fields' => [
+            ['label' => "Guardian's Full Name", 'type' => 'text'],
+            ['label' => 'Guardian Role', 'type' => 'select', 'options' => ['Father', 'Mother', 'Sponsor']],
+            ['label' => 'Phone Number', 'type' => 'text'],
+            ['label' => "Guardian's Occupation", 'type' => 'text'],
+        ]],
+    ],
+
+    /*
     | How long an applicant's account stays usable after credentials are
     | issued (user directive 2026-07-30: "APPLICANT WILL HAVE A TEMPORARY
     | WINDOW... BY DEFAULT 1 MONTH AND USER IS LOCK OUT AND PROFILE IS

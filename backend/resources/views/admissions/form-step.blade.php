@@ -22,6 +22,18 @@
         <h3 style="margin-bottom:.6rem">{{ $section->label }}</h3>
         @foreach($section->fields as $field)
           @php($current = $existingValues[$field->id] ?? '')
+          @if($field->type === 'geo')
+            @php($geo = json_decode($current ?: '{}', true) ?: [])
+            <x-geo-picker
+              country-name="field_{{ $field->id }}_country"
+              state-name="field_{{ $field->id }}_state"
+              lga-name="field_{{ $field->id }}_lga"
+              :country-value="$geo['country'] ?? null"
+              :state-value="$geo['state'] ?? null"
+              :lga-value="$geo['lga'] ?? null"
+              :country-required="$field->is_required"
+            />
+          @else
           <div class="field">
             <label for="field_{{ $field->id }}">{{ $field->label }}{{ $field->is_required ? ' *' : '' }}</label>
             @if($field->type === 'textarea')
@@ -41,6 +53,7 @@
                 value="{{ old("fields.{$field->id}", $current) }}" @if($field->is_required) required @endif />
             @endif
           </div>
+          @endif
         @endforeach
       @endforeach
       <button class="btn btn-primary btn-block" type="submit">{{ $isLastStep ? 'Finish' : 'Continue' }}</button>

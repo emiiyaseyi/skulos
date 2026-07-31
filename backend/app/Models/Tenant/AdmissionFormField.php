@@ -19,7 +19,11 @@ class AdmissionFormField extends Model
 
     protected $connection = 'tenant';
 
-    public const TYPES = ['text', 'textarea', 'number', 'date', 'select', 'checkbox'];
+    // 'geo' is the reusable Country/State/LGA cascading picker (x-geo-
+    // picker, the same component Student/Staff forms already use), not a
+    // plain input — ApplicationFormController stores its three parts as
+    // one JSON-encoded value, see save()'s own handling.
+    public const TYPES = ['text', 'textarea', 'number', 'date', 'select', 'checkbox', 'geo'];
 
     protected $fillable = ['admission_form_section_id', 'label', 'field_key', 'type', 'options', 'is_required', 'sequence', 'is_active'];
 

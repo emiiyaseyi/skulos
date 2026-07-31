@@ -288,6 +288,11 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             // the application fee, reachable here since the applicant has
             // a real login by this point.
             Route::post('/acceptance-fee', [$dashboard, 'submitAcceptanceFee'])->name('acceptance-fee');
+            // Same evidence-upload shape as the acceptance fee above, but
+            // for the application fee — reachable here too now that a
+            // pending_fee applicant can sign in directly (see Applicant::
+            // canSignIn()'s reference-number-as-bootstrap-password path).
+            Route::post('/application-fee', [$dashboard, 'submitApplicationFee'])->name('application-fee');
 
             // Admissions module, Phase 1e: the school's own custom
             // application form, one step at a time.

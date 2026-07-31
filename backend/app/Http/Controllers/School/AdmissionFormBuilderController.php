@@ -36,6 +36,7 @@ class AdmissionFormBuilderController extends Controller
     {
         $this->authorizeAction($request, 'admissions.manage_settings');
         $school = $this->school($request);
+        AdmissionFormSection::ensureSeeded();
 
         return view('school.admissions.form-builder', [
             'school' => $school,

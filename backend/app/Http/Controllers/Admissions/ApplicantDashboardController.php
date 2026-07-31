@@ -37,6 +37,25 @@ class ApplicantDashboardController extends Controller
                 ->first()
             : null;
 
+        // A pending_fee applicant can now sign in here directly (the
+        // reference-number-as-bootstrap-password path, see Applicant::
+        // canSignIn()), so the dashboard needs to offer the same
+        // application-fee evidence upload the pre-credentials signed
+        // status page already offers, not just a "continue the form"
+        // link with no way to actually pay.
+        $applicationPayment = null;
+        $applicationWindow = null;
+        if ($applicant->account_status === Applicant::STATUS_PENDING_FEE) {
+            $applicationPayment = AdmissionPayment::where('applicant_id', $applicant->id)
+                ->where('fee_type', AdmissionPayment::TYPE_APPLICATION)
+                ->latest()
+                ->first();
+            $applicationWindow = AdmissionWindow::where('session_id', $applicant->session_id)
+                ->where('school_class_id', $applicant->school_class_id)
+                ->where('campus_id', $applicant->campus_id)
+                ->first();
+        }
+
         return view('admissions.dashboard', [
             'school' => $school,
             'accent' => $school?->branding()['color'] ?? null,
@@ -44,8 +63,44 @@ class ApplicantDashboardController extends Controller
             'acceptancePayment' => $acceptancePayment,
             'acceptanceWindow' => $acceptanceWindow,
             'acceptanceFeeRequired' => $acceptanceWindow?->requiresAcceptanceFee() ?? false,
+            'applicationPayment' => $applicationPayment,
+            'applicationWindow' => $applicationWindow,
             'bankAccounts' => \App\Models\Tenant\BankAccount::active()->orderBy('sort_order')->get(),
         ]);
+    }
+
+    public function submitApplicationFee(Request $request, ImageProcessingService $images): \Illuminate\Http\RedirectResponse
+    {
+        $school = $request->attributes->get('school');
+        $applicant = Auth::guard('applicant')->user();
+        abort_unless($applicant->account_status === Applicant::STATUS_PENDING_FEE, 422, 'This application has already moved past the fee stage.');
+
+        $window = AdmissionWindow::where('session_id', $applicant->session_id)
+            ->where('school_class_id', $applicant->school_class_id)
+            ->where('campus_id', $applicant->campus_id)
+            ->firstOrFail();
+
+        $data = $request->validate([
+            'reference' => ['nullable', 'string', 'max:120'],
+            'bank_name' => ['nullable', 'string', 'max:120'],
+            'evidence' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:'.config('skulos.upload_limits.admission_fee_evidence_kb')],
+        ]);
+
+        $file = $request->file('evidence');
+        $evidencePath = $file->getClientOriginalExtension() === 'pdf'
+            ? $file->storeAs("admissions/{$school->slug}/{$applicant->id}", Str::random(24).'.pdf', 'local')
+            : $images->toWebp($file, "admissions/{$school->slug}/{$applicant->id}", disk: 'local');
+
+        AdmissionPayment::create([
+            'applicant_id' => $applicant->id,
+            'fee_type' => AdmissionPayment::TYPE_APPLICATION,
+            'amount' => $window->application_fee_amount,
+            'bank_name' => $data['bank_name'] ?? null,
+            'reference' => $data['reference'] ?? null,
+            'evidence_path' => $evidencePath,
+        ]);
+
+        return back()->with('status', 'Payment evidence received. The school will confirm it shortly.');
     }
 
     public function submitAcceptanceFee(Request $request, ImageProcessingService $images): \Illuminate\Http\RedirectResponse

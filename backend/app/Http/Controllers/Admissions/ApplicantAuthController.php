@@ -57,13 +57,27 @@ class ApplicantAuthController extends Controller
             ->orWhere('phone', $digits)
             ->first();
 
-        if (! $applicant || ! $applicant->password || ! Hash::check($data['password'], $applicant->password)) {
+        $passwordMatches = false;
+        if ($applicant) {
+            $passwordMatches = $applicant->password
+                ? Hash::check($data['password'], $applicant->password)
+                // No real credentials issued yet (still pending fee) — the
+                // applicant's own reference number doubles as a bootstrap
+                // password, so they can always get back in to continue
+                // (user directive 2026-07-31: "applicants can use the
+                // reference number as password too to continue their
+                // application process"), not locked out just for having
+                // not paid the application fee yet.
+                : strcasecmp(trim($data['password']), $applicant->admission_number) === 0;
+        }
+
+        if (! $applicant || ! $passwordMatches) {
             RateLimiter::hit($key, 60);
 
             throw ValidationException::withMessages(['identifier' => 'Those details do not match our records.']);
         }
 
-        if (! $applicant->isActive()) {
+        if (! $applicant->canSignIn()) {
             throw ValidationException::withMessages(['identifier' => 'Your application window has closed. Contact the school to reopen it.']);
         }
 

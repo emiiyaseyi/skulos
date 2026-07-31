@@ -98,6 +98,8 @@
                   <select disabled><option>Choose one</option>@foreach($field->options ?? [] as $option)<option>{{ $option }}</option>@endforeach</select>
                 @elseif($field->type === 'checkbox')
                   <input type="checkbox" disabled />
+                @elseif($field->type === 'geo')
+                  <input type="text" value="Country / State / LGA picker" disabled />
                 @else
                   <input type="{{ $field->type === 'number' ? 'number' : ($field->type === 'date' ? 'date' : 'text') }}" disabled />
                 @endif

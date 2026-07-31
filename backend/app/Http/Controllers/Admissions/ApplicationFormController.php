@@ -22,6 +22,8 @@ class ApplicationFormController extends Controller
 {
     protected function steps(): array
     {
+        AdmissionFormSection::ensureSeeded();
+
         return AdmissionFormSection::where('is_active', true)
             ->distinct()
             ->orderBy('step')
@@ -82,11 +84,41 @@ class ApplicationFormController extends Controller
 
         $rules = [];
         foreach ($fields as $field) {
+            if ($field->type === 'geo') {
+                // The reusable Country/State/LGA picker posts three flat,
+                // non-nested field names (not fields[{id}][...] — old()
+                // only resolves dot notation, and the geo-picker component
+                // calls old($countryName, ...) using its own name prop
+                // verbatim, so a bracketed name would silently never
+                // restore on a validation-error redisplay).
+                $rules["field_{$field->id}_country"] = $field->is_required ? ['required', 'string', 'max:120'] : ['nullable', 'string', 'max:120'];
+                $rules["field_{$field->id}_state"] = ['nullable', 'string', 'max:120'];
+                $rules["field_{$field->id}_lga"] = ['nullable', 'string', 'max:120'];
+
+                continue;
+            }
             $rules["fields.{$field->id}"] = $field->is_required ? ['required', 'string', 'max:2000'] : ['nullable', 'string', 'max:2000'];
         }
         $data = $request->validate($rules);
 
         foreach ($fields as $field) {
+            if ($field->type === 'geo') {
+                $country = $data["field_{$field->id}_country"] ?? null;
+                $state = $data["field_{$field->id}_state"] ?? null;
+                $lga = $data["field_{$field->id}_lga"] ?? null;
+                if (! $country && ! $state && ! $lga) {
+                    AdmissionFormValue::where('applicant_id', $applicant->id)->where('admission_form_field_id', $field->id)->delete();
+
+                    continue;
+                }
+                AdmissionFormValue::updateOrCreate(
+                    ['applicant_id' => $applicant->id, 'admission_form_field_id' => $field->id],
+                    ['value' => json_encode(['country' => $country, 'state' => $state, 'lga' => $lga])]
+                );
+
+                continue;
+            }
+
             $value = $data['fields'][$field->id] ?? null;
             if ($value === null || $value === '') {
                 AdmissionFormValue::where('applicant_id', $applicant->id)->where('admission_form_field_id', $field->id)->delete();

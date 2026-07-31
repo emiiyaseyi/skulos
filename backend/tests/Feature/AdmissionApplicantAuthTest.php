@@ -81,6 +81,46 @@ class AdmissionApplicantAuthTest extends TestCase
         ])->assertRedirect("http://{$school->slug}.localhost/admissions/dashboard");
     }
 
+    /**
+     * A pending_fee applicant has no real password yet (issueCredentials()
+     * only runs once the application fee is verified), so their own
+     * reference number doubles as a bootstrap password, letting them get
+     * back in to pay/continue instead of being stuck with only the
+     * bookmarked signed status link.
+     */
+    public function test_a_pending_fee_applicant_can_sign_in_using_their_reference_number_as_the_password(): void
+    {
+        [$school] = $this->schoolWithApplicant('admseven', [
+            'admission_number' => 'APP-0099',
+            'password' => null,
+            'account_status' => Applicant::STATUS_PENDING_FEE,
+            'expires_at' => null,
+        ]);
+
+        $this->post("http://{$school->slug}.localhost/admissions/login", [
+            'identifier' => 'APP-0099',
+            'password' => 'app-0099',
+        ])->assertRedirect("http://{$school->slug}.localhost/admissions/dashboard");
+
+        $this->get("http://{$school->slug}.localhost/admissions/dashboard")
+            ->assertOk()->assertSee('Application fee');
+    }
+
+    public function test_a_pending_fee_applicant_cannot_sign_in_with_the_wrong_reference_number_as_password(): void
+    {
+        [$school] = $this->schoolWithApplicant('admeight', [
+            'admission_number' => 'APP-0100',
+            'password' => null,
+            'account_status' => Applicant::STATUS_PENDING_FEE,
+            'expires_at' => null,
+        ]);
+
+        $this->post("http://{$school->slug}.localhost/admissions/login", [
+            'identifier' => 'APP-0100',
+            'password' => 'not-the-reference',
+        ])->assertSessionHasErrors('identifier');
+    }
+
     public function test_wrong_password_is_rejected(): void
     {
         [$school] = $this->schoolWithApplicant('admthree');

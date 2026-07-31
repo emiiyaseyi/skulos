@@ -32,7 +32,7 @@ class EnsureApplicantActive
             $applicant->forceFill(['account_status' => Applicant::STATUS_ARCHIVED])->save();
         }
 
-        if (! $applicant->isActive()) {
+        if (! $applicant->canSignIn()) {
             Auth::guard('applicant')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();

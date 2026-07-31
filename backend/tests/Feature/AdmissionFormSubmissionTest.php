@@ -109,6 +109,31 @@ class AdmissionFormSubmissionTest extends TestCase
             ->assertOk()->assertSee('Mr Adekunle', false);
     }
 
+    public function test_a_geo_field_saves_and_reloads_its_country_state_and_lga(): void
+    {
+        [$school, , $fieldName] = $this->activeApplicantSchool('afsfive');
+        app(TenantManager::class)->use($school);
+        $geoField = AdmissionFormField::create(['label' => 'State of Origin', 'field_key' => 'state_of_origin', 'type' => 'geo', 'admission_form_section_id' => $fieldName->admission_form_section_id, 'sequence' => 2]);
+        app(TenantManager::class)->forget();
+        $this->signIn($school, 'APP/0001', 'secret123');
+
+        $this->get("http://{$school->slug}.localhost/admissions/form?step=1")
+            ->assertOk()->assertSee('Country')->assertSee('State');
+
+        $this->post("http://{$school->slug}.localhost/admissions/form?step=1", [
+            'fields' => [$fieldName->id => 'Mrs Bello'],
+            "field_{$geoField->id}_country" => 'Nigeria',
+            "field_{$geoField->id}_state" => 'Lagos',
+            "field_{$geoField->id}_lga" => 'Ikeja',
+        ]);
+
+        app(TenantManager::class)->use($school);
+        $stored = json_decode(AdmissionFormValue::where('admission_form_field_id', $geoField->id)->value('value'), true);
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(['country' => 'Nigeria', 'state' => 'Lagos', 'lga' => 'Ikeja'], $stored);
+    }
+
     public function test_a_locked_out_applicant_cannot_reach_the_form(): void
     {
         [$school] = $this->activeApplicantSchool('afsfour');

@@ -12,7 +12,7 @@
       <p class="muted" style="font-size:.8rem;margin-bottom:.2rem">Your sign in password</p>
       <p style="font-size:1.3rem;font-weight:800;letter-spacing:.02em;font-variant-numeric:tabular-nums;margin-bottom:1.2rem">{{ $applicant->recoverablePassword() }}</p>
     @endif
-    <p class="muted">Bookmark this page, or keep the link from your confirmation, to check your status and finish payment. You'll need this reference (or the phone number you gave) to sign back in once your account is activated.</p>
+    <p class="muted">Bookmark this page, or keep the link from your confirmation, to check your status and finish payment. You can also sign back in any time using this reference (or the phone number you gave) as your identifier, and the reference number itself as your password, at the "Seek Admission" sign in page.</p>
   </div>
 
   @if(session('status'))

@@ -82,6 +82,21 @@ class Applicant extends Authenticatable
     }
 
     /**
+     * Whether this applicant can sign in at all right now — broader than
+     * isActive(): a pending_fee applicant (no real password issued yet)
+     * can still sign in, using their own reference number as a bootstrap
+     * password (user directive 2026-07-31: "applicants can use the
+     * reference number as password too to continue their application
+     * process"), so they are never locked out of their own application
+     * just for not having paid yet. locked_out/archived still cannot.
+     */
+    public function canSignIn(): bool
+    {
+        return in_array($this->account_status, [self::STATUS_PENDING_FEE, self::STATUS_ACTIVE], true)
+            && (! $this->expires_at || $this->expires_at->isFuture());
+    }
+
+    /**
      * The school's configured admission pipeline, an ordered list of
      * stage keys (same shape as ReportCardReview::reviewChain(): tenant
      * Setting overrides config('skulos.default_admission_pipeline_chain'),

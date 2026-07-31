@@ -23,7 +23,63 @@
     <p class="muted">Your application window is open until {{ $applicant->expires_at?->toFormattedDateString() ?? 'further notice' }}.</p>
   </div>
 
-  @if($applicant->decision_status === 'offered')
+  @if($applicant->account_status === 'pending_fee')
+    <div class="card" style="margin-bottom:1rem">
+      <h3 style="margin-bottom:.6rem">Application fee</h3>
+      @if(! $applicationPayment)
+        @if($bankAccounts->isNotEmpty())
+          <div style="margin-bottom:1rem;text-align:center">
+            <div class="muted" style="font-size:.85rem;margin-bottom:.5rem">Send your application fee to any one of these accounts, then upload your evidence below.</div>
+            <div class="stack" style="gap:.7rem">
+              @foreach($bankAccounts as $account)
+                <div style="border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;text-align:center">
+                  <div style="font-weight:800">{{ $account->bank_name }}</div>
+                  <div class="muted" style="font-size:.85rem">{{ $account->account_name }}</div>
+                  <div style="font-variant-numeric:tabular-nums;font-weight:700;margin-top:.2rem">{{ $account->account_number }}</div>
+                </div>
+              @endforeach
+            </div>
+          </div>
+        @endif
+        <p class="muted" style="margin-bottom:1rem">Upload proof of your application fee payment to continue.</p>
+        <form method="POST" action="{{ route('school.admissions.application-fee', ['school' => $school->slug]) }}" enctype="multipart/form-data">
+          @csrf
+          <div class="field">
+            <label for="bank_name">Bank name (optional)</label>
+            <input id="bank_name" name="bank_name" type="text" />
+          </div>
+          <div class="field">
+            <label for="reference">Transaction reference (optional)</label>
+            <input id="reference" name="reference" type="text" />
+          </div>
+          <div class="field">
+            <label for="evidence">Payment evidence</label>
+            <input id="evidence" name="evidence" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" required />
+          </div>
+          <button class="btn btn-primary btn-block" type="submit">Submit payment evidence</button>
+        </form>
+      @elseif($applicationPayment->status === 'pending')
+        <p class="muted">Your payment evidence has been received and is awaiting confirmation from the school.</p>
+      @elseif($applicationPayment->status === 'verified')
+        <p class="muted">Your application fee has been confirmed. Check back here or refresh the page.</p>
+      @else
+        <p class="flash flash-bad">Your payment evidence was not accepted{{ $applicationPayment->notes ? ': '.$applicationPayment->notes : '.' }} Please submit new evidence below.</p>
+        <form method="POST" action="{{ route('school.admissions.application-fee', ['school' => $school->slug]) }}" enctype="multipart/form-data">
+          @csrf
+          <div class="field">
+            <label for="evidence2">Payment evidence</label>
+            <input id="evidence2" name="evidence" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" required />
+          </div>
+          <button class="btn btn-primary btn-block" type="submit">Resubmit evidence</button>
+        </form>
+      @endif
+    </div>
+    <div class="card" style="margin-bottom:1rem">
+      <h3 style="margin-bottom:.6rem">Application form</h3>
+      <p class="muted" style="margin-bottom:.8rem">You don't have to wait for your fee to be confirmed to fill in the rest of your details.</p>
+      <a class="btn btn-primary btn-sm" href="{{ route('school.admissions.form', ['school' => $school->slug]) }}">Continue application form</a>
+    </div>
+  @elseif($applicant->decision_status === 'offered')
     <div class="card" style="margin-bottom:1rem">
       <h3 style="margin-bottom:.6rem">Congratulations, you have been offered admission!</h3>
       @if(! $acceptanceFeeRequired)
