@@ -319,15 +319,17 @@
     // every other feature. 'applicant_tracking' now points at the real
     // pipeline board (Phase 1g, repointed from Fee Review the moment this
     // landed, same as school_profile's own repoint above once its real
-    // screen existed) — Fee Review stays reachable from there (a link on
-    // the board and the enrollment screen) rather than a second top-level
-    // nav entry, only 5 catalog keys exist for admissions and 4 real
-    // screens now fill them. 'admission_letters'/'online_document_upload'
-    // stay unmapped (render as "Soon") until offer-letter generation and
-    // document upload/approval (Phase 1f) are actually built.
+    // screen existed). 'admission_letters' now repointed to Fee Review
+    // itself (live feedback 2026-07-31: it wasn't reachable from any
+    // submenu, only as a cross-link button on other admissions screens)
+    // — real offer/rejection letter generation isn't built and isn't
+    // planned, so this key was otherwise permanently unused.
+    // 'online_document_upload' stays unmapped (renders as "Soon") until
+    // document upload/approval (Phase 1f) is actually built.
     'online_admissions' => ['school.admissions.settings.edit', 'Admissions Settings', 'settings'],
     'admission_workflow' => ['school.admissions.form-builder.index', 'Admission Form Builder', 'builder'],
     'applicant_tracking' => ['school.admissions.pipeline', 'Applicants', 'students'],
+    'admission_letters' => ['school.admissions.fees.index', 'Fee Review', 'billing'],
   ];
 
   // The report card browse/review page lives under Academic in the plan

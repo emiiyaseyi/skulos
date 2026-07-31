@@ -2520,6 +2520,13 @@ return [
         'online_admissions' => 'admissions.manage_settings',
         'admission_workflow' => 'admissions.manage_settings',
         'applicant_tracking' => 'admissions.decide',
+        // 'admission_letters' repointed to the real Fee Review screen
+        // (live feedback 2026-07-31: "Admission Fee Review is not found
+        // under any submenu"), same repoint-once-a-real-screen-exists
+        // pattern applicant_tracking used above — real offer/rejection
+        // letter generation isn't built and isn't part of this plan, so
+        // this key would otherwise sit unused indefinitely.
+        'admission_letters' => 'admissions.decide',
         'student_records' => 'students.view',
         'staff_records' => 'staff.view',
         'attendance_management' => 'attendance.view',

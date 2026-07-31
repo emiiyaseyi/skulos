@@ -833,8 +833,12 @@ class PlanFeatureNavTest extends TestCase
             // reachable from there instead of its own top-level nav
             // entry, same as the school_profile repoint precedent).
             ->assertSee('Applicants')
+            // 'admission_letters' is now also repointed, to the real Fee
+            // Review screen (live feedback 2026-07-31: it wasn't
+            // reachable from any submenu before this).
+            ->assertSee('Fee Review')
             // The module-toggle fallback only ever rescues a feature key
-            // with a REAL screen built (the three above); it must not
+            // with a REAL screen built (the four above); it must not
             // resurrect every other marketing catalog key in the same
             // category as a phantom "Soon" entry too — "Soon" is reserved
             // for a feature the school's actual PLAN claims but has no
@@ -842,7 +846,6 @@ class PlanFeatureNavTest extends TestCase
             // (this is the exact regression an earlier version of this
             // fix introduced, caught by the "no Soon items" assertion on
             // the finance-plan test above).
-            ->assertDontSee('Admission Letters')
             ->assertDontSee('Online Document Upload');
     }
 }
