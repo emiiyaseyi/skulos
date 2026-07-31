@@ -547,6 +547,34 @@
     $groups['Academic'][] = $link('school.assignments.index', 'Assignments', 'assignments');
   }
 
+  // SKULOS Assessment Hub, Phase 2h: a new top-level "Learning
+  // Management" group (the user directly asked for this exact
+  // placement — "the admission assessment should be sen under the
+  // learning managent menu... so that all the needed seetings can be
+  // done"), following the exact same pattern as Assignments just above:
+  // 'assessment_hub' is not part of any Plan's feature catalog (same as
+  // 'assignments'), so it is gated on a real RBAC permission check
+  // instead of the plan_feature_catalog loop — Rbac::check() already
+  // consults Rbac::moduleState() internally (see its own docblock), so
+  // a school with the module disabled/hidden correctly sees nothing
+  // here without a second explicit moduleState() call. "Take
+  // Assessments" is every taker's own self-service entry (.view, also
+  // granted to students/parents); every other link needs .create, the
+  // same admin tier the question bank/paper builder/security profiles/
+  // face approvals controllers already gate on (those screens expose
+  // correct answers or other takers' live data).
+  if ($navRbac->check($navUser, $school, 'assessment_hub.view')) {
+    $groups['Learning Management'][] = $link('school.cbt.take.available', 'Take Assessments', 'quiz');
+  }
+  if ($navRbac->check($navUser, $school, 'assessment_hub.create')) {
+    $groups['Learning Management'][] = $link('school.cbt.questions.index', 'Question Bank', 'quiz');
+    $groups['Learning Management'][] = $link('school.cbt.papers.index', 'Papers', 'quiz');
+    $groups['Learning Management'][] = $link('school.cbt.security-profiles.index', 'Security Profiles', 'sliders');
+    $groups['Learning Management'][] = $link('school.cbt.face-approvals.index', 'Face Match Approvals', 'proctor');
+    $groups['Learning Management'][] = $link('school.cbt.live-monitor.index', 'Live Monitor', 'proctor');
+    $groups['Learning Management'][] = $link('school.cbt.incidents.index', 'Incidents', 'warning');
+  }
+
   // Academic Report, its own standalone entry under Academic (user
   // request 2026-07-26, then corrected 2026-07-27: "Academic report
   // should be under academics"), a parent/student never had a way to

@@ -72,5 +72,7 @@
   @case('parents') {!! $s !!}<circle cx="9" cy="7" r="3"/><path d="M4 20a5 5 0 0 1 10 0"/><circle cx="18" cy="9" r="2"/><path d="M15 20a4 4 0 0 1 7-2.5"/></svg> @break
   @case('insight') {!! $s !!}<path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg> @break
   @case('stats') {!! $s !!}<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 17V11M12 17V7M16 17v-4"/></svg> @break
+  @case('quiz') {!! $s !!}<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/><circle cx="17" cy="16" r="1"/></svg> @break
+  @case('proctor') {!! $s !!}<rect x="3" y="4" width="18" height="12" rx="2"/><circle cx="12" cy="10" r="2.5"/><path d="M7 20h10M12 16v4"/></svg> @break
   @default {!! $s !!}<circle cx="12" cy="12" r="9"/></svg>
 @endswitch
