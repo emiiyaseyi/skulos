@@ -28,12 +28,15 @@ class ApplicantConversionService
 
     public function convert(School $school, Applicant $applicant, string $admissionNumber, int $classArmId): Student
     {
-        [$firstName, $lastName] = $this->splitName($applicant->name);
+        [$firstName, $lastName] = $applicant->first_name && $applicant->last_name
+            ? [$applicant->first_name, $applicant->last_name]
+            : $this->splitName($applicant->name);
 
         $student = Student::create([
             'admission_number' => $admissionNumber,
             'first_name' => $firstName,
             'last_name' => $lastName,
+            'date_of_birth' => $applicant->date_of_birth,
             'email' => $applicant->email,
             'current_class_arm_id' => $classArmId,
             'admission_session_id' => $applicant->session_id,
@@ -83,11 +86,11 @@ class ApplicantConversionService
     }
 
     /**
-     * The applicant record only ever collects one "name" field (splitting
-     * it into real first/last fields on the apply form is queued, not
-     * built yet); first word is the first name, the rest is the last
-     * name, an honest best-effort an admin can correct on the student's
-     * own edit screen afterward, not a data loss.
+     * Fallback only: an applicant created before the apply form collected
+     * real first_name/last_name fields separately still only has one
+     * combined "name" on file. First word is the first name, the rest is
+     * the last name, an honest best-effort an admin can correct on the
+     * student's own edit screen afterward, not a data loss.
      *
      * @return array{0: string, 1: string}
      */

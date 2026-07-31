@@ -37,8 +37,16 @@
           </select>
         </div>
         <div class="field">
-          <label for="name">Applicant's full name</label>
-          <input id="name" name="name" type="text" value="{{ old('name') }}" required />
+          <label for="first_name">Applicant's first name</label>
+          <input id="first_name" name="first_name" type="text" value="{{ old('first_name') }}" required />
+        </div>
+        <div class="field">
+          <label for="last_name">Applicant's last name</label>
+          <input id="last_name" name="last_name" type="text" value="{{ old('last_name') }}" required />
+        </div>
+        <div class="field">
+          <label for="date_of_birth">Applicant's date of birth</label>
+          <input id="date_of_birth" name="date_of_birth" type="date" value="{{ old('date_of_birth') }}" required max="{{ now()->subDay()->toDateString() }}" />
         </div>
         <div class="field">
           <label for="phone">Parent/guardian phone number</label>

@@ -43,6 +43,7 @@ class ApplicantDashboardController extends Controller
             'applicant' => $applicant,
             'acceptancePayment' => $acceptancePayment,
             'acceptanceWindow' => $acceptanceWindow,
+            'bankAccounts' => \App\Models\Tenant\BankAccount::active()->orderBy('sort_order')->get(),
         ]);
     }
 

@@ -54,7 +54,9 @@ class PublicApplicationController extends Controller
         $windowIds = AdmissionWindow::where('is_active', true)->pluck('id')->all();
         $data = $request->validate([
             'admission_window_id' => ['required', 'integer', \Illuminate\Validation\Rule::in($windowIds)],
-            'name' => ['required', 'string', 'max:150'],
+            'first_name' => ['required', 'string', 'max:80'],
+            'last_name' => ['required', 'string', 'max:80'],
+            'date_of_birth' => ['required', 'date', 'before:today'],
             'email' => ['nullable', 'email', 'max:150'],
             'phone' => ['required', 'string', 'max:30'],
         ]);
@@ -64,7 +66,10 @@ class PublicApplicationController extends Controller
 
         $chain = Applicant::pipelineChain();
         $applicant = Applicant::forceCreate([
-            'name' => $data['name'],
+            'name' => trim($data['first_name'].' '.$data['last_name']),
+            'first_name' => $data['first_name'],
+            'last_name' => $data['last_name'],
+            'date_of_birth' => $data['date_of_birth'],
             'email' => $data['email'] ?? null,
             'phone' => $data['phone'],
             'session_id' => $window->session_id,
@@ -118,6 +123,7 @@ class PublicApplicationController extends Controller
             'accent' => $school->branding()['color'] ?? null,
             'applicant' => $applicant,
             'feePayment' => $feePayment,
+            'bankAccounts' => \App\Models\Tenant\BankAccount::active()->orderBy('sort_order')->get(),
         ]);
     }
 

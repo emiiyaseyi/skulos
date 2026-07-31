@@ -64,7 +64,9 @@ class AdmissionPublicApplyTest extends TestCase
 
         $response = $this->post("http://{$school->slug}.localhost/admissions/apply", [
             'admission_window_id' => $window->id,
-            'name' => 'Ada Obi',
+            'first_name' => 'Ada',
+            'last_name' => 'Obi',
+            'date_of_birth' => '2015-04-12',
             'phone' => '08011112222',
         ]);
 
@@ -74,6 +76,9 @@ class AdmissionPublicApplyTest extends TestCase
 
         $this->assertNotNull($applicant);
         $this->assertSame('Ada Obi', $applicant->name);
+        $this->assertSame('Ada', $applicant->first_name);
+        $this->assertSame('Obi', $applicant->last_name);
+        $this->assertSame('2015-04-12', $applicant->date_of_birth->toDateString());
         $this->assertSame(Applicant::STATUS_PENDING_FEE, $applicant->account_status);
         $this->assertNull($applicant->password, 'no password is issued until the application fee clears');
         $this->assertNotNull($applicant->admission_number);
@@ -116,7 +121,9 @@ class AdmissionPublicApplyTest extends TestCase
 
         $this->post("http://{$school->slug}.localhost/admissions/apply", [
             'admission_window_id' => $window->id,
-            'name' => 'Ada Obi',
+            'first_name' => 'Ada',
+            'last_name' => 'Obi',
+            'date_of_birth' => '2015-04-12',
             'phone' => '08011112222',
         ])->assertSessionHasErrors('admission_window_id');
     }

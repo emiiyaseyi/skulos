@@ -27,6 +27,20 @@
     <div class="card" style="margin-bottom:1rem">
       <h3 style="margin-bottom:.6rem">Congratulations, you have been offered admission!</h3>
       @if(! $acceptancePayment)
+        @if($bankAccounts->isNotEmpty())
+          <div style="margin-bottom:1rem">
+            <div class="muted" style="font-size:.85rem;margin-bottom:.5rem">Send your acceptance fee to any one of these accounts, then upload your evidence below.</div>
+            <div class="stack" style="gap:.7rem">
+              @foreach($bankAccounts as $account)
+                <div style="border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem">
+                  <div style="font-weight:800">{{ $account->bank_name }}</div>
+                  <div class="muted" style="font-size:.85rem">{{ $account->account_name }}</div>
+                  <div style="font-variant-numeric:tabular-nums;font-weight:700;margin-top:.2rem">{{ $account->account_number }}</div>
+                </div>
+              @endforeach
+            </div>
+          </div>
+        @endif
         <p class="muted" style="margin-bottom:1rem">Upload proof of your acceptance fee payment to secure your place.</p>
         <form method="POST" action="{{ route('school.admissions.acceptance-fee', ['school' => $school->slug]) }}" enctype="multipart/form-data">
           @csrf

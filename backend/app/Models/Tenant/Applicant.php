@@ -39,7 +39,7 @@ class Applicant extends Authenticatable
     protected $connection = 'tenant';
 
     protected $fillable = [
-        'name', 'email', 'phone', 'session_id', 'campus_id', 'school_class_id',
+        'name', 'first_name', 'last_name', 'date_of_birth', 'email', 'phone', 'session_id', 'campus_id', 'school_class_id',
     ];
 
     protected $hidden = [
@@ -51,6 +51,7 @@ class Applicant extends Authenticatable
         return [
             'password' => 'hashed',
             'expires_at' => 'datetime',
+            'date_of_birth' => 'date',
         ];
     }
 
