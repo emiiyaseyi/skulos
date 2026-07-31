@@ -39,8 +39,11 @@ class ApplicationFormController extends Controller
         $steps = $this->steps();
 
         if (empty($steps)) {
-            return redirect()->route('school.admissions.dashboard', ['school' => $school->slug])
-                ->with('status', 'There is no custom application form to fill in yet.');
+            // No custom fields configured — documents (Phase 1f) always
+            // apply regardless of whether a school built a custom form,
+            // so skip straight to that step rather than dead-ending back
+            // at the dashboard.
+            return redirect()->route('school.admissions.documents', ['school' => $school->slug]);
         }
 
         $step = (int) ($request->query('step') ?: $steps[0]);
@@ -66,8 +69,10 @@ class ApplicationFormController extends Controller
             'existingValues' => $existingValues,
             'step' => $step,
             'stepIndex' => $stepIndex,
-            'totalSteps' => count($steps),
-            'isLastStep' => $stepIndex === count($steps) - 1,
+            // +1: documents (Phase 1f) is always the wizard's true final
+            // step now, chained automatically after the last custom-field
+            // step, so a custom step is never the actual last one anymore.
+            'totalSteps' => count($steps) + 1,
         ]);
     }
 
@@ -138,7 +143,8 @@ class ApplicationFormController extends Controller
             return redirect()->route('school.admissions.form', ['school' => $school->slug, 'step' => $nextStep]);
         }
 
-        return redirect()->route('school.admissions.dashboard', ['school' => $school->slug])
-            ->with('status', 'Application form saved.');
+        // Documents (Phase 1f) is the wizard's own final step, chained
+        // automatically once the custom-field steps are done.
+        return redirect()->route('school.admissions.documents', ['school' => $school->slug]);
     }
 }

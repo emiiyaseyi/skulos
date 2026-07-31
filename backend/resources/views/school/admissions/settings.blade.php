@@ -11,6 +11,7 @@
     <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.form-builder.index', ['school' => $school->slug]) }}">Form builder</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.pipeline', ['school' => $school->slug]) }}">Applicants</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.fees.index', ['school' => $school->slug]) }}">Fee payments</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.document-review.index', ['school' => $school->slug]) }}">Document review</a>
   </div>
 </div>
 

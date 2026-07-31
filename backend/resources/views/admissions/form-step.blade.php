@@ -56,7 +56,7 @@
           @endif
         @endforeach
       @endforeach
-      <button class="btn btn-primary btn-block" type="submit">{{ $isLastStep ? 'Finish' : 'Continue' }}</button>
+      <button class="btn btn-primary btn-block" type="submit">Continue</button>
     </form>
   </div>
 </div>

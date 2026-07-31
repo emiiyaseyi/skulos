@@ -2468,6 +2468,28 @@ return [
         // Admissions module (2026-07-30): same ceiling as payment
         // evidence, a bank receipt/proof-of-payment screenshot or PDF.
         'admission_fee_evidence_kb' => 3072,
+        // Admissions module, Phase 1f (2026-07-31): a scanned birth
+        // certificate/report card/testimonial, same ceiling as fee
+        // evidence — these are the same kind of file (a phone photo or
+        // scanned PDF), no reason for a different limit.
+        'admission_document_kb' => 3072,
+    ],
+
+    /*
+    | Which supporting documents an applicant can attach (user directive
+    | 2026-07-31: "filling candidate birth certificate, last report card
+    | if available etc, all these are optional by default"). Every type
+    | is optional — an applicant uploads whichever they actually have,
+    | not a hard gate on completing the application. Not admin-editable
+    | yet (no settings screen wires this catalog to a tenant table the
+    | way admission_pipeline_stages should eventually move to too); flag
+    | this the same way if that becomes a real ask.
+    */
+    'admission_document_types' => [
+        'birth_certificate' => 'Birth Certificate',
+        'last_report_card' => 'Last Report Card / Testimonial',
+        'passport_photograph' => 'Passport Photograph',
+        'immunization_record' => 'Immunization Record',
     ],
 
     /*

@@ -69,18 +69,20 @@ class AdmissionFormSubmissionTest extends TestCase
         $this->signIn($school, 'APP/0001', 'secret123');
 
         $this->get("http://{$school->slug}.localhost/admissions/form")
-            ->assertOk()->assertSee('Guardian Name')->assertSee('Step 1 of 2');
+            ->assertOk()->assertSee('Guardian Name')->assertSee('Step 1 of 3');
 
         $this->post("http://{$school->slug}.localhost/admissions/form?step=1", [
             'fields' => [$fieldName->id => 'Mrs Bello'],
         ])->assertRedirect("http://{$school->slug}.localhost/admissions/form?step=2");
 
         $this->get("http://{$school->slug}.localhost/admissions/form?step=2")
-            ->assertOk()->assertSee('Known Allergies')->assertSee('Step 2 of 2');
+            ->assertOk()->assertSee('Known Allergies')->assertSee('Step 2 of 3');
 
+        // Documents (Phase 1f) is now the wizard's own real final step,
+        // chained automatically once the custom-field steps are done.
         $this->post("http://{$school->slug}.localhost/admissions/form?step=2", [
             'fields' => [$fieldAllergy->id => 'None'],
-        ])->assertRedirect("http://{$school->slug}.localhost/admissions/dashboard");
+        ])->assertRedirect("http://{$school->slug}.localhost/admissions/documents");
 
         app(TenantManager::class)->use($school);
         $this->assertSame('Mrs Bello', AdmissionFormValue::where('admission_form_field_id', $fieldName->id)->value('value'), 'step 1 must still be saved after step 2 is submitted');

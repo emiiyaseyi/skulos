@@ -299,6 +299,13 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             $form = \App\Http\Controllers\Admissions\ApplicationFormController::class;
             Route::get('/form', [$form, 'show'])->name('form');
             Route::post('/form', [$form, 'save'])->name('form.save');
+
+            // Admissions module, Phase 1f: supporting documents (birth
+            // certificate, last report card, etc), the wizard's own real
+            // final step, chained automatically from the form above.
+            $documents = \App\Http\Controllers\Admissions\DocumentUploadController::class;
+            Route::get('/documents', [$documents, 'show'])->name('documents');
+            Route::post('/documents', [$documents, 'store'])->name('documents.save');
         });
 
         // Public "Seek Admission" entry point, Phase 1c: no auth needed
@@ -823,6 +830,20 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/{paymentId}/evidence', [$feeReview, 'evidence'])->name('evidence');
             Route::post('/{paymentId}/verify', [$feeReview, 'verify'])->name('verify');
             Route::post('/{paymentId}/reject', [$feeReview, 'reject'])->name('reject');
+        });
+
+        // Admissions module, Phase 1f: admin reviews an applicant's
+        // uploaded supporting documents (birth certificate, etc). Prefix
+        // deliberately NOT "admissions/documents" — the applicant-facing
+        // upload step above already owns that exact path under the same
+        // domain wildcard, and a second route matching the same
+        // domain+path+method would silently never be reached.
+        Route::prefix('admissions/document-review')->name('school.admissions.document-review.')->group(function () {
+            $documentReview = \App\Http\Controllers\School\AdmissionDocumentReviewController::class;
+            Route::get('/', [$documentReview, 'index'])->name('index');
+            Route::get('/{documentId}/file', [$documentReview, 'file'])->name('file');
+            Route::post('/{documentId}/verify', [$documentReview, 'verify'])->name('verify');
+            Route::post('/{documentId}/reject', [$documentReview, 'reject'])->name('reject');
         });
 
         // Admissions module, Phase 1e: the school's own custom

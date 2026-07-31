@@ -10,6 +10,7 @@
   <div class="stack" style="flex-direction:row;gap:.6rem">
     <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.settings.edit', ['school' => $school->slug]) }}">Admissions settings</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.pipeline', ['school' => $school->slug]) }}">Applicants</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.document-review.index', ['school' => $school->slug]) }}">Document review</a>
   </div>
 </div>
 
