@@ -105,6 +105,29 @@ class AdmissionFormBuilderTest extends TestCase
         app(TenantManager::class)->forget();
     }
 
+    public function test_the_builder_page_shows_a_live_preview_of_active_fields_only(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'afbfive');
+
+        app(TenantManager::class)->use($school);
+        $section = AdmissionFormSection::create(['label' => 'Guardian Information', 'step' => 1]);
+        AdmissionFormField::create(['label' => 'Previous School', 'field_key' => 'previous_school', 'type' => 'text', 'admission_form_section_id' => $section->id, 'sequence' => 1]);
+        AdmissionFormField::create(['label' => 'Retired Field', 'field_key' => 'retired_field', 'type' => 'text', 'admission_form_section_id' => $section->id, 'sequence' => 2, 'is_active' => false]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)->get(route('school.admissions.form-builder.index', ['school' => $school->slug]));
+        $response->assertOk()->assertSee('Live preview')->assertSee('Previous School');
+
+        // "Retired Field" legitimately still appears further down, in the
+        // management table (inactive fields stay listed there so an admin
+        // can reactivate them) — so assert its ABSENCE specifically within
+        // the live-preview block, not the whole page.
+        $body = $response->getContent();
+        $previewBlock = substr($body, strpos($body, 'Live preview'), strpos($body, 'Sections and fields') - strpos($body, 'Live preview'));
+        $this->assertStringContainsString('Previous School', $previewBlock);
+        $this->assertStringNotContainsString('Retired Field', $previewBlock);
+    }
+
     public function test_a_teacher_without_manage_settings_cannot_reach_the_form_builder(): void
     {
         [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'afbfour');

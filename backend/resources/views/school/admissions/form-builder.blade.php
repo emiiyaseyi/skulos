@@ -70,6 +70,42 @@
   </form>
 </div>
 
+@php($previewSteps = $sections->where('is_active', true)->groupBy('step'))
+<div class="card" style="margin-bottom:1.1rem">
+  <h3 style="margin-bottom:.3rem">Live preview</h3>
+  <p class="muted" style="margin-bottom:.8rem">What an applicant sees when they fill this form in, one card per step.</p>
+  @if($previewSteps->isEmpty())
+    <p class="muted">Nothing to preview yet, no active section has any active fields.</p>
+  @else
+    <div style="display:flex;gap:1rem;flex-wrap:wrap">
+      @foreach($previewSteps->sortKeys() as $step => $stepSections)
+        <div style="border:1px solid var(--line);border-radius:10px;padding:1rem;max-width:20rem;flex:1 1 18rem;background:var(--soft)">
+          <div class="muted" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.6rem">Step {{ $loop->index + 1 }}</div>
+          @foreach($stepSections as $section)
+            @php($activeFields = $section->fields->where('is_active', true))
+            @continue($activeFields->isEmpty())
+            <h4 style="margin-bottom:.5rem">{{ $section->label }}</h4>
+            @foreach($activeFields as $field)
+              <div class="field">
+                <label>{{ $field->label }}{{ $field->is_required ? ' *' : '' }}</label>
+                @if($field->type === 'textarea')
+                  <textarea rows="2" disabled></textarea>
+                @elseif($field->type === 'select')
+                  <select disabled><option>Choose one</option>@foreach($field->options ?? [] as $option)<option>{{ $option }}</option>@endforeach</select>
+                @elseif($field->type === 'checkbox')
+                  <input type="checkbox" disabled />
+                @else
+                  <input type="{{ $field->type === 'number' ? 'number' : ($field->type === 'date' ? 'date' : 'text') }}" disabled />
+                @endif
+              </div>
+            @endforeach
+          @endforeach
+        </div>
+      @endforeach
+    </div>
+  @endif
+</div>
+
 <div class="card">
   <h3 style="margin-bottom:.8rem">Sections and fields</h3>
   @if($sections->isEmpty())
