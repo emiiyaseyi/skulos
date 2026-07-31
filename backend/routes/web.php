@@ -564,6 +564,21 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::delete('/{assignmentId}', [$assignments, 'destroy'])->name('destroy');
             Route::post('/bulk-destroy', [$assignments, 'bulkDestroy'])->name('bulk-destroy');
         });
+
+        // SKULOS Assessment Hub, Phase 2b: the taker-facing side (student
+        // or staff, both reached through the normal 'web' guard — see
+        // CbtTakeController's own docblock).
+        Route::prefix('assessment/take')->name('school.cbt.take.')->group(function () {
+            $cbtTake = \App\Http\Controllers\School\CbtTakeController::class;
+            Route::get('/', [$cbtTake, 'available'])->name('available');
+            Route::post('/{paperId}/start', [$cbtTake, 'start'])->name('start');
+            Route::get('/session/{sessionId}', [$cbtTake, 'take'])->name('session');
+            Route::post('/session/{sessionId}/answer', [$cbtTake, 'saveAnswer'])->name('answer');
+            Route::post('/session/{sessionId}/event', [$cbtTake, 'reportEvent'])->name('event');
+            Route::post('/session/{sessionId}/submit', [$cbtTake, 'submit'])->name('submit');
+            Route::get('/session/{sessionId}/result', [$cbtTake, 'result'])->name('result');
+        });
+
         Route::get('/setup', [\App\Http\Controllers\School\SetupController::class, 'index'])->name('school.setup');
         Route::post('/notifications/{id}/read', [SchoolPortalController::class, 'markNotificationRead'])->name('school.notifications.read');
         Route::prefix('notifications')->name('school.notifications.')->group(function () {

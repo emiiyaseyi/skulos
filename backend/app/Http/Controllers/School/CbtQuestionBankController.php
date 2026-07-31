@@ -34,7 +34,12 @@ class CbtQuestionBankController extends Controller
 
     public function index(Request $request): \Illuminate\View\View
     {
-        $this->authorizeAction($request, 'assessment_hub.view');
+        // 'create', not 'view': assessment_hub.view is also granted to
+        // students/parents (Phase 2b, to see/take their OWN assigned
+        // assessments) — this admin screen shows every question's
+        // correct answer, so it must gate on the higher tier that only
+        // staff building content actually has.
+        $this->authorizeAction($request, 'assessment_hub.create');
         $school = $this->school($request);
 
         return view('school.cbt.questions.index', [

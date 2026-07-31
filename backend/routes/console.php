@@ -73,6 +73,12 @@ Schedule::command('platform:backup')->dailyAt('02:30')->withoutOverlapping();
 // the window itself is measured in weeks (default 30 days), not hours.
 Schedule::command('admissions:archive-expired-applicants')->dailyAt('01:00')->withoutOverlapping();
 
+// SKULOS Assessment Hub, Phase 2b: the client-side countdown already
+// auto-submits on its own; this is only the server-side backstop for a
+// crashed/closed/offline browser tab, so it needs to run every minute,
+// not daily — an exam deadline matters within minutes, not weeks.
+Schedule::command('cbt:auto-submit-expired-sessions')->everyMinute()->withoutOverlapping();
+
 // Audit log hardening (2026-07-20). Export is hourly so a durable,
 // external copy of new audit activity never sits unshipped for long;
 // verify is once daily, off peak, since walking every row on every

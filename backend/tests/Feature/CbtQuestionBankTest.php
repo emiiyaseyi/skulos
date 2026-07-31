@@ -138,14 +138,20 @@ class CbtQuestionBankTest extends TestCase
         app(TenantManager::class)->forget();
     }
 
-    public function test_a_teacher_without_the_permission_cannot_reach_the_question_bank(): void
+    /**
+     * A student has assessment_hub.view (to see/take their own assigned
+     * assessments, Phase 2b) but never .create — the admin question bank
+     * shows every question's correct answer, so this is a real security
+     * boundary, not just an access-control formality.
+     */
+    public function test_a_student_cannot_reach_the_admin_question_bank(): void
     {
         [$school] = $this->schoolWithMember('school-owner', 'cqbfive');
-        $teacher = User::factory()->create();
-        $role = $this->rbac->cloneTemplateRole($school, 'subject-teacher');
-        $school->users()->attach($teacher->id, ['role_id' => $role->id, 'status' => 'active']);
+        $student = User::factory()->create();
+        $role = $this->rbac->cloneTemplateRole($school, 'student');
+        $school->users()->attach($student->id, ['role_id' => $role->id, 'status' => 'active']);
 
-        $this->actingAs($teacher)->get(route('school.cbt.questions.index', ['school' => $school->slug]))
+        $this->actingAs($student)->get(route('school.cbt.questions.index', ['school' => $school->slug]))
             ->assertForbidden();
     }
 }

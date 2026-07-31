@@ -45,12 +45,16 @@ class CbtPaper extends Model
 
     public function paperQuestions(): HasMany
     {
-        return $this->hasMany(CbtPaperQuestion::class)->orderBy('sequence');
+        // Explicit FK: Eloquent's default guess would be "cbt_paper_id"
+        // (from the CbtPaper class name), but the real column is
+        // "paper_id" (see the creating migration).
+        return $this->hasMany(CbtPaperQuestion::class, 'paper_id')->orderBy('sequence');
     }
 
     public function questions(): BelongsToMany
     {
-        return $this->belongsToMany(CbtQuestion::class, 'cbt_paper_questions')
+        // Same explicit-FK reasoning as paperQuestions() above.
+        return $this->belongsToMany(CbtQuestion::class, 'cbt_paper_questions', 'paper_id', 'question_id')
             ->withPivot(['id', 'sequence', 'points_override'])
             ->orderBy('cbt_paper_questions.sequence');
     }

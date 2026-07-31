@@ -2523,6 +2523,28 @@ return [
     ],
 
     /*
+    | SKULOS Assessment Hub, Phase 2c: how much each proctoring signal
+    | adds to a session's risk_score, and the score thresholds that flip
+    | risk_level. Matches the reference (Learn-Proctor-Secure-Browser)
+    | repo's own medium=30/high=60 reference lines. Not admin-editable
+    | yet — a real future ask if a school wants to tune sensitivity, not
+    | built this pass.
+    */
+    'cbt_security_event_scores' => [
+        'tab_switch' => 10,
+        'fullscreen_exit' => 15,
+        'copy_attempt' => 5,
+        'paste_attempt' => 5,
+        'right_click' => 2,
+        'window_blur' => 5,
+        'face_not_detected' => 8,
+        'face_mismatch' => 20,
+        'object_detected' => 25,
+        'noise_threshold' => 5,
+    ],
+    'cbt_risk_thresholds' => ['medium' => 30, 'high' => 60],
+
+    /*
     | Roles restricted to only their own assigned classes/students rather
     | than the whole school (user directive 2026-07-12, live QA on the
     | subject-teacher role: "should only see the class assigned to him...

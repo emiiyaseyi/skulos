@@ -132,14 +132,14 @@ class CbtPaperBuilderTest extends TestCase
         app(TenantManager::class)->forget();
     }
 
-    public function test_a_teacher_without_the_permission_cannot_reach_papers(): void
+    public function test_a_student_cannot_reach_the_admin_papers_screen(): void
     {
         [$school] = $this->schoolWithMember('school-owner', 'cpbfour');
-        $teacher = User::factory()->create();
-        $role = $this->rbac->cloneTemplateRole($school, 'subject-teacher');
-        $school->users()->attach($teacher->id, ['role_id' => $role->id, 'status' => 'active']);
+        $student = User::factory()->create();
+        $role = $this->rbac->cloneTemplateRole($school, 'student');
+        $school->users()->attach($student->id, ['role_id' => $role->id, 'status' => 'active']);
 
-        $this->actingAs($teacher)->get(route('school.cbt.papers.index', ['school' => $school->slug]))
+        $this->actingAs($student)->get(route('school.cbt.papers.index', ['school' => $school->slug]))
             ->assertForbidden();
     }
 }

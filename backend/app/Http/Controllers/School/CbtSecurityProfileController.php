@@ -34,7 +34,10 @@ class CbtSecurityProfileController extends Controller
 
     public function index(Request $request): \Illuminate\View\View
     {
-        $this->authorizeAction($request, 'assessment_hub.view');
+        // 'create', not 'view': see CbtQuestionBankController::index()'s
+        // own comment — assessment_hub.view is also granted to
+        // students/parents to see/take their own assessments.
+        $this->authorizeAction($request, 'assessment_hub.create');
         $school = $this->school($request);
         CbtSecurityProfile::ensureSeeded();
 
