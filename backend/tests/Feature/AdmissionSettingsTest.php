@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\School;
 use App\Models\Tenant\AcademicSession;
+use App\Models\Tenant\AdmissionPipelineStage;
 use App\Models\Tenant\AdmissionWindow;
 use App\Models\Tenant\Applicant;
 use App\Models\Tenant\Section;
@@ -63,42 +64,87 @@ class AdmissionSettingsTest extends TestCase
         return [$school, $user];
     }
 
-    public function test_owner_can_toggle_pipeline_stages_and_the_account_ttl(): void
+    public function test_owner_can_update_account_settings(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'asone');
 
         $this->actingAs($owner)->get(route('school.admissions.settings.edit', ['school' => $school->slug]))
             ->assertOk()->assertSee('Admission pipeline');
 
-        $this->actingAs($owner)->post(route('school.admissions.settings.pipeline', ['school' => $school->slug]), [
-            'stages' => ['application_started', 'application_submitted', 'documents_uploaded', 'admission_offered', 'acceptance_fee_paid', 'enrolled'],
+        $this->actingAs($owner)->post(route('school.admissions.settings.account', ['school' => $school->slug]), [
             'account_ttl_days' => 45,
             'password_length' => 14,
             'password_style' => 'numeric',
         ])->assertRedirect();
 
         app(TenantManager::class)->use($school);
-        $this->assertSame(
-            ['application_started', 'application_submitted', 'documents_uploaded', 'admission_offered', 'acceptance_fee_paid', 'enrolled'],
-            Applicant::pipelineChain(),
-            'interview stages were unticked and must be gone, the rest must stay in catalog order regardless of submission order'
-        );
         $this->assertSame(45, (int) Setting::grab('admission_account_ttl_days'));
         $this->assertSame(14, (int) Setting::grab('admission_password_length'));
         $this->assertSame('numeric', Setting::grab('admission_password_style'));
         app(TenantManager::class)->forget();
     }
 
-    public function test_at_least_one_pipeline_stage_must_stay_enabled(): void
+    /**
+     * The real design change (user directive 2026-07-31: "admin should
+     * be able to add new, edit existing one or reorder the admission
+     * pipeline as peculiar to the school") — genuinely custom stages, not
+     * a toggle from a fixed catalog.
+     */
+    public function test_owner_can_add_edit_reorder_and_remove_pipeline_stages(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'asnine');
+
+        $this->actingAs($owner)->post(route('school.admissions.settings.stages.store', ['school' => $school->slug]), [
+            'label' => 'Entrance Assessment',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $stage = AdmissionPipelineStage::where('label', 'Entrance Assessment')->first();
+        $this->assertNotNull($stage, 'a genuinely new, non-catalog stage must be creatable');
+        $lastSequence = AdmissionPipelineStage::max('sequence');
+        $this->assertSame($lastSequence, $stage->sequence, 'a new stage is appended to the end');
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post(route('school.admissions.settings.stages.update', ['school' => $school->slug, 'stageId' => $stage->id]), [
+            'label' => 'Entrance Assessment (Renamed)',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame('Entrance Assessment (Renamed)', $stage->fresh()->label);
+        app(TenantManager::class)->forget();
+
+        // Move it up one — swaps sequence with its immediate predecessor.
+        $this->actingAs($owner)->post(route('school.admissions.settings.stages.move', ['school' => $school->slug, 'stageId' => $stage->id, 'direction' => 'up']))
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame($lastSequence - 1, $stage->fresh()->sequence);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->delete(route('school.admissions.settings.stages.destroy', ['school' => $school->slug, 'stageId' => $stage->id]))
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertNull(AdmissionPipelineStage::find($stage->id));
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_at_least_one_pipeline_stage_must_remain(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'astwo');
 
-        $this->actingAs($owner)->post(route('school.admissions.settings.pipeline', ['school' => $school->slug]), [
-            'stages' => [],
-            'account_ttl_days' => 30,
-            'password_length' => 10,
-            'password_style' => 'random',
-        ])->assertSessionHasErrors('stages');
+        app(TenantManager::class)->use($school);
+        AdmissionPipelineStage::ensureSeeded();
+        AdmissionPipelineStage::query()->delete();
+        $onlyStage = AdmissionPipelineStage::create(['label' => 'Only Stage', 'sequence' => 0]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->delete(route('school.admissions.settings.stages.destroy', ['school' => $school->slug, 'stageId' => $onlyStage->id]))
+            ->assertStatus(422);
+
+        app(TenantManager::class)->use($school);
+        $this->assertNotNull(AdmissionPipelineStage::find($onlyStage->id));
+        app(TenantManager::class)->forget();
     }
 
     public function test_owner_can_open_and_close_an_admission_window(): void

@@ -21,23 +21,42 @@
 
 <div class="card" style="margin-bottom:1.25rem">
   <h3 style="margin-bottom:.4rem">Admission pipeline</h3>
-  <p class="muted" style="margin-bottom:.8rem">Every applicant moves through these stages in this fixed order. Untick an optional stage to skip it, e.g. a school with no interview step.</p>
-  <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-bottom:1rem">
-    @foreach($pipelineChain as $i => $key)
-      <span class="badge" style="background:var(--soft);border:1px solid var(--line);border-radius:20px;padding:.3rem .8rem;font-size:.8rem">{{ $i + 1 }}. {{ $stageCatalog[$key] ?? $key }}</span>
-      @if(! $loop->last)<span class="muted">&rarr;</span>@endif
+  <p class="muted" style="margin-bottom:.8rem">The stages every applicant moves through, in this order. Add, rename, remove, or reorder them however suits your school.</p>
+  <div class="stack" style="gap:.5rem;margin-bottom:1rem;max-width:30rem">
+    @foreach($stages as $stage)
+      <div style="display:flex;align-items:center;gap:.6rem;border:1px solid var(--line);border-radius:10px;padding:.5rem .8rem">
+        <span class="muted" style="font-weight:700;min-width:1.4rem">{{ $loop->index + 1 }}.</span>
+        <form method="POST" action="{{ route('school.admissions.settings.stages.update', ['school' => $school->slug, 'stageId' => $stage->id]) }}" style="flex:1;display:flex;gap:.4rem">
+          @csrf
+          <input name="label" value="{{ $stage->label }}" style="flex:1" />
+          <button class="btn btn-ghost btn-sm" type="submit">Save</button>
+        </form>
+        <form method="POST" action="{{ route('school.admissions.settings.stages.move', ['school' => $school->slug, 'stageId' => $stage->id, 'direction' => 'up']) }}">
+          @csrf
+          <button class="btn btn-ghost btn-sm" type="submit" @disabled($loop->first)>&uarr;</button>
+        </form>
+        <form method="POST" action="{{ route('school.admissions.settings.stages.move', ['school' => $school->slug, 'stageId' => $stage->id, 'direction' => 'down']) }}">
+          @csrf
+          <button class="btn btn-ghost btn-sm" type="submit" @disabled($loop->last)>&darr;</button>
+        </form>
+        <form method="POST" action="{{ route('school.admissions.settings.stages.destroy', ['school' => $school->slug, 'stageId' => $stage->id]) }}" onsubmit="return confirm('Remove this stage?')">
+          @csrf @method('DELETE')
+          <button class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit" @disabled($stages->count() <= 1)>Remove</button>
+        </form>
+      </div>
     @endforeach
   </div>
-  <form method="POST" action="{{ route('school.admissions.settings.pipeline', ['school' => $school->slug]) }}">
+  <form method="POST" action="{{ route('school.admissions.settings.stages.store', ['school' => $school->slug]) }}" style="display:flex;gap:.5rem;max-width:30rem">
     @csrf
-    <div class="grid cols-2" style="gap:.5rem .75rem;margin-bottom:1rem">
-      @foreach($stageCatalog as $key => $label)
-        <label style="display:flex;align-items:center;gap:.5rem;font-weight:400">
-          <input type="checkbox" name="stages[]" value="{{ $key }}" @checked(in_array($key, $pipelineChain, true)) />
-          <span>{{ $label }}</span>
-        </label>
-      @endforeach
-    </div>
+    <input name="label" placeholder="e.g. Entrance Assessment" required style="flex:1" />
+    <button class="btn btn-primary btn-sm" type="submit">Add stage</button>
+  </form>
+</div>
+
+<div class="card" style="margin-bottom:1.25rem">
+  <h3 style="margin-bottom:.4rem">Account settings</h3>
+  <form method="POST" action="{{ route('school.admissions.settings.account', ['school' => $school->slug]) }}">
+    @csrf
     <div class="grid cols-2" style="gap:1rem;max-width:32rem">
       <div class="field">
         <label for="account_ttl_days">Applicant account window (days)</label>
@@ -59,7 +78,7 @@
         <div class="hint">Numbers only is easiest to read out over the phone to a parent.</div>
       </div>
     </div>
-    <button class="btn btn-primary btn-sm" type="submit" style="margin-top:.8rem">Save pipeline settings</button>
+    <button class="btn btn-primary btn-sm" type="submit" style="margin-top:.8rem">Save account settings</button>
   </form>
 </div>
 

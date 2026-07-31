@@ -5,8 +5,8 @@ namespace App\Http\Controllers\School;
 use App\Http\Controllers\Controller;
 use App\Models\School;
 use App\Models\Tenant\AcademicSession;
+use App\Models\Tenant\AdmissionPipelineStage;
 use App\Models\Tenant\AdmissionWindow;
-use App\Models\Tenant\Applicant;
 use App\Models\Tenant\Campus;
 use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Setting;
@@ -48,8 +48,7 @@ class AdmissionSettingsController extends Controller
         return view('school.admissions.settings', [
             'school' => $school,
             'accent' => $school->branding()['color'],
-            'stageCatalog' => config('skulos.admission_pipeline_stages', []),
-            'pipelineChain' => Applicant::pipelineChain(),
+            'stages' => AdmissionPipelineStage::ordered(),
             'ttlDays' => (int) (Setting::grab('admission_account_ttl_days') ?? config('skulos.default_admission_account_ttl_days', 30)),
             'passwordLength' => (int) (Setting::grab('admission_password_length') ?? config('skulos.default_admission_password_length', 10)),
             'passwordStyle' => Setting::grab('admission_password_style') ?? config('skulos.default_admission_password_style', 'random'),
@@ -100,37 +99,84 @@ class AdmissionSettingsController extends Controller
             ->values();
     }
 
-    public function updatePipeline(Request $request): \Illuminate\Http\RedirectResponse
+    public function updateAccountSettings(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'admissions.manage_settings');
 
-        // 'stages' => required + min:1 already guarantees at least one
-        // valid, catalog-checked stage survives validation before this
-        // line ever runs (a blank/empty submission bounces back as a
-        // normal validation error, not a separate 422 check here).
-        $catalogKeys = array_keys(config('skulos.admission_pipeline_stages', []));
         $data = $request->validate([
-            'stages' => ['required', 'array', 'min:1'],
-            'stages.*' => [Rule::in($catalogKeys)],
             'account_ttl_days' => ['required', 'integer', 'min:1', 'max:365'],
             'password_length' => ['required', 'integer', 'min:6', 'max:24'],
             'password_style' => ['required', Rule::in(['random', 'alphanumeric', 'numeric'])],
         ]);
 
-        // Submitted checkboxes can arrive in any order; the pipeline is a
-        // fixed sequence an applicant moves through, not a freely
-        // reorderable chain like report card review (an admin can trim
-        // optional stages, not reshuffle around the ones with real
-        // behaviour attached to them, e.g. document upload has to come
-        // before an admin can review documents).
-        $chain = array_values(array_intersect($catalogKeys, $data['stages']));
-
-        Setting::put('admission_pipeline_chain', $chain);
         Setting::put('admission_account_ttl_days', $data['account_ttl_days']);
         Setting::put('admission_password_length', $data['password_length']);
         Setting::put('admission_password_style', $data['password_style']);
 
-        return back()->with('status', 'Admission pipeline updated.');
+        return back()->with('status', 'Account settings updated.');
+    }
+
+    public function storeStage(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'admissions.manage_settings');
+        AdmissionPipelineStage::ensureSeeded();
+
+        $data = $request->validate(['label' => ['required', 'string', 'max:80']]);
+
+        AdmissionPipelineStage::create([
+            'label' => $data['label'],
+            'sequence' => (AdmissionPipelineStage::max('sequence') ?? -1) + 1,
+        ]);
+
+        return back()->with('status', 'Stage added.');
+    }
+
+    public function updateStage(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'admissions.manage_settings');
+        $stage = AdmissionPipelineStage::findOrFail($request->route('stageId'));
+
+        $data = $request->validate(['label' => ['required', 'string', 'max:80']]);
+        $stage->update(['label' => $data['label']]);
+
+        return back()->with('status', 'Stage updated.');
+    }
+
+    public function destroyStage(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'admissions.manage_settings');
+        $stage = AdmissionPipelineStage::findOrFail($request->route('stageId'));
+
+        // At least one stage must always remain — an applicant's
+        // pipeline_stage is a plain index into this list, an empty chain
+        // would leave every applicant's current stage unresolvable.
+        abort_if(AdmissionPipelineStage::count() <= 1, 422, 'At least one pipeline stage must remain.');
+
+        $removedSequence = $stage->sequence;
+        $stage->delete();
+        // Close the gap so sequence stays a dense 0..n-1 range — moveStage()
+        // below assumes that shape (swaps with sequence-1/sequence+1).
+        AdmissionPipelineStage::where('sequence', '>', $removedSequence)->decrement('sequence');
+
+        return back()->with('status', 'Stage removed.');
+    }
+
+    public function moveStage(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'admissions.manage_settings');
+        $stage = AdmissionPipelineStage::findOrFail($request->route('stageId'));
+        $direction = $request->route('direction');
+        abort_unless(in_array($direction, ['up', 'down'], true), 404);
+
+        $swapSequence = $direction === 'up' ? $stage->sequence - 1 : $stage->sequence + 1;
+        $swapWith = AdmissionPipelineStage::where('sequence', $swapSequence)->first();
+
+        if ($swapWith) {
+            $swapWith->update(['sequence' => $stage->sequence]);
+            $stage->update(['sequence' => $swapSequence]);
+        }
+
+        return back()->with('status', 'Stage order updated.');
     }
 
     public function updateReferenceFormat(Request $request): \Illuminate\Http\RedirectResponse

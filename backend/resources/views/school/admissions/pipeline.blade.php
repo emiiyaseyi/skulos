@@ -48,7 +48,7 @@
               @endif
             </td>
             <td class="muted" data-label="Class">{{ $applicant->schoolClass?->name ?? 'Not set' }}</td>
-            <td class="muted" data-label="Stage">{{ $stageCatalog[$applicant->currentStageKey()] ?? 'Not started' }}</td>
+            <td class="muted" data-label="Stage">{{ $applicant->currentStageLabel() ?? 'Not started' }}</td>
             <td data-label="Status">
               <span class="badge {{ $applicant->account_status === 'active' ? 'badge-ok' : ($applicant->account_status === 'archived' ? 'badge-bad' : 'badge-warn') }}">{{ ucfirst(str_replace('_', ' ', $applicant->account_status)) }}</span>
               @if($applicant->decision_status)

@@ -98,7 +98,6 @@ class PublicApplicationController extends Controller
         abort_if(! $window, 422, 'Choose a class from the selected admission window.');
         abort_unless($window->isOpen(), 422, 'This admission window is no longer open.');
 
-        $chain = Applicant::pipelineChain();
         $applicant = Applicant::forceCreate([
             'name' => trim(implode(' ', array_filter([$data['first_name'], $data['other_names'] ?? null, $data['last_name']]))),
             'first_name' => $data['first_name'],
@@ -117,7 +116,11 @@ class PublicApplicationController extends Controller
             // conversion (Phase 1g). Format is admin-configurable, see
             // Applicant::nextReferenceNumber().
             'admission_number' => Applicant::nextReferenceNumber($window->schoolClass),
-            'pipeline_stage' => array_search('application_started', $chain, true) ?: 0,
+            // Always the first stage in the school's own pipeline order
+            // (a school can freely add/reorder stages now, so there is no
+            // fixed "application_started" key to look up anymore — see
+            // Applicant::pipelineChain()'s own docblock).
+            'pipeline_stage' => 0,
             'account_status' => Applicant::STATUS_PENDING_FEE,
         ]);
 

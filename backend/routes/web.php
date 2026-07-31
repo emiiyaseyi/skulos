@@ -815,7 +815,11 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::prefix('admissions/settings')->name('school.admissions.settings.')->group(function () {
             $admissionSettings = \App\Http\Controllers\School\AdmissionSettingsController::class;
             Route::get('/', [$admissionSettings, 'edit'])->name('edit');
-            Route::post('/pipeline', [$admissionSettings, 'updatePipeline'])->name('pipeline');
+            Route::post('/account', [$admissionSettings, 'updateAccountSettings'])->name('account');
+            Route::post('/stages', [$admissionSettings, 'storeStage'])->name('stages.store');
+            Route::post('/stages/{stageId}', [$admissionSettings, 'updateStage'])->name('stages.update');
+            Route::delete('/stages/{stageId}', [$admissionSettings, 'destroyStage'])->name('stages.destroy');
+            Route::post('/stages/{stageId}/move/{direction}', [$admissionSettings, 'moveStage'])->name('stages.move');
             Route::post('/reference-format', [$admissionSettings, 'updateReferenceFormat'])->name('reference-format');
             Route::post('/windows', [$admissionSettings, 'storeWindow'])->name('windows.store');
             Route::post('/windows/{batchUuid}/update', [$admissionSettings, 'updateWindowBatch'])->name('windows.update');

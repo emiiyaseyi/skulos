@@ -97,17 +97,21 @@ class Applicant extends Authenticatable
     }
 
     /**
-     * The school's configured admission pipeline, an ordered list of
-     * stage keys (same shape as ReportCardReview::reviewChain(): tenant
-     * Setting overrides config('skulos.default_admission_pipeline_chain'),
-     * the default reproduces every stage in the natural order so an
-     * existing school is unaffected until it deliberately trims one).
+     * The school's own admission pipeline, an ordered list of stage
+     * labels a school can freely add to, edit, or reorder (user
+     * directive 2026-07-31: "admin should be able to add new, edit
+     * existing one or reorder the admission pipeline as peculiar to the
+     * school") — backed by the real AdmissionPipelineStage table, not a
+     * fixed catalog + toggle Setting anymore. Labels, not keys: nothing
+     * downstream needs a stable identity for a stage, only its position
+     * (pipeline_stage is a plain array index — see isFinalStage()/
+     * advanceStage() below).
      *
      * @return list<string>
      */
     public static function pipelineChain(): array
     {
-        return Setting::grab('admission_pipeline_chain') ?? config('skulos.default_admission_pipeline_chain', []);
+        return AdmissionPipelineStage::ordered()->pluck('label')->all();
     }
 
     /**
@@ -147,7 +151,7 @@ class Applicant extends Authenticatable
         return $letters !== '' ? $letters : mb_strtoupper(mb_substr($text, 0, 3));
     }
 
-    public function currentStageKey(): ?string
+    public function currentStageLabel(): ?string
     {
         return static::pipelineChain()[$this->pipeline_stage] ?? null;
     }

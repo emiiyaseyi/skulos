@@ -96,8 +96,6 @@ class AdmissionPipelineController extends Controller
             'tab' => $tab,
             'tabs' => self::TABS,
             'counts' => $counts,
-            'pipelineChain' => Applicant::pipelineChain(),
-            'stageCatalog' => config('skulos.admission_pipeline_stages', []),
         ]);
     }
 
