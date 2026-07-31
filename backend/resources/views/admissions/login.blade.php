@@ -33,6 +33,9 @@
       </div>
       <button class="btn btn-primary btn-block" type="submit">Sign in</button>
     </form>
+    <p class="support-line" style="margin-top:1rem;text-align:center">
+      <a href="{{ route('school.admissions.recover.show', ['school' => $school->slug]) }}">Forgot your reference number or password?</a>
+    </p>
   </div>
 </div>
 @endsection

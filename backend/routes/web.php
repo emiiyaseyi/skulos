@@ -272,6 +272,21 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/login', [$applicantAuth, 'login'])->middleware('throttle:10,1')->name('login.submit');
         });
 
+        // "Forgot your reference number or password?" — an automatic
+        // identity check first, an admin-reviewed manual fallback if
+        // that doesn't match (user directive 2026-07-31). No guest gate
+        // needed the way login has one: a logged-in applicant asking
+        // this is harmless, and forcing a sign-out first would be
+        // actively unhelpful to someone who is HERE because they can't
+        // sign in.
+        Route::prefix('recover')->name('recover.')->group(function () {
+            $recovery = \App\Http\Controllers\Admissions\AdmissionRecoveryController::class;
+            Route::get('/', [$recovery, 'show'])->name('show');
+            Route::post('/', [$recovery, 'verify'])->middleware('throttle:10,1')->name('verify');
+            Route::get('/request', [$recovery, 'requestForm'])->name('request');
+            Route::post('/request', [$recovery, 'submitRequest'])->middleware('throttle:5,1')->name('request.submit');
+        });
+
         // Not 'auth:applicant': that's Laravel's generic Authenticate
         // middleware, which on an unauthenticated request falls back to
         // bootstrap/app.php's global redirectGuestsTo closure (built for
@@ -848,6 +863,18 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/{documentId}/file', [$documentReview, 'file'])->name('file');
             Route::post('/{documentId}/verify', [$documentReview, 'verify'])->name('verify');
             Route::post('/{documentId}/reject', [$documentReview, 'reject'])->name('reject');
+        });
+
+        // Admissions module: admin reviews a manual "I forgot my
+        // reference/password and the automatic check didn't match"
+        // request. Prefix "admissions/recovery-review", deliberately
+        // distinct from the applicant-facing "admissions/recover" above,
+        // same domain-wildcard path-collision reasoning as document-review.
+        Route::prefix('admissions/recovery-review')->name('school.admissions.recovery-review.')->group(function () {
+            $recoveryReview = \App\Http\Controllers\School\AdmissionRecoveryReviewController::class;
+            Route::get('/', [$recoveryReview, 'index'])->name('index');
+            Route::post('/{requestId}/approve', [$recoveryReview, 'approve'])->name('approve');
+            Route::post('/{requestId}/reject', [$recoveryReview, 'reject'])->name('reject');
         });
 
         // Admissions module, Phase 1e: the school's own custom

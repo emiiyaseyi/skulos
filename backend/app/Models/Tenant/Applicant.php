@@ -169,6 +169,42 @@ class Applicant extends Authenticatable
     }
 
     /**
+     * Self-service "forgot my reference number/password" identity check
+     * (user directive 2026-07-31): first name + last name, date of
+     * birth, and either the parent phone or email on file, ALL matching,
+     * before the reference/password are ever shown. Deliberately strict
+     * (every field required to match) — this is the only gate standing
+     * between a guesser and someone else's application details.
+     */
+    public static function matchForRecovery(string $firstName, string $lastName, string $dateOfBirth, string $phoneOrEmail): ?self
+    {
+        $phoneOrEmail = trim($phoneOrEmail);
+
+        return static::whereRaw('lower(first_name) = ?', [mb_strtolower(trim($firstName))])
+            ->whereRaw('lower(last_name) = ?', [mb_strtolower(trim($lastName))])
+            ->whereDate('date_of_birth', $dateOfBirth)
+            ->where(function ($q) use ($phoneOrEmail) {
+                $q->where('phone', $phoneOrEmail)->orWhereRaw('lower(email) = ?', [mb_strtolower($phoneOrEmail)]);
+            })
+            ->first();
+    }
+
+    /**
+     * What to actually show/email once identity is confirmed — a
+     * password only exists after the application fee clears
+     * (issueCredentials()); before that, the applicant's own reference
+     * number doubles as a bootstrap password (see canSignIn()'s own
+     * docblock), so recovery is never a dead end just because they
+     * haven't paid yet.
+     */
+    public function recoveryCredentialLine(): string
+    {
+        return $this->recoverablePassword()
+            ? "Password: {$this->recoverablePassword()}"
+            : 'No password has been issued yet — sign in using your reference number as the password too, until your application fee is confirmed.';
+    }
+
+    /**
      * Called once the application fee is verified (AdmissionFeeReview
      * Controller): generates the password an applicant needed to be told
      * about (user directive 2026-07-30: "a generated password they will

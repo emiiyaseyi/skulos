@@ -10,6 +10,7 @@
   <div class="stack" style="flex-direction:row;gap:.6rem">
     <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.fees.index', ['school' => $school->slug]) }}">Fee payments</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.document-review.index', ['school' => $school->slug]) }}">Document review</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.recovery-review.index', ['school' => $school->slug]) }}">Recovery requests</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.form-builder.index', ['school' => $school->slug]) }}">Form builder</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.settings.edit', ['school' => $school->slug]) }}">Settings</a>
   </div>
