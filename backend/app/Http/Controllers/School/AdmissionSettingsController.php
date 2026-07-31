@@ -52,6 +52,7 @@ class AdmissionSettingsController extends Controller
             'pipelineChain' => Applicant::pipelineChain(),
             'ttlDays' => (int) (Setting::grab('admission_account_ttl_days') ?? config('skulos.default_admission_account_ttl_days', 30)),
             'passwordLength' => (int) (Setting::grab('admission_password_length') ?? config('skulos.default_admission_password_length', 10)),
+            'passwordStyle' => Setting::grab('admission_password_style') ?? config('skulos.default_admission_password_style', 'random'),
             'referenceStyle' => Setting::grab('admission_reference_style') ?? config('skulos.default_admission_reference_style', 'custom'),
             'referencePrefix' => Setting::grab('admission_reference_prefix') ?? config('skulos.default_admission_reference_prefix', 'APP'),
             'batches' => $this->windowBatches(),
@@ -113,6 +114,7 @@ class AdmissionSettingsController extends Controller
             'stages.*' => [Rule::in($catalogKeys)],
             'account_ttl_days' => ['required', 'integer', 'min:1', 'max:365'],
             'password_length' => ['required', 'integer', 'min:6', 'max:24'],
+            'password_style' => ['required', Rule::in(['random', 'alphanumeric', 'numeric'])],
         ]);
 
         // Submitted checkboxes can arrive in any order; the pipeline is a
@@ -126,6 +128,7 @@ class AdmissionSettingsController extends Controller
         Setting::put('admission_pipeline_chain', $chain);
         Setting::put('admission_account_ttl_days', $data['account_ttl_days']);
         Setting::put('admission_password_length', $data['password_length']);
+        Setting::put('admission_password_style', $data['password_style']);
 
         return back()->with('status', 'Admission pipeline updated.');
     }

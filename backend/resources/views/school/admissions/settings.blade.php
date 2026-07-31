@@ -7,6 +7,11 @@
     <h1 class="title">Admissions Settings</h1>
     <p class="subtitle">Which stages an applicant moves through, how long their account stays usable, and which classes are open right now.</p>
   </div>
+  <div class="stack" style="flex-direction:row;gap:.6rem">
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.form-builder.index', ['school' => $school->slug]) }}">Form builder</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.pipeline', ['school' => $school->slug]) }}">Applicants</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.fees.index', ['school' => $school->slug]) }}">Fee payments</a>
+  </div>
 </div>
 
 @if(session('status'))
@@ -42,6 +47,15 @@
         <label for="password_length">Generated password length</label>
         <input id="password_length" name="password_length" type="number" min="6" max="24" value="{{ $passwordLength }}" required />
         <div class="hint">How long the sign in password issued once the application fee clears should be.</div>
+      </div>
+      <div class="field">
+        <label for="password_style">Generated password style</label>
+        <select id="password_style" name="password_style" required>
+          <option value="random" @selected($passwordStyle === 'random')>Random (letters, numbers, symbols)</option>
+          <option value="alphanumeric" @selected($passwordStyle === 'alphanumeric')>Letters and numbers only</option>
+          <option value="numeric" @selected($passwordStyle === 'numeric')>Numbers only (PIN style)</option>
+        </select>
+        <div class="hint">Numbers only is easiest to read out over the phone to a parent.</div>
       </div>
     </div>
     <button class="btn btn-primary btn-sm" type="submit" style="margin-top:.8rem">Save pipeline settings</button>

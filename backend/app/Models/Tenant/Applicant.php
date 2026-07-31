@@ -163,7 +163,12 @@ class Applicant extends Authenticatable
     {
         $length = (int) (Setting::grab('admission_password_length') ?? config('skulos.default_admission_password_length', 10));
         $length = max(6, min(24, $length));
-        $plain = \Illuminate\Support\Str::password($length);
+        $style = Setting::grab('admission_password_style') ?? config('skulos.default_admission_password_style', 'random');
+        $plain = match ($style) {
+            'numeric' => collect(range(1, $length))->map(fn () => random_int(0, 9))->implode(''),
+            'alphanumeric' => \Illuminate\Support\Str::password($length, symbols: false),
+            default => \Illuminate\Support\Str::password($length),
+        };
         $ttlDays = (int) (Setting::grab('admission_account_ttl_days') ?? config('skulos.default_admission_account_ttl_days', 30));
 
         $this->forceFill([

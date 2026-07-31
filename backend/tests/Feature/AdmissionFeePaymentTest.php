@@ -158,6 +158,30 @@ class AdmissionFeePaymentTest extends TestCase
         $this->get($statusUrl)->assertOk()->assertSee($recovered);
     }
 
+    public function test_the_numeric_password_style_generates_digits_only(): void
+    {
+        Mail::fake();
+        [$school, $staff, $applicant, $statusUrl] = $this->schoolWithApplicantAndStaff('afnine');
+
+        app(TenantManager::class)->use($school);
+        \App\Models\Tenant\Setting::put('admission_password_style', 'numeric');
+        \App\Models\Tenant\Setting::put('admission_password_length', 6);
+        app(TenantManager::class)->forget();
+
+        $this->post($statusUrl, ['evidence' => UploadedFile::fake()->image('receipt.jpg')]);
+        app(TenantManager::class)->use($school);
+        $payment = AdmissionPayment::first();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($staff)->post(route('school.admissions.fees.verify', ['school' => $school->slug, 'paymentId' => $payment->id]));
+
+        app(TenantManager::class)->use($school);
+        $password = $applicant->fresh()->recoverablePassword();
+        app(TenantManager::class)->forget();
+
+        $this->assertMatchesRegularExpression('/^\d{6}$/', $password);
+    }
+
     public function test_verifying_with_no_email_on_file_flashes_the_password_to_the_reviewing_staff_member(): void
     {
         Mail::fake();

@@ -7,7 +7,11 @@
     <h1 class="title">Applicants</h1>
     <p class="subtitle">Every applicant currently in the admission pipeline, by status.</p>
   </div>
-  <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.fees.index', ['school' => $school->slug]) }}">Fee payments</a>
+  <div class="stack" style="flex-direction:row;gap:.6rem">
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.fees.index', ['school' => $school->slug]) }}">Fee payments</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.form-builder.index', ['school' => $school->slug]) }}">Form builder</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.settings.edit', ['school' => $school->slug]) }}">Settings</a>
+  </div>
 </div>
 
 @if(session('status'))

@@ -74,6 +74,7 @@ class AdmissionSettingsTest extends TestCase
             'stages' => ['application_started', 'application_submitted', 'documents_uploaded', 'admission_offered', 'acceptance_fee_paid', 'enrolled'],
             'account_ttl_days' => 45,
             'password_length' => 14,
+            'password_style' => 'numeric',
         ])->assertRedirect();
 
         app(TenantManager::class)->use($school);
@@ -84,6 +85,7 @@ class AdmissionSettingsTest extends TestCase
         );
         $this->assertSame(45, (int) Setting::grab('admission_account_ttl_days'));
         $this->assertSame(14, (int) Setting::grab('admission_password_length'));
+        $this->assertSame('numeric', Setting::grab('admission_password_style'));
         app(TenantManager::class)->forget();
     }
 
@@ -95,6 +97,7 @@ class AdmissionSettingsTest extends TestCase
             'stages' => [],
             'account_ttl_days' => 30,
             'password_length' => 10,
+            'password_style' => 'random',
         ])->assertSessionHasErrors('stages');
     }
 

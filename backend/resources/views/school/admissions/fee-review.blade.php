@@ -7,6 +7,7 @@
     <h1 class="title">Admission Fee Review</h1>
     <p class="subtitle">Confirm or reject an applicant's uploaded fee evidence. Confirming an application fee issues sign in details; confirming an acceptance fee readies the applicant for enrollment.</p>
   </div>
+  <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.pipeline', ['school' => $school->slug]) }}">Applicants</a>
 </div>
 
 @if(session('status'))

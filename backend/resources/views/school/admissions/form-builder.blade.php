@@ -7,6 +7,10 @@
     <h1 class="title">Admission Form Builder</h1>
     <p class="subtitle">Build your own application form, grouped into sections and steps. An applicant fills this in from their own dashboard.</p>
   </div>
+  <div class="stack" style="flex-direction:row;gap:.6rem">
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.settings.edit', ['school' => $school->slug]) }}">Admissions settings</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.pipeline', ['school' => $school->slug]) }}">Applicants</a>
+  </div>
 </div>
 
 @if(session('status'))
