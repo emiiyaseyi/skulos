@@ -1040,6 +1040,16 @@ return [
         ]],
         ['label' => 'Guardian Details', 'step' => 2, 'fields' => [
             ['label' => 'Guardian Role', 'type' => 'select', 'options' => ['Father', 'Mother', 'Sponsor']],
+            // Phone required (user directive 2026-07-31: "phone number is
+            // mandatory for each one entered") — the primary guardian is
+            // never optional, unlike the second guardian slot below,
+            // whose own fields all stay optional since the whole section
+            // is: conditional-required (only if a second guardian is
+            // actually being filled in) is a real rules engine, already
+            // out of scope for this EAV shape, see AdmissionFormSection's
+            // own docblock precedent.
+            ['label' => 'Phone Number', 'type' => 'text', 'required' => true],
+            ['label' => 'Email Address', 'type' => 'text'],
             ['label' => "Guardian's Occupation", 'type' => 'text'],
             ['label' => 'Home Address', 'type' => 'textarea'],
         ]],
@@ -1053,6 +1063,7 @@ return [
             ['label' => "Guardian's Full Name", 'type' => 'text'],
             ['label' => 'Guardian Role', 'type' => 'select', 'options' => ['Father', 'Mother', 'Sponsor']],
             ['label' => 'Phone Number', 'type' => 'text'],
+            ['label' => 'Email Address', 'type' => 'text'],
             ['label' => "Guardian's Occupation", 'type' => 'text'],
         ]],
     ],

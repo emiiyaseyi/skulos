@@ -58,7 +58,7 @@ class AdmissionFormSection extends Model
                     'field_key' => AdmissionFormField::keyFromLabel($fieldData['label']),
                     'type' => $fieldData['type'],
                     'options' => $fieldData['options'] ?? null,
-                    'is_required' => false,
+                    'is_required' => $fieldData['required'] ?? false,
                     'sequence' => $fieldSeq + 1,
                 ]);
             }
