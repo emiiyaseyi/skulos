@@ -43,7 +43,16 @@ class CbtSession extends Model
             'fullscreen_exits' => 'integer',
             'face_missing_count' => 'integer',
             'risk_score' => 'integer',
+            'break_requested' => 'boolean',
+            'break_started_at' => 'datetime',
+            'break_ends_at' => 'datetime',
         ];
+    }
+
+    /** True from the moment a break is approved until its own break_ends_at passes. */
+    public function isOnBreak(): bool
+    {
+        return $this->break_started_at !== null && $this->break_ends_at !== null && $this->break_ends_at->isFuture();
     }
 
     public function paper(): BelongsTo
@@ -67,6 +76,16 @@ class CbtSession extends Model
     public function securityEvents(): HasMany
     {
         return $this->hasMany(CbtSecurityEvent::class, 'session_id')->orderByDesc('occurred_at');
+    }
+
+    public function snapshots(): HasMany
+    {
+        return $this->hasMany(CbtSnapshot::class, 'session_id')->orderByDesc('captured_at');
+    }
+
+    public function incidents(): HasMany
+    {
+        return $this->hasMany(CbtIncident::class, 'session_id')->orderByDesc('id');
     }
 
     public function isExpired(): bool

@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\School;
 use App\Models\Tenant\CbtPaper;
 use App\Models\Tenant\CbtSession;
+use App\Services\Cbt\BreakRequestService;
 use App\Services\Cbt\CbtSessionService;
+use App\Services\Cbt\CbtSnapshotService;
 use App\Services\Cbt\RiskScoringService;
 use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
@@ -131,7 +133,7 @@ class CbtTakeController extends Controller
      * direct side effect of the event that pushed it over, matching
      * LearnGuard's own "violations_suspended" behaviour.
      */
-    public function reportEvent(Request $request, RiskScoringService $risk, CbtSessionService $sessions): \Illuminate\Http\JsonResponse
+    public function reportEvent(Request $request, RiskScoringService $risk, CbtSessionService $sessions, CbtSnapshotService $snapshots): \Illuminate\Http\JsonResponse
     {
         $session = $this->ownedSession($request);
         abort_unless($session->status === CbtSession::STATUS_IN_PROGRESS, 422);
@@ -144,10 +146,18 @@ class CbtTakeController extends Controller
                 'face_not_detected', 'face_mismatch', 'object_detected',
             ])],
             'meta' => ['nullable', 'array'],
+            // Phase 2g: an optional evidence capture taken alongside a
+            // concerning AI signal — never required, most events (tab
+            // switch, copy/paste) never carry one.
+            'snapshot' => ['nullable', 'string', 'starts_with:data:image/'],
         ]);
 
         $risk->recordEvent($session, $data['type'], $data['meta'] ?? null);
         $session->refresh();
+
+        if (! empty($data['snapshot']) && in_array($data['type'], ['face_not_detected', 'face_mismatch', 'object_detected'], true)) {
+            $snapshots->capture($session, 'webcam', $data['snapshot'], $this->school($request)->slug);
+        }
 
         $profile = $session->paper->securityProfile;
         $autoSubmitted = false;
@@ -158,6 +168,17 @@ class CbtTakeController extends Controller
         }
 
         return response()->json(['recorded' => true, 'auto_submitted' => $autoSubmitted]);
+    }
+
+    /** A taker's own break request — staff decides from the live monitor (Phase 2g). */
+    public function requestBreak(Request $request, BreakRequestService $breaks): \Illuminate\Http\JsonResponse
+    {
+        $session = $this->ownedSession($request);
+        $data = $request->validate(['reason' => ['required', 'string', 'max:255']]);
+
+        $breaks->request($session, $data['reason']);
+
+        return response()->json(['requested' => true]);
     }
 
     public function submit(Request $request, CbtSessionService $sessions): \Illuminate\Http\RedirectResponse

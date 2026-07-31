@@ -15,6 +15,18 @@
     <div class="card" style="margin-bottom:1rem"><p class="muted">{{ $paper->instructions }}</p></div>
   @endif
 
+  <div style="margin-bottom:1rem">
+    <button type="button" class="btn btn-ghost btn-sm" id="requestBreakBtn">Request a break</button>
+    <span id="breakStatus" class="muted" style="font-size:.85rem;margin-left:.5rem"></span>
+  </div>
+
+  @if($session->isOnBreak())
+    <div id="breakOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,.75);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:50;text-align:center;padding:1rem">
+      <h2 style="margin-bottom:.6rem">You are on an approved break</h2>
+      <p id="breakCountdown" data-ends-at="{{ $session->break_ends_at->toIso8601String() }}">Resuming shortly...</p>
+    </div>
+  @endif
+
   <form id="cbtSubmitForm" method="POST" action="{{ route('school.cbt.take.submit', ['school' => $school->slug, 'sessionId' => $session->id]) }}" onsubmit="return confirm('Submit your answers? You cannot change them after this.')">
     @csrf
   </form>
@@ -82,6 +94,43 @@
   var sessionId = {{ $session->id }};
   var saveUrl = '{{ route('school.cbt.take.answer', ['school' => $school->slug, 'sessionId' => $session->id]) }}';
   var csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
+  // Break request (Phase 2g) — staff decides from the live monitor; this
+  // page has no live push, so a taker on an approved break just sees a
+  // countdown (the same absolute-deadline setTimeout pattern as the
+  // exam timer below) and the page reloads once it lifts.
+  var breakBtn = document.getElementById('requestBreakBtn');
+  if (breakBtn) {
+    breakBtn.addEventListener('click', function () {
+      var reason = prompt('Briefly tell your invigilator why you need a break:');
+      if (!reason) return;
+      fetch('{{ route('school.cbt.take.break-request', ['school' => $school->slug, 'sessionId' => $session->id]) }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, Accept: 'application/json' },
+        body: JSON.stringify({ reason: reason }),
+      }).then(function (r) {
+        var status = document.getElementById('breakStatus');
+        if (r.ok) {
+          breakBtn.disabled = true;
+          status.textContent = 'Break requested — waiting for your invigilator.';
+        } else {
+          status.textContent = 'Could not request a break right now.';
+        }
+      });
+    });
+  }
+
+  var breakCountdownEl = document.getElementById('breakCountdown');
+  if (breakCountdownEl) {
+    var breakDeadline = new Date(breakCountdownEl.dataset.endsAt).getTime();
+    (function tickBreak() {
+      var remaining = breakDeadline - Date.now();
+      if (remaining <= 0) { window.location.reload(); return; }
+      var s = Math.ceil(remaining / 1000);
+      breakCountdownEl.textContent = 'Resuming in ' + Math.floor(s / 60) + ':' + (s % 60 < 10 ? '0' : '') + (s % 60) + '...';
+      setTimeout(tickBreak, 1000);
+    })();
+  }
 
   function getAnswer(block) {
     var type = block.dataset.type;
@@ -185,11 +234,11 @@
   ]);
   var eventUrl = '{{ route('school.cbt.take.event', ['school' => $school->slug, 'sessionId' => $session->id]) }}';
 
-  function reportEvent(type, meta) {
+  function reportEvent(type, meta, snapshot) {
     fetch(eventUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, Accept: 'application/json' },
-      body: JSON.stringify({ type: type, meta: meta || null }),
+      body: JSON.stringify({ type: type, meta: meta || null, snapshot: snapshot || null }),
     }).then(function (r) { return r.json(); }).then(function (data) {
       if (data && data.auto_submitted) {
         submitted = true;
@@ -242,6 +291,17 @@
     }).catch(function () {});
   }
 
+  // A snapshot is only worth capturing alongside a genuinely concerning
+  // signal (Phase 2g) — never on every routine check, that would flood
+  // local disk with evidence nobody needs to review.
+  function snapshotOf(video) {
+    var canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 320;
+    canvas.height = video.videoHeight || 240;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.7);
+  }
+
   function startFaceMonitoring(video) {
     if (typeof faceapi === 'undefined') return;
     var modelUrl = '{{ asset('vendor/proctoring/models') }}';
@@ -261,10 +321,10 @@
         if (submitted || video.readyState < 2) return;
         faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks(true).withFaceDescriptor()
           .then(function (det) {
-            if (!det) { reportEvent('face_not_detected'); return; }
+            if (!det) { reportEvent('face_not_detected', null, snapshotOf(video)); return; }
             if (stored) {
               var distance = faceapi.euclideanDistance(stored, det.descriptor);
-              if (distance > 0.6) reportEvent('face_mismatch', { distance: Math.round(distance * 1000) / 1000 });
+              if (distance > 0.6) reportEvent('face_mismatch', { distance: Math.round(distance * 1000) / 1000 }, snapshotOf(video));
             }
           }).catch(function () {});
       }, intervalMs);
@@ -332,11 +392,11 @@
         var cls = (CBT_YOLO_CLASSES[classId] || '').toLowerCase();
         if (cls === 'person') { personCount++; continue; }
         if (CBT_OBJECT_VIOLATIONS.indexOf(cls) !== -1) {
-          reportEvent('object_detected', { class: cls, confidence: Math.round(score * 100) });
+          reportEvent('object_detected', { class: cls, confidence: Math.round(score * 100) }, snapshotOf(video));
         }
       }
       if (personCount > 1) {
-        reportEvent('object_detected', { class: 'multiple_persons', count: personCount });
+        reportEvent('object_detected', { class: 'multiple_persons', count: personCount }, snapshotOf(video));
       }
     }
   }

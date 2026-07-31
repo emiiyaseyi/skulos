@@ -577,6 +577,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/session/{sessionId}/event', [$cbtTake, 'reportEvent'])->name('event');
             Route::post('/session/{sessionId}/submit', [$cbtTake, 'submit'])->name('submit');
             Route::get('/session/{sessionId}/result', [$cbtTake, 'result'])->name('result');
+            Route::post('/session/{sessionId}/break-request', [$cbtTake, 'requestBreak'])->name('break-request');
         });
 
         // SKULOS Assessment Hub, Phase 2d: the pre-exam wizard, sat in
@@ -602,6 +603,20 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/{approvalId}/decide', [$faceApprovals, 'decide'])->name('decide');
             Route::get('/{approvalId}/photo-id-image', [$faceApprovals, 'photoIdImage'])->name('photo-id-image');
             Route::get('/{approvalId}/face-image', [$faceApprovals, 'faceImage'])->name('face-image');
+        });
+
+        // SKULOS Assessment Hub, Phase 2g: the live monitor + incidents.
+        Route::prefix('assessment/live-monitor')->name('school.cbt.live-monitor.')->group(function () {
+            $liveMonitor = \App\Http\Controllers\School\CbtLiveMonitorController::class;
+            Route::get('/', [$liveMonitor, 'index'])->name('index');
+            Route::post('/{sessionId}/approve-break', [$liveMonitor, 'approveBreak'])->name('approve-break');
+            Route::post('/{sessionId}/deny-break', [$liveMonitor, 'denyBreak'])->name('deny-break');
+        });
+        Route::prefix('assessment/incidents')->name('school.cbt.incidents.')->group(function () {
+            $incidents = \App\Http\Controllers\School\CbtIncidentController::class;
+            Route::get('/', [$incidents, 'index'])->name('index');
+            Route::post('/{sessionId}/raise', [$incidents, 'raise'])->name('raise');
+            Route::post('/{incidentId}/resolve', [$incidents, 'resolve'])->name('resolve');
         });
 
         Route::get('/setup', [\App\Http\Controllers\School\SetupController::class, 'index'])->name('school.setup');

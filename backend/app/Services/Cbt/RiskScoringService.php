@@ -2,6 +2,7 @@
 
 namespace App\Services\Cbt;
 
+use App\Models\Tenant\CbtIncident;
 use App\Models\Tenant\CbtSecurityEvent;
 use App\Models\Tenant\CbtSession;
 
@@ -27,11 +28,26 @@ class RiskScoringService
         ]);
 
         $newScore = $session->risk_score + $scoreImpact;
+        $wasFlagged = $session->is_flagged;
+        $nowFlagged = $newScore >= (int) config('skulos.cbt_risk_thresholds.high', 60);
         $updates = [
             'risk_score' => $newScore,
             'risk_level' => $this->levelFor($newScore),
-            'is_flagged' => $newScore >= (int) config('skulos.cbt_risk_thresholds.high', 60),
+            'is_flagged' => $nowFlagged,
         ];
+
+        // Phase 2g: the FIRST time a session crosses into "high" risk,
+        // raise an incident for staff to review from the live monitor —
+        // never re-raised on every subsequent high-risk event, only the
+        // crossing itself.
+        if ($nowFlagged && ! $wasFlagged) {
+            CbtIncident::create([
+                'session_id' => $session->id,
+                'type' => 'high_risk_crossing',
+                'severity' => 'high',
+                'description' => "Risk score crossed the high threshold ({$newScore}).",
+            ]);
+        }
 
         if ($type === 'tab_switch') {
             $updates['tab_switches'] = $session->tab_switches + 1;

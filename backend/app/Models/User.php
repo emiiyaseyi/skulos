@@ -24,6 +24,24 @@ class User extends Authenticatable
     use Auditable, HasFactory, Notifiable;
 
     /**
+     * Explicit override, not just relying on Eloquent's "no $connection
+     * set -> use the default" fallback: Laravel's MorphTo::createModelByType()
+     * only applies that fallback when getConnectionName() returns falsy,
+     * and otherwise silently forces the related model onto the SAME
+     * connection as the polymorphic PARENT (see MorphTo's own source) -
+     * a real problem the moment a tenant-connection model (e.g.
+     * CbtSession::takeable()) morphs to this platform-connection model,
+     * since it would otherwise get queried against the wrong (tenant)
+     * database entirely. Always returning a real value here, not null,
+     * bypasses that fallback. Found live via CbtLiveMonitorTest/
+     * CbtIncidentController, Phase 2g.
+     */
+    public function getConnectionName()
+    {
+        return config('database.default');
+    }
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
