@@ -5,6 +5,7 @@ namespace App\Http\Controllers\School;
 use App\Http\Controllers\Controller;
 use App\Models\School;
 use App\Models\Tenant\CbtPaper;
+use App\Models\Tenant\CbtFaceApproval;
 use App\Models\Tenant\CbtPrecheckSession;
 use App\Models\Tenant\CbtSession;
 use App\Services\Cbt\CbtSessionService;
@@ -72,7 +73,7 @@ class CbtPrecheckController extends Controller
         return $precheck;
     }
 
-    public function show(Request $request): \Illuminate\View\View|\Illuminate\Http\RedirectResponse
+    public function show(Request $request, PrecheckWizardService $wizard, CbtSessionService $sessions): \Illuminate\View\View|\Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request);
         $school = $this->school($request);
@@ -80,6 +81,26 @@ class CbtPrecheckController extends Controller
 
         if ($precheck->status === CbtPrecheckSession::STATUS_COMPLETED && $precheck->cbt_session_id) {
             return redirect()->route('school.cbt.take.session', ['school' => $school->slug, 'sessionId' => $precheck->cbt_session_id]);
+        }
+
+        // A pending 'face' step may have an outstanding staff-reviewed
+        // approval request (Phase 2e) — a face_capture_path is already on
+        // the row from when the request was raised, so an approval needs
+        // no further data, only to actually advance the step.
+        $faceApproval = null;
+        if ($precheck->current_step === 'face') {
+            $faceApproval = CbtFaceApproval::where('precheck_session_id', $precheck->id)->latest()->first();
+            if ($faceApproval?->status === CbtFaceApproval::STATUS_APPROVED) {
+                $finished = $wizard->completeStep($precheck, 'face', []);
+                if ($finished) {
+                    $session = $sessions->start(Auth::user(), $precheck->paper, $request->ip(), $request->userAgent());
+                    $precheck->forceFill(['cbt_session_id' => $session->id])->save();
+
+                    return redirect()->route('school.cbt.take.session', ['school' => $school->slug, 'sessionId' => $session->id]);
+                }
+
+                return redirect()->route('school.cbt.precheck.show', ['school' => $school->slug, 'precheckId' => $precheck->id]);
+            }
         }
 
         $steps = $precheck->activeSteps();
@@ -95,7 +116,56 @@ class CbtPrecheckController extends Controller
             'stepIndex' => $stepIndex === false ? 0 : $stepIndex,
             'stepLabels' => config('skulos.precheck_wizard_steps'),
             'baselineSentence' => config('skulos.cbt_keystroke_baseline_sentence'),
+            'faceApproval' => $faceApproval,
         ]);
+    }
+
+    /** Serves the uploaded photo ID back to the SAME precheck's own 'face' step JS, for client-side face-api.js comparison. Never any other precheck's file. */
+    public function photoIdImage(Request $request): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $this->authorizeAction($request);
+        $precheck = $this->ownedPrecheck($request);
+        abort_unless($precheck->photo_id_path, 404);
+
+        return Storage::disk('local')->response($precheck->photo_id_path);
+    }
+
+    /**
+     * The 'face' step's own JS gives up after 3 client-side attempts
+     * below the match threshold (matches the reference repo's own
+     * behaviour) and posts here instead of the normal advance() — this
+     * does NOT advance the wizard; a member of staff must approve first
+     * (CbtFaceApprovalController::decide()), at which point show() above
+     * advances it automatically on the taker's next visit to this page.
+     */
+    public function requestFaceReview(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request);
+        $school = $this->school($request);
+        $precheck = $this->ownedPrecheck($request);
+        abort_unless($precheck->current_step === 'face', 422);
+
+        $data = $request->validate([
+            'face_capture' => ['required', 'string', 'starts_with:data:image/'],
+            'match_score' => ['required', 'numeric', 'min:0', 'max:1'],
+        ]);
+
+        [, $encoded] = explode(',', $data['face_capture'], 2) + [null, null];
+        $bytes = $encoded !== null ? base64_decode($encoded, true) : false;
+        abort_if($bytes === false, 422, 'Invalid face capture.');
+        $path = "assessment/{$school->slug}/precheck/{$precheck->id}/face-".Str::random(16).'.jpg';
+        Storage::disk('local')->put($path, $bytes);
+        $precheck->forceFill(['face_capture_path' => $path])->save();
+
+        $approval = CbtFaceApproval::where('precheck_session_id', $precheck->id)
+            ->where('status', CbtFaceApproval::STATUS_PENDING)->first();
+        if ($approval) {
+            $approval->forceFill(['match_score' => $data['match_score'], 'attempts' => $approval->attempts + 1])->save();
+        } else {
+            CbtFaceApproval::create(['precheck_session_id' => $precheck->id, 'match_score' => $data['match_score'], 'attempts' => 1]);
+        }
+
+        return redirect()->route('school.cbt.precheck.show', ['school' => $school->slug, 'precheckId' => $precheck->id]);
     }
 
     public function advance(Request $request, PrecheckWizardService $wizard, CbtSessionService $sessions, ImageProcessingService $images): \Illuminate\Http\RedirectResponse
@@ -132,7 +202,15 @@ class CbtPrecheckController extends Controller
                 return ['photo_id_path' => $path];
             })(),
             'face' => (function () use ($request, $school, $precheck) {
-                $request->validate(['face_capture' => ['required', 'string', 'starts_with:data:image/']]);
+                // The normal (auto-pass) path — only reachable once the
+                // client-side match already crossed the 50% threshold
+                // (matches the reference repo's own pct >= 50 gate). A
+                // client stuck below threshold uses requestFaceReview()
+                // instead, never this action.
+                $request->validate([
+                    'face_capture' => ['required', 'string', 'starts_with:data:image/'],
+                    'match_score' => ['required', 'numeric', 'min:0.5', 'max:1'],
+                ]);
                 [, $encoded] = explode(',', $request->input('face_capture'), 2) + [null, null];
                 abort_if($encoded === null, 422, 'Invalid face capture.');
                 $bytes = base64_decode($encoded, true);

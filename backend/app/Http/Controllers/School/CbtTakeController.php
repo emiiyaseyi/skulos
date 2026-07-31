@@ -137,10 +137,16 @@ class CbtTakeController extends Controller
         abort_unless($session->status === CbtSession::STATUS_IN_PROGRESS, 422);
 
         $data = $request->validate([
-            'type' => ['required', Rule::in(['tab_switch', 'fullscreen_exit', 'copy_attempt', 'paste_attempt', 'right_click', 'window_blur'])],
+            'type' => ['required', Rule::in([
+                'tab_switch', 'fullscreen_exit', 'copy_attempt', 'paste_attempt', 'right_click', 'window_blur',
+                // Phase 2e: AI proctoring signals, reported periodically by
+                // the take screen's own face-api.js/YOLOv5n checks.
+                'face_not_detected', 'face_mismatch', 'object_detected',
+            ])],
+            'meta' => ['nullable', 'array'],
         ]);
 
-        $risk->recordEvent($session, $data['type']);
+        $risk->recordEvent($session, $data['type'], $data['meta'] ?? null);
         $session->refresh();
 
         $profile = $session->paper->securityProfile;

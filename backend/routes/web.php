@@ -589,6 +589,19 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/{paperId}/start', [$precheck, 'start'])->name('start');
             Route::get('/{precheckId}', [$precheck, 'show'])->name('show');
             Route::post('/{precheckId}/advance', [$precheck, 'advance'])->name('advance');
+            Route::get('/{precheckId}/photo-id-image', [$precheck, 'photoIdImage'])->name('photo-id-image');
+            Route::post('/{precheckId}/face-review', [$precheck, 'requestFaceReview'])->name('face-review');
+        });
+
+        // SKULOS Assessment Hub, Phase 2e: staff review queue for a live
+        // face match that failed 3 client-side attempts (see
+        // CbtPrecheckController::requestFaceReview()'s own docblock).
+        Route::prefix('assessment/face-approvals')->name('school.cbt.face-approvals.')->group(function () {
+            $faceApprovals = \App\Http\Controllers\School\CbtFaceApprovalController::class;
+            Route::get('/', [$faceApprovals, 'index'])->name('index');
+            Route::post('/{approvalId}/decide', [$faceApprovals, 'decide'])->name('decide');
+            Route::get('/{approvalId}/photo-id-image', [$faceApprovals, 'photoIdImage'])->name('photo-id-image');
+            Route::get('/{approvalId}/face-image', [$faceApprovals, 'faceImage'])->name('face-image');
         });
 
         Route::get('/setup', [\App\Http\Controllers\School\SetupController::class, 'index'])->name('school.setup');

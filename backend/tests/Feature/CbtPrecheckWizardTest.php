@@ -171,7 +171,7 @@ class CbtPrecheckWizardTest extends TestCase
         $advance(['camera_ok' => '1'])->assertRedirect(); // camera
         $advance(['audio_ok' => '1'])->assertRedirect(); // audio
         $advance(['photo_id' => UploadedFile::fake()->image('id.jpg', 300, 300)])->assertRedirect(); // photoid
-        $advance(['face_capture' => 'data:image/jpeg;base64,'.base64_encode('fake-face-bytes')])->assertRedirect(); // face
+        $advance(['face_capture' => 'data:image/jpeg;base64,'.base64_encode('fake-face-bytes'), 'match_score' => 0.9])->assertRedirect(); // face
         $advance(['screenshare_ok' => '1'])->assertRedirect(); // screenshare
         $advance(['typed_text' => 'the QUICK brown fox jumps over the lazy dog.'])->assertRedirect(); // keystroke, case-insensitive match
         $advance(['monitor_ok' => '1'])->assertRedirect(); // monitor
@@ -210,7 +210,7 @@ class CbtPrecheckWizardTest extends TestCase
         $advance(['camera_ok' => '1']);
         $advance(['audio_ok' => '1']);
         $advance(['photo_id' => UploadedFile::fake()->image('id.jpg', 300, 300)]);
-        $advance(['face_capture' => 'data:image/jpeg;base64,'.base64_encode('fake')]);
+        $advance(['face_capture' => 'data:image/jpeg;base64,'.base64_encode('fake'), 'match_score' => 0.9]);
         $advance(['screenshare_ok' => '1']);
         $advance(['typed_text' => 'totally the wrong sentence'])->assertSessionHasErrors('typed_text');
 
