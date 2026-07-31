@@ -1008,6 +1008,14 @@ return [
         'application_started' => 'Application Started',
         'application_submitted' => 'Application Submitted',
         'documents_uploaded' => 'Documents Uploaded',
+        // SKULOS Assessment Hub, Phase 2 (live user report: "the
+        // admission assessment is missing from the admission
+        // pipeline"). Not yet auto-triggered — the stage exists as a
+        // real, reorderable pipeline entry now; actually starting a
+        // CbtSession for an Applicant when they reach it is flagged as
+        // separate, later Admissions-side wiring (see the Phase 2
+        // plan's own "explicitly still deferred" section).
+        'admission_assessment' => 'Admission Assessment',
         'interview_scheduled' => 'Interview Scheduled',
         'interview_completed' => 'Interview Completed',
         'admission_offered' => 'Admission Offered',
@@ -1016,7 +1024,7 @@ return [
     ],
     'default_admission_pipeline_chain' => [
         'application_started', 'application_submitted', 'documents_uploaded',
-        'interview_scheduled', 'interview_completed', 'admission_offered',
+        'admission_assessment', 'interview_scheduled', 'interview_completed', 'admission_offered',
         'acceptance_fee_paid', 'enrolled',
     ],
 
@@ -2799,6 +2807,11 @@ return [
             'examinations.view', 'examinations.create', 'examinations.update',
             'timetable.view', 'assignments.view', 'assignments.create', 'assignments.update', 'assignments.delete',
             'calendar.view', 'communication.view',
+            // Assessment Hub, Phase 2: a teacher builds the question
+            // bank/papers for their own subjects, same view/create/
+            // update/delete/bulk tier as assignments above; grading
+            // (Phase 2c) is a separate, distinct permission.
+            'assessment_hub.view', 'assessment_hub.create', 'assessment_hub.update', 'assessment_hub.delete', 'assessment_hub.bulk', 'assessment_hub.grade',
         ]],
         'librarian' => ['name' => 'Librarian', 'grants' => ['library.*', 'students.view', 'staff.view']],
         'nurse' => ['name' => 'Nurse', 'grants' => ['medical.*', 'students.view']],
@@ -2811,10 +2824,20 @@ return [
         'parent' => ['name' => 'Parent', 'grants' => [
             'calendar.view', 'communication.view', 'timetable.view', 'assignments.view', 'students.view',
             'finance.view', 'finance.create',
+            // Assessment Hub, Phase 2: view-only, same tier as
+            // assignments.view above — a parent can see (not take) a
+            // child's assessment results.
+            'assessment_hub.view',
         ]],
         'student' => ['name' => 'Student', 'grants' => [
             'calendar.view', 'communication.view', 'timetable.view', 'assignments.view', 'students.view',
             'finance.view', 'finance.create',
+            // Assessment Hub, Phase 2: lets a student see and take their
+            // own assigned assessments (CbtTakeController), same
+            // view-tier as assignments.view above — never the admin
+            // question-bank/paper-builder screens, those additionally
+            // require create/update, which students are never granted.
+            'assessment_hub.view',
         ]],
         'security' => ['name' => 'Security', 'grants' => []],
         'hostel-master' => ['name' => 'Hostel Master', 'grants' => ['hostel.*', 'students.view']],
