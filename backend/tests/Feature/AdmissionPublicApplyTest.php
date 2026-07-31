@@ -96,6 +96,30 @@ class AdmissionPublicApplyTest extends TestCase
         $this->get($statusUrl)->assertOk()->assertSee($applicant->admission_number);
     }
 
+    public function test_the_structured_reference_format_derives_school_and_class_abbreviations(): void
+    {
+        [$school, $window] = $this->schoolWithOpenWindow('apfive');
+        $school->update(['name' => 'Greenfield Academy']);
+
+        app(TenantManager::class)->use($school);
+        \App\Models\Tenant\Setting::put('admission_reference_style', 'structured');
+        app(TenantManager::class)->forget();
+
+        $this->post("http://{$school->slug}.localhost/admissions/apply", [
+            'admission_window_id' => $window->id,
+            'first_name' => 'Ada',
+            'last_name' => 'Obi',
+            'date_of_birth' => '2015-04-12',
+            'phone' => '08011112222',
+        ]);
+
+        app(TenantManager::class)->use($school);
+        $applicant = Applicant::first();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame('GA/P1/0001', $applicant->admission_number);
+    }
+
     public function test_the_seek_admission_link_appears_on_the_school_login_page(): void
     {
         [$school] = $this->schoolWithOpenWindow('aptwo');

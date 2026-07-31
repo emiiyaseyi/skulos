@@ -110,7 +110,7 @@ class AdmissionSettingsTest extends TestCase
 
         $this->actingAs($owner)->post(route('school.admissions.settings.windows.store', ['school' => $school->slug]), [
             'session_id' => $session->id,
-            'school_class_id' => $class->id,
+            'school_class_id' => [$class->id],
             'application_fee_amount' => 5000,
             'acceptance_fee_amount' => 20000,
         ])->assertRedirect();
@@ -127,6 +127,44 @@ class AdmissionSettingsTest extends TestCase
 
         app(TenantManager::class)->use($school);
         $this->assertFalse($window->fresh()->is_active);
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_selecting_multiple_classes_opens_one_window_per_class(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'asfive');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class1 = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $class2 = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 2', 'sequence' => 2]);
+        $session = AcademicSession::create(['name' => '2026/2027', 'is_current' => true]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post(route('school.admissions.settings.windows.store', ['school' => $school->slug]), [
+            'session_id' => $session->id,
+            'school_class_id' => [$class1->id, $class2->id],
+            'application_fee_amount' => 5000,
+            'acceptance_fee_amount' => 20000,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame(2, AdmissionWindow::count());
+        $this->assertTrue(AdmissionWindow::where('school_class_id', $class1->id)->exists());
+        $this->assertTrue(AdmissionWindow::where('school_class_id', $class2->id)->exists());
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_owner_can_switch_the_reference_number_format(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'assix');
+
+        $this->actingAs($owner)->post(route('school.admissions.settings.reference-format', ['school' => $school->slug]), [
+            'reference_style' => 'structured',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame('structured', Setting::grab('admission_reference_style'));
         app(TenantManager::class)->forget();
     }
 

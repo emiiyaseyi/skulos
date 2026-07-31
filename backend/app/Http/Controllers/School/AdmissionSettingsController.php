@@ -52,6 +52,8 @@ class AdmissionSettingsController extends Controller
             'pipelineChain' => Applicant::pipelineChain(),
             'ttlDays' => (int) (Setting::grab('admission_account_ttl_days') ?? config('skulos.default_admission_account_ttl_days', 30)),
             'passwordLength' => (int) (Setting::grab('admission_password_length') ?? config('skulos.default_admission_password_length', 10)),
+            'referenceStyle' => Setting::grab('admission_reference_style') ?? config('skulos.default_admission_reference_style', 'custom'),
+            'referencePrefix' => Setting::grab('admission_reference_prefix') ?? config('skulos.default_admission_reference_prefix', 'APP'),
             'windows' => AdmissionWindow::with(['session', 'schoolClass', 'campus'])->orderByDesc('id')->paginate(30)->withQueryString(),
             'sessions' => AcademicSession::active()->orderByDesc('id')->get(),
             'classes' => SchoolClass::active()->with('section')->orderBy('sequence')->get(),
@@ -90,13 +92,38 @@ class AdmissionSettingsController extends Controller
         return back()->with('status', 'Admission pipeline updated.');
     }
 
-    public function storeWindow(Request $request): \Illuminate\Http\RedirectResponse
+    public function updateReferenceFormat(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'admissions.manage_settings');
 
         $data = $request->validate([
+            'reference_style' => ['required', Rule::in(['custom', 'structured'])],
+            'reference_prefix' => ['nullable', 'string', 'max:20'],
+        ]);
+
+        Setting::put('admission_reference_style', $data['reference_style']);
+        if (! empty($data['reference_prefix'])) {
+            Setting::put('admission_reference_prefix', $data['reference_prefix']);
+        }
+
+        return back()->with('status', 'Reference number format updated.');
+    }
+
+    public function storeWindow(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'admissions.manage_settings');
+
+        // Admin can select several classes at once (user directive
+        // 2026-07-31: "admin should be able to select multiple classes
+        // the admission is open for/to"); each class still gets its own
+        // AdmissionWindow row, same as opening them one at a time would
+        // have — every downstream lookup (isOpen() filtering, fee
+        // lookups, conversion) already keys off session+class+campus per
+        // row, so nothing else needed to change to support this.
+        $data = $request->validate([
             'session_id' => ['required', 'exists:tenant.academic_sessions,id'],
-            'school_class_id' => ['required', 'exists:tenant.school_classes,id'],
+            'school_class_id' => ['required', 'array', 'min:1'],
+            'school_class_id.*' => ['exists:tenant.school_classes,id'],
             'campus_id' => ['nullable', 'exists:tenant.campuses,id'],
             'opens_at' => ['nullable', 'date'],
             'closes_at' => ['nullable', 'date', 'after_or_equal:opens_at'],
@@ -104,9 +131,14 @@ class AdmissionSettingsController extends Controller
             'acceptance_fee_amount' => ['required', 'numeric', 'min:0'],
         ]);
 
-        AdmissionWindow::create($data + ['is_active' => true]);
+        $classIds = $data['school_class_id'];
+        unset($data['school_class_id']);
 
-        return back()->with('status', 'Admission window opened.');
+        foreach ($classIds as $classId) {
+            AdmissionWindow::create($data + ['school_class_id' => $classId, 'is_active' => true]);
+        }
+
+        return back()->with('status', count($classIds) > 1 ? count($classIds).' admission windows opened.' : 'Admission window opened.');
     }
 
     public function toggleWindow(Request $request): \Illuminate\Http\RedirectResponse

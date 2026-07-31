@@ -95,6 +95,43 @@ class Applicant extends Authenticatable
         return Setting::grab('admission_pipeline_chain') ?? config('skulos.default_admission_pipeline_chain', []);
     }
 
+    /**
+     * Builds the applicant's admission_number/reference (user directive
+     * 2026-07-31: "the application number generation should be set by
+     * admin under the admission setting"). "structured" derives a
+     * school + class abbreviation from their real names; "custom" (the
+     * default, reproducing this module's original fixed APP/0001 shape)
+     * appends the serial to an admin-chosen prefix instead. Either way
+     * the serial is a plain running count, same as before this setting
+     * existed — Applicant is never soft-deleted, so a plain count() is
+     * an honest running total.
+     */
+    public static function nextReferenceNumber(?SchoolClass $schoolClass = null): string
+    {
+        $serial = str_pad((string) (static::count() + 1), 4, '0', STR_PAD_LEFT);
+        $style = Setting::grab('admission_reference_style') ?? config('skulos.default_admission_reference_style', 'custom');
+
+        if ($style === 'structured') {
+            $school = app(\App\Services\Tenancy\TenantManager::class)->current();
+            $schoolAbbrev = $school ? static::abbreviate($school->name) : 'SCH';
+            $classAbbrev = $schoolClass ? static::abbreviate($schoolClass->name) : 'GEN';
+
+            return "{$schoolAbbrev}/{$classAbbrev}/{$serial}";
+        }
+
+        $prefix = Setting::grab('admission_reference_prefix') ?? config('skulos.default_admission_reference_prefix', 'APP');
+
+        return "{$prefix}/{$serial}";
+    }
+
+    protected static function abbreviate(string $text): string
+    {
+        $words = array_filter(preg_split('/[\s\-]+/', trim($text)) ?: []);
+        $letters = collect($words)->map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)))->implode('');
+
+        return $letters !== '' ? $letters : mb_strtoupper(mb_substr($text, 0, 3));
+    }
+
     public function currentStageKey(): ?string
     {
         return static::pipelineChain()[$this->pipeline_stage] ?? null;

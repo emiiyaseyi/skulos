@@ -61,7 +61,7 @@ class PublicApplicationController extends Controller
             'phone' => ['required', 'string', 'max:30'],
         ]);
 
-        $window = AdmissionWindow::findOrFail($data['admission_window_id']);
+        $window = AdmissionWindow::with('schoolClass')->findOrFail($data['admission_window_id']);
         abort_unless($window->isOpen(), 422, 'This admission window is no longer open.');
 
         $chain = Applicant::pipelineChain();
@@ -75,14 +75,13 @@ class PublicApplicationController extends Controller
             'session_id' => $window->session_id,
             'campus_id' => $window->campus_id,
             'school_class_id' => $window->school_class_id,
-            // The staff-numbering sequence pattern used elsewhere (Staff::
-            // withTrashed()->count()+1, sprintf('STF/%04d', ...)); Applicant
-            // is never soft-deleted, so a plain count() is enough. This
-            // reference doubles as the applicant's own sign-in identifier
-            // (admission number or parent phone, see ApplicantAuthController)
-            // and, if the application is later accepted, becomes the
-            // student's real admission number at conversion (Phase 1g).
-            'admission_number' => sprintf('APP/%04d', Applicant::count() + 1),
+            // This reference doubles as the applicant's own sign-in
+            // identifier (admission number or parent phone, see
+            // ApplicantAuthController) and, if the application is later
+            // accepted, becomes the student's real admission number at
+            // conversion (Phase 1g). Format is admin-configurable, see
+            // Applicant::nextReferenceNumber().
+            'admission_number' => Applicant::nextReferenceNumber($window->schoolClass),
             'pipeline_stage' => array_search('application_started', $chain, true) ?: 0,
             'account_status' => Applicant::STATUS_PENDING_FEE,
         ]);

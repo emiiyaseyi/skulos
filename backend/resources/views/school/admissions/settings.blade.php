@@ -49,6 +49,28 @@
 </div>
 
 <div class="card" style="margin-bottom:1.25rem">
+  <h3 style="margin-bottom:.4rem">Application reference number format</h3>
+  <p class="muted" style="margin-bottom:.8rem">How each applicant's reference/admission number is generated.</p>
+  <form method="POST" action="{{ route('school.admissions.settings.reference-format', ['school' => $school->slug]) }}">
+    @csrf
+    <div class="grid cols-2" style="gap:1rem;max-width:32rem">
+      <div class="field">
+        <label for="reference_style">Format</label>
+        <select id="reference_style" name="reference_style" required onchange="document.getElementById('reference_prefix_field').style.display = this.value === 'custom' ? '' : 'none'">
+          <option value="custom" @selected($referenceStyle === 'custom')>Custom prefix + serial (e.g. APP/0001)</option>
+          <option value="structured" @selected($referenceStyle === 'structured')>School + class + serial (e.g. GA/P1/0001)</option>
+        </select>
+      </div>
+      <div class="field" id="reference_prefix_field" style="{{ $referenceStyle === 'structured' ? 'display:none' : '' }}">
+        <label for="reference_prefix">Prefix</label>
+        <input id="reference_prefix" name="reference_prefix" type="text" maxlength="20" value="{{ $referencePrefix }}" />
+      </div>
+    </div>
+    <button class="btn btn-primary btn-sm" type="submit" style="margin-top:.8rem">Save reference format</button>
+  </form>
+</div>
+
+<div class="card" style="margin-bottom:1.25rem">
   <h3 style="margin-bottom:.8rem">Open a new admission window</h3>
   <form method="POST" action="{{ route('school.admissions.settings.windows.store', ['school' => $school->slug]) }}">
     @csrf
@@ -63,13 +85,13 @@
         </select>
       </div>
       <div class="field">
-        <label for="school_class_id">Class applying for</label>
-        <select id="school_class_id" name="school_class_id" required>
-          <option value="">Choose a class</option>
+        <label for="school_class_id">Classes applying for</label>
+        <select id="school_class_id" name="school_class_id[]" multiple size="6" required>
           @foreach($classes as $class)
             <option value="{{ $class->id }}">{{ $class->section?->name }} &middot; {{ $class->name }}</option>
           @endforeach
         </select>
+        <div class="hint">Hold Ctrl (Cmd on Mac) to select more than one class. Each gets its own admission window with these same fees and dates.</div>
       </div>
       @if($campuses->isNotEmpty())
         <div class="field">
