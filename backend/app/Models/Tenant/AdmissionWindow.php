@@ -17,7 +17,7 @@ class AdmissionWindow extends Model
     protected $connection = 'tenant';
 
     protected $fillable = [
-        'session_id', 'school_class_id', 'campus_id', 'opens_at', 'closes_at',
+        'name', 'batch_uuid', 'session_id', 'school_class_id', 'campus_id', 'opens_at', 'closes_at',
         'application_fee_amount', 'acceptance_fee_amount', 'is_active',
     ];
 
@@ -60,5 +60,18 @@ class AdmissionWindow extends Model
         }
 
         return true;
+    }
+
+    /**
+     * Some schools charge no separate acceptance fee (live feedback
+     * 2026-07-31: "Acceptance fee is not mandatory as some schools dont
+     * use it"). Rather than a schema change, an amount of 0 (the
+     * column's own existing default) means "not configured" — the
+     * acceptance-fee upload step and its admin verification gate are
+     * both skipped wherever this returns false.
+     */
+    public function requiresAcceptanceFee(): bool
+    {
+        return (float) $this->acceptance_fee_amount > 0;
     }
 }

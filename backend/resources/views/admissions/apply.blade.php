@@ -15,30 +15,84 @@
     <div class="flash flash-bad" style="margin-bottom:1rem">{{ $errors->first() }}</div>
   @endif
 
-  @if($windows->isEmpty())
-    <div class="card">
-      <p class="muted">Admissions are not currently open. Please check back later or contact the school directly.</p>
+  @if($batches->isEmpty())
+    <div class="card" style="text-align:center;padding:2.5rem 1.5rem">
+      <span class="badge badge-warn" style="display:inline-block;margin-bottom:1rem">Admissions closed</span>
+      <h3 style="margin-bottom:.5rem">No admission window is open right now</h3>
+      <p class="muted" style="max-width:24rem;margin:0 auto 1.2rem">
+        {{ $school->name }} is not accepting new applications at the moment. Please check back later,
+        @if($school->email || $school->phone)
+          or reach the school directly in the meantime.
+        @else
+          or reach out to the school directly to ask when the next window opens.
+        @endif
+      </p>
+      @if($school->email || $school->phone)
+        <div style="display:flex;justify-content:center;gap:1.2rem;flex-wrap:wrap;font-weight:700">
+          @if($school->phone)<span>{{ $school->phone }}</span>@endif
+          @if($school->email)<span>{{ $school->email }}</span>@endif
+        </div>
+      @endif
     </div>
   @else
     <div class="card">
       <form method="POST" action="{{ route('school.admissions.apply.submit', ['school' => $school->slug]) }}">
         @csrf
+        @if($batches->count() > 1)
+          <div class="field">
+            <label for="batch_uuid">Admission window</label>
+            <select id="batch_uuid" name="batch_uuid" required onchange="skulosFilterApplyClasses(this.value)">
+              <option value="">Choose an admission window</option>
+              @foreach($batches as $batch)
+                <option value="{{ $batch->batch_uuid }}" @selected(old('batch_uuid') == $batch->batch_uuid)>
+                  {{ $batch->name }} &middot; {{ $batch->session?->name }}
+                  @if($batch->campus) &middot; {{ $batch->campus->name }} @endif
+                  (&#8358;{{ number_format($batch->application_fee_amount, 2) }} application fee)
+                </option>
+              @endforeach
+            </select>
+          </div>
+        @else
+          <input type="hidden" name="batch_uuid" value="{{ $batches->first()->batch_uuid }}" />
+          <p class="muted" style="margin-bottom:.6rem">Application fee: &#8358;{{ number_format($batches->first()->application_fee_amount, 2) }}</p>
+        @endif
         <div class="field">
-          <label for="admission_window_id">Class applying for</label>
-          <select id="admission_window_id" name="admission_window_id" required>
-            <option value="">Choose an open window</option>
-            @foreach($windows as $window)
-              <option value="{{ $window->id }}" @selected(old('admission_window_id') == $window->id)>
-                {{ $window->schoolClass?->name }} &middot; {{ $window->session?->name }}
-                @if($window->campus) &middot; {{ $window->campus->name }} @endif
-                (&#8358;{{ number_format($window->application_fee_amount, 2) }} application fee)
-              </option>
+          <label for="school_class_id">Class applying for</label>
+          <select id="school_class_id" name="school_class_id" required>
+            <option value="">Choose a class</option>
+            @foreach($batches as $batch)
+              @foreach($batch->classes as $class)
+                <option value="{{ $class->id }}" data-batch="{{ $batch->batch_uuid }}"
+                  @selected(old('school_class_id') == $class->id)
+                  @if($batches->count() > 1 && old('batch_uuid') && old('batch_uuid') != $batch->batch_uuid) hidden @endif>
+                  {{ $class->section }} &middot; {{ $class->name }}
+                </option>
+              @endforeach
             @endforeach
           </select>
         </div>
+        @if($batches->count() > 1)
+          <script>
+            function skulosFilterApplyClasses(batchUuid) {
+              var select = document.getElementById('school_class_id');
+              var firstVisible = null;
+              Array.prototype.forEach.call(select.options, function (opt) {
+                if (! opt.value) return;
+                var matches = opt.getAttribute('data-batch') === batchUuid;
+                opt.hidden = ! matches;
+                if (matches && ! firstVisible) firstVisible = opt;
+              });
+              select.value = firstVisible ? firstVisible.value : '';
+            }
+          </script>
+        @endif
         <div class="field">
           <label for="first_name">Applicant's first name</label>
           <input id="first_name" name="first_name" type="text" value="{{ old('first_name') }}" required />
+        </div>
+        <div class="field">
+          <label for="other_names">Applicant's other name(s) (optional)</label>
+          <input id="other_names" name="other_names" type="text" value="{{ old('other_names') }}" />
         </div>
         <div class="field">
           <label for="last_name">Applicant's last name</label>

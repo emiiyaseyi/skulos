@@ -806,7 +806,8 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/pipeline', [$admissionSettings, 'updatePipeline'])->name('pipeline');
             Route::post('/reference-format', [$admissionSettings, 'updateReferenceFormat'])->name('reference-format');
             Route::post('/windows', [$admissionSettings, 'storeWindow'])->name('windows.store');
-            Route::post('/windows/{windowId}/toggle', [$admissionSettings, 'toggleWindow'])->name('windows.toggle');
+            Route::post('/windows/{batchUuid}/update', [$admissionSettings, 'updateWindowBatch'])->name('windows.update');
+            Route::post('/windows/{batchUuid}/toggle', [$admissionSettings, 'toggleWindowBatch'])->name('windows.toggle');
         });
 
         // Admissions module, Phase 1d: admin reviews an applicant's

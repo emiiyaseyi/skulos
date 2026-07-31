@@ -43,6 +43,7 @@ class ApplicantDashboardController extends Controller
             'applicant' => $applicant,
             'acceptancePayment' => $acceptancePayment,
             'acceptanceWindow' => $acceptanceWindow,
+            'acceptanceFeeRequired' => $acceptanceWindow?->requiresAcceptanceFee() ?? false,
             'bankAccounts' => \App\Models\Tenant\BankAccount::active()->orderBy('sort_order')->get(),
         ]);
     }
@@ -57,6 +58,7 @@ class ApplicantDashboardController extends Controller
             ->where('school_class_id', $applicant->school_class_id)
             ->where('campus_id', $applicant->campus_id)
             ->firstOrFail();
+        abort_unless($window->requiresAcceptanceFee(), 422, 'This school does not charge an acceptance fee.');
 
         $data = $request->validate([
             'reference' => ['nullable', 'string', 'max:120'],

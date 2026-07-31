@@ -26,13 +26,15 @@
   @if($applicant->decision_status === 'offered')
     <div class="card" style="margin-bottom:1rem">
       <h3 style="margin-bottom:.6rem">Congratulations, you have been offered admission!</h3>
-      @if(! $acceptancePayment)
+      @if(! $acceptanceFeeRequired)
+        <p class="muted">No acceptance fee is required. The school will complete your enrollment shortly.</p>
+      @elseif(! $acceptancePayment)
         @if($bankAccounts->isNotEmpty())
-          <div style="margin-bottom:1rem">
+          <div style="margin-bottom:1rem;text-align:center">
             <div class="muted" style="font-size:.85rem;margin-bottom:.5rem">Send your acceptance fee to any one of these accounts, then upload your evidence below.</div>
             <div class="stack" style="gap:.7rem">
               @foreach($bankAccounts as $account)
-                <div style="border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem">
+                <div style="border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;text-align:center">
                   <div style="font-weight:800">{{ $account->bank_name }}</div>
                   <div class="muted" style="font-size:.85rem">{{ $account->account_name }}</div>
                   <div style="font-variant-numeric:tabular-nums;font-weight:700;margin-top:.2rem">{{ $account->account_number }}</div>

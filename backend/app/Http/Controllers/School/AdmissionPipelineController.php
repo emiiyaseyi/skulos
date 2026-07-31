@@ -46,6 +46,22 @@ class AdmissionPipelineController extends Controller
         );
     }
 
+    /**
+     * Whether this applicant's own admission window actually charges an
+     * acceptance fee (live feedback 2026-07-31: "Acceptance fee is not
+     * mandatory as some schools dont use it") — if not, conversion never
+     * waits on a payment that was never going to exist.
+     */
+    protected function requiresAcceptanceFee(Applicant $applicant): bool
+    {
+        $window = \App\Models\Tenant\AdmissionWindow::where('session_id', $applicant->session_id)
+            ->where('school_class_id', $applicant->school_class_id)
+            ->where('campus_id', $applicant->campus_id)
+            ->first();
+
+        return $window?->requiresAcceptanceFee() ?? false;
+    }
+
     protected function scopeTab($query, string $tab)
     {
         return match ($tab) {
@@ -167,7 +183,7 @@ class AdmissionPipelineController extends Controller
         $applicant = Applicant::with('schoolClass')->findOrFail($request->route('applicantId'));
 
         abort_unless($applicant->decision_status === Applicant::DECISION_OFFERED, 422, 'This applicant has not been offered admission.');
-        $acceptanceVerified = AdmissionPayment::where('applicant_id', $applicant->id)
+        $acceptanceVerified = ! $this->requiresAcceptanceFee($applicant) || AdmissionPayment::where('applicant_id', $applicant->id)
             ->where('fee_type', AdmissionPayment::TYPE_ACCEPTANCE)
             ->where('status', AdmissionPayment::STATUS_VERIFIED)
             ->exists();
@@ -190,7 +206,7 @@ class AdmissionPipelineController extends Controller
         $applicant = Applicant::findOrFail($request->route('applicantId'));
 
         abort_unless($applicant->decision_status === Applicant::DECISION_OFFERED, 422, 'This applicant has not been offered admission.');
-        $acceptanceVerified = AdmissionPayment::where('applicant_id', $applicant->id)
+        $acceptanceVerified = ! $this->requiresAcceptanceFee($applicant) || AdmissionPayment::where('applicant_id', $applicant->id)
             ->where('fee_type', AdmissionPayment::TYPE_ACCEPTANCE)
             ->where('status', AdmissionPayment::STATUS_VERIFIED)
             ->exists();

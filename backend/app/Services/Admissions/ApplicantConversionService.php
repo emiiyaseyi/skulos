@@ -35,6 +35,7 @@ class ApplicantConversionService
         $student = Student::create([
             'admission_number' => $admissionNumber,
             'first_name' => $firstName,
+            'other_names' => $applicant->other_names,
             'last_name' => $lastName,
             'date_of_birth' => $applicant->date_of_birth,
             'email' => $applicant->email,

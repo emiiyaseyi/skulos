@@ -49,6 +49,7 @@ class AdmissionPublicApplyTest extends TestCase
         $window = AdmissionWindow::create([
             'session_id' => $session->id, 'school_class_id' => $class->id,
             'application_fee_amount' => 5000, 'is_active' => true,
+            'batch_uuid' => (string) \Illuminate\Support\Str::uuid(),
         ]);
         app(TenantManager::class)->forget();
 
@@ -63,7 +64,8 @@ class AdmissionPublicApplyTest extends TestCase
             ->assertOk()->assertSee('Primary 1')->assertSee('5,000.00');
 
         $response = $this->post("http://{$school->slug}.localhost/admissions/apply", [
-            'admission_window_id' => $window->id,
+            'batch_uuid' => $window->batch_uuid,
+            'school_class_id' => $window->school_class_id,
             'first_name' => 'Ada',
             'last_name' => 'Obi',
             'date_of_birth' => '2015-04-12',
@@ -106,7 +108,8 @@ class AdmissionPublicApplyTest extends TestCase
         app(TenantManager::class)->forget();
 
         $this->post("http://{$school->slug}.localhost/admissions/apply", [
-            'admission_window_id' => $window->id,
+            'batch_uuid' => $window->batch_uuid,
+            'school_class_id' => $window->school_class_id,
             'first_name' => 'Ada',
             'last_name' => 'Obi',
             'date_of_birth' => '2015-04-12',
@@ -133,7 +136,7 @@ class AdmissionPublicApplyTest extends TestCase
         $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'apthree']));
 
         $this->get("http://{$school->slug}.localhost/admissions/apply")
-            ->assertOk()->assertSee('not currently open');
+            ->assertOk()->assertSee('No admission window is open right now');
     }
 
     public function test_a_closed_window_is_not_selectable(): void
@@ -144,11 +147,12 @@ class AdmissionPublicApplyTest extends TestCase
         app(TenantManager::class)->forget();
 
         $this->post("http://{$school->slug}.localhost/admissions/apply", [
-            'admission_window_id' => $window->id,
+            'batch_uuid' => $window->batch_uuid,
+            'school_class_id' => $window->school_class_id,
             'first_name' => 'Ada',
             'last_name' => 'Obi',
             'date_of_birth' => '2015-04-12',
             'phone' => '08011112222',
-        ])->assertSessionHasErrors('admission_window_id');
+        ])->assertSessionHasErrors('batch_uuid');
     }
 }

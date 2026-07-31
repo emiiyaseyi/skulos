@@ -16,12 +16,12 @@
   @endif
 
   @if($bankAccounts->isNotEmpty() && ! $feePayment)
-    <div class="card" style="margin-bottom:1.25rem">
+    <div class="card" style="margin-bottom:1.25rem;text-align:center">
       <h3 style="margin-bottom:.3rem">Bank transfer details</h3>
       <p class="muted" style="margin-bottom:.8rem">Send your application fee to any one of these accounts, then upload your evidence below.</p>
       <div class="stack" style="gap:.7rem">
         @foreach($bankAccounts as $account)
-          <div style="border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem">
+          <div style="border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;text-align:center">
             <div style="font-weight:800">{{ $account->bank_name }}</div>
             <div class="muted" style="font-size:.85rem">{{ $account->account_name }}</div>
             <div style="font-variant-numeric:tabular-nums;font-weight:700;margin-top:.2rem">{{ $account->account_number }}</div>

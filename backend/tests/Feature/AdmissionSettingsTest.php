@@ -122,11 +122,84 @@ class AdmissionSettingsTest extends TestCase
         $this->assertTrue($window->isOpen());
         app(TenantManager::class)->forget();
 
-        $this->actingAs($owner)->post(route('school.admissions.settings.windows.toggle', ['school' => $school->slug, 'windowId' => $window->id]))
+        $this->actingAs($owner)->post(route('school.admissions.settings.windows.toggle', ['school' => $school->slug, 'batchUuid' => $window->batch_uuid]))
             ->assertRedirect();
 
         app(TenantManager::class)->use($school);
         $this->assertFalse($window->fresh()->is_active);
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_resubmitting_a_class_that_already_has_an_open_window_is_skipped_not_a_crash(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'asseven');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class1 = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $class2 = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 2', 'sequence' => 2]);
+        $session = AcademicSession::create(['name' => '2026/2027', 'is_current' => true]);
+        app(TenantManager::class)->forget();
+
+        $payload = [
+            'session_id' => $session->id,
+            'school_class_id' => [$class1->id, $class2->id],
+            'application_fee_amount' => 5000,
+        ];
+
+        $this->actingAs($owner)->post(route('school.admissions.settings.windows.store', ['school' => $school->slug]), $payload)
+            ->assertRedirect();
+
+        // Re-submitting with an overlapping class (a real thing a
+        // double-click or a resubmitted form can cause) must not crash
+        // on the unique constraint — the already-open class is skipped,
+        // any genuinely new one still opens.
+        app(TenantManager::class)->use($school);
+        $class3 = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 3', 'sequence' => 3]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)->post(route('school.admissions.settings.windows.store', ['school' => $school->slug]), array_merge($payload, [
+            'school_class_id' => [$class1->id, $class3->id],
+        ]));
+        $response->assertRedirect()->assertSessionHas('status', fn ($msg) => str_contains($msg, 'skipped'));
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame(3, AdmissionWindow::count(), 'class1+class2 from the first submission, plus class3 from the second; class1 must not duplicate');
+        $this->assertSame(0.0, (float) AdmissionWindow::first()->acceptance_fee_amount, 'acceptance fee left blank must default to 0, not be required');
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_editing_a_window_batch_updates_every_row_in_it(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'aseight');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class1 = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $class2 = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 2', 'sequence' => 2]);
+        $session = AcademicSession::create(['name' => '2026/2027', 'is_current' => true]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post(route('school.admissions.settings.windows.store', ['school' => $school->slug]), [
+            'name' => 'Original name',
+            'session_id' => $session->id,
+            'school_class_id' => [$class1->id, $class2->id],
+            'application_fee_amount' => 5000,
+        ]);
+
+        app(TenantManager::class)->use($school);
+        $batchUuid = AdmissionWindow::first()->batch_uuid;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post(route('school.admissions.settings.windows.update', ['school' => $school->slug, 'batchUuid' => $batchUuid]), [
+            'name' => 'Renamed intake',
+            'application_fee_amount' => 7500,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $rows = AdmissionWindow::where('batch_uuid', $batchUuid)->get();
+        $this->assertCount(2, $rows);
+        $this->assertTrue($rows->every(fn ($w) => $w->name === 'Renamed intake' && (float) $w->application_fee_amount === 7500.0));
         app(TenantManager::class)->forget();
     }
 

@@ -30,44 +30,79 @@ class PublicApplicationController extends Controller
         return $request->attributes->get('school');
     }
 
+    /**
+     * Groups every currently open AdmissionWindow row into its own
+     * admin-named batch, each carrying its own list of classes (live
+     * feedback 2026-07-31: "the application window should not show the
+     * classes with it, there should be another field for applicant to
+     * select the class they are applying for"). Mirrors
+     * AdmissionSettingsController::windowBatches(), applicant-facing side.
+     */
+    protected function openBatches(): \Illuminate\Support\Collection
+    {
+        return AdmissionWindow::with(['session', 'schoolClass', 'campus'])
+            ->where('is_active', true)
+            ->get()
+            ->filter(fn (AdmissionWindow $w) => $w->isOpen())
+            ->groupBy('batch_uuid')
+            ->map(function ($rows) {
+                $first = $rows->first();
+
+                return (object) [
+                    'batch_uuid' => $first->batch_uuid,
+                    'name' => $first->name ?: (($first->session?->name ?: 'Admissions').' intake'),
+                    'session' => $first->session,
+                    'campus' => $first->campus,
+                    'application_fee_amount' => $first->application_fee_amount,
+                    'classes' => $rows->map(fn ($w) => (object) [
+                        'id' => $w->school_class_id,
+                        'name' => $w->schoolClass?->name,
+                        'section' => $w->schoolClass?->section?->name,
+                    ])->values(),
+                ];
+            })
+            ->values();
+    }
+
     public function start(Request $request): \Illuminate\View\View
     {
         $school = $this->school($request);
 
-        $windows = AdmissionWindow::with(['session', 'schoolClass', 'campus'])
-            ->where('is_active', true)
-            ->get()
-            ->filter(fn (AdmissionWindow $w) => $w->isOpen())
-            ->values();
-
         return view('admissions.apply', [
             'school' => $school,
             'accent' => $school->branding()['color'] ?? null,
-            'windows' => $windows,
+            'batches' => $this->openBatches(),
         ]);
     }
 
     public function register(Request $request): \Illuminate\Http\RedirectResponse
     {
         $school = $this->school($request);
+        $batches = $this->openBatches();
 
-        $windowIds = AdmissionWindow::where('is_active', true)->pluck('id')->all();
         $data = $request->validate([
-            'admission_window_id' => ['required', 'integer', \Illuminate\Validation\Rule::in($windowIds)],
+            'batch_uuid' => ['required', 'string', \Illuminate\Validation\Rule::in($batches->pluck('batch_uuid')->all())],
+            'school_class_id' => ['required', 'integer'],
             'first_name' => ['required', 'string', 'max:80'],
+            'other_names' => ['nullable', 'string', 'max:80'],
             'last_name' => ['required', 'string', 'max:80'],
             'date_of_birth' => ['required', 'date', 'before:today'],
             'email' => ['nullable', 'email', 'max:150'],
             'phone' => ['required', 'string', 'max:30'],
         ]);
 
-        $window = AdmissionWindow::with('schoolClass')->findOrFail($data['admission_window_id']);
+        $window = AdmissionWindow::with('schoolClass')
+            ->where('batch_uuid', $data['batch_uuid'])
+            ->where('school_class_id', $data['school_class_id'])
+            ->first();
+        abort_if(! $window, 422, 'Choose a class from the selected admission window.');
         abort_unless($window->isOpen(), 422, 'This admission window is no longer open.');
 
         $chain = Applicant::pipelineChain();
         $applicant = Applicant::forceCreate([
-            'name' => trim($data['first_name'].' '.$data['last_name']),
+            'name' => trim(implode(' ', array_filter([$data['first_name'], $data['other_names'] ?? null, $data['last_name']]))),
             'first_name' => $data['first_name'],
+            'other_names' => $data['other_names'] ?? null,
             'last_name' => $data['last_name'],
             'date_of_birth' => $data['date_of_birth'],
             'email' => $data['email'] ?? null,

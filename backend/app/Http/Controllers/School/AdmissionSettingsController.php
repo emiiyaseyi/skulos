@@ -54,11 +54,49 @@ class AdmissionSettingsController extends Controller
             'passwordLength' => (int) (Setting::grab('admission_password_length') ?? config('skulos.default_admission_password_length', 10)),
             'referenceStyle' => Setting::grab('admission_reference_style') ?? config('skulos.default_admission_reference_style', 'custom'),
             'referencePrefix' => Setting::grab('admission_reference_prefix') ?? config('skulos.default_admission_reference_prefix', 'APP'),
-            'windows' => AdmissionWindow::with(['session', 'schoolClass', 'campus'])->orderByDesc('id')->paginate(30)->withQueryString(),
+            'batches' => $this->windowBatches(),
             'sessions' => AcademicSession::active()->orderByDesc('id')->get(),
             'classes' => SchoolClass::active()->with('section')->orderBy('sequence')->get(),
             'campuses' => Campus::orderBy('name')->get(),
         ]);
+    }
+
+    /**
+     * Groups AdmissionWindow rows by batch_uuid into one summary object
+     * per admin-facing "window" (live feedback 2026-07-31: "it should
+     * not show all the windows per class but all merged into one"). A
+     * school opens at most a handful of these across its whole lifetime,
+     * so a generous cap stands in for real pagination here rather than
+     * a per-batch paginator, which would need to span partial rows.
+     */
+    protected function windowBatches()
+    {
+        return AdmissionWindow::with(['session', 'schoolClass', 'campus'])
+            ->orderByDesc('id')
+            ->limit(500)
+            ->get()
+            ->groupBy('batch_uuid')
+            ->map(function ($rows) {
+                $first = $rows->first();
+
+                return (object) [
+                    'batch_uuid' => $first->batch_uuid,
+                    'name' => $first->name,
+                    'session' => $first->session,
+                    'campus' => $first->campus,
+                    'classNames' => $rows->pluck('schoolClass.name')->filter()->values(),
+                    'application_fee_amount' => $first->application_fee_amount,
+                    'acceptance_fee_amount' => $first->acceptance_fee_amount,
+                    'requires_acceptance_fee' => $first->requiresAcceptanceFee(),
+                    'opens_at' => $first->opens_at,
+                    'closes_at' => $first->closes_at,
+                    'is_active' => $first->is_active,
+                    'is_open' => $rows->contains(fn ($w) => $w->isOpen()),
+                    'sort_id' => $rows->max('id'),
+                ];
+            })
+            ->sortByDesc('sort_id')
+            ->values();
     }
 
     public function updatePipeline(Request $request): \Illuminate\Http\RedirectResponse
@@ -119,8 +157,14 @@ class AdmissionSettingsController extends Controller
         // AdmissionWindow row, same as opening them one at a time would
         // have — every downstream lookup (isOpen() filtering, fee
         // lookups, conversion) already keys off session+class+campus per
-        // row, so nothing else needed to change to support this.
+        // row, so nothing else needed to change to support this. Rows
+        // created together share one batch_uuid so the settings screen
+        // can show and edit them as a single named group (live feedback
+        // 2026-07-31: "it should not show all the windows per class but
+        // all merged into one, we can give each application window a
+        // name").
         $data = $request->validate([
+            'name' => ['nullable', 'string', 'max:100'],
             'session_id' => ['required', 'exists:tenant.academic_sessions,id'],
             'school_class_id' => ['required', 'array', 'min:1'],
             'school_class_id.*' => ['exists:tenant.school_classes,id'],
@@ -128,32 +172,78 @@ class AdmissionSettingsController extends Controller
             'opens_at' => ['nullable', 'date'],
             'closes_at' => ['nullable', 'date', 'after_or_equal:opens_at'],
             'application_fee_amount' => ['required', 'numeric', 'min:0'],
-            'acceptance_fee_amount' => ['required', 'numeric', 'min:0'],
+            // Acceptance fee is optional (live feedback 2026-07-31: "some
+            // schools dont use it") — a blank submission stores 0, which
+            // AdmissionWindow::requiresAcceptanceFee() treats as "not
+            // configured", not a real free acceptance fee.
+            'acceptance_fee_amount' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $classIds = $data['school_class_id'];
         unset($data['school_class_id']);
+        $data['acceptance_fee_amount'] = $data['acceptance_fee_amount'] ?? 0;
+        $data['batch_uuid'] = (string) \Illuminate\Support\Str::uuid();
 
+        $opened = 0;
+        $skipped = [];
         foreach ($classIds as $classId) {
+            $alreadyOpen = AdmissionWindow::where('session_id', $data['session_id'])
+                ->where('school_class_id', $classId)
+                ->where('campus_id', $data['campus_id'] ?? null)
+                ->exists();
+            // A class already has a window for this exact session/campus
+            // (e.g. re-submitting after a partial failure, or picking a
+            // class that was opened individually before) — skip it
+            // rather than crash on the unique constraint, and tell the
+            // admin which one(s) were skipped so nothing is silently lost.
+            if ($alreadyOpen) {
+                $skipped[] = SchoolClass::find($classId)?->name ?? "#{$classId}";
+
+                continue;
+            }
             AdmissionWindow::create($data + ['school_class_id' => $classId, 'is_active' => true]);
+            $opened++;
         }
 
-        return back()->with('status', count($classIds) > 1 ? count($classIds).' admission windows opened.' : 'Admission window opened.');
+        $status = $opened > 0 ? ($opened > 1 ? "{$opened} admission windows opened." : 'Admission window opened.') : 'No new windows opened.';
+        if ($skipped) {
+            $status .= ' Already open, skipped: '.implode(', ', $skipped).'.';
+        }
+
+        return back()->with('status', $status);
     }
 
-    public function toggleWindow(Request $request): \Illuminate\Http\RedirectResponse
+    public function updateWindowBatch(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'admissions.manage_settings');
 
-        // Read via $request->route(), not a typed method parameter: this
-        // route sits under the {school} domain wildcard, so an untyped
-        // scalar controller parameter resolves positionally against the
-        // FULL route parameter list (domain param included), not by
-        // name, and would silently receive the school's slug instead of
-        // the window id (the recurring gotcha documented in CLAUDE.md).
-        $window = AdmissionWindow::findOrFail($request->route('windowId'));
-        $window->update(['is_active' => ! $window->is_active]);
+        $data = $request->validate([
+            'name' => ['nullable', 'string', 'max:100'],
+            'opens_at' => ['nullable', 'date'],
+            'closes_at' => ['nullable', 'date', 'after_or_equal:opens_at'],
+            'application_fee_amount' => ['required', 'numeric', 'min:0'],
+            'acceptance_fee_amount' => ['nullable', 'numeric', 'min:0'],
+        ]);
+        $data['acceptance_fee_amount'] = $data['acceptance_fee_amount'] ?? 0;
 
-        return back()->with('status', $window->is_active ? 'Window reopened.' : 'Window closed.');
+        // Read via $request->route(), not a typed method parameter: see
+        // the domain-wildcard gotcha documented in CLAUDE.md.
+        $batchUuid = $request->route('batchUuid');
+        $count = AdmissionWindow::where('batch_uuid', $batchUuid)->update($data);
+        abort_if($count === 0, 404);
+
+        return back()->with('status', 'Admission window updated.');
     }
+
+    public function toggleWindowBatch(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'admissions.manage_settings');
+
+        $batchUuid = $request->route('batchUuid');
+        $window = AdmissionWindow::where('batch_uuid', $batchUuid)->firstOrFail();
+        AdmissionWindow::where('batch_uuid', $batchUuid)->update(['is_active' => ! $window->is_active]);
+
+        return back()->with('status', $window->is_active ? 'Window closed.' : 'Window reopened.');
+    }
+
 }
