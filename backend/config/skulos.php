@@ -66,6 +66,11 @@ return [
 
         // Optional / toggleable (tracker section 6)
         'lms' => ['name' => 'Learning Management', 'core' => false],
+        // SKULOS Assessment Hub, Phase 2 (2026-07-31): a shared question
+        // bank + timed test-taking engine, distinct from the older
+        // AssessmentComponent/AssessmentController concept under
+        // Examinations (CA-vs-Exam weighting for report cards, not this).
+        'assessment_hub' => ['name' => 'Assessment Hub', 'core' => false],
         'hr' => ['name' => 'Human Resources', 'core' => false],
         'payroll' => ['name' => 'Payroll', 'core' => false],
         'hostel' => ['name' => 'Hostel Management', 'core' => false],
@@ -2493,6 +2498,23 @@ return [
     ],
 
     /*
+    | SKULOS Assessment Hub, Phase 2a: seeded once into a real tenant
+    | table (CbtSecurityProfile::ensureSeeded(), same "config seeds a
+    | tenant table once" pattern as AdmissionPipelineStage/grading
+    | scales) — the four-tier concept (Basic/Medium/High/Maximum) is
+    | fixed by the original spec, only each tier's individual flags are
+    | admin-editable from there. Maximum is the only tier with camera
+    | flags on; those flags do nothing until Phase 2e (AI proctoring)
+    | actually reads them.
+    */
+    'default_cbt_security_profiles' => [
+        ['name' => 'Basic', 'require_fullscreen' => false, 'block_copy_paste' => false, 'block_right_click' => false, 'tab_switch_action' => 'none', 'tab_switch_limit' => null, 'require_camera_check' => false, 'require_object_detection' => false],
+        ['name' => 'Medium', 'require_fullscreen' => false, 'block_copy_paste' => true, 'block_right_click' => true, 'tab_switch_action' => 'warn', 'tab_switch_limit' => null, 'require_camera_check' => false, 'require_object_detection' => false],
+        ['name' => 'High', 'require_fullscreen' => true, 'block_copy_paste' => true, 'block_right_click' => true, 'tab_switch_action' => 'lock', 'tab_switch_limit' => 3, 'require_camera_check' => false, 'require_object_detection' => false],
+        ['name' => 'Maximum', 'require_fullscreen' => true, 'block_copy_paste' => true, 'block_right_click' => true, 'tab_switch_action' => 'lock', 'tab_switch_limit' => 1, 'require_camera_check' => true, 'require_object_detection' => true],
+    ],
+
+    /*
     | Roles restricted to only their own assigned classes/students rather
     | than the whole school (user directive 2026-07-12, live QA on the
     | subject-teacher role: "should only see the class assigned to him...
@@ -2620,6 +2642,10 @@ return [
         'communication' => ['broadcast'],
         'school_info' => ['manage_settings'],
         'students' => ['manage_settings'],
+        // Assessment Hub, Phase 2: grading a subjective response is a
+        // real, distinct action from plain "update" (the standard CRUD
+        // set already covers building the question bank/papers).
+        'assessment_hub' => ['grade'],
         // Assigning a report card for review and releasing it to students/
         // parents is an institution wide decision (user request
         // 2026-07-11: "the admin, head teacher, principal or school

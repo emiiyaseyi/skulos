@@ -877,6 +877,40 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/{requestId}/reject', [$recoveryReview, 'reject'])->name('reject');
         });
 
+        // SKULOS Assessment Hub, Phase 2a: question bank, paper builder,
+        // security profile catalog (admin/teacher side).
+        Route::prefix('assessment/questions')->name('school.cbt.questions.')->group(function () {
+            $cbtQuestions = \App\Http\Controllers\School\CbtQuestionBankController::class;
+            Route::get('/', [$cbtQuestions, 'index'])->name('index');
+            Route::post('/', [$cbtQuestions, 'store'])->name('store');
+            // Registered before the {questionId} routes below: a static
+            // path must come first, or "/bulk-action" would be matched
+            // by "/{questionId}" instead (this bit the very first test
+            // run of this controller — Laravel matches in registration
+            // order, not by specificity).
+            Route::post('/bulk-action', [$cbtQuestions, 'bulkAction'])->name('bulk-action');
+            Route::post('/{questionId}', [$cbtQuestions, 'update'])->name('update');
+            Route::delete('/{questionId}', [$cbtQuestions, 'destroy'])->name('destroy');
+        });
+
+        Route::prefix('assessment/papers')->name('school.cbt.papers.')->group(function () {
+            $cbtPapers = \App\Http\Controllers\School\CbtPaperController::class;
+            Route::get('/', [$cbtPapers, 'index'])->name('index');
+            Route::post('/', [$cbtPapers, 'store'])->name('store');
+            Route::get('/{paperId}', [$cbtPapers, 'edit'])->name('edit');
+            Route::post('/{paperId}', [$cbtPapers, 'update'])->name('update');
+            Route::delete('/{paperId}', [$cbtPapers, 'destroy'])->name('destroy');
+            Route::post('/{paperId}/questions', [$cbtPapers, 'addQuestion'])->name('questions.store');
+            Route::delete('/{paperId}/questions/{paperQuestionId}', [$cbtPapers, 'removeQuestion'])->name('questions.destroy');
+            Route::post('/{paperId}/questions/{paperQuestionId}/move/{direction}', [$cbtPapers, 'moveQuestion'])->name('questions.move');
+        });
+
+        Route::prefix('assessment/security-profiles')->name('school.cbt.security-profiles.')->group(function () {
+            $cbtSecurity = \App\Http\Controllers\School\CbtSecurityProfileController::class;
+            Route::get('/', [$cbtSecurity, 'index'])->name('index');
+            Route::post('/{profileId}', [$cbtSecurity, 'update'])->name('update');
+        });
+
         // Admissions module, Phase 1e: the school's own custom
         // application form builder (sections + fields).
         Route::prefix('admissions/form-builder')->name('school.admissions.form-builder.')->group(function () {
