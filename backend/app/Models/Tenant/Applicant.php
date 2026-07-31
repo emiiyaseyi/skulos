@@ -43,7 +43,7 @@ class Applicant extends Authenticatable
     ];
 
     protected $hidden = [
-        'password', 'remember_token',
+        'password', 'password_plain_encrypted', 'remember_token',
     ];
 
     protected function casts(): array
@@ -124,15 +124,37 @@ class Applicant extends Authenticatable
      */
     public function issueCredentials(): string
     {
-        $plain = \Illuminate\Support\Str::password(10);
+        $length = (int) (Setting::grab('admission_password_length') ?? config('skulos.default_admission_password_length', 10));
+        $length = max(6, min(24, $length));
+        $plain = \Illuminate\Support\Str::password($length);
         $ttlDays = (int) (Setting::grab('admission_account_ttl_days') ?? config('skulos.default_admission_account_ttl_days', 30));
 
         $this->forceFill([
             'password' => $plain,
+            'password_plain_encrypted' => \Illuminate\Support\Facades\Crypt::encryptString($plain),
             'account_status' => self::STATUS_ACTIVE,
             'expires_at' => now()->addDays($ttlDays),
         ])->save();
 
         return $plain;
+    }
+
+    /**
+     * Decrypts the recoverable copy stored by issueCredentials(), for the
+     * applicant's own signed status page and for admin staff viewing the
+     * pipeline board — never for anything serialized to JSON or a public
+     * API (see the $hidden entry above).
+     */
+    public function recoverablePassword(): ?string
+    {
+        if (! $this->password_plain_encrypted) {
+            return null;
+        }
+
+        try {
+            return \Illuminate\Support\Facades\Crypt::decryptString($this->password_plain_encrypted);
+        } catch (\Illuminate\Contracts\Encryption\DecryptException) {
+            return null;
+        }
     }
 }

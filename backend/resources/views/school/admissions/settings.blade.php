@@ -32,10 +32,17 @@
         </label>
       @endforeach
     </div>
-    <div class="field" style="max-width:16rem">
-      <label for="account_ttl_days">Applicant account window (days)</label>
-      <input id="account_ttl_days" name="account_ttl_days" type="number" min="1" max="365" value="{{ $ttlDays }}" required />
-      <div class="hint">An applicant is locked out and archived once this many days pass after their credentials are issued.</div>
+    <div class="grid cols-2" style="gap:1rem;max-width:32rem">
+      <div class="field">
+        <label for="account_ttl_days">Applicant account window (days)</label>
+        <input id="account_ttl_days" name="account_ttl_days" type="number" min="1" max="365" value="{{ $ttlDays }}" required />
+        <div class="hint">An applicant is locked out and archived once this many days pass after their credentials are issued.</div>
+      </div>
+      <div class="field">
+        <label for="password_length">Generated password length</label>
+        <input id="password_length" name="password_length" type="number" min="6" max="24" value="{{ $passwordLength }}" required />
+        <div class="hint">How long the sign in password issued once the application fee clears should be.</div>
+      </div>
     </div>
     <button class="btn btn-primary btn-sm" type="submit" style="margin-top:.8rem">Save pipeline settings</button>
   </form>

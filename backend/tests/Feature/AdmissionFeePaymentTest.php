@@ -136,6 +136,28 @@ class AdmissionFeePaymentTest extends TestCase
         Mail::assertSent(AdmissionCredentialsMail::class, fn ($m) => $m->hasTo('parent@example.com'));
     }
 
+    public function test_the_issued_password_is_recoverable_afterward_and_shown_on_the_verified_status_page(): void
+    {
+        Mail::fake();
+        [$school, $staff, $applicant, $statusUrl] = $this->schoolWithApplicantAndStaff('afeight', ['email' => 'parent2@example.com']);
+
+        $this->post($statusUrl, ['evidence' => UploadedFile::fake()->image('receipt.jpg')]);
+        app(TenantManager::class)->use($school);
+        $payment = AdmissionPayment::first();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($staff)->post(route('school.admissions.fees.verify', ['school' => $school->slug, 'paymentId' => $payment->id]));
+
+        app(TenantManager::class)->use($school);
+        $fresh = $applicant->fresh();
+        $recovered = $fresh->recoverablePassword();
+        $this->assertNotNull($recovered);
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check($recovered, $fresh->password), 'the recoverable copy must match the real hashed password');
+        app(TenantManager::class)->forget();
+
+        $this->get($statusUrl)->assertOk()->assertSee($recovered);
+    }
+
     public function test_verifying_with_no_email_on_file_flashes_the_password_to_the_reviewing_staff_member(): void
     {
         Mail::fake();

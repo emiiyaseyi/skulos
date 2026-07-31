@@ -54,7 +54,15 @@
     @elseif($feePayment->status === 'pending')
       <p class="muted">Your payment evidence has been received and is awaiting confirmation from the school.</p>
     @elseif($feePayment->status === 'verified')
-      <p class="muted">Your application fee has been confirmed. Check your phone/email for your sign in details, or contact the school if you have not received them.</p>
+      <p class="muted" style="margin-bottom:1rem">Your application fee has been confirmed. Use these details to sign back in and continue your application any time.</p>
+      @if($applicant->recoverablePassword())
+        <div style="border:1px solid var(--line);border-radius:10px;padding:.8rem 1rem">
+          <div class="muted" style="font-size:.8rem">Admission number</div>
+          <div style="font-weight:800;margin-bottom:.5rem">{{ $applicant->admission_number }}</div>
+          <div class="muted" style="font-size:.8rem">Password</div>
+          <div style="font-weight:800;font-variant-numeric:tabular-nums">{{ $applicant->recoverablePassword() }}</div>
+        </div>
+      @endif
     @else
       <p class="flash flash-bad">Your payment evidence was not accepted{{ $feePayment->notes ? ': '.$feePayment->notes : '.' }} Please submit new evidence below.</p>
       <form method="POST" action="{{ url()->full() }}" enctype="multipart/form-data">

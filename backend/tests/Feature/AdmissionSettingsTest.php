@@ -73,6 +73,7 @@ class AdmissionSettingsTest extends TestCase
         $this->actingAs($owner)->post(route('school.admissions.settings.pipeline', ['school' => $school->slug]), [
             'stages' => ['application_started', 'application_submitted', 'documents_uploaded', 'admission_offered', 'acceptance_fee_paid', 'enrolled'],
             'account_ttl_days' => 45,
+            'password_length' => 14,
         ])->assertRedirect();
 
         app(TenantManager::class)->use($school);
@@ -82,6 +83,7 @@ class AdmissionSettingsTest extends TestCase
             'interview stages were unticked and must be gone, the rest must stay in catalog order regardless of submission order'
         );
         $this->assertSame(45, (int) Setting::grab('admission_account_ttl_days'));
+        $this->assertSame(14, (int) Setting::grab('admission_password_length'));
         app(TenantManager::class)->forget();
     }
 
@@ -92,6 +94,7 @@ class AdmissionSettingsTest extends TestCase
         $this->actingAs($owner)->post(route('school.admissions.settings.pipeline', ['school' => $school->slug]), [
             'stages' => [],
             'account_ttl_days' => 30,
+            'password_length' => 10,
         ])->assertSessionHasErrors('stages');
     }
 

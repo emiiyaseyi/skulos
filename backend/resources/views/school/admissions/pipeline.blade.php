@@ -35,7 +35,13 @@
       <tbody>
         @foreach($applicants as $applicant)
           <tr>
-            <td data-label="Applicant"><strong>{{ $applicant->name }}</strong><div class="muted">{{ $applicant->admission_number }} &middot; {{ $applicant->phone }}</div></td>
+            <td data-label="Applicant">
+              <strong>{{ $applicant->name }}</strong>
+              <div class="muted">{{ $applicant->admission_number }} &middot; {{ $applicant->phone }}</div>
+              @if($applicant->recoverablePassword())
+                <div class="muted" style="font-size:.78rem">Password: <span style="font-variant-numeric:tabular-nums">{{ $applicant->recoverablePassword() }}</span></div>
+              @endif
+            </td>
             <td class="muted" data-label="Class">{{ $applicant->schoolClass?->name ?? 'Not set' }}</td>
             <td class="muted" data-label="Stage">{{ $stageCatalog[$applicant->currentStageKey()] ?? 'Not started' }}</td>
             <td data-label="Status">

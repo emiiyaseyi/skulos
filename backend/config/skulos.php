@@ -1026,6 +1026,16 @@ return [
     'default_admission_account_ttl_days' => 30,
 
     /*
+    | Length of the randomly generated password issued once an
+    | applicant's application fee clears (user directive 2026-07-31:
+    | "admin determines how the password is generated automatically"),
+    | admin-editable per school via the Admissions settings screen
+    | (Setting key "admission_password_length"), clamped to 6-24 by
+    | Applicant::issueCredentials() regardless of what a school sets.
+    */
+    'default_admission_password_length' => 10,
+
+    /*
     | Who can approve a new fee item before parents ever see it (user
     | request 2026-07-25: "admin can set an approval level for school
     | fees which the school owner, principal, vice principal, head
