@@ -80,6 +80,11 @@
         <input id="application_fee_amount" name="application_fee_amount" type="number" step="0.01" min="0" required />
       </div>
       <div class="field">
+        <label for="acceptance_fee_amount">Acceptance fee (&#8358;)</label>
+        <input id="acceptance_fee_amount" name="acceptance_fee_amount" type="number" step="0.01" min="0" required />
+        <div class="hint">Paid once an offer is made, before enrollment is completed.</div>
+      </div>
+      <div class="field">
         <label for="opens_at">Opens (optional)</label>
         <input id="opens_at" name="opens_at" type="date" />
       </div>

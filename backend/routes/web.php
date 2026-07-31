@@ -281,7 +281,13 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         // locked out/archived" in one place, with the correct redirect.
         Route::middleware('applicant_active')->group(function () use ($applicantAuth) {
             Route::post('/logout', [$applicantAuth, 'logout'])->name('logout');
-            Route::get('/dashboard', [\App\Http\Controllers\Admissions\ApplicantDashboardController::class, 'index'])->name('dashboard');
+            $dashboard = \App\Http\Controllers\Admissions\ApplicantDashboardController::class;
+            Route::get('/dashboard', [$dashboard, 'index'])->name('dashboard');
+            // Admissions module, Phase 1g: the acceptance fee, paid once
+            // an offer is made, same evidence-then-admin-verify shape as
+            // the application fee, reachable here since the applicant has
+            // a real login by this point.
+            Route::post('/acceptance-fee', [$dashboard, 'submitAcceptanceFee'])->name('acceptance-fee');
 
             // Admissions module, Phase 1e: the school's own custom
             // application form, one step at a time.
@@ -823,6 +829,20 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/fields/{fieldId}', [$formBuilder, 'updateField'])->name('fields.update');
             Route::delete('/fields/{fieldId}', [$formBuilder, 'destroyField'])->name('fields.destroy');
             Route::post('/fields/bulk-action', [$formBuilder, 'bulkFieldAction'])->name('fields.bulk-action');
+        });
+
+        // Admissions module, Phase 1g: the applicant status board,
+        // admission decisions, and completing enrollment.
+        Route::prefix('admissions/pipeline')->name('school.admissions.')->group(function () {
+            $pipeline = \App\Http\Controllers\School\AdmissionPipelineController::class;
+            Route::get('/', [$pipeline, 'board'])->name('pipeline');
+            Route::post('/{applicantId}/advance', [$pipeline, 'advance'])->name('pipeline.advance');
+            Route::post('/{applicantId}/offer', [$pipeline, 'offer'])->name('pipeline.offer');
+            Route::post('/{applicantId}/waitlist', [$pipeline, 'waitlist'])->name('pipeline.waitlist');
+            Route::post('/{applicantId}/reject', [$pipeline, 'reject'])->name('pipeline.reject');
+            Route::post('/{applicantId}/nudge', [$pipeline, 'nudge'])->name('pipeline.nudge');
+            Route::get('/{applicantId}/convert', [$pipeline, 'convertForm'])->name('pipeline.convert.form');
+            Route::post('/{applicantId}/convert', [$pipeline, 'convert'])->name('pipeline.convert');
         });
 
         // Behavioural/psychomotor trait catalog (user request 2026-07-18,

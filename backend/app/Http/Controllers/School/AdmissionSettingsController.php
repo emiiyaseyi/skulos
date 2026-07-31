@@ -98,6 +98,7 @@ class AdmissionSettingsController extends Controller
             'opens_at' => ['nullable', 'date'],
             'closes_at' => ['nullable', 'date', 'after_or_equal:opens_at'],
             'application_fee_amount' => ['required', 'numeric', 'min:0'],
+            'acceptance_fee_amount' => ['required', 'numeric', 'min:0'],
         ]);
 
         AdmissionWindow::create($data + ['is_active' => true]);

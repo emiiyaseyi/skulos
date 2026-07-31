@@ -316,17 +316,18 @@
     // custom application form builder — but never mapped here, so a
     // school with the module enabled saw nothing in nav at all, despite
     // the automatic-appear mechanism itself already working correctly for
-    // every other feature. 'applicant_tracking' points at fee review for
-    // now, the closest real "watch applicants move through the process"
-    // screen that exists yet; repoint it to the dedicated pipeline board
-    // once that lands (Phase 1g), same as school_profile's own repoint
-    // above once its real screen existed. 'admission_letters'/
-    // 'online_document_upload' stay unmapped (render as "Soon") until
-    // offer-letter generation and document upload/approval (Phase 1f)
-    // are actually built.
+    // every other feature. 'applicant_tracking' now points at the real
+    // pipeline board (Phase 1g, repointed from Fee Review the moment this
+    // landed, same as school_profile's own repoint above once its real
+    // screen existed) — Fee Review stays reachable from there (a link on
+    // the board and the enrollment screen) rather than a second top-level
+    // nav entry, only 5 catalog keys exist for admissions and 4 real
+    // screens now fill them. 'admission_letters'/'online_document_upload'
+    // stay unmapped (render as "Soon") until offer-letter generation and
+    // document upload/approval (Phase 1f) are actually built.
     'online_admissions' => ['school.admissions.settings.edit', 'Admissions Settings', 'settings'],
     'admission_workflow' => ['school.admissions.form-builder.index', 'Admission Form Builder', 'builder'],
-    'applicant_tracking' => ['school.admissions.fees.index', 'Application Fee Review', 'billing'],
+    'applicant_tracking' => ['school.admissions.pipeline', 'Applicants', 'students'],
   ];
 
   // The report card browse/review page lives under Academic in the plan

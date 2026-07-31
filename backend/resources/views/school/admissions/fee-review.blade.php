@@ -5,7 +5,7 @@
 <div class="page-head">
   <div>
     <h1 class="title">Admission Fee Review</h1>
-    <p class="subtitle">Confirm or reject an applicant's uploaded application fee evidence. Confirming issues their sign in details.</p>
+    <p class="subtitle">Confirm or reject an applicant's uploaded fee evidence. Confirming an application fee issues sign in details; confirming an acceptance fee readies the applicant for enrollment.</p>
   </div>
 </div>
 
@@ -22,11 +22,12 @@
   @else
     <div style="overflow-x:auto">
     <table class="table-stack">
-      <thead><tr><th>Applicant</th><th>Reference</th><th>Amount</th><th>Evidence</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>Applicant</th><th>Fee</th><th>Reference</th><th>Amount</th><th>Evidence</th><th>Status</th><th></th></tr></thead>
       <tbody>
         @foreach($payments as $payment)
           <tr>
             <td data-label="Applicant"><strong>{{ $payment->applicant?->name }}</strong><div class="muted">{{ $payment->applicant?->phone }}</div></td>
+            <td class="muted" data-label="Fee">{{ $payment->fee_type === 'acceptance' ? 'Acceptance' : 'Application' }}</td>
             <td class="muted" data-label="Reference">{{ $payment->reference ?: 'Not given' }}</td>
             <td class="muted" data-label="Amount">&#8358;{{ number_format($payment->amount, 2) }}</td>
             <td data-label="Evidence">

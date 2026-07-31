@@ -828,7 +828,11 @@ class PlanFeatureNavTest extends TestCase
             ->assertOk()
             ->assertSee('Admissions Settings')
             ->assertSee('Admission Form Builder')
-            ->assertSee('Application Fee Review')
+            // Repointed from "Application Fee Review" to the real
+            // pipeline board once Phase 1g built it (Fee Review stays
+            // reachable from there instead of its own top-level nav
+            // entry, same as the school_profile repoint precedent).
+            ->assertSee('Applicants')
             // The module-toggle fallback only ever rescues a feature key
             // with a REAL screen built (the three above); it must not
             // resurrect every other marketing catalog key in the same

@@ -109,6 +109,7 @@ class AdmissionSettingsTest extends TestCase
             'session_id' => $session->id,
             'school_class_id' => $class->id,
             'application_fee_amount' => 5000,
+            'acceptance_fee_amount' => 20000,
         ])->assertRedirect();
 
         app(TenantManager::class)->use($school);

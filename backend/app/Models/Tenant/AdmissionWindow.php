@@ -17,7 +17,8 @@ class AdmissionWindow extends Model
     protected $connection = 'tenant';
 
     protected $fillable = [
-        'session_id', 'school_class_id', 'campus_id', 'opens_at', 'closes_at', 'application_fee_amount', 'is_active',
+        'session_id', 'school_class_id', 'campus_id', 'opens_at', 'closes_at',
+        'application_fee_amount', 'acceptance_fee_amount', 'is_active',
     ];
 
     protected function casts(): array
@@ -26,6 +27,7 @@ class AdmissionWindow extends Model
             'opens_at' => 'datetime',
             'closes_at' => 'datetime',
             'application_fee_amount' => 'decimal:2',
+            'acceptance_fee_amount' => 'decimal:2',
             'is_active' => 'boolean',
         ];
     }

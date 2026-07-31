@@ -47,8 +47,11 @@ class AdmissionFeeReviewController extends Controller
         $this->authorizeAction($request, 'admissions.decide');
         $school = $this->school($request);
 
+        // Both fee types share one review queue (application fees, paid
+        // at registration, and acceptance fees, paid once an offer is
+        // made, Phase 1g) — the review action itself is identical either
+        // way, only what verifying triggers afterward differs.
         $payments = AdmissionPayment::with('applicant')
-            ->where('fee_type', AdmissionPayment::TYPE_APPLICATION)
             ->orderByRaw("status = 'pending' desc")
             ->orderByDesc('created_at')
             ->paginate(30)
@@ -101,9 +104,17 @@ class AdmissionFeeReviewController extends Controller
             return back()->with('error', 'This payment has already been processed.');
         }
 
+        $feeLabel = $payment->fee_type === AdmissionPayment::TYPE_ACCEPTANCE ? 'Acceptance fee' : 'Application fee';
         $verb = $status === AdmissionPayment::STATUS_VERIFIED ? 'verified' : 'rejected';
 
-        if ($status === AdmissionPayment::STATUS_VERIFIED) {
+        // Credentials are only ever issued once, off the FIRST (application)
+        // fee — an acceptance fee (Phase 1g) verifies against an applicant
+        // who is already signed in and mid-pipeline; re-issuing here would
+        // silently invalidate their existing password for no reason.
+        // Acceptance-fee-verified enrollment itself is a separate, deliberate
+        // admin action (AdmissionPipelineController::convert()), not an
+        // automatic side effect of this evidence check.
+        if ($status === AdmissionPayment::STATUS_VERIFIED && $payment->fee_type === AdmissionPayment::TYPE_APPLICATION) {
             $applicant = $payment->applicant;
             $password = $applicant->issueCredentials();
             $applicant->advanceStage();
@@ -122,6 +133,6 @@ class AdmissionFeeReviewController extends Controller
             return back()->with('status', "Application fee verified. No email on file — share this password with {$applicant->name} directly, it will not be shown again: {$password}");
         }
 
-        return back()->with('status', "Application fee marked as {$verb}.");
+        return back()->with('status', "{$feeLabel} marked as {$verb}.");
     }
 }

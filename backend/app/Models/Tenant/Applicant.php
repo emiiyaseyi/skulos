@@ -26,6 +26,16 @@ class Applicant extends Authenticatable
 
     public const STATUS_ARCHIVED = 'archived';
 
+    // Decision state (Phase 1g), a separate state machine from
+    // account_status above — see the migration that added these columns.
+    public const DECISION_OFFERED = 'offered';
+
+    public const DECISION_REJECTED = 'rejected';
+
+    public const DECISION_WAITLISTED = 'waitlisted';
+
+    public const DECISION_CONVERTED = 'converted';
+
     protected $connection = 'tenant';
 
     protected $fillable = [
@@ -57,6 +67,11 @@ class Applicant extends Authenticatable
     public function schoolClass(): BelongsTo
     {
         return $this->belongsTo(SchoolClass::class);
+    }
+
+    public function convertedStudent(): BelongsTo
+    {
+        return $this->belongsTo(Student::class, 'converted_student_id');
     }
 
     public function isActive(): bool
