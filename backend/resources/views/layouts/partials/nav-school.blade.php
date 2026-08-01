@@ -578,6 +578,7 @@
     $groups['Learning Management'][] = $link('school.cbt.take.available', 'Take Assessments', 'quiz');
   }
   if ($navRbac->check($navUser, $school, 'assessment_hub.create')) {
+    $groups['Learning Management'][] = $link('school.cbt.console.index', 'Admin Backend', 'sliders');
     $groups['Learning Management'][] = $link('school.cbt.assessments.index', 'Assessments', 'quiz');
     $groups['Learning Management'][] = $link('school.cbt.questions.index', 'Question Bank', 'quiz');
     $groups['Learning Management'][] = $link('school.cbt.security-profiles.index', 'Security Profiles', 'sliders');

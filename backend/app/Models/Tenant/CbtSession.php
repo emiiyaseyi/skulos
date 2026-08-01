@@ -24,6 +24,13 @@ class CbtSession extends Model
 
     public const STATUS_GRADED = 'graded';
 
+    /**
+     * Stopped by an invigilator (or the auto-suspend risk threshold)
+     * rather than finished by the taker — has no score, and can be
+     * reinstated back to in_progress from the Admin Backend console.
+     */
+    public const STATUS_SUSPENDED = 'suspended';
+
     protected $connection = 'tenant';
 
     protected $fillable = [
@@ -46,7 +53,21 @@ class CbtSession extends Model
             'break_requested' => 'boolean',
             'break_started_at' => 'datetime',
             'break_ends_at' => 'datetime',
+            'suspended_at' => 'datetime',
+            'last_seen_at' => 'datetime',
         ];
+    }
+
+    /** True while the taker's own assessment has been paused wholesale by staff. */
+    public function isPaused(): bool
+    {
+        return $this->assessment?->paused_at !== null;
+    }
+
+    /** Live-monitor presence: a taker whose browser has not checked in for 2 minutes reads as offline. */
+    public function isOnline(): bool
+    {
+        return $this->last_seen_at !== null && $this->last_seen_at->gt(now()->subMinutes(2));
     }
 
     /** True from the moment a break is approved until its own break_ends_at passes. */

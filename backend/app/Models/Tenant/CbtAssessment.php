@@ -39,6 +39,7 @@ class CbtAssessment extends Model
     protected $fillable = [
         'title', 'subject_id', 'term_id', 'instructions', 'duration_minutes', 'security_profile_id',
         'audience', 'requires_double_grading', 'is_active',
+        'brand_color', 'brand_name', 'results_released',
     ];
 
     protected function casts(): array
@@ -47,7 +48,30 @@ class CbtAssessment extends Model
             'duration_minutes' => 'integer',
             'requires_double_grading' => 'boolean',
             'is_active' => 'boolean',
+            'paused_at' => 'datetime',
+            'results_released' => 'boolean',
         ];
+    }
+
+    public function sessions(): HasMany
+    {
+        return $this->hasMany(CbtSession::class, 'assessment_id');
+    }
+
+    public function isPaused(): bool
+    {
+        return $this->paused_at !== null;
+    }
+
+    /** The colour the take screen actually uses — this assessment's own override, else the school's. */
+    public function brandColor(?string $schoolColor): ?string
+    {
+        return $this->brand_color ?: $schoolColor;
+    }
+
+    public function displayName(): string
+    {
+        return $this->brand_name ?: $this->title;
     }
 
     public function subject(): BelongsTo
@@ -85,6 +109,31 @@ class CbtAssessment extends Model
     public function takers(): HasMany
     {
         return $this->hasMany(CbtAssessmentTaker::class, 'assessment_id');
+    }
+
+    public function proctors(): HasMany
+    {
+        return $this->hasMany(CbtProctor::class, 'assessment_id');
+    }
+
+    public function graders(): HasMany
+    {
+        return $this->hasMany(CbtGrader::class, 'assessment_id');
+    }
+
+    public function gradingConfig(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(CbtGradingConfig::class, 'assessment_id');
+    }
+
+    public function pools(): HasMany
+    {
+        return $this->hasMany(CbtQuestionPool::class, 'assessment_id')->orderBy('sequence');
+    }
+
+    public function schedules(): HasMany
+    {
+        return $this->hasMany(CbtSchedule::class, 'assessment_id');
     }
 
     /**

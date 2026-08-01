@@ -605,6 +605,22 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/{approvalId}/face-image', [$faceApprovals, 'faceImage'])->name('face-image');
         });
 
+        // Assessment Hub: the Admin Backend console — one screen, ten
+        // tabs, covering every assessment in the school (the reference
+        // repo's own siteadmin.php).
+        Route::prefix('assessment/console')->name('school.cbt.console.')->group(function () {
+            $console = \App\Http\Controllers\School\CbtAdminConsoleController::class;
+            Route::get('/', [$console, 'index'])->name('index');
+            Route::post('/sessions/{sessionId}/suspend', [$console, 'suspend'])->name('suspend');
+            Route::post('/sessions/{sessionId}/reinstate', [$console, 'reinstate'])->name('reinstate');
+            Route::post('/sessions/{sessionId}/force-submit', [$console, 'forceSubmit'])->name('force-submit');
+            Route::post('/assessments/{assessmentId}/pause', [$console, 'pause'])->name('pause');
+            Route::post('/assessments/{assessmentId}/release-results', [$console, 'releaseResults'])->name('release-results');
+            Route::post('/assessments/{assessmentId}/branding', [$console, 'updateBranding'])->name('branding');
+            Route::post('/media/delete', [$console, 'deleteMedia'])->name('media.delete');
+            Route::get('/media/{snapshotId}', [$console, 'snapshotImage'])->name('media.image');
+        });
+
         // SKULOS Assessment Hub, Phase 2g: the live monitor + incidents.
         Route::prefix('assessment/live-monitor')->name('school.cbt.live-monitor.')->group(function () {
             $liveMonitor = \App\Http\Controllers\School\CbtLiveMonitorController::class;
