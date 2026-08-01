@@ -145,11 +145,18 @@
       <p class="muted">Your enrollment is complete! Check your email/phone for your new student portal sign in details.</p>
     </div>
   @else
-    <div class="card">
+    <div class="card" style="margin-bottom:1rem">
       <h3 style="margin-bottom:.6rem">Application form</h3>
       <p class="muted" style="margin-bottom:.8rem">Complete the school's application form with your details.</p>
       <a class="btn btn-primary btn-sm" href="{{ route('school.admissions.form', ['school' => $school->slug]) }}">Continue application form</a>
     </div>
+    @if($assessmentCount > 0)
+      <div class="card">
+        <h3 style="margin-bottom:.6rem">Admission assessment</h3>
+        <p class="muted" style="margin-bottom:.8rem">{{ $assessmentCount === 1 ? 'An assessment is' : $assessmentCount.' assessments are' }} ready for you to take, timed once you start.</p>
+        <a class="btn btn-primary btn-sm" href="{{ route('school.admissions.assessment.available', ['school' => $school->slug]) }}">Go to assessment</a>
+      </div>
+    @endif
   @endif
 </div>
 @endsection

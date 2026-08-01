@@ -61,7 +61,7 @@ class CbtAssessment extends Model
 
     protected $fillable = [
         'title', 'subject_id', 'term_id', 'instructions', 'duration_minutes', 'security_profile_id',
-        'audience', 'requires_double_grading', 'is_active',
+        'audience', 'applicant_school_class_id', 'requires_double_grading', 'is_active',
         'brand_color', 'brand_name', 'results_released',
         // Access and grading policy. These MUST be listed: the
         // controller validates them and passes them to create()/
@@ -129,6 +129,12 @@ class CbtAssessment extends Model
     public function securityProfile(): BelongsTo
     {
         return $this->belongsTo(CbtSecurityProfile::class);
+    }
+
+    /** The applicant-audience equivalent of classArms() — see the adding migration's own docblock for why Applicant needs a different targeting shape entirely. */
+    public function applicantSchoolClass(): BelongsTo
+    {
+        return $this->belongsTo(SchoolClass::class, 'applicant_school_class_id');
     }
 
     public function assessmentQuestions(): HasMany
@@ -205,9 +211,29 @@ class CbtAssessment extends Model
 
     public function isEligible(\Illuminate\Database\Eloquent\Model $taker): bool
     {
+        // The applicant-audience equivalent of the class-arm/takers gate
+        // below: an Applicant isn't enrolled in anything pre-admission,
+        // only applied for one SchoolClass, so this is checked first
+        // and independently, never falling through to the User-shaped
+        // logic that follows.
+        if ($taker instanceof Applicant) {
+            return $this->applicant_school_class_id === null
+                || $this->applicant_school_class_id === $taker->school_class_id;
+        }
+
         if ($this->classArms()->exists() || $this->takers()->exists()) {
-            return in_array($taker->getKey(), $this->eligibleTakerIds(), true)
-                || $this->takers()->where('takeable_type', $taker::class)->where('takeable_id', $taker->getKey())->exists();
+            // eligibleTakerIds() is a School\User id list (class-arm
+            // enrolment has no meaning for an Applicant, who isn't
+            // enrolled in anything yet) — checked ONLY for a real User,
+            // never for another takeable type, since a bare numeric id
+            // match across two unrelated model spaces (e.g. Applicant
+            // #5 vs a User #5 who happens to be arm-eligible) would
+            // otherwise be a real false positive.
+            if ($taker instanceof \App\Models\User && in_array($taker->getKey(), $this->eligibleTakerIds(), true)) {
+                return true;
+            }
+
+            return $this->takers()->where('takeable_type', $taker::class)->where('takeable_id', $taker->getKey())->exists();
         }
 
         // No arms and no explicit takers attached at all: falls open to

@@ -106,7 +106,16 @@ class CbtAssessmentHubController extends Controller
                     'Suspended' => CbtSession::whereIn('id', $sessionIds)->where('status', CbtSession::STATUS_SUSPENDED)->count(),
                     'High risk' => CbtSession::whereIn('id', $sessionIds)->where('risk_level', 'high')->count(),
                 ],
-                'eligibleCount' => count($assessment->eligibleTakerIds()),
+                // eligibleTakerIds() only ever counts School\User takers
+                // (class arms / explicit assignment) — meaningless for
+                // an applicant-audience assessment, which is scoped by
+                // applicant_school_class_id instead (see CbtAssessment::
+                // isEligible()'s own applicant branch).
+                'eligibleCount' => $assessment->audience === CbtAssessment::AUDIENCE_APPLICANT
+                    ? ($assessment->applicant_school_class_id
+                        ? \App\Models\Tenant\Applicant::where('school_class_id', $assessment->applicant_school_class_id)->count()
+                        : 0)
+                    : count($assessment->eligibleTakerIds()),
                 'averageScore' => CbtSession::whereIn('id', $sessionIds)->whereNotNull('total_score')->avg('total_score'),
             ],
             'attempts' => [

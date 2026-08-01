@@ -56,6 +56,17 @@ class ApplicantDashboardController extends Controller
                 ->first();
         }
 
+        // SKULOS Assessment Hub: whether this applicant has any real
+        // Admission Assessment to take right now — kept a plain count,
+        // not the full list, since the dashboard only ever needs to
+        // decide whether to show a link to the dedicated assessment
+        // list (AdmissionAssessmentController::available()), not render
+        // one here itself.
+        $assessmentCount = \App\Models\Tenant\CbtAssessment::where('audience', \App\Models\Tenant\CbtAssessment::AUDIENCE_APPLICANT)
+            ->where('is_active', true)->get()
+            ->filter(fn ($assessment) => $assessment->isEligible($applicant))
+            ->count();
+
         return view('admissions.dashboard', [
             'school' => $school,
             'accent' => $school?->branding()['color'] ?? null,
@@ -66,6 +77,7 @@ class ApplicantDashboardController extends Controller
             'applicationPayment' => $applicationPayment,
             'applicationWindow' => $applicationWindow,
             'bankAccounts' => \App\Models\Tenant\BankAccount::active()->orderBy('sort_order')->get(),
+            'assessmentCount' => $assessmentCount,
         ]);
     }
 

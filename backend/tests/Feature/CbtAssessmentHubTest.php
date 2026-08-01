@@ -207,4 +207,59 @@ class CbtAssessmentHubTest extends TestCase
         $this->assertTrue($fresh->isOnBreak());
         app(TenantManager::class)->forget();
     }
+
+    /**
+     * eligibleTakerIds() (the general case above's own eligible-count
+     * source) only ever counts School\User takers — meaningless for an
+     * applicant-audience assessment, which is scoped by
+     * applicant_school_class_id instead. The overview tab should show
+     * the real count of applicants in that class, not 0/everyone.
+     */
+    public function test_the_overview_tab_counts_eligible_applicants_for_an_applicant_audience_assessment(): void
+    {
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'hubapplicant']));
+        $this->rbac->setModuleState($school, 'assessment_hub', \App\Models\Module::STATE_ENABLED);
+        $owner = User::factory()->create();
+        $ownerRole = $this->rbac->cloneTemplateRole($school, 'school-owner');
+        $school->users()->attach($owner->id, ['role_id' => $ownerRole->id, 'status' => 'active']);
+
+        app(TenantManager::class)->use($school);
+        CbtSecurityProfile::ensureSeeded();
+        $basic = CbtSecurityProfile::where('name', 'Basic')->first();
+        $section = \App\Models\Tenant\Section::create(['name' => 'Secondary', 'sequence' => 1]);
+        $jss1 = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS1', 'sequence' => 1]);
+        $jss2 = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS2', 'sequence' => 2]);
+        $academicSession = \App\Models\Tenant\AcademicSession::create(['name' => '2026/2027', 'is_current' => true]);
+
+        foreach (['Ada', 'Bola', 'Chidi'] as $i => $name) {
+            \App\Models\Tenant\Applicant::forceCreate([
+                'name' => $name, 'phone' => '0801111000'.$i, 'admission_number' => 'APP/000'.$i,
+                'session_id' => $academicSession->id, 'school_class_id' => $jss1->id,
+                'account_status' => \App\Models\Tenant\Applicant::STATUS_ACTIVE, 'expires_at' => now()->addDays(30),
+            ]);
+        }
+        \App\Models\Tenant\Applicant::forceCreate([
+            'name' => 'Not JSS1', 'phone' => '08019999999', 'admission_number' => 'APP/0099',
+            'session_id' => $academicSession->id, 'school_class_id' => $jss2->id,
+            'account_status' => \App\Models\Tenant\Applicant::STATUS_ACTIVE, 'expires_at' => now()->addDays(30),
+        ]);
+
+        $assessment = CbtAssessment::create([
+            'title' => 'JSS1 Entrance', 'duration_minutes' => 60, 'security_profile_id' => $basic->id,
+            'audience' => CbtAssessment::AUDIENCE_APPLICANT, 'applicant_school_class_id' => $jss1->id,
+        ]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)
+            ->get(route('school.cbt.hub.index', ['school' => $school->slug, 'assessmentId' => $assessment->id]))
+            ->assertOk();
+
+        // Only the 3 JSS1 applicants count, not the JSS2 one — matched
+        // against the exact table row the view renders, not a bare "3"
+        // that could coincidentally appear anywhere else on the page.
+        $this->assertMatchesRegularExpression(
+            '/Eligible takers<\/td>\s*<td>\s*3\s*<\/td>/',
+            $response->getContent()
+        );
+    }
 }

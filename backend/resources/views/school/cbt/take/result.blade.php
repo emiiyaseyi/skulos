@@ -1,5 +1,11 @@
-@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => $session->assessment->title])
+@extends('layouts.app', ['portal' => $portal ?? 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => $session->assessment->title])
 @section('title', $session->assessment->title)
+{{-- The admissions portal has no nav-admissions partial at all — every
+     applicant-facing view goes bare (see admissions/dashboard.blade.php
+     and its siblings), unlike the school portal's own chrome. --}}
+@if(($portal ?? 'school') === 'admissions')
+  @section('bare', true)
+@endif
 
 @section('content')
 <div class="page-head">
@@ -15,7 +21,7 @@
       @endif
     </p>
   </div>
-  <a class="btn btn-ghost btn-sm" href="{{ route('school.cbt.take.available', ['school' => $school->slug]) }}">All assessments</a>
+  <a class="btn btn-ghost btn-sm" href="{{ $routes['available'] }}">All assessments</a>
 </div>
 
 @if($resultsVisible && $passed !== null)

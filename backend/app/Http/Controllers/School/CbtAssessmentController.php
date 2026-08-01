@@ -81,7 +81,13 @@ class CbtAssessmentController extends Controller
             'instructions' => ['nullable', 'string', 'max:2000'],
             'duration_minutes' => ['required', 'integer', 'min:1', 'max:600'],
             'security_profile_id' => ['required', 'exists:tenant.cbt_security_profiles,id'],
-            'audience' => ['required', Rule::in([CbtAssessment::AUDIENCE_STUDENT, CbtAssessment::AUDIENCE_STAFF])],
+            'audience' => ['required', Rule::in([
+                CbtAssessment::AUDIENCE_STUDENT, CbtAssessment::AUDIENCE_STAFF, CbtAssessment::AUDIENCE_APPLICANT,
+            ])],
+            // Only meaningful for audience=applicant — an Applicant
+            // isn't enrolled in a class arm, so this is the applicant-
+            // audience equivalent of class_arm_ids below.
+            'applicant_school_class_id' => ['nullable', 'exists:tenant.school_classes,id'],
             'requires_double_grading' => ['sometimes', 'boolean'],
 
             // Access and grading policy.
@@ -184,6 +190,7 @@ class CbtAssessmentController extends Controller
             'subjects' => Subject::orderBy('name')->get(),
             'terms' => Term::orderBy('id')->get(),
             'classArms' => ClassArm::with(['schoolClass', 'arm'])->get(),
+            'schoolClasses' => \App\Models\Tenant\SchoolClass::orderBy('sequence')->get(),
             'categories' => \App\Models\Tenant\CbtQuestionCategory::withCount(['questions' => fn ($q) => $q->where('is_active', true)])
                 ->orderBy('sort_order')->orderBy('name')->get(),
             'bankQuestions' => CbtQuestion::where('is_active', true)

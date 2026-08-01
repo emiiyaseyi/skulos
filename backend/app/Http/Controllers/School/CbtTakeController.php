@@ -46,7 +46,7 @@ class CbtTakeController extends Controller
         );
     }
 
-    public function available(Request $request): \Illuminate\View\View
+    public function available(Request $request, AssessmentAvailabilityService $availability): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'assessment_hub.view');
         $school = $this->school($request);
@@ -60,11 +60,24 @@ class CbtTakeController extends Controller
         $sessions = CbtSession::where('takeable_type', $taker::class)->where('takeable_id', $taker->id)
             ->get()->keyBy('assessment_id');
 
+        // The row shape (assessment/session/urls/scoreVisible) is
+        // shared with AdmissionAssessmentController's own available(),
+        // so this same view renders for both a school taker and an
+        // applicant — see that controller's own docblock.
+        $rows = $assessments->map(fn (CbtAssessment $assessment) => [
+            'assessment' => $assessment,
+            'session' => $session = $sessions->get($assessment->id),
+            'startUrl' => route('school.cbt.precheck.start', ['school' => $school->slug, 'assessmentId' => $assessment->id]),
+            'resumeUrl' => $session ? route('school.cbt.take.session', ['school' => $school->slug, 'sessionId' => $session->id]) : null,
+            'resultUrl' => $session ? route('school.cbt.take.result', ['school' => $school->slug, 'sessionId' => $session->id]) : null,
+            'scoreVisible' => $session ? $availability->resultsVisible($assessment, $session) : false,
+        ]);
+
         return view('school.cbt.take.available', [
             'school' => $school,
             'accent' => $school->branding()['color'] ?? null,
-            'assessments' => $assessments,
-            'sessions' => $sessions,
+            'portal' => 'school',
+            'rows' => $rows,
         ]);
     }
 
@@ -126,6 +139,20 @@ class CbtTakeController extends Controller
         return view('school.cbt.take.session', [
             'school' => $school,
             'accent' => $school->branding()['color'] ?? null,
+            'portal' => 'school',
+            // Explicit URLs, not route names, so this same view (and
+            // its _exam-scripts partial, which inherits this scope
+            // automatically via Blade's @include) renders identically
+            // whether a School\User reached it through this school-
+            // portal controller, or an Applicant reached it through
+            // AdmissionAssessmentController's own parallel routes.
+            'routes' => [
+                'answer' => route('school.cbt.take.answer', ['school' => $school->slug, 'sessionId' => $session->id]),
+                'submit' => route('school.cbt.take.submit', ['school' => $school->slug, 'sessionId' => $session->id]),
+                'event' => route('school.cbt.take.event', ['school' => $school->slug, 'sessionId' => $session->id]),
+                'break' => route('school.cbt.take.break-request', ['school' => $school->slug, 'sessionId' => $session->id]),
+                'available' => route('school.cbt.take.available', ['school' => $school->slug]),
+            ],
             'session' => $session,
             'assessment' => $session->assessment,
             'existingAnswers' => $existingAnswers,
@@ -252,6 +279,8 @@ class CbtTakeController extends Controller
         return view('school.cbt.take.result', [
             'school' => $school,
             'accent' => $school->branding()['color'] ?? null,
+            'portal' => 'school',
+            'routes' => ['available' => route('school.cbt.take.available', ['school' => $school->slug])],
             'session' => $session,
             'resultsVisible' => $resultsVisible,
             'passed' => $passed,

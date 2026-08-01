@@ -1,4 +1,4 @@
-@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => $assessment->displayName()])
+@extends('layouts.app', ['portal' => $portal ?? 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => $assessment->displayName()])
 @section('title', $assessment->displayName())
 @section('bare', true)
 
@@ -220,8 +220,7 @@
     </div>
   </div>
 
-  <form id="cbtSubmitForm" method="POST"
-        action="{{ route('school.cbt.take.submit', ['school' => $school->slug, 'sessionId' => $session->id]) }}">
+  <form id="cbtSubmitForm" method="POST" action="{{ $routes['submit'] }}">
     @csrf
   </form>
 </div>

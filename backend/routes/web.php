@@ -321,6 +321,25 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             $documents = \App\Http\Controllers\Admissions\DocumentUploadController::class;
             Route::get('/documents', [$documents, 'show'])->name('documents');
             Route::post('/documents', [$documents, 'store'])->name('documents.save');
+
+            // SKULOS Assessment Hub: an "Admission Assessment"
+            // (CbtAssessment::AUDIENCE_APPLICANT) — a real timed CBT
+            // session for an Applicant, reusing the exact same engine
+            // and views a school/staff assessment uses. See
+            // AdmissionAssessmentController's own docblock for why this
+            // is a separate controller rather than a guard-parametrized
+            // CbtTakeController.
+            Route::prefix('assessment')->name('assessment.')->group(function () {
+                $assessment = \App\Http\Controllers\Admissions\AdmissionAssessmentController::class;
+                Route::get('/', [$assessment, 'available'])->name('available');
+                Route::post('/{assessmentId}/start', [$assessment, 'start'])->name('start');
+                Route::get('/session/{sessionId}', [$assessment, 'take'])->name('session');
+                Route::post('/session/{sessionId}/answer', [$assessment, 'saveAnswer'])->name('answer');
+                Route::post('/session/{sessionId}/event', [$assessment, 'reportEvent'])->name('event');
+                Route::post('/session/{sessionId}/break', [$assessment, 'requestBreak'])->name('break-request');
+                Route::post('/session/{sessionId}/submit', [$assessment, 'submit'])->name('submit');
+                Route::get('/session/{sessionId}/result', [$assessment, 'result'])->name('result');
+            });
         });
 
         // Public "Seek Admission" entry point, Phase 1c: no auth needed

@@ -75,16 +75,33 @@
       <div class="field">
         <label for="audience">Who takes this</label>
         <select id="audience" name="audience" required>
-          <option value="student" @selected($assessment->audience === 'student')>Students</option>
-          <option value="staff" @selected($assessment->audience === 'staff')>Staff</option>
+          <option value="student" @selected($assessment->audience === 'student')>Students (class assessment)</option>
+          <option value="staff" @selected($assessment->audience === 'staff')>Staff (teacher assessment)</option>
+          <option value="applicant" @selected($assessment->audience === 'applicant')>Applicants (admission assessment)</option>
         </select>
+        @if($assessment->audience === 'applicant')
+          <p class="muted" style="font-size:.78rem;margin-top:.3rem">Taken from an applicant's own Admissions dashboard, not this school portal. Class arm targeting below does not apply.</p>
+        @endif
       </div>
+      @if($assessment->audience === 'applicant')
+        <div class="field">
+          <label for="applicant_school_class_id">Applying to class</label>
+          <select id="applicant_school_class_id" name="applicant_school_class_id">
+            <option value="">Every applicant, any class</option>
+            @foreach($schoolClasses as $schoolClass)
+              <option value="{{ $schoolClass->id }}" @selected($assessment->applicant_school_class_id === $schoolClass->id)>{{ $schoolClass->name }}</option>
+            @endforeach
+          </select>
+          <p class="muted" style="font-size:.78rem;margin-top:.3rem">Only applicants who applied for this class see it, e.g. a JSS1 admission assessment offered only to JSS1 applicants.</p>
+        </div>
+      @endif
     </div>
     <div class="field">
       <label for="instructions">Instructions (optional)</label>
       <textarea id="instructions" name="instructions" rows="2">{{ $assessment->instructions }}</textarea>
     </div>
 
+    @if($assessment->audience !== 'applicant')
     <div class="field">
       <label>Class arms who may attempt this (optional)</label>
       <p class="muted" style="font-size:.8rem;margin-bottom:.4rem">Leave every box unticked to offer this to the whole {{ $assessment->audience }} audience, matching the default behaviour. Tick specific arms to restrict it to those classes' own enrolled students — combined with anyone individually assigned via Bulk Assignment.</p>
@@ -97,6 +114,7 @@
         @endforeach
       </div>
     </div>
+    @endif
 
     <h4 style="margin:1rem 0 .5rem">Access and grading</h4>
     <div class="grid cols-2" style="gap:.75rem">

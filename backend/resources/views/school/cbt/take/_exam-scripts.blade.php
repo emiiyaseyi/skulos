@@ -8,7 +8,7 @@
 <script>
 (function () {
   var sessionId = {{ $session->id }};
-  var saveUrl = '{{ route('school.cbt.take.answer', ['school' => $school->slug, 'sessionId' => $session->id]) }}';
+  var saveUrl = '{{ $routes['answer'] }}';
   var csrfToken = document.querySelector('meta[name="csrf-token"]').content;
   var submitted = false;
 
@@ -297,7 +297,7 @@
     breakBtn.addEventListener('click', function () {
       var reason = prompt('Briefly tell your invigilator why you need a break:');
       if (!reason) return;
-      fetch('{{ route('school.cbt.take.break-request', ['school' => $school->slug, 'sessionId' => $session->id]) }}', {
+      fetch('{{ $routes['break'] }}', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, Accept: 'application/json' },
         body: JSON.stringify({ reason: reason }),
@@ -400,7 +400,7 @@
   //    already false in light mode — see AssessmentMode — so this
   //    whole block naturally no-ops until a school switches it on). ─
   var profile = @json($profileForJs);
-  var eventUrl = '{{ route('school.cbt.take.event', ['school' => $school->slug, 'sessionId' => $session->id]) }}';
+  var eventUrl = '{{ $routes['event'] }}';
 
   function reportEvent(type, meta, snapshot) {
     fetch(eventUrl, {
