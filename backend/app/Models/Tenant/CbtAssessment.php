@@ -40,6 +40,15 @@ class CbtAssessment extends Model
         'title', 'subject_id', 'term_id', 'instructions', 'duration_minutes', 'security_profile_id',
         'audience', 'requires_double_grading', 'is_active',
         'brand_color', 'brand_name', 'results_released',
+        // Access and grading policy. These MUST be listed: the
+        // controller validates them and passes them to create()/
+        // update(), so leaving them out does not protect anything, it
+        // just silently drops the admin's saved settings — which is
+        // exactly what happened before this line existed, letting a
+        // configured attempt limit be ignored.
+        'max_attempts', 'grade_method', 'pass_mark', 'questions_per_page', 'shuffle_questions',
+        'randomize', 'num_questions', 'opens_at', 'closes_at', 'access_pin',
+        'results_mode', 'results_delay_days',
     ];
 
     protected function casts(): array
@@ -50,6 +59,15 @@ class CbtAssessment extends Model
             'is_active' => 'boolean',
             'paused_at' => 'datetime',
             'results_released' => 'boolean',
+            'max_attempts' => 'integer',
+            'pass_mark' => 'decimal:2',
+            'questions_per_page' => 'integer',
+            'shuffle_questions' => 'boolean',
+            'randomize' => 'boolean',
+            'num_questions' => 'integer',
+            'opens_at' => 'datetime',
+            'closes_at' => 'datetime',
+            'results_delay_days' => 'integer',
         ];
     }
 

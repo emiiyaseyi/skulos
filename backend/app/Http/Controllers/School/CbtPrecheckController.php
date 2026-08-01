@@ -47,18 +47,31 @@ class CbtPrecheckController extends Controller
         return $role?->slug === 'student' ? CbtAssessment::AUDIENCE_STUDENT : CbtAssessment::AUDIENCE_STAFF;
     }
 
-    public function start(Request $request, PrecheckWizardService $wizard): \Illuminate\Http\RedirectResponse
+    public function start(Request $request, PrecheckWizardService $wizard, \App\Services\Cbt\AssessmentAvailabilityService $availability, \App\Services\Cbt\CbtSessionService $sessions): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request);
         $school = $this->school($request);
-        $assessment = CbtAssessment::where('is_active', true)->where('audience', $this->audienceFor($request))->findOrFail($request->route('assessmentId'));
-        abort_unless($assessment->isEligible(Auth::user()), 403, 'You are not eligible to take this assessment.');
+        $assessment = CbtAssessment::where('audience', $this->audienceFor($request))->findOrFail($request->route('assessmentId'));
 
-        $alreadyAttempted = CbtSession::where('assessment_id', $assessment->id)
-            ->where('takeable_type', Auth::user()::class)->where('takeable_id', Auth::id())
-            ->whereIn('status', [CbtSession::STATUS_SUBMITTED, CbtSession::STATUS_AUTO_SUBMITTED, CbtSession::STATUS_GRADED])
-            ->exists();
-        abort_if($alreadyAttempted, 422, 'You have already completed this assessment.');
+        // One question, one place — see CbtTakeController::start().
+        $reason = $availability->unavailableReason($assessment, Auth::user());
+        abort_if($reason !== null, 422, $reason);
+
+        if ($assessment->access_pin) {
+            abort_unless(
+                $availability->pinAccepted($assessment, $request->input('access_pin')),
+                422,
+                'That access PIN is not correct.'
+            );
+        }
+
+        // A taker with an access arrangement to skip the wizard goes
+        // straight into the timed attempt.
+        if ($availability->shouldSkipPrecheck($assessment, Auth::user())) {
+            $session = $sessions->start(Auth::user(), $assessment, $request->ip(), $request->userAgent());
+
+            return redirect()->route('school.cbt.take.session', ['school' => $school->slug, 'sessionId' => $session->id]);
+        }
 
         $precheck = $wizard->start(Auth::user(), $assessment);
 

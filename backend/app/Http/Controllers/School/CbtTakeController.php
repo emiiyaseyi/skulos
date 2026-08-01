@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\School;
 use App\Models\Tenant\CbtAssessment;
 use App\Models\Tenant\CbtSession;
+use App\Services\Cbt\AssessmentAvailabilityService;
 use App\Services\Cbt\BreakRequestService;
 use App\Services\Cbt\CbtSessionService;
 use App\Services\Cbt\CbtSnapshotService;
@@ -67,18 +68,32 @@ class CbtTakeController extends Controller
         ]);
     }
 
-    public function start(Request $request, CbtSessionService $sessions): \Illuminate\Http\RedirectResponse
+    public function start(Request $request, CbtSessionService $sessions, AssessmentAvailabilityService $availability): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'assessment_hub.view');
         $school = $this->school($request);
-        $assessment = CbtAssessment::where('is_active', true)->where('audience', $this->audienceFor($request))->findOrFail($request->route('assessmentId'));
-        abort_unless($assessment->isEligible(Auth::user()), 403, 'You are not eligible to take this assessment.');
+        $assessment = CbtAssessment::where('audience', $this->audienceFor($request))->findOrFail($request->route('assessmentId'));
 
-        $existingFinished = CbtSession::where('assessment_id', $assessment->id)
+        // Eligibility, window, and how many attempts are left are all
+        // one question, answered in one place — a blanket "already
+        // completed" check here would ignore an assessment that
+        // deliberately allows several attempts, or a taker granted an
+        // extra one.
+        $reason = $availability->unavailableReason($assessment, Auth::user());
+        abort_if($reason !== null, 422, $reason);
+
+        // An in-progress attempt is resumed rather than blocked.
+        $resuming = CbtSession::where('assessment_id', $assessment->id)
             ->where('takeable_type', Auth::user()::class)->where('takeable_id', Auth::id())
-            ->whereIn('status', [CbtSession::STATUS_SUBMITTED, CbtSession::STATUS_AUTO_SUBMITTED, CbtSession::STATUS_GRADED])
-            ->exists();
-        abort_if($existingFinished, 422, 'You have already completed this assessment.');
+            ->where('status', CbtSession::STATUS_IN_PROGRESS)->exists();
+
+        if (! $resuming && $assessment->access_pin) {
+            abort_unless(
+                $availability->pinAccepted($assessment, $request->input('access_pin')),
+                422,
+                'That access PIN is not correct.'
+            );
+        }
 
         $session = $sessions->start(Auth::user(), $assessment, $request->ip(), $request->userAgent());
 

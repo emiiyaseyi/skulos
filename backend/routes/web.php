@@ -621,6 +621,23 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/media/{snapshotId}', [$console, 'snapshotImage'])->name('media.image');
         });
 
+        // Assessment Hub: the three reporting screens — one
+        // assessment's scores, school-wide results, and the
+        // takers-by-assessments matrix.
+        Route::prefix('assessment/scores')->name('school.cbt.scores.')->group(function () {
+            $scores = \App\Http\Controllers\School\CbtScoreController::class;
+            Route::get('/results', [$scores, 'results'])->name('results');
+            Route::get('/results/export', [$scores, 'exportResults'])->name('results.export');
+            Route::get('/matrix', [$scores, 'matrix'])->name('matrix');
+            Route::get('/matrix/export', [$scores, 'exportMatrix'])->name('matrix.export');
+            Route::post('/{sessionId}/void', [$scores, 'void'])->name('void');
+            Route::post('/{sessionId}/grant-retry', [$scores, 'grantRetry'])->name('grant-retry');
+            // Registered after the static paths above, per the
+            // registration-order rule already documented in this file.
+            Route::get('/{assessmentId}', [$scores, 'scores'])->name('index');
+            Route::get('/{assessmentId}/export', [$scores, 'exportScores'])->name('export');
+        });
+
         // Assessment Hub: the per-assessment admin hub (the reference
         // repo's own admin.php) — one screen per paper, nine tabs.
         Route::prefix('assessment/hub/{assessmentId}')->name('school.cbt.hub.')->group(function () {
