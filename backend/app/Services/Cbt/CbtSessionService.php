@@ -26,18 +26,30 @@ class CbtSessionService
             ->first();
 
         if ($existing) {
+            // Resuming: the stored question set is authoritative, so a
+            // randomised paper never re-rolls into a different one.
+            app(QuestionSetBuilder::class)->buildFor($existing);
+
             return $existing;
         }
 
-        return CbtSession::create([
+        // A taker's own schedule row can override the time limit.
+        $minutes = app(AssessmentAvailabilityService::class)->effectiveDurationMinutes($assessment, $taker);
+
+        $session = CbtSession::create([
             'assessment_id' => $assessment->id,
             'takeable_type' => $taker::class,
             'takeable_id' => $taker->getKey(),
             'started_at' => now(),
-            'ends_at' => now()->addMinutes($assessment->duration_minutes),
+            'ends_at' => now()->addMinutes($minutes),
             'ip_address' => $ip,
             'browser_info' => $userAgent ? \Illuminate\Support\Str::limit($userAgent, 250, '') : null,
         ]);
+
+        // Freeze which questions THIS taker sits, before they see any.
+        app(QuestionSetBuilder::class)->buildFor($session);
+
+        return $session;
     }
 
     public function saveAnswer(CbtSession $session, int $questionId, mixed $answer): void
@@ -60,17 +72,27 @@ class CbtSessionService
             return; // already submitted once — never re-process
         }
 
-        $assessment = $session->assessment()->with('assessmentQuestions.question.answers')->first();
+        $builder = app(QuestionSetBuilder::class);
+
+        // Grade against the set THIS taker was actually given, not the
+        // assessment's full question list — with randomisation on those
+        // are different, and grading the latter would both invent
+        // responses for unseen questions and use the wrong total.
+        $given = $builder->buildFor($session);
         $existingResponses = $session->responses()->get()->keyBy('question_id');
 
-        // Every question on the assessment gets a response row, even one
-        // the taker never touched (answer stays null) — finalizeIfFullyGraded()
-        // only ever sees a question again through its response ROW, so a
-        // skipped essay with no row at all would otherwise be invisible
-        // to that check and silently let the session "finish" grading
-        // without it.
-        foreach ($assessment->assessmentQuestions as $assessmentQuestion) {
-            $question = $assessmentQuestion->question;
+        // Every question the taker was given gets a response row, even
+        // one they never touched (answer stays null) —
+        // finalizeIfFullyGraded() only ever sees a question again
+        // through its response ROW, so a skipped essay with no row at
+        // all would otherwise be invisible to that check and silently
+        // let the session "finish" grading without it.
+        foreach ($given as $sessionQuestion) {
+            $question = $sessionQuestion->question;
+            if (! $question) {
+                continue;
+            }
+
             $response = $existingResponses->get($question->id)
                 ?? CbtResponse::create(['session_id' => $session->id, 'question_id' => $question->id, 'answer' => null]);
 
@@ -79,7 +101,7 @@ class CbtSessionService
             }
 
             $fraction = $question->gradeFraction($response->answer) ?? 0.0;
-            $points = $assessment->pointsFor($question);
+            $points = (float) $sessionQuestion->points;
 
             $response->forceFill([
                 'is_correct' => $fraction >= 1.0,
@@ -91,7 +113,7 @@ class CbtSessionService
         $session->forceFill([
             'submitted_at' => now(),
             'status' => $status,
-            'max_score' => $assessment->totalPoints(),
+            'max_score' => $builder->totalPointsFor($session),
         ])->save();
 
         $session->finalizeIfFullyGraded();

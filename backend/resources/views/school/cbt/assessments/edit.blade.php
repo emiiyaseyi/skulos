@@ -82,6 +82,70 @@
       </div>
     </div>
 
+    <h4 style="margin:1rem 0 .5rem">Access and grading</h4>
+    <div class="grid cols-2" style="gap:.75rem">
+      <div class="field">
+        <label for="opens_at">Opens at (optional)</label>
+        <input id="opens_at" name="opens_at" type="datetime-local" value="{{ $assessment->opens_at?->format('Y-m-d\TH:i') }}" />
+      </div>
+      <div class="field">
+        <label for="closes_at">Closes at (optional)</label>
+        <input id="closes_at" name="closes_at" type="datetime-local" value="{{ $assessment->closes_at?->format('Y-m-d\TH:i') }}" />
+      </div>
+      <div class="field">
+        <label for="max_attempts">Attempts allowed</label>
+        <input id="max_attempts" name="max_attempts" type="number" min="0" max="50" value="{{ $assessment->max_attempts }}" />
+        <p class="muted" style="font-size:.78rem;margin-top:.3rem">0 means unlimited.</p>
+      </div>
+      <div class="field">
+        <label for="grade_method">If a taker sits it more than once</label>
+        <select id="grade_method" name="grade_method">
+          <option value="highest" @selected($assessment->grade_method === 'highest')>Keep the highest score</option>
+          <option value="average" @selected($assessment->grade_method === 'average')>Average the scores</option>
+          <option value="first" @selected($assessment->grade_method === 'first')>Keep the first attempt</option>
+          <option value="last" @selected($assessment->grade_method === 'last')>Keep the last attempt</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="pass_mark">Pass mark (optional)</label>
+        <input id="pass_mark" name="pass_mark" type="number" step="0.5" min="0" value="{{ $assessment->pass_mark }}" />
+      </div>
+      <div class="field">
+        <label for="access_pin">Access PIN (optional)</label>
+        <input id="access_pin" name="access_pin" type="text" maxlength="20" value="{{ $assessment->access_pin }}" />
+        <p class="muted" style="font-size:.78rem;margin-top:.3rem">Takers must enter this before starting.</p>
+      </div>
+      <div class="field">
+        <label for="results_mode">When takers see their score</label>
+        <select id="results_mode" name="results_mode">
+          <option value="immediately" @selected($assessment->results_mode === 'immediately')>Immediately after submitting</option>
+          <option value="after_close" @selected($assessment->results_mode === 'after_close')>Once the assessment closes</option>
+          <option value="after_days" @selected($assessment->results_mode === 'after_days')>A number of days after submitting</option>
+          <option value="manual" @selected($assessment->results_mode === 'manual')>Only when staff release them</option>
+          <option value="never" @selected($assessment->results_mode === 'never')>Never</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="results_delay_days">Days to wait (for the option above)</label>
+        <input id="results_delay_days" name="results_delay_days" type="number" min="0" max="365" value="{{ $assessment->results_delay_days }}" />
+      </div>
+      <div class="field">
+        <label for="questions_per_page">Questions per page</label>
+        <input id="questions_per_page" name="questions_per_page" type="number" min="1" max="100" value="{{ $assessment->questions_per_page }}" />
+      </div>
+      <div class="field">
+        <label for="num_questions">Draw this many questions</label>
+        <input id="num_questions" name="num_questions" type="number" min="0" max="500" value="{{ $assessment->num_questions }}" />
+        <p class="muted" style="font-size:.78rem;margin-top:.3rem">Only used when a random subset is switched on below. Questions marked "always include" are kept regardless.</p>
+      </div>
+    </div>
+
+    <label style="display:flex;align-items:center;gap:.4rem;margin:.5rem 0">
+      <input type="checkbox" name="shuffle_questions" value="1" @checked($assessment->shuffle_questions) /> Shuffle the question order for each taker
+    </label>
+    <label style="display:flex;align-items:center;gap:.4rem;margin:.5rem 0">
+      <input type="checkbox" name="randomize" value="1" @checked($assessment->randomize) /> Give each taker a random subset rather than every question
+    </label>
     <label style="display:flex;align-items:center;gap:.4rem;margin:.5rem 0">
       <input type="checkbox" name="requires_double_grading" value="1" @checked($assessment->requires_double_grading) /> Require two independent graders for subjective answers
     </label>
@@ -89,6 +153,60 @@
       <input type="checkbox" name="is_active" value="1" @checked($assessment->is_active) /> Active
     </label>
     <button class="btn btn-primary btn-sm" type="submit">Save assessment settings</button>
+  </form>
+</div>
+
+<div class="card" style="margin-bottom:1.1rem">
+  <h3 style="margin-bottom:.5rem">Random pools</h3>
+  <p class="muted" style="margin-bottom:.8rem">
+    A pool draws a set number of questions at random from a category, so no two takers get quite the same paper.
+    Pool questions are added on top of the fixed questions below. Each taker's own set is frozen when they start,
+    so resuming never re-rolls their paper.
+  </p>
+
+  @if($assessment->pools->isNotEmpty())
+    <div style="overflow-x:auto;margin-bottom:.8rem">
+    <table class="table-stack">
+      <thead><tr><th>Category</th><th>Draw</th><th>Marks each</th><th></th></tr></thead>
+      <tbody>
+        @foreach($assessment->pools as $pool)
+          <tr>
+            <td data-label="Category">{{ $pool->category?->name ?? 'Removed category' }}</td>
+            <td class="muted" data-label="Draw">{{ $pool->draw_count }}</td>
+            <td class="muted" data-label="Marks each">{{ $pool->points_each }}</td>
+            <td>
+              <form method="POST" action="{{ route('school.cbt.assessments.pools.destroy', ['school' => $school->slug, 'assessmentId' => $assessment->id, 'poolId' => $pool->id]) }}" onsubmit="return confirm('Remove this pool?')">
+                @csrf @method('DELETE')
+                <button class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit">Remove</button>
+              </form>
+            </td>
+          </tr>
+        @endforeach
+      </tbody>
+    </table>
+    </div>
+  @endif
+
+  <form method="POST" action="{{ route('school.cbt.assessments.pools.store', ['school' => $school->slug, 'assessmentId' => $assessment->id]) }}" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end">
+    @csrf
+    <div class="field" style="margin:0;flex:1;min-width:12rem">
+      <label for="pool_category">Category</label>
+      <select id="pool_category" name="category_id" required>
+        <option value="">Choose a category</option>
+        @foreach($categories as $category)
+          <option value="{{ $category->id }}">{{ $category->name }} ({{ $category->questions_count }} active)</option>
+        @endforeach
+      </select>
+    </div>
+    <div class="field" style="margin:0">
+      <label for="pool_draw">Draw</label>
+      <input id="pool_draw" name="draw_count" type="number" min="1" value="5" style="width:5rem" required />
+    </div>
+    <div class="field" style="margin:0">
+      <label for="pool_points">Marks each</label>
+      <input id="pool_points" name="points_each" type="number" step="0.5" min="0.5" value="1" style="width:6rem" required />
+    </div>
+    <button class="btn btn-primary btn-sm" type="submit">Add pool</button>
   </form>
 </div>
 

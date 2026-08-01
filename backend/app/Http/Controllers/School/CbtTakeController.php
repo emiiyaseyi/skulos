@@ -111,6 +111,10 @@ class CbtTakeController extends Controller
             'session' => $session,
             'assessment' => $session->assessment,
             'existingAnswers' => $existingAnswers,
+            // The questions THIS taker was given, in their own order —
+            // not the assessment's full list, which differs the moment
+            // randomisation or shuffling is on.
+            'given' => app(\App\Services\Cbt\QuestionSetBuilder::class)->buildFor($session),
         ]);
     }
 

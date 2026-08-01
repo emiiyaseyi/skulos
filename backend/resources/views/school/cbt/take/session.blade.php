@@ -31,10 +31,13 @@
     @csrf
   </form>
 
-  @foreach($assessment->assessmentQuestions as $pq)
-    @php $question = $pq->question; $current = $existingAnswers[$question->id] ?? null; @endphp    
+  {{-- The taker's own frozen set, not the assessment's full list: with
+       randomisation or shuffling on those are different, and the
+       stored set is what they must see on resume and on review. --}}
+  @foreach($given as $pq)
+    @php $question = $pq->question; $current = $existingAnswers[$question->id] ?? null; @endphp
     <div class="card cbt-question" data-question-id="{{ $question->id }}" data-type="{{ $question->type }}" style="margin-bottom:1rem">
-      <div class="muted" style="font-size:.8rem;margin-bottom:.4rem">Question {{ $loop->index + 1 }} &middot; {{ $pq->points_override ?? $question->points }} point(s)</div>
+      <div class="muted" style="font-size:.8rem;margin-bottom:.4rem">Question {{ $loop->index + 1 }} &middot; {{ $pq->points }} point(s)</div>
       <p style="margin-bottom:.8rem">{{ $question->prompt }}</p>
       @if($question->image_path)
         <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($question->image_path) }}" alt="" style="max-width:100%;border-radius:8px;margin-bottom:.8rem" />

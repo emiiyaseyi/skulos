@@ -83,17 +83,68 @@ class CbtAssessmentController extends Controller
             'security_profile_id' => ['required', 'exists:tenant.cbt_security_profiles,id'],
             'audience' => ['required', Rule::in([CbtAssessment::AUDIENCE_STUDENT, CbtAssessment::AUDIENCE_STAFF])],
             'requires_double_grading' => ['sometimes', 'boolean'],
+
+            // Access and grading policy.
+            'max_attempts' => ['sometimes', 'integer', 'min:0', 'max:50'],
+            'grade_method' => ['sometimes', Rule::in(['highest', 'average', 'first', 'last'])],
+            'pass_mark' => ['nullable', 'numeric', 'min:0'],
+            'questions_per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'opens_at' => ['nullable', 'date'],
+            'closes_at' => ['nullable', 'date', 'after:opens_at'],
+            'access_pin' => ['nullable', 'string', 'max:20'],
+            'results_mode' => ['sometimes', Rule::in(['immediately', 'after_close', 'after_days', 'never', 'manual'])],
+            'results_delay_days' => ['sometimes', 'integer', 'min:0', 'max:365'],
+            'num_questions' => ['sometimes', 'integer', 'min:0', 'max:500'],
         ]);
         $data['requires_double_grading'] = $request->boolean('requires_double_grading');
+        $data['shuffle_questions'] = $request->boolean('shuffle_questions');
+        $data['randomize'] = $request->boolean('randomize');
 
         return $data;
+    }
+
+    // ── Random pools ────────────────────────────────────────────────
+
+    public function storePool(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'assessment_hub.update');
+        $assessment = CbtAssessment::findOrFail($request->route('assessmentId'));
+
+        $data = $request->validate([
+            'category_id' => ['required', 'exists:tenant.cbt_question_categories,id'],
+            'draw_count' => ['required', 'integer', 'min:1', 'max:200'],
+            'points_each' => ['required', 'numeric', 'min:0.5'],
+        ]);
+
+        // A pool that asks for more questions than its category holds
+        // would silently under-deliver, so it is rejected up front.
+        $available = \App\Models\Tenant\CbtQuestion::where('category_id', $data['category_id'])
+            ->where('is_active', true)->count();
+        abort_if($data['draw_count'] > $available, 422,
+            "That category only has {$available} active question(s), so it cannot supply {$data['draw_count']}.");
+
+        \App\Models\Tenant\CbtQuestionPool::create(array_merge($data, [
+            'assessment_id' => $assessment->id,
+            'sequence' => ($assessment->pools()->max('sequence') ?? -1) + 1,
+        ]));
+
+        return back()->with('status', 'Pool added.');
+    }
+
+    public function destroyPool(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'assessment_hub.update');
+        \App\Models\Tenant\CbtQuestionPool::findOrFail($request->route('poolId'))->delete();
+
+        return back()->with('status', 'Pool removed.');
     }
 
     public function edit(Request $request): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'assessment_hub.create');
         $school = $this->school($request);
-        $assessment = CbtAssessment::with(['assessmentQuestions.question', 'securityProfile', 'classArms'])->findOrFail($request->route('assessmentId'));
+        $assessment = CbtAssessment::with(['assessmentQuestions.question', 'securityProfile', 'classArms', 'pools.category'])
+            ->findOrFail($request->route('assessmentId'));
 
         return view('school.cbt.assessments.edit', [
             'school' => $school,
@@ -103,6 +154,8 @@ class CbtAssessmentController extends Controller
             'subjects' => Subject::orderBy('name')->get(),
             'terms' => Term::orderBy('id')->get(),
             'classArms' => ClassArm::with(['schoolClass', 'arm'])->get(),
+            'categories' => \App\Models\Tenant\CbtQuestionCategory::withCount(['questions' => fn ($q) => $q->where('is_active', true)])
+                ->orderBy('sort_order')->orderBy('name')->get(),
             'bankQuestions' => CbtQuestion::where('is_active', true)
                 ->whereNotIn('id', $assessment->assessmentQuestions->pluck('question_id'))
                 ->orderByDesc('id')->get(),

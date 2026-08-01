@@ -1022,6 +1022,8 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/{assessmentId}/questions', [$cbtAssessments, 'addQuestion'])->name('questions.store');
             Route::delete('/{assessmentId}/questions/{assessmentQuestionId}', [$cbtAssessments, 'removeQuestion'])->name('questions.destroy');
             Route::post('/{assessmentId}/questions/{assessmentQuestionId}/move/{direction}', [$cbtAssessments, 'moveQuestion'])->name('questions.move');
+            Route::post('/{assessmentId}/pools', [$cbtAssessments, 'storePool'])->name('pools.store');
+            Route::delete('/{assessmentId}/pools/{poolId}', [$cbtAssessments, 'destroyPool'])->name('pools.destroy');
         });
 
         Route::prefix('assessment/security-profiles')->name('school.cbt.security-profiles.')->group(function () {
