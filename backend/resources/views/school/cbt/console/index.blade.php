@@ -9,12 +9,22 @@
   };
 @endphp
 
-<div class="page-head">
-  <div>
-    <h1 class="title">Admin Backend</h1>
-    <p class="subtitle">Every assessment in the school, in one place.</p>
-  </div>
-</div>
+@include('school.cbt._banner', [
+  'icon' => '&#128737;',
+  'title' => 'Admin Backend',
+  'subtitle' => 'Every assessment in the school, in one place.',
+  'links' => [
+    ['label' => 'Question Bank', 'url' => route('school.cbt.questions.index', ['school' => $school->slug]), 'tone' => 'primary'],
+    ['label' => 'Assessments', 'url' => route('school.cbt.assessments.index', ['school' => $school->slug]), 'tone' => 'green'],
+    ['label' => 'Live Monitor', 'url' => route('school.cbt.live-monitor.index', ['school' => $school->slug]), 'tone' => 'red'],
+    ['label' => 'Grading', 'url' => route('school.cbt.grader.index', ['school' => $school->slug]), 'tone' => 'teal'],
+    ['label' => 'Proctors', 'url' => route('school.cbt.people.proctors', ['school' => $school->slug]), 'tone' => 'purple'],
+    ['label' => 'Graders', 'url' => route('school.cbt.people.graders', ['school' => $school->slug]), 'tone' => 'grey'],
+    ['label' => 'Face Approvals', 'url' => route('school.cbt.face-approvals.index', ['school' => $school->slug]), 'tone' => 'amber'],
+    ['label' => 'Incidents', 'url' => route('school.cbt.incidents.index', ['school' => $school->slug]), 'tone' => 'orange'],
+    ['label' => 'Security Profiles', 'url' => route('school.cbt.security-profiles.index', ['school' => $school->slug])],
+  ],
+])
 
 @if(session('status'))
   <div class="flash flash-ok" style="margin-bottom:1.25rem">{{ session('status') }}</div>
@@ -23,23 +33,35 @@
   <div class="flash flash-bad" style="margin-bottom:1.25rem">{{ $errors->first() }}</div>
 @endif
 
-{{-- Tab strip, with live badge counts --}}
-<div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:1.1rem;border-bottom:1px solid var(--line);padding-bottom:.6rem">
+@php
+  // Badge colours resolved here rather than with branching directives
+  // inside the tag itself: an if/elseif chain spanning an HTML
+  // attribute list does not compile cleanly, and this reads better.
+  $badgeTones = ['highrisk' => '#6f42c1', 'suspended' => '#dc3545', 'inprogress' => '#198754'];
+@endphp
+<div class="cbt-tabs">
   @foreach($tabs as $key => $label)
-    @php($badge = $counts[$key] ?? null)
-    <a href="{{ $url($key) }}"
-       class="btn btn-sm {{ $tab === $key ? 'btn-primary' : 'btn-ghost' }}">
-      {{ $label }}@if($badge) <span style="opacity:.75">({{ $badge }})</span>@endif
+    <a href="{{ $url($key) }}" class="cbt-tab {{ $tab === $key ? 'cbt-tab-active' : '' }}">
+      {{ $label }}
+      @if(! empty($counts[$key]))
+        <span class="cbt-tab-badge" style="background:{{ $badgeTones[$key] ?? 'var(--mut-dim,#6c757d)' }}">{{ $counts[$key] }}</span>
+      @endif
     </a>
   @endforeach
 </div>
 
 @if($tab === 'overview')
-  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:.8rem;margin-bottom:1.1rem">
+  @php
+    $statTones = [
+      'Assessments' => 'var(--accent)', 'Attempts' => '#495057', 'In progress' => '#fd7e14',
+      'Finished' => '#198754', 'Suspended' => '#dc3545', 'High risk' => '#6f42c1',
+    ];
+  @endphp
+  <div class="cbt-stats">
     @foreach($stats as $label => $value)
-      <div class="card" style="text-align:center">
-        <div style="font-size:1.6rem;font-weight:800">{{ $value }}</div>
-        <div class="muted" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.05em">{{ $label }}</div>
+      <div class="cbt-stat" style="background:{{ $statTones[$label] ?? 'var(--accent)' }}">
+        <b>{{ $value }}</b>
+        <span>{{ $label }}</span>
       </div>
     @endforeach
   </div>
@@ -89,9 +111,14 @@
               <td class="muted" data-label="Questions">{{ $a->assessment_questions_count }}</td>
               <td class="muted" data-label="Attempts">{{ $a->sessions_count }}</td>
               <td data-label="State">
-                @if($a->paused_at)<span class="badge badge-warn">Paused</span>
-                @elseif($a->is_active)<span class="badge badge-ok">Active</span>
-                @else<span class="badge badge-warn">Inactive</span>@endif
+                @php
+                  // Resolved in PHP rather than an inline if/elseif
+                  // chain: Blade needs whitespace after a directive,
+                  // and "@else<span" silently fails to compile.
+                  $stateLabel = $a->paused_at ? 'Paused' : ($a->is_active ? 'Active' : 'Inactive');
+                  $stateClass = $a->is_active && ! $a->paused_at ? 'badge-ok' : 'badge-warn';
+                @endphp
+                <span class="badge {{ $stateClass }}">{{ $stateLabel }}</span>
               </td>
               <td data-label="Results">
                 <span class="badge {{ $a->results_released ? 'badge-ok' : 'badge-warn' }}">{{ $a->results_released ? 'Released' : 'Held' }}</span>

@@ -76,14 +76,26 @@
     <h3 style="margin-bottom:.8rem">Upload a file</h3>
     <form method="POST" action="{{ route('school.cbt.questions.import', ['school' => $school->slug]) }}" enctype="multipart/form-data">
       @csrf
+
+      {{-- Format picker is a tab strip, matching the reference repo's
+           own import screen. The real <select> stays in the DOM as the
+           single source of truth the form submits, hidden but not
+           removed, so the page still works with JS unavailable. --}}
       <div class="field">
-        <label for="format">Format</label>
-        <select id="format" name="format" required onchange="skulosShowFormatHelp()">
+        <label>Format</label>
+        <div id="formatTabs" style="display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.5rem">
           @foreach($formats as $key => $label)
-            <option value="{{ $key }}" @selected(old('format') === $key)>{{ $label }}</option>
+            <button type="button" class="btn btn-sm fmt-tab {{ old('format', 'csv') === $key ? 'btn-primary' : 'btn-ghost' }}"
+                    data-format="{{ $key }}">{{ $label }}</button>
+          @endforeach
+        </div>
+        <select id="format" name="format" required onchange="skulosShowFormatHelp()" class="fmt-select">
+          @foreach($formats as $key => $label)
+            <option value="{{ $key }}" @selected(old('format', 'csv') === $key)>{{ $label }}</option>
           @endforeach
         </select>
       </div>
+
       <div class="field">
         <label for="file">File</label>
         <input id="file" name="file" type="file" />
@@ -165,6 +177,14 @@
   function skulosShowFormatHelp() {
     var chosen = document.getElementById('format').value;
 
+    // Highlight the chosen tab.
+    document.querySelectorAll('.fmt-tab').forEach(function (tab) {
+      var active = tab.dataset.format === chosen;
+      tab.classList.toggle('btn-primary', active);
+      tab.classList.toggle('btn-ghost', !active);
+    });
+
+    // And the matching help card.
     document.querySelectorAll('.cbt-fmt').forEach(function (el) {
       var active = el.dataset.format === chosen;
       el.style.borderColor = active ? 'var(--accent)' : 'var(--line)';
@@ -176,7 +196,21 @@
     var paste = document.getElementById('pasted_text');
     if (paste) paste.placeholder = skulosPastePlaceholders[chosen] || '';
   }
-  document.addEventListener('DOMContentLoaded', skulosShowFormatHelp);
+
+  document.addEventListener('DOMContentLoaded', function () {
+    // Tabs drive the real select, which is what the form submits.
+    document.querySelectorAll('.fmt-tab').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        document.getElementById('format').value = tab.dataset.format;
+        skulosShowFormatHelp();
+      });
+    });
+    // Only hide the select once JS is confirmed running, so the page
+    // stays usable without it.
+    var select = document.querySelector('.fmt-select');
+    if (select) select.style.display = 'none';
+    skulosShowFormatHelp();
+  });
 </script>
 @endpush
 @endsection
