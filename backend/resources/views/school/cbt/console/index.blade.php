@@ -247,13 +247,18 @@
     <div style="margin-top:1rem">{{ $assessments->links() }}</div>
   </div>
 
-@else
-  {{-- Proctors and Graders: honest not-built-yet state rather than a
-       fake empty list, since their tables exist but the assignment
-       screens are still being built. --}}
+@elseif($tab === 'proctors')
   <div class="card">
-    <h3 style="margin-bottom:.5rem">{{ $tabs[$tab] }}</h3>
-    <p class="muted">This tab is not built yet. The underlying data model is in place; the assignment screen is next.</p>
+    <h3 style="margin-bottom:.5rem">Proctors</h3>
+    <p class="muted" style="margin-bottom:.8rem">Who may invigilate assessments and act on a live attempt, school wide or per assessment.</p>
+    <a class="btn btn-primary btn-sm" href="{{ route('school.cbt.people.proctors', ['school' => $school->slug]) }}">Manage proctors</a>
+  </div>
+
+@elseif($tab === 'graders')
+  <div class="card">
+    <h3 style="margin-bottom:.5rem">Graders</h3>
+    <p class="muted" style="margin-bottom:.8rem">Who marks written answers, at which layer, whether they mark blind, and how the work is shared out.</p>
+    <a class="btn btn-primary btn-sm" href="{{ route('school.cbt.people.graders', ['school' => $school->slug]) }}">Manage graders</a>
   </div>
 @endif
 @endsection

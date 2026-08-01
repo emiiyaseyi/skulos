@@ -2859,6 +2859,13 @@ return [
             'examinations.view', 'examinations.create', 'examinations.update',
             'timetable.view', 'assignments.view', 'assignments.create', 'assignments.update', 'assignments.delete',
             'calendar.view', 'communication.view', 'communication.create',
+            // Marking written answers is ordinary teacher work (the
+            // reference plugin puts :grade in the teacher archetype
+            // too). This permission alone does NOT let them mark
+            // anything: they must also be assigned as a CbtGrader on
+            // the assessment, which is what decides which attempts
+            // they see and whether they mark blind.
+            'assessment_hub.view', 'assessment_hub.grade',
         ]],
         'class-teacher' => ['name' => 'Class Teacher', 'grants' => [
             'students.view', 'students.update', 'attendance.*',
@@ -2866,6 +2873,7 @@ return [
             'report_cards.view', 'report_cards.create', 'report_cards.update',
             'timetable.view', 'assignments.view', 'assignments.create', 'assignments.update', 'assignments.delete',
             'calendar.view', 'communication.view', 'communication.create',
+            'assessment_hub.view', 'assessment_hub.grade',
         ]],
         'subject-teacher' => ['name' => 'Subject Teacher', 'grants' => [
             'students.view', 'attendance.view',

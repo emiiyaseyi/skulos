@@ -621,6 +621,30 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/media/{snapshotId}', [$console, 'snapshotImage'])->name('media.image');
         });
 
+        // Assessment Hub: proctor + grader assignment, and the grader's
+        // own marking workspace.
+        Route::prefix('assessment/people')->name('school.cbt.people.')->group(function () {
+            $people = \App\Http\Controllers\School\CbtPeopleController::class;
+            Route::get('/proctors', [$people, 'proctors'])->name('proctors');
+            Route::post('/proctors', [$people, 'storeProctor'])->name('proctors.store');
+            Route::delete('/proctors/{proctorId}', [$people, 'destroyProctor'])->name('proctors.destroy');
+            Route::get('/graders', [$people, 'graders'])->name('graders');
+            Route::post('/graders', [$people, 'storeGrader'])->name('graders.store');
+            Route::post('/graders/{graderId}/anonymous', [$people, 'toggleAnonymous'])->name('graders.anonymous');
+            Route::delete('/graders/{graderId}', [$people, 'destroyGrader'])->name('graders.destroy');
+            Route::post('/grading-mode/{assessmentId}', [$people, 'updateGradingMode'])->name('grading-mode');
+        });
+
+        Route::prefix('assessment/grading')->name('school.cbt.grader.')->group(function () {
+            $grader = \App\Http\Controllers\School\CbtGraderController::class;
+            Route::get('/', [$grader, 'index'])->name('index');
+            Route::get('/assessment/{assessmentId}', [$grader, 'queue'])->name('queue');
+            Route::get('/session/{sessionId}', [$grader, 'show'])->name('show');
+            Route::post('/response/{responseId}', [$grader, 'grade'])->name('grade');
+            Route::post('/session/{sessionId}/reset', [$grader, 'resetGrades'])->name('reset');
+            Route::post('/session/{sessionId}/void', [$grader, 'void'])->name('void');
+        });
+
         // SKULOS Assessment Hub, Phase 2g: the live monitor + incidents.
         Route::prefix('assessment/live-monitor')->name('school.cbt.live-monitor.')->group(function () {
             $liveMonitor = \App\Http\Controllers\School\CbtLiveMonitorController::class;

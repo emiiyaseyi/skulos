@@ -577,6 +577,11 @@
   if ($navRbac->check($navUser, $school, 'assessment_hub.view')) {
     $groups['Learning Management'][] = $link('school.cbt.take.available', 'Take Assessments', 'quiz');
   }
+  // Grading is its own tier: a marker needs .grade but not the admin
+  // .create that every console screen below requires.
+  if ($navRbac->check($navUser, $school, 'assessment_hub.grade')) {
+    $groups['Learning Management'][] = $link('school.cbt.grader.index', 'Grading', 'approve');
+  }
   if ($navRbac->check($navUser, $school, 'assessment_hub.create')) {
     $groups['Learning Management'][] = $link('school.cbt.console.index', 'Admin Backend', 'sliders');
     $groups['Learning Management'][] = $link('school.cbt.assessments.index', 'Assessments', 'quiz');
