@@ -406,6 +406,17 @@ class CbtQuestionBankTest extends TestCase
         app(TenantManager::class)->forget();
     }
 
+    public function test_the_import_screen_renders(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'cqbimport');
+
+        $this->actingAs($owner)
+            ->get(route('school.cbt.questions.import.form', ['school' => $school->slug]))
+            ->assertOk()
+            ->assertSee('Import Questions')
+            ->assertSee('or paste directly');
+    }
+
     public function test_every_format_offers_a_downloadable_sample_template(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'cqbthirteen');
