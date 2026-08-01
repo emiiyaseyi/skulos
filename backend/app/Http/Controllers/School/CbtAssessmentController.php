@@ -88,6 +88,13 @@ class CbtAssessmentController extends Controller
             'max_attempts' => ['sometimes', 'integer', 'min:0', 'max:50'],
             'grade_method' => ['sometimes', Rule::in(['highest', 'average', 'first', 'last'])],
             'pass_mark' => ['nullable', 'numeric', 'min:0'],
+            // Shown on the result screen once this taker's score clears
+            // (or does not clear) the pass mark above — e.g. an
+            // admission assessment telling a passing applicant they
+            // have moved to the next stage. Both optional; a blank
+            // value falls back to a plain generic line.
+            'pass_message' => ['nullable', 'string', 'max:500'],
+            'fail_message' => ['nullable', 'string', 'max:500'],
             'questions_per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
             'opens_at' => ['nullable', 'date'],
             'closes_at' => ['nullable', 'date', 'after:opens_at'],
@@ -95,6 +102,22 @@ class CbtAssessmentController extends Controller
             'results_mode' => ['sometimes', Rule::in(['immediately', 'after_close', 'after_days', 'never', 'manual'])],
             'results_delay_days' => ['sometimes', 'integer', 'min:0', 'max:365'],
             'num_questions' => ['sometimes', 'integer', 'min:0', 'max:500'],
+            // Only meaningful once more than one question bank feeds this
+            // assessment (fixed questions plus pools, or several pools):
+            // 'total' runs one clock for the whole paper (the default,
+            // unchanged behaviour); 'per_section' gives each bank its own
+            // allowance, taken from that pool's own duration_minutes.
+            'timer_mode' => ['sometimes', Rule::in([
+                \App\Services\Cbt\ExamSectionService::TIMER_TOTAL,
+                \App\Services\Cbt\ExamSectionService::TIMER_PER_SECTION,
+            ])],
+            // Only differs from plain summing once more than one
+            // question bank feeds this assessment — see
+            // QuestionSetBuilder::scoreTotalsFor()'s own docblock.
+            'score_aggregation' => ['sometimes', Rule::in([
+                CbtAssessment::SCORE_SUM,
+                CbtAssessment::SCORE_AVERAGE_SECTIONS,
+            ])],
         ]);
         $data['requires_double_grading'] = $request->boolean('requires_double_grading');
         $data['shuffle_questions'] = $request->boolean('shuffle_questions');
@@ -114,6 +137,13 @@ class CbtAssessmentController extends Controller
             'category_id' => ['required', 'exists:tenant.cbt_question_categories,id'],
             'draw_count' => ['required', 'integer', 'min:1', 'max:200'],
             'points_each' => ['required', 'numeric', 'min:0.5'],
+            // Shown to the taker as the section heading before this
+            // pool's questions begin; falls back to the category's own
+            // name when left blank (see QuestionSetBuilder::pick()).
+            'label' => ['nullable', 'string', 'max:100'],
+            // Only used when the assessment's timer_mode is
+            // 'per_section' — this pool's own share of the exam clock.
+            'duration_minutes' => ['nullable', 'integer', 'min:1', 'max:600'],
         ]);
 
         // A pool that asks for more questions than its category holds

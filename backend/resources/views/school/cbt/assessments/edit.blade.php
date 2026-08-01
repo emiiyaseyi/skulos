@@ -31,6 +31,22 @@
         <input id="duration_minutes" name="duration_minutes" type="number" min="1" value="{{ $assessment->duration_minutes }}" required />
       </div>
       <div class="field">
+        <label for="timer_mode">Timer</label>
+        <select id="timer_mode" name="timer_mode">
+          <option value="total" @selected($assessment->timer_mode === 'total')>One clock for the whole assessment</option>
+          <option value="per_section" @selected($assessment->timer_mode === 'per_section')>A separate clock per question bank</option>
+        </select>
+        <p class="muted" style="font-size:.78rem;margin-top:.3rem">Only matters once more than one question bank feeds this assessment. Give each pool below its own minutes to use a separate clock for it.</p>
+      </div>
+      <div class="field">
+        <label for="score_aggregation">Scoring across banks</label>
+        <select id="score_aggregation" name="score_aggregation">
+          <option value="sum" @selected($assessment->score_aggregation === 'sum')>Add every question's marks together</option>
+          <option value="average_sections" @selected($assessment->score_aggregation === 'average_sections')>Mark each bank on its own, then average the banks</option>
+        </select>
+        <p class="muted" style="font-size:.78rem;margin-top:.3rem">Only matters with more than one question bank. Averaging gives a small bank and a large bank equal weight, reported out of 100, instead of letting the larger bank dominate the total.</p>
+      </div>
+      <div class="field">
         <label for="subject_id">Subject (optional)</label>
         <select id="subject_id" name="subject_id">
           <option value="">Not set</option>
@@ -109,6 +125,21 @@
       <div class="field">
         <label for="pass_mark">Pass mark (optional)</label>
         <input id="pass_mark" name="pass_mark" type="number" step="0.5" min="0" value="{{ $assessment->pass_mark }}" />
+        <p class="muted" style="font-size:.78rem;margin-top:.3rem">
+          @if($assessment->score_aggregation === 'average_sections')
+            The averaged score is out of 100, so this is a percentage.
+          @else
+            Compared against the raw marks scored, out of {{ $assessment->totalPoints() ?: 'the assessment\'s total' }}.
+          @endif
+        </p>
+      </div>
+      <div class="field">
+        <label for="pass_message">Message shown when a taker passes (optional)</label>
+        <textarea id="pass_message" name="pass_message" rows="2" maxlength="500" placeholder="e.g. You have successfully moved to the next stage of the application process.">{{ $assessment->pass_message }}</textarea>
+      </div>
+      <div class="field">
+        <label for="fail_message">Message shown when a taker does not pass (optional)</label>
+        <textarea id="fail_message" name="fail_message" rows="2" maxlength="500" placeholder="Leave blank for a plain, generic line.">{{ $assessment->fail_message }}</textarea>
       </div>
       <div class="field">
         <label for="access_pin">Access PIN (optional)</label>
@@ -157,23 +188,26 @@
 </div>
 
 <div class="card" style="margin-bottom:1.1rem">
-  <h3 style="margin-bottom:.5rem">Random pools</h3>
+  <h3 style="margin-bottom:.5rem">Question banks (pools)</h3>
   <p class="muted" style="margin-bottom:.8rem">
-    A pool draws a set number of questions at random from a category, so no two takers get quite the same paper.
-    Pool questions are added on top of the fixed questions below. Each taker's own set is frozen when they start,
-    so resuming never re-rolls their paper.
+    A pool draws a set number of questions at random from one category, its own question bank. Add more than one pool to
+    pull from several banks in the same assessment &mdash; each pool becomes its own labelled section, and the taker is
+    told which bank they are entering before its questions begin. Pool questions are added on top of any fixed questions
+    below. Each taker's own set is frozen when they start, so resuming never re-rolls their paper.
   </p>
 
   @if($assessment->pools->isNotEmpty())
     <div style="overflow-x:auto;margin-bottom:.8rem">
     <table class="table-stack">
-      <thead><tr><th>Category</th><th>Draw</th><th>Marks each</th><th></th></tr></thead>
+      <thead><tr><th>Section name</th><th>Category</th><th>Draw</th><th>Marks each</th><th>Minutes (per-section timing)</th><th></th></tr></thead>
       <tbody>
         @foreach($assessment->pools as $pool)
           <tr>
-            <td data-label="Category">{{ $pool->category?->name ?? 'Removed category' }}</td>
+            <td data-label="Section name">{{ $pool->label ?: ($pool->category?->name ?? 'Removed category') }}</td>
+            <td class="muted" data-label="Category">{{ $pool->category?->name ?? 'Removed category' }}</td>
             <td class="muted" data-label="Draw">{{ $pool->draw_count }}</td>
             <td class="muted" data-label="Marks each">{{ $pool->points_each }}</td>
+            <td class="muted" data-label="Minutes">{{ $pool->duration_minutes ?? 'Shares the total clock' }}</td>
             <td>
               <form method="POST" action="{{ route('school.cbt.assessments.pools.destroy', ['school' => $school->slug, 'assessmentId' => $assessment->id, 'poolId' => $pool->id]) }}" onsubmit="return confirm('Remove this pool?')">
                 @csrf @method('DELETE')
@@ -189,6 +223,10 @@
 
   <form method="POST" action="{{ route('school.cbt.assessments.pools.store', ['school' => $school->slug, 'assessmentId' => $assessment->id]) }}" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end">
     @csrf
+    <div class="field" style="margin:0;flex:1;min-width:10rem">
+      <label for="pool_label">Section name (optional)</label>
+      <input id="pool_label" name="label" type="text" maxlength="100" placeholder="Uses the category name if left blank" />
+    </div>
     <div class="field" style="margin:0;flex:1;min-width:12rem">
       <label for="pool_category">Category</label>
       <select id="pool_category" name="category_id" required>
@@ -199,12 +237,17 @@
       </select>
     </div>
     <div class="field" style="margin:0">
-      <label for="pool_draw">Draw</label>
+      <label for="pool_draw">Questions per learner</label>
       <input id="pool_draw" name="draw_count" type="number" min="1" value="5" style="width:5rem" required />
+      <p class="muted" style="font-size:.72rem;margin-top:.2rem">e.g. 20 random questions from 50 in the bank</p>
     </div>
     <div class="field" style="margin:0">
       <label for="pool_points">Marks each</label>
       <input id="pool_points" name="points_each" type="number" step="0.5" min="0.5" value="1" style="width:6rem" required />
+    </div>
+    <div class="field" style="margin:0">
+      <label for="pool_minutes">Minutes (optional)</label>
+      <input id="pool_minutes" name="duration_minutes" type="number" min="1" style="width:6rem" placeholder="Total" />
     </div>
     <button class="btn btn-primary btn-sm" type="submit">Add pool</button>
   </form>

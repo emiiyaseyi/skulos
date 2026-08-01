@@ -113,7 +113,12 @@ class CbtSessionService
         $session->forceFill([
             'submitted_at' => now(),
             'status' => $status,
-            'max_score' => $builder->totalPointsFor($session),
+            // Provisional: correct already under 'sum', and under
+            // 'average_sections' the max is a constant 100 regardless
+            // of grading state, so this never needs revisiting once an
+            // essay is later marked — only total_score does, in
+            // finalizeIfFullyGraded().
+            'max_score' => $builder->scoreTotalsFor($session)['max'],
         ])->save();
 
         $session->finalizeIfFullyGraded();

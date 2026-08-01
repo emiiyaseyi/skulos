@@ -37,6 +37,12 @@ class CbtFaceApprovalTest extends TestCase
         parent::setUp();
         $this->tenantDir = storage_path('framework/testing/tenants-'.getmypid());
         config(['tenancy.sqlite_path' => $this->tenantDir, 'tenancy.driver' => 'sqlite', 'app.domain' => 'localhost']);
+        // Face matching only ever runs inside the pre-exam wizard, which
+        // only ever runs when proctoring is switched on (see
+        // App\Support\AssessmentMode) — the light-mode default (no
+        // proctoring, per the standing "no proctor/invigilation for
+        // now" scope cut) skips straight to a timed session instead.
+        config(['skulos.cbt_proctoring_enabled' => true]);
         $this->seed(RbacSeeder::class);
         $this->rbac = app(Rbac::class);
     }

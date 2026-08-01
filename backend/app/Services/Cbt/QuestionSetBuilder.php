@@ -59,6 +59,11 @@ class QuestionSetBuilder
                 'question_id' => $row['question_id'],
                 'sequence' => $sequence,
                 'points' => $row['points'],
+                'pool_id' => $row['pool_id'] ?? null,
+                // Frozen alongside the question so the sections the
+                // taker actually saw survive a pool being renamed.
+                'section_label' => $row['section_label'] ?? null,
+                'section_order' => $row['section_order'] ?? 0,
             ]);
         }
 
@@ -77,7 +82,8 @@ class QuestionSetBuilder
 
         $set = [];
 
-        // 1. Fixed questions.
+        // 1. Fixed questions. These sit in section 0, before any pool,
+        //    and are unlabelled unless pools exist to contrast with.
         foreach ($assessment->assessmentQuestions as $aq) {
             if (! $aq->question) {
                 continue;
@@ -86,12 +92,17 @@ class QuestionSetBuilder
                 'question_id' => $aq->question_id,
                 'points' => (float) ($aq->points_override ?? $aq->question->points),
                 'mandatory' => (bool) $aq->question->is_mandatory,
+                'pool_id' => null,
+                'section_label' => $assessment->pools->isNotEmpty() ? 'General' : null,
+                'section_order' => 0,
             ];
         }
 
         // 2. Pool draws, skipping anything already fixed so a question
-        //    can never appear twice on the same paper.
-        foreach ($assessment->pools as $pool) {
+        //    can never appear twice on the same paper. Each pool is its
+        //    own SECTION, named for the pool or its category, so a
+        //    paper drawing from several banks reads as several parts.
+        foreach ($assessment->pools as $poolIndex => $pool) {
             $candidates = CbtQuestion::where('category_id', $pool->category_id)
                 ->where('is_active', true)
                 ->whereNotIn('id', array_keys($set))
@@ -109,11 +120,16 @@ class QuestionSetBuilder
 
             $take = array_slice(array_merge($mandatoryIds, $optionalIds), 0, max(0, $pool->draw_count));
 
+            $label = $pool->label ?: ($pool->category?->name ?? 'Section '.($poolIndex + 1));
+
             foreach ($take as $questionId) {
                 $set[$questionId] = [
                     'question_id' => $questionId,
                     'points' => (float) $pool->points_each,
                     'mandatory' => (bool) $candidates[$questionId],
+                    'pool_id' => $pool->id,
+                    'section_label' => $label,
+                    'section_order' => $poolIndex + 1,
                 ];
             }
         }
@@ -133,14 +149,30 @@ class QuestionSetBuilder
             $rows = array_merge($mandatory, array_slice($optional, 0, $slots));
         }
 
-        // 4. Order.
-        if ($assessment->shuffle_questions) {
-            $this->seededShuffle($rows);
+        // 4. Order. Shuffling happens WITHIN each section, never
+        //    across them: a paper that announces "Algebra" then
+        //    "Geometry" must not interleave the two, or the section
+        //    headings would be meaningless. Sections themselves stay
+        //    in the order the pools were configured.
+        $bySection = [];
+        foreach ($rows as $row) {
+            $bySection[$row['section_order']][] = $row;
+        }
+        ksort($bySection);
+
+        $ordered = [];
+        foreach ($bySection as $sectionRows) {
+            if ($assessment->shuffle_questions) {
+                $this->seededShuffle($sectionRows);
+            }
+            foreach ($sectionRows as $row) {
+                $ordered[] = $row;
+            }
         }
 
         mt_srand();
 
-        return array_values($rows);
+        return array_values($ordered);
     }
 
     /** shuffle() reseeds from the global RNG, which we have already seeded; this keeps that determinism explicit. */
@@ -163,5 +195,54 @@ class QuestionSetBuilder
     public function totalPointsFor(CbtSession $session): float
     {
         return (float) CbtSessionQuestion::where('session_id', $session->id)->sum('points');
+    }
+
+    /**
+     * The score/max pair a session's own total_score/max_score is set
+     * from, honouring the assessment's score_aggregation policy:
+     *
+     *   sum               every question's own points, added together
+     *                     (the default, and what "X out of Y marks"
+     *                     ordinarily means)
+     *   average_sections  each section (question bank) is marked out of
+     *                     its own total first, then every section's
+     *                     percentage counts equally toward the final
+     *                     score — a 5-question bank and a 50-question
+     *                     bank end up weighted the same, so one large
+     *                     bank cannot quietly dominate the result just
+     *                     by having more questions in it. Reported out
+     *                     of 100, since "out of" no longer means marks.
+     *
+     * Callable at any point in grading: an ungraded essay's
+     * score_awarded is simply still 0/null, so this is safe to call
+     * both for the provisional max_score set at submit() and the final
+     * total_score set once grading completes.
+     *
+     * @return array{score: float, max: float}
+     */
+    public function scoreTotalsFor(CbtSession $session): array
+    {
+        $given = $this->questionsFor($session);
+        $responses = $session->responses()->get()->keyBy('question_id');
+        $score = fn ($rows) => (float) $rows->sum(fn ($row) => (float) ($responses->get($row->question_id)?->score_awarded ?? 0));
+
+        $assessment = $session->assessment ?? $session->assessment()->first();
+        $bySection = $given->groupBy('section_order');
+
+        // 'sum' mode, or a paper with only one section (nothing to
+        // average against) — plain totals, unchanged from the original
+        // behaviour.
+        if (($assessment?->score_aggregation ?? CbtAssessment::SCORE_SUM) !== CbtAssessment::SCORE_AVERAGE_SECTIONS
+            || $bySection->count() <= 1) {
+            return ['score' => round($score($given), 2), 'max' => round((float) $given->sum('points'), 2)];
+        }
+
+        $percentages = $bySection->map(function ($rows) use ($score) {
+            $sectionMax = (float) $rows->sum('points');
+
+            return $sectionMax > 0 ? ($score($rows) / $sectionMax) * 100 : 0.0;
+        });
+
+        return ['score' => round($percentages->avg(), 2), 'max' => 100.0];
     }
 }

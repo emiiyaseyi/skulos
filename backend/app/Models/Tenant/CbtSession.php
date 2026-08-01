@@ -132,9 +132,18 @@ class CbtSession extends Model
             return;
         }
 
+        // Honours the assessment's score_aggregation policy (plain sum,
+        // or each section averaged in equally) — see
+        // QuestionSetBuilder::scoreTotalsFor()'s own docblock. Also
+        // re-sets max_score, idempotently: correct already under 'sum',
+        // and a fixed 100 under 'average_sections' regardless of when
+        // grading finishes.
+        $totals = app(\App\Services\Cbt\QuestionSetBuilder::class)->scoreTotalsFor($this);
+
         $this->forceFill([
             'status' => self::STATUS_GRADED,
-            'total_score' => $this->responses()->sum('score_awarded'),
+            'total_score' => $totals['score'],
+            'max_score' => $totals['max'],
         ])->save();
     }
 }

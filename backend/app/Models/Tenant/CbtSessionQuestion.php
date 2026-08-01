@@ -17,13 +17,17 @@ class CbtSessionQuestion extends Model
 
     protected $connection = 'tenant';
 
-    protected $fillable = ['session_id', 'question_id', 'sequence', 'points'];
+    protected $fillable = [
+        'session_id', 'question_id', 'sequence', 'points',
+        'pool_id', 'section_label', 'section_order',
+    ];
 
     protected function casts(): array
     {
         return [
             'sequence' => 'integer',
             'points' => 'decimal:2',
+            'section_order' => 'integer',
         ];
     }
 
@@ -35,5 +39,10 @@ class CbtSessionQuestion extends Model
     public function question(): BelongsTo
     {
         return $this->belongsTo(CbtQuestion::class, 'question_id');
+    }
+
+    public function pool(): BelongsTo
+    {
+        return $this->belongsTo(CbtQuestionPool::class, 'pool_id');
     }
 }

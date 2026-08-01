@@ -65,9 +65,12 @@ class CbtPrecheckController extends Controller
             );
         }
 
-        // A taker with an access arrangement to skip the wizard goes
-        // straight into the timed attempt.
-        if ($availability->shouldSkipPrecheck($assessment, Auth::user())) {
+        // Straight into the timed attempt when the wizard does not
+        // apply: either the whole install is in light mode (no
+        // proctoring at all, so there is nothing to pre-check), or
+        // this taker has an access arrangement to skip it.
+        if (! \App\Support\AssessmentMode::precheckRequired()
+            || $availability->shouldSkipPrecheck($assessment, Auth::user())) {
             $session = $sessions->start(Auth::user(), $assessment, $request->ip(), $request->userAgent());
 
             return redirect()->route('school.cbt.take.session', ['school' => $school->slug, 'sessionId' => $session->id]);

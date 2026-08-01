@@ -45,6 +45,14 @@ class CbtNavTest extends TestCase
 
     public function test_an_owner_sees_the_full_learning_management_group_once_the_module_is_enabled(): void
     {
+        // The proctoring-only entries (Proctor View, Incidents, Security
+        // Profiles, Face Match Approvals) are gated behind
+        // App\Support\AssessmentMode, which defaults OFF per the
+        // "no proctor/invigilation for now" light-mode scope cut —
+        // forced on here since this test is specifically about the
+        // full admin nav surface, not the light-mode default.
+        config(['skulos.cbt_proctoring_enabled' => true]);
+
         $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'navone']));
         $this->rbac->setModuleState($school, 'assessment_hub', Module::STATE_ENABLED);
 
@@ -58,6 +66,27 @@ class CbtNavTest extends TestCase
             ->assertSee('Question Bank')
             ->assertSee('Proctor / Invigilator View')
             ->assertSee('Incidents');
+    }
+
+    public function test_an_owner_does_not_see_proctoring_only_entries_in_light_mode(): void
+    {
+        // Light mode is the real default now (no config override): a
+        // school gets timer/attempts/question bank/randomisation, but
+        // no proctoring surfaces at all, until proctoring is switched
+        // back on for a real deployment that wants it.
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'navlight']));
+        $this->rbac->setModuleState($school, 'assessment_hub', Module::STATE_ENABLED);
+
+        $owner = User::factory()->create();
+        $ownerRole = $this->rbac->cloneTemplateRole($school, 'school-owner');
+        $school->users()->attach($owner->id, ['role_id' => $ownerRole->id, 'status' => 'active']);
+
+        $response = $this->actingAs($owner)->get(route('school.dashboard', ['school' => $school->slug]));
+        $response->assertOk()
+            ->assertSee('Learning Management')
+            ->assertSee('Question Bank')
+            ->assertDontSee('Proctor / Invigilator View')
+            ->assertDontSee('Incidents');
     }
 
     public function test_a_student_only_sees_take_assessments_not_the_admin_entries(): void

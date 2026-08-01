@@ -119,6 +119,9 @@ class CbtTakeController extends Controller
         }
 
         $existingAnswers = $session->responses()->pluck('answer', 'question_id');
+        $builder = app(\App\Services\Cbt\QuestionSetBuilder::class);
+        $builder->buildFor($session);
+        $sectionService = app(\App\Services\Cbt\ExamSectionService::class);
 
         return view('school.cbt.take.session', [
             'school' => $school,
@@ -129,7 +132,24 @@ class CbtTakeController extends Controller
             // The questions THIS taker was given, in their own order —
             // not the assessment's full list, which differs the moment
             // randomisation or shuffling is on.
-            'given' => app(\App\Services\Cbt\QuestionSetBuilder::class)->buildFor($session),
+            'given' => $builder->questionsFor($session),
+            // Grouped into the banks (sections) the taker actually sees,
+            // each with its own name and, under per_section timing, its
+            // own deadline — see ExamSectionService's own docblock. Sent
+            // to the take screen's JS as a plain array (not the Eloquent
+            // collection sectionsFor() returns), since @json only needs
+            // to serialize what the countdown/banner logic actually
+            // reads: which question index starts each section, its
+            // label, and its own deadline if it has one.
+            'showSections' => $sectionService->hasSections($session),
+            'perSectionTimer' => $sectionService->isPerSection($session),
+            'sectionMeta' => $sectionService->sectionsFor($session)->map(fn ($s) => [
+                'order' => $s['order'],
+                'label' => $s['label'],
+                'first_index' => $s['first_index'],
+                'last_index' => $s['last_index'],
+                'ends_at' => $s['ends_at']?->toIso8601String(),
+            ])->values()->all(),
         ]);
     }
 
@@ -213,16 +233,28 @@ class CbtTakeController extends Controller
             ->with('status', 'Submitted.');
     }
 
-    public function result(Request $request): \Illuminate\View\View
+    public function result(Request $request, AssessmentAvailabilityService $availability, \App\Services\Cbt\ScoreReportingService $reporting): \Illuminate\View\View
     {
         $school = $this->school($request);
         $session = $this->ownedSession($request);
         abort_if($session->status === CbtSession::STATUS_IN_PROGRESS, 422, 'This attempt is still in progress.');
 
+        $assessment = $session->assessment;
+        // Was previously never checked here at all: a 'manual'/'never'/
+        // 'after_close' assessment leaked the raw score to this screen
+        // the moment a taker submitted, regardless of the release
+        // policy the admin actually configured.
+        $resultsVisible = $session->status === CbtSession::STATUS_GRADED
+            && $availability->resultsVisible($assessment, $session);
+
+        $passed = $resultsVisible ? $reporting->passed($assessment, $session->total_score !== null ? (float) $session->total_score : null) : null;
+
         return view('school.cbt.take.result', [
             'school' => $school,
             'accent' => $school->branding()['color'] ?? null,
             'session' => $session,
+            'resultsVisible' => $resultsVisible,
+            'passed' => $passed,
         ]);
     }
 }

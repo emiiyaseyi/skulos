@@ -2581,6 +2581,24 @@ return [
     ],
     'cbt_risk_thresholds' => ['medium' => 30, 'high' => 60],
 
+    /*
+    | LIGHT MODE (user directive 2026-08-01: "I WANT TO KEEP EVERY OTHER
+    | THING DEFERRED SO WE CAN BUILD A LIGHTER VERSION SCHOOLS CAN USE
+    | FOR NOW ... NO NEED FOR PROCTOR AND INVIGILATION FOR NOW. JUST
+    | TIMER, ATTEMPTS, QUESTION BANK, RANDOMISATION").
+    |
+    | Everything proctoring-related is built and tested, but a school
+    | launching now does not want it. Rather than delete that work, it
+    | sits behind this one flag, OFF by default. Turning it on restores
+    | the pre-check wizard, AI face/object monitoring, the live monitor,
+    | proctor and face-approval screens, incidents and captured media —
+    | no rebuild required.
+    |
+    | What stays on in light mode: the timed attempt, attempt limits,
+    | the question bank, randomisation, grading and reporting.
+    */
+    'cbt_proctoring_enabled' => env('SKULOS_CBT_PROCTORING', false),
+
     // Phase 2d: the pre-exam wizard's 'keystroke' step asks a Maximum-tier
     // taker to type this exact sentence, establishing a typing-pattern
     // baseline (matches the reference repo's own fixed-sentence approach,

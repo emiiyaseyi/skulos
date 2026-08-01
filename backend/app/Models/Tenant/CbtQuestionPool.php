@@ -16,7 +16,10 @@ class CbtQuestionPool extends Model
 
     protected $connection = 'tenant';
 
-    protected $fillable = ['assessment_id', 'category_id', 'draw_count', 'points_each', 'sequence'];
+    protected $fillable = [
+        'assessment_id', 'category_id', 'draw_count', 'points_each', 'sequence',
+        'label', 'duration_minutes',
+    ];
 
     protected function casts(): array
     {
@@ -24,6 +27,7 @@ class CbtQuestionPool extends Model
             'draw_count' => 'integer',
             'points_each' => 'decimal:2',
             'sequence' => 'integer',
+            'duration_minutes' => 'integer',
         ];
     }
 

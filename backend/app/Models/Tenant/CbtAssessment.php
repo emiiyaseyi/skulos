@@ -34,6 +34,29 @@ class CbtAssessment extends Model
 
     public const AUDIENCE_STAFF = 'staff';
 
+    /**
+     * Taken by an Applicant (Admissions module), not a School\User at
+     * all — CbtSession.takeable_type/takeable_id are already
+     * polymorphic for exactly this, see that model's own docblock.
+     * Reached from the applicant's own dashboard
+     * (App\Http\Controllers\Admissions\AdmissionAssessmentController),
+     * never through this controller's own school-portal routes.
+     */
+    public const AUDIENCE_APPLICANT = 'applicant';
+
+    /** Every question's own points, added together — the ordinary meaning of "out of how many marks". */
+    public const SCORE_SUM = 'sum';
+
+    /**
+     * Each section (question bank) is marked out of its own total
+     * first, then every section's percentage counts equally toward the
+     * final score — a 5-question bank and a 50-question bank end up
+     * weighted the same, so one large bank cannot quietly dominate the
+     * result just by having more questions in it. Only differs from
+     * SCORE_SUM once an assessment actually has more than one section.
+     */
+    public const SCORE_AVERAGE_SECTIONS = 'average_sections';
+
     protected $connection = 'tenant';
 
     protected $fillable = [
@@ -48,7 +71,8 @@ class CbtAssessment extends Model
         // configured attempt limit be ignored.
         'max_attempts', 'grade_method', 'pass_mark', 'questions_per_page', 'shuffle_questions',
         'randomize', 'num_questions', 'opens_at', 'closes_at', 'access_pin',
-        'results_mode', 'results_delay_days',
+        'results_mode', 'results_delay_days', 'timer_mode', 'score_aggregation',
+        'pass_message', 'fail_message',
     ];
 
     protected function casts(): array

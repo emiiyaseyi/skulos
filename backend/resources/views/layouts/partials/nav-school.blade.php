@@ -586,10 +586,16 @@
     $groups['Learning Management'][] = $link('school.cbt.console.index', 'Admin Backend', 'sliders');
     $groups['Learning Management'][] = $link('school.cbt.assessments.index', 'Assessments', 'quiz');
     $groups['Learning Management'][] = $link('school.cbt.questions.index', 'Question Bank', 'quiz');
+
+    // Supervision screens only exist when proctoring is switched on
+    // (see App\Support\AssessmentMode). Light mode ships the timed
+    // attempt, question bank, randomisation, grading and reporting.
+    if (\Illuminate\Support\Facades\Config::get('skulos.cbt_proctoring_enabled', false)) {
     $groups['Learning Management'][] = $link('school.cbt.security-profiles.index', 'Security Profiles', 'sliders');
     $groups['Learning Management'][] = $link('school.cbt.live-monitor.index', 'Proctor / Invigilator View', 'proctor');
     $groups['Learning Management'][] = $link('school.cbt.face-approvals.index', 'Face Match Approvals', 'proctor');
     $groups['Learning Management'][] = $link('school.cbt.incidents.index', 'Incidents', 'warning');
+    }
   }
 
   // Academic Report, its own standalone entry under Academic (user
