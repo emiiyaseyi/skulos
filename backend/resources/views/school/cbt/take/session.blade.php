@@ -32,8 +32,7 @@
   </form>
 
   @foreach($assessment->assessmentQuestions as $pq)
-    @php($question = $pq->question)
-    @php($current = $existingAnswers[$question->id] ?? null)
+    @php $question = $pq->question; $current = $existingAnswers[$question->id] ?? null; @endphp    
     <div class="card cbt-question" data-question-id="{{ $question->id }}" data-type="{{ $question->type }}" style="margin-bottom:1rem">
       <div class="muted" style="font-size:.8rem;margin-bottom:.4rem">Question {{ $loop->index + 1 }} &middot; {{ $pq->points_override ?? $question->points }} point(s)</div>
       <p style="margin-bottom:.8rem">{{ $question->prompt }}</p>
@@ -58,7 +57,7 @@
       @elseif($question->type === 'essay')
         <textarea rows="5">{{ $current }}</textarea>
       @elseif($question->type === 'matching')
-        @php($rightOptions = $question->answers->pluck('feedback')->filter()->unique()->values())
+        @php $rightOptions = $question->answers->pluck('feedback')->filter()->unique()->values(); @endphp
         @foreach($question->answers as $stem)
           <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem">
             <span style="flex:1">{{ $stem->answer_text }}</span>
@@ -78,7 +77,7 @@
   <button class="btn btn-primary btn-block" type="submit" form="cbtSubmitForm">Submit assessment</button>
 </div>
 
-@php($secProfileScripts = $session->assessment->securityProfile)
+@php $secProfileScripts = $session->assessment->securityProfile; @endphp
 @if($secProfileScripts->require_camera_check)
   <script src="{{ asset('vendor/proctoring/face-api.min.js') }}"></script>
 @endif
@@ -220,16 +219,30 @@
   // server-side (App\Services\Cbt\RiskScoringService); a lock-tier profile
   // that crosses its own tab_switch_limit is auto-submitted as a direct
   // side effect of that same request, not a separate client-driven call.
-  @php($secProfile = $session->assessment->securityProfile)
-  var profile = @json([
-    'require_fullscreen' => $secProfile->require_fullscreen,
-    'block_copy_paste' => $secProfile->block_copy_paste,
-    'block_right_click' => $secProfile->block_right_click,
-    'tab_switch_action' => $secProfile->tab_switch_action,
-    'require_camera_check' => $secProfile->require_camera_check,
-    'require_object_detection' => $secProfile->require_object_detection,
-    'snapshot_interval_seconds' => $secProfile->snapshot_interval_seconds,
-  ]);
+  @php
+    // Built here rather than as a multi-line array literal inside the
+    // json() directive's own argument: Blade balances directive
+    // arguments with a paren-counting regex that a nested multi-line
+    // array breaks, producing "Unclosed [ does not match )" in the
+    // COMPILED file. Caught by CbtBladeIntegrityTest.
+    //
+    // Note this is the BLOCK form, and every php directive in this
+    // file must stay the block form: mixing it with the inline
+    // php(...) form makes Blade treat the inline one as reopening
+    // raw-PHP mode, silently leaving every later directive
+    // uncompiled.
+    $secProfile = $session->assessment->securityProfile;
+    $profileForJs = [
+      'require_fullscreen' => $secProfile->require_fullscreen,
+      'block_copy_paste' => $secProfile->block_copy_paste,
+      'block_right_click' => $secProfile->block_right_click,
+      'tab_switch_action' => $secProfile->tab_switch_action,
+      'require_camera_check' => $secProfile->require_camera_check,
+      'require_object_detection' => $secProfile->require_object_detection,
+      'snapshot_interval_seconds' => $secProfile->snapshot_interval_seconds,
+    ];
+  @endphp
+  var profile = @json($profileForJs);
   var eventUrl = '{{ route('school.cbt.take.event', ['school' => $school->slug, 'sessionId' => $session->id]) }}';
 
   function reportEvent(type, meta, snapshot) {

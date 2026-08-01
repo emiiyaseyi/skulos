@@ -621,6 +621,21 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/media/{snapshotId}', [$console, 'snapshotImage'])->name('media.image');
         });
 
+        // Assessment Hub: the per-assessment admin hub (the reference
+        // repo's own admin.php) — one screen per paper, nine tabs.
+        Route::prefix('assessment/hub/{assessmentId}')->name('school.cbt.hub.')->group(function () {
+            $hub = \App\Http\Controllers\School\CbtAssessmentHubController::class;
+            Route::get('/', [$hub, 'index'])->name('index');
+            Route::post('/sessions/{sessionId}/suspend', [$hub, 'suspend'])->name('suspend');
+            Route::post('/sessions/{sessionId}/reinstate', [$hub, 'reinstate'])->name('reinstate');
+            Route::post('/sessions/{sessionId}/force-submit', [$hub, 'forceSubmit'])->name('force-submit');
+            Route::post('/sessions/{sessionId}/grant-time', [$hub, 'grantTime'])->name('grant-time');
+            Route::post('/sessions/{sessionId}/approve-break', [$hub, 'approveBreak'])->name('approve-break');
+            Route::post('/sessions/{sessionId}/deny-break', [$hub, 'denyBreak'])->name('deny-break');
+            Route::delete('/sessions/{sessionId}', [$hub, 'deleteAttempt'])->name('delete-attempt');
+            Route::post('/events/{eventId}/override', [$hub, 'overrideEvent'])->name('override-event');
+        });
+
         // Assessment Hub: proctor + grader assignment, and the grader's
         // own marking workspace.
         Route::prefix('assessment/people')->name('school.cbt.people.')->group(function () {

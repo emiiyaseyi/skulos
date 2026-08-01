@@ -79,6 +79,7 @@
             <td class="muted" data-label="Questions">{{ $assessment->assessment_questions_count }}</td>
             <td data-label="Status"><span class="badge {{ $assessment->is_active ? 'badge-ok' : 'badge-warn' }}">{{ $assessment->is_active ? 'Active' : 'Inactive' }}</span></td>
             <td style="white-space:nowrap">
+              <a class="btn btn-primary btn-sm" href="{{ route('school.cbt.hub.index', ['school' => $school->slug, 'assessmentId' => $assessment->id]) }}">Manage</a>
               <a class="btn btn-ghost btn-sm" href="{{ route('school.cbt.assessments.edit', ['school' => $school->slug, 'assessmentId' => $assessment->id]) }}">Edit</a>
               <form method="POST" action="{{ route('school.cbt.assessments.destroy', ['school' => $school->slug, 'assessmentId' => $assessment->id]) }}" style="display:inline" onsubmit="return confirm('Remove this assessment?')">
                 @csrf @method('DELETE')
