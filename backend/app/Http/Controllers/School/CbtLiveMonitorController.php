@@ -41,12 +41,12 @@ class CbtLiveMonitorController extends Controller
         $this->authorizeAction($request);
         $school = $this->school($request);
 
-        $sessions = CbtSession::with(['paper', 'takeable', 'securityEvents'])
+        $sessions = CbtSession::with(['assessment', 'takeable', 'securityEvents'])
             ->where('status', CbtSession::STATUS_IN_PROGRESS)
             ->orderByDesc('risk_score')
             ->get();
 
-        $prechecks = CbtPrecheckSession::with(['paper', 'takeable'])
+        $prechecks = CbtPrecheckSession::with(['assessment', 'takeable'])
             ->where('status', CbtPrecheckSession::STATUS_IN_PROGRESS)
             ->orderByDesc('id')
             ->get();

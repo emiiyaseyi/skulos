@@ -9,8 +9,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
- * One taker's timed attempt at one paper. See the creating migration's
- * docblock for why `takeable` is polymorphic.
+ * One taker's timed attempt at one assessment. See the creating
+ * migration's docblock for why `takeable` is polymorphic.
  */
 class CbtSession extends Model
 {
@@ -27,7 +27,7 @@ class CbtSession extends Model
     protected $connection = 'tenant';
 
     protected $fillable = [
-        'paper_id', 'takeable_type', 'takeable_id', 'started_at', 'ends_at', 'ip_address', 'browser_info',
+        'assessment_id', 'takeable_type', 'takeable_id', 'started_at', 'ends_at', 'ip_address', 'browser_info',
     ];
 
     protected function casts(): array
@@ -55,9 +55,9 @@ class CbtSession extends Model
         return $this->break_started_at !== null && $this->break_ends_at !== null && $this->break_ends_at->isFuture();
     }
 
-    public function paper(): BelongsTo
+    public function assessment(): BelongsTo
     {
-        return $this->belongsTo(CbtPaper::class);
+        return $this->belongsTo(CbtAssessment::class, 'assessment_id');
     }
 
     public function takeable(): MorphTo

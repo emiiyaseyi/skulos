@@ -9,9 +9,9 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
  * SKULOS Assessment Hub, Phase 2d: progress through the pre-exam wizard
- * for one taker attempting one paper. See the creating migration's own
- * docblock for why this is a separate table from CbtSession, not a few
- * extra columns bolted onto it.
+ * for one taker attempting one assessment. See the creating migration's
+ * own docblock for why this is a separate table from CbtSession, not a
+ * few extra columns bolted onto it.
  */
 class CbtPrecheckSession extends Model
 {
@@ -26,7 +26,7 @@ class CbtPrecheckSession extends Model
     protected $connection = 'tenant';
 
     protected $fillable = [
-        'paper_id', 'takeable_type', 'takeable_id', 'current_step', 'steps_completed',
+        'assessment_id', 'takeable_type', 'takeable_id', 'current_step', 'steps_completed',
         'photo_id_path', 'face_capture_path', 'environment_video_path', 'device_checks',
     ];
 
@@ -39,9 +39,9 @@ class CbtPrecheckSession extends Model
         ];
     }
 
-    public function paper(): BelongsTo
+    public function assessment(): BelongsTo
     {
-        return $this->belongsTo(CbtPaper::class);
+        return $this->belongsTo(CbtAssessment::class, 'assessment_id');
     }
 
     public function takeable(): MorphTo
@@ -56,13 +56,13 @@ class CbtPrecheckSession extends Model
 
     /**
      * The steps this particular attempt actually has to pass through, in
-     * fixed order — derived live from the paper's own security profile
-     * every time, never cached on the row itself, so a profile edited
-     * mid-wizard is honoured rather than a stale snapshot.
+     * fixed order — derived live from the assessment's own security
+     * profile every time, never cached on the row itself, so a profile
+     * edited mid-wizard is honoured rather than a stale snapshot.
      */
     public function activeSteps(): array
     {
-        $profile = $this->paper->securityProfile;
+        $profile = $this->assessment->securityProfile;
         $all = array_keys(config('skulos.precheck_wizard_steps', []));
 
         return array_values(array_filter($all, function (string $step) use ($profile) {

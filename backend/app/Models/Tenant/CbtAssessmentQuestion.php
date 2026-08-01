@@ -7,17 +7,17 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * One question's placement on one paper — sequence within the paper,
- * and an optional per-paper points override (the same question can be
- * worth different points on different papers).
+ * One question's placement on one assessment — sequence within the
+ * assessment, and an optional per-assessment points override (the same
+ * question can be worth different points on different assessments).
  */
-class CbtPaperQuestion extends Model
+class CbtAssessmentQuestion extends Model
 {
     use Auditable;
 
     protected $connection = 'tenant';
 
-    protected $fillable = ['paper_id', 'question_id', 'sequence', 'points_override'];
+    protected $fillable = ['assessment_id', 'question_id', 'sequence', 'points_override'];
 
     protected function casts(): array
     {
@@ -27,9 +27,9 @@ class CbtPaperQuestion extends Model
         ];
     }
 
-    public function paper(): BelongsTo
+    public function assessment(): BelongsTo
     {
-        return $this->belongsTo(CbtPaper::class);
+        return $this->belongsTo(CbtAssessment::class, 'assessment_id');
     }
 
     public function question(): BelongsTo

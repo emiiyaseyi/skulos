@@ -1,18 +1,18 @@
-@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => $paper->title])
-@section('title', $paper->title)
+@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => $assessment->title])
+@section('title', $assessment->title)
 @section('bare', true)
 
 @section('content')
 <div style="max-width:40rem;margin:1.5rem auto;padding:0 1.25rem">
   <div class="page-head" style="position:sticky;top:0;background:var(--bg);z-index:5;padding-bottom:.6rem">
     <div>
-      <h1 class="title">{{ $paper->title }}</h1>
+      <h1 class="title">{{ $assessment->title }}</h1>
       <p class="subtitle" id="cbtTimer" data-ends-at="{{ $session->ends_at->toIso8601String() }}">Loading time remaining...</p>
     </div>
   </div>
 
-  @if($paper->instructions)
-    <div class="card" style="margin-bottom:1rem"><p class="muted">{{ $paper->instructions }}</p></div>
+  @if($assessment->instructions)
+    <div class="card" style="margin-bottom:1rem"><p class="muted">{{ $assessment->instructions }}</p></div>
   @endif
 
   <div style="margin-bottom:1rem">
@@ -31,7 +31,7 @@
     @csrf
   </form>
 
-  @foreach($paper->paperQuestions as $pq)
+  @foreach($assessment->assessmentQuestions as $pq)
     @php($question = $pq->question)
     @php($current = $existingAnswers[$question->id] ?? null)
     <div class="card cbt-question" data-question-id="{{ $question->id }}" data-type="{{ $question->type }}" style="margin-bottom:1rem">
@@ -41,33 +41,31 @@
         <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($question->image_path) }}" alt="" style="max-width:100%;border-radius:8px;margin-bottom:.8rem" />
       @endif
 
-      @if($question->type === 'multiple_choice_single')
-        @foreach($question->options ?? [] as $option)
+      @if($question->type === 'multiple_choice_single' || $question->type === 'true_false')
+        @foreach($question->answers as $option)
           <label style="display:block;margin-bottom:.4rem">
-            <input type="radio" name="q{{ $question->id }}" value="{{ $option }}" @checked($current === $option) /> {{ $option }}
+            <input type="radio" name="q{{ $question->id }}" value="{{ $option->id }}" @checked((string) $current === (string) $option->id) /> {{ $option->answer_text }}
           </label>
         @endforeach
       @elseif($question->type === 'multiple_choice_multiple')
-        @foreach($question->options ?? [] as $option)
+        @foreach($question->answers as $option)
           <label style="display:block;margin-bottom:.4rem">
-            <input type="checkbox" name="q{{ $question->id }}" value="{{ $option }}" @checked(is_array($current) && in_array($option, $current, true)) /> {{ $option }}
+            <input type="checkbox" name="q{{ $question->id }}" value="{{ $option->id }}" @checked(is_array($current) && in_array((string) $option->id, array_map('strval', $current), true)) /> {{ $option->answer_text }}
           </label>
         @endforeach
-      @elseif($question->type === 'true_false')
-        <label style="display:block;margin-bottom:.4rem"><input type="radio" name="q{{ $question->id }}" value="true" @checked($current === true) /> True</label>
-        <label style="display:block;margin-bottom:.4rem"><input type="radio" name="q{{ $question->id }}" value="false" @checked($current === false) /> False</label>
       @elseif($question->type === 'short_answer')
         <input type="text" value="{{ $current }}" />
       @elseif($question->type === 'essay')
         <textarea rows="5">{{ $current }}</textarea>
       @elseif($question->type === 'matching')
-        @foreach($question->options['left'] ?? [] as $i => $leftItem)
+        @php($rightOptions = $question->answers->pluck('feedback')->filter()->unique()->values())
+        @foreach($question->answers as $stem)
           <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem">
-            <span style="flex:1">{{ $leftItem }}</span>
-            <select data-left-index="{{ $i }}">
+            <span style="flex:1">{{ $stem->answer_text }}</span>
+            <select data-left-id="{{ $stem->id }}">
               <option value="">Choose a match</option>
-              @foreach($question->options['right'] ?? [] as $j => $rightItem)
-                <option value="{{ $j }}" @selected(($current[$i] ?? null) == $j)>{{ $rightItem }}</option>
+              @foreach($rightOptions as $rightItem)
+                <option value="{{ $rightItem }}" @selected(($current[$stem->id] ?? null) === $rightItem)>{{ $rightItem }}</option>
               @endforeach
             </select>
           </div>
@@ -80,7 +78,7 @@
   <button class="btn btn-primary btn-block" type="submit" form="cbtSubmitForm">Submit assessment</button>
 </div>
 
-@php($secProfileScripts = $session->paper->securityProfile)
+@php($secProfileScripts = $session->assessment->securityProfile)
 @if($secProfileScripts->require_camera_check)
   <script src="{{ asset('vendor/proctoring/face-api.min.js') }}"></script>
 @endif
@@ -153,7 +151,7 @@
     if (type === 'matching') {
       var answer = {};
       Array.prototype.forEach.call(block.querySelectorAll('select'), function (sel) {
-        if (sel.value !== '') answer[sel.dataset.leftIndex] = sel.value;
+        if (sel.value !== '') answer[sel.dataset.leftId] = sel.value;
       });
       return answer;
     }
@@ -222,7 +220,7 @@
   // server-side (App\Services\Cbt\RiskScoringService); a lock-tier profile
   // that crosses its own tab_switch_limit is auto-submitted as a direct
   // side effect of that same request, not a separate client-driven call.
-  @php($secProfile = $session->paper->securityProfile)
+  @php($secProfile = $session->assessment->securityProfile)
   var profile = @json([
     'require_fullscreen' => $secProfile->require_fullscreen,
     'block_copy_paste' => $secProfile->block_copy_paste,

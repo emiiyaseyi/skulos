@@ -39,7 +39,7 @@ class CbtFaceApprovalController extends Controller
         $this->authorizeAction($request);
         $school = $this->school($request);
 
-        $approvals = CbtFaceApproval::with('precheckSession.paper', 'precheckSession.takeable')
+        $approvals = CbtFaceApproval::with('precheckSession.assessment', 'precheckSession.takeable')
             ->where('status', CbtFaceApproval::STATUS_PENDING)
             ->orderByDesc('id')
             ->get();

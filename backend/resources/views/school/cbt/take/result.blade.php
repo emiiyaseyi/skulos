@@ -1,10 +1,10 @@
-@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => $session->paper->title])
-@section('title', $session->paper->title)
+@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => $session->assessment->title])
+@section('title', $session->assessment->title)
 
 @section('content')
 <div class="page-head">
   <div>
-    <h1 class="title">{{ $session->paper->title }}</h1>
+    <h1 class="title">{{ $session->assessment->title }}</h1>
     <p class="subtitle">
       @if($session->status === 'graded')
         Score: {{ $session->total_score }} / {{ $session->max_score }}

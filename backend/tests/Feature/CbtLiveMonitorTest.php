@@ -4,8 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\School;
 use App\Models\Tenant\CbtIncident;
-use App\Models\Tenant\CbtPaper;
-use App\Models\Tenant\CbtPaperQuestion;
+use App\Models\Tenant\CbtAssessment;
+use App\Models\Tenant\CbtAssessmentQuestion;
 use App\Models\Tenant\CbtPrecheckSession;
 use App\Models\Tenant\CbtQuestion;
 use App\Models\Tenant\CbtSecurityProfile;
@@ -25,7 +25,7 @@ use Tests\TestCase;
  */
 class CbtLiveMonitorTest extends TestCase
 {
-    use RefreshDatabase;
+    use \Tests\Concerns\MakesCbtQuestions, RefreshDatabase;
 
     protected string $tenantDir;
 
@@ -63,9 +63,9 @@ class CbtLiveMonitorTest extends TestCase
         app(TenantManager::class)->use($school);
         CbtSecurityProfile::ensureSeeded();
         $basic = CbtSecurityProfile::where('name', 'Basic')->first();
-        $paper = CbtPaper::create(['title' => 'Monitor Test Paper', 'duration_minutes' => 30, 'security_profile_id' => $basic->id, 'audience' => 'student']);
-        $q = CbtQuestion::create(['type' => 'true_false', 'prompt' => 'Q1', 'correct_answer' => true, 'points' => 1]);
-        CbtPaperQuestion::create(['paper_id' => $paper->id, 'question_id' => $q->id, 'sequence' => 0]);
+        $paper = CbtAssessment::create(['title' => 'Monitor Test Paper', 'duration_minutes' => 30, 'security_profile_id' => $basic->id, 'audience' => 'student']);
+        $q = $this->makeTrueFalseQuestion('Q1', true);
+        CbtAssessmentQuestion::create(['assessment_id' => $paper->id, 'question_id' => $q->id, 'sequence' => 0]);
         app(TenantManager::class)->forget();
 
         return [$school, $student, $owner, $paper];
@@ -75,14 +75,14 @@ class CbtLiveMonitorTest extends TestCase
     {
         [$school, $student, $owner, $paper] = $this->schoolWithStudentAndOwner('lmone');
 
-        $this->actingAs($student)->post(route('school.cbt.take.start', ['school' => $school->slug, 'paperId' => $paper->id]));
+        $this->actingAs($student)->post(route('school.cbt.take.start', ['school' => $school->slug, 'assessmentId' => $paper->id]));
 
         $student2 = User::factory()->create(['name' => 'Still In Precheck']);
         app(TenantManager::class)->use($school);
         $studentRole = $this->rbac->cloneTemplateRole($school, 'student');
         app(TenantManager::class)->forget();
         $school->users()->attach($student2->id, ['role_id' => $studentRole->id, 'status' => 'active']);
-        $this->actingAs($student2)->post(route('school.cbt.precheck.start', ['school' => $school->slug, 'paperId' => $paper->id]));
+        $this->actingAs($student2)->post(route('school.cbt.precheck.start', ['school' => $school->slug, 'assessmentId' => $paper->id]));
 
         $response = $this->actingAs($owner)->get(route('school.cbt.live-monitor.index', ['school' => $school->slug]));
         $response->assertOk()->assertSee('Live Monitor Student')->assertSee('Still In Precheck');
@@ -100,7 +100,7 @@ class CbtLiveMonitorTest extends TestCase
     {
         [$school, $student, $owner, $paper] = $this->schoolWithStudentAndOwner('lmthree');
 
-        $this->actingAs($student)->post(route('school.cbt.take.start', ['school' => $school->slug, 'paperId' => $paper->id]));
+        $this->actingAs($student)->post(route('school.cbt.take.start', ['school' => $school->slug, 'assessmentId' => $paper->id]));
         app(TenantManager::class)->use($school);
         $session = CbtSession::first();
         app(TenantManager::class)->forget();
@@ -139,7 +139,7 @@ class CbtLiveMonitorTest extends TestCase
     {
         [$school, $student, $owner, $paper] = $this->schoolWithStudentAndOwner('lmfour');
 
-        $this->actingAs($student)->post(route('school.cbt.take.start', ['school' => $school->slug, 'paperId' => $paper->id]));
+        $this->actingAs($student)->post(route('school.cbt.take.start', ['school' => $school->slug, 'assessmentId' => $paper->id]));
         app(TenantManager::class)->use($school);
         $session = CbtSession::first();
         app(TenantManager::class)->forget();

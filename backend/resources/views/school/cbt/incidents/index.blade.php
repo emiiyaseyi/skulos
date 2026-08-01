@@ -24,7 +24,7 @@
         @foreach($incidents as $incident)
           <tr>
             <td data-label="Taker">{{ $incident->session?->takeable?->name ?? 'Unknown' }}</td>
-            <td class="muted" data-label="Assessment">{{ $incident->session?->paper?->title }}</td>
+            <td class="muted" data-label="Assessment">{{ $incident->session?->assessment?->title }}</td>
             <td data-label="Type">{{ $incident->type === 'manual' ? 'Manually raised' : 'High risk crossing' }}</td>
             <td class="muted" data-label="Description">{{ $incident->description }}</td>
             <td data-label="Status">

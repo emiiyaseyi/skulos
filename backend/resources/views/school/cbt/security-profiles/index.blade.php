@@ -9,7 +9,7 @@
   </div>
   <div class="stack" style="flex-direction:row;gap:.6rem">
     <a class="btn btn-ghost btn-sm" href="{{ route('school.cbt.questions.index', ['school' => $school->slug]) }}">Question bank</a>
-    <a class="btn btn-ghost btn-sm" href="{{ route('school.cbt.papers.index', ['school' => $school->slug]) }}">Papers</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.cbt.assessments.index', ['school' => $school->slug]) }}">Assessments</a>
   </div>
 </div>
 

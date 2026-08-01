@@ -2,7 +2,7 @@
 
 namespace App\Services\Cbt;
 
-use App\Models\Tenant\CbtPaper;
+use App\Models\Tenant\CbtAssessment;
 use App\Models\Tenant\CbtPrecheckSession;
 use Illuminate\Database\Eloquent\Model;
 
@@ -16,10 +16,10 @@ use Illuminate\Database\Eloquent\Model;
  */
 class PrecheckWizardService
 {
-    /** Resumes an in-progress wizard attempt for the same taker+paper if one exists, otherwise starts a fresh one. */
-    public function start(Model $taker, CbtPaper $paper): CbtPrecheckSession
+    /** Resumes an in-progress wizard attempt for the same taker+assessment if one exists, otherwise starts a fresh one. */
+    public function start(Model $taker, CbtAssessment $assessment): CbtPrecheckSession
     {
-        $existing = CbtPrecheckSession::where('paper_id', $paper->id)
+        $existing = CbtPrecheckSession::where('assessment_id', $assessment->id)
             ->where('takeable_type', $taker::class)
             ->where('takeable_id', $taker->getKey())
             ->where('status', CbtPrecheckSession::STATUS_IN_PROGRESS)
@@ -30,12 +30,12 @@ class PrecheckWizardService
         }
 
         $precheck = CbtPrecheckSession::create([
-            'paper_id' => $paper->id,
+            'assessment_id' => $assessment->id,
             'takeable_type' => $taker::class,
             'takeable_id' => $taker->getKey(),
             'steps_completed' => [],
         ]);
-        $precheck->setRelation('paper', $paper);
+        $precheck->setRelation('assessment', $assessment);
         $precheck->forceFill(['current_step' => $precheck->activeSteps()[0]])->save();
 
         return $precheck;

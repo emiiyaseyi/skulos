@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\School;
-use App\Models\Tenant\CbtPaper;
-use App\Models\Tenant\CbtPaperQuestion;
+use App\Models\Tenant\CbtAssessment;
+use App\Models\Tenant\CbtAssessmentQuestion;
 use App\Models\Tenant\CbtQuestion;
 use App\Models\Tenant\CbtSecurityProfile;
 use App\Models\User;
@@ -19,9 +19,9 @@ use Tests\TestCase;
  * SKULOS Assessment Hub, Phase 2a: assembling a timed paper from the
  * question bank, reordering, and the seeded security-profile catalog.
  */
-class CbtPaperBuilderTest extends TestCase
+class CbtAssessmentBuilderTest extends TestCase
 {
-    use RefreshDatabase;
+    use \Tests\Concerns\MakesCbtQuestions, RefreshDatabase;
 
     protected string $tenantDir;
 
@@ -68,37 +68,37 @@ class CbtPaperBuilderTest extends TestCase
         app(TenantManager::class)->forget();
     }
 
-    public function test_owner_can_build_a_paper_and_reorder_its_questions(): void
+    public function test_owner_can_build_an_assessment_and_reorder_its_questions(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'cpbtwo');
 
         app(TenantManager::class)->use($school);
         CbtSecurityProfile::ensureSeeded();
         $basic = CbtSecurityProfile::where('name', 'Basic')->first();
-        $q1 = CbtQuestion::create(['type' => 'true_false', 'prompt' => 'Q1', 'correct_answer' => true, 'points' => 1]);
-        $q2 = CbtQuestion::create(['type' => 'true_false', 'prompt' => 'Q2', 'correct_answer' => false, 'points' => 1]);
+        $q1 = $this->makeTrueFalseQuestion('Q1', true);
+        $q2 = $this->makeTrueFalseQuestion('Q2', false);
         app(TenantManager::class)->forget();
 
-        $this->actingAs($owner)->post(route('school.cbt.papers.store', ['school' => $school->slug]), [
+        $this->actingAs($owner)->post(route('school.cbt.assessments.store', ['school' => $school->slug]), [
             'title' => 'Mid Term Test', 'duration_minutes' => 30, 'security_profile_id' => $basic->id, 'audience' => 'student',
         ])->assertRedirect();
 
         app(TenantManager::class)->use($school);
-        $paper = CbtPaper::first();
+        $paper = CbtAssessment::first();
         $this->assertNotNull($paper);
         app(TenantManager::class)->forget();
 
-        $this->actingAs($owner)->post(route('school.cbt.papers.questions.store', ['school' => $school->slug, 'paperId' => $paper->id]), ['question_id' => $q1->id]);
-        $this->actingAs($owner)->post(route('school.cbt.papers.questions.store', ['school' => $school->slug, 'paperId' => $paper->id]), ['question_id' => $q2->id]);
+        $this->actingAs($owner)->post(route('school.cbt.assessments.questions.store', ['school' => $school->slug, 'assessmentId' => $paper->id]), ['question_id' => $q1->id]);
+        $this->actingAs($owner)->post(route('school.cbt.assessments.questions.store', ['school' => $school->slug, 'assessmentId' => $paper->id]), ['question_id' => $q2->id]);
 
         app(TenantManager::class)->use($school);
-        $this->assertSame(2, CbtPaperQuestion::where('paper_id', $paper->id)->count());
-        $firstPq = CbtPaperQuestion::where('paper_id', $paper->id)->where('question_id', $q1->id)->first();
+        $this->assertSame(2, CbtAssessmentQuestion::where('assessment_id', $paper->id)->count());
+        $firstPq = CbtAssessmentQuestion::where('assessment_id', $paper->id)->where('question_id', $q1->id)->first();
         $this->assertSame(0, $firstPq->sequence);
         app(TenantManager::class)->forget();
 
-        $this->actingAs($owner)->post(route('school.cbt.papers.questions.move', [
-            'school' => $school->slug, 'paperId' => $paper->id, 'paperQuestionId' => $firstPq->id, 'direction' => 'down',
+        $this->actingAs($owner)->post(route('school.cbt.assessments.questions.move', [
+            'school' => $school->slug, 'assessmentId' => $paper->id, 'assessmentQuestionId' => $firstPq->id, 'direction' => 'down',
         ]))->assertRedirect();
 
         app(TenantManager::class)->use($school);
@@ -113,17 +113,17 @@ class CbtPaperBuilderTest extends TestCase
         app(TenantManager::class)->use($school);
         CbtSecurityProfile::ensureSeeded();
         $basic = CbtSecurityProfile::where('name', 'Basic')->first();
-        $paper = CbtPaper::create(['title' => 'Quiz', 'duration_minutes' => 10, 'security_profile_id' => $basic->id, 'audience' => 'student']);
-        $q1 = CbtQuestion::create(['type' => 'true_false', 'prompt' => 'Q1', 'correct_answer' => true, 'points' => 1]);
-        $q2 = CbtQuestion::create(['type' => 'true_false', 'prompt' => 'Q2', 'correct_answer' => true, 'points' => 1]);
-        $q3 = CbtQuestion::create(['type' => 'true_false', 'prompt' => 'Q3', 'correct_answer' => true, 'points' => 1]);
-        $pq1 = CbtPaperQuestion::create(['paper_id' => $paper->id, 'question_id' => $q1->id, 'sequence' => 0]);
-        $pq2 = CbtPaperQuestion::create(['paper_id' => $paper->id, 'question_id' => $q2->id, 'sequence' => 1]);
-        $pq3 = CbtPaperQuestion::create(['paper_id' => $paper->id, 'question_id' => $q3->id, 'sequence' => 2]);
+        $paper = CbtAssessment::create(['title' => 'Quiz', 'duration_minutes' => 10, 'security_profile_id' => $basic->id, 'audience' => 'student']);
+        $q1 = $this->makeTrueFalseQuestion('Q1', true);
+        $q2 = $this->makeTrueFalseQuestion('Q2', true);
+        $q3 = $this->makeTrueFalseQuestion('Q3', true);
+        $pq1 = CbtAssessmentQuestion::create(['assessment_id' => $paper->id, 'question_id' => $q1->id, 'sequence' => 0]);
+        $pq2 = CbtAssessmentQuestion::create(['assessment_id' => $paper->id, 'question_id' => $q2->id, 'sequence' => 1]);
+        $pq3 = CbtAssessmentQuestion::create(['assessment_id' => $paper->id, 'question_id' => $q3->id, 'sequence' => 2]);
         app(TenantManager::class)->forget();
 
-        $this->actingAs($owner)->delete(route('school.cbt.papers.questions.destroy', [
-            'school' => $school->slug, 'paperId' => $paper->id, 'paperQuestionId' => $pq2->id,
+        $this->actingAs($owner)->delete(route('school.cbt.assessments.questions.destroy', [
+            'school' => $school->slug, 'assessmentId' => $paper->id, 'assessmentQuestionId' => $pq2->id,
         ]))->assertRedirect();
 
         app(TenantManager::class)->use($school);
@@ -132,14 +132,14 @@ class CbtPaperBuilderTest extends TestCase
         app(TenantManager::class)->forget();
     }
 
-    public function test_a_student_cannot_reach_the_admin_papers_screen(): void
+    public function test_a_student_cannot_reach_the_admin_assessments_screen(): void
     {
         [$school] = $this->schoolWithMember('school-owner', 'cpbfour');
         $student = User::factory()->create();
         $role = $this->rbac->cloneTemplateRole($school, 'student');
         $school->users()->attach($student->id, ['role_id' => $role->id, 'status' => 'active']);
 
-        $this->actingAs($student)->get(route('school.cbt.papers.index', ['school' => $school->slug]))
+        $this->actingAs($student)->get(route('school.cbt.assessments.index', ['school' => $school->slug]))
             ->assertForbidden();
     }
 }

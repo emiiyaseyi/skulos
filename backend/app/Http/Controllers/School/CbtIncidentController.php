@@ -37,7 +37,7 @@ class CbtIncidentController extends Controller
         $this->authorizeAction($request);
         $school = $this->school($request);
 
-        $incidents = CbtIncident::with(['session.paper', 'session.takeable'])
+        $incidents = CbtIncident::with(['session.assessment', 'session.takeable'])
             ->orderByRaw("status = 'open' desc")
             ->orderByDesc('id')
             ->get();

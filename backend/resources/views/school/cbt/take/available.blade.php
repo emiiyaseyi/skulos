@@ -14,18 +14,18 @@
 @endif
 
 <div class="card">
-  @if($papers->isEmpty())
+  @if($assessments->isEmpty())
     <p class="muted">Nothing assigned right now.</p>
   @else
     <div style="overflow-x:auto">
     <table class="table-stack">
       <thead><tr><th>Title</th><th>Duration</th><th>Status</th><th></th></tr></thead>
       <tbody>
-        @foreach($papers as $paper)
-          @php($session = $sessions->get($paper->id))
+        @foreach($assessments as $assessment)
+          @php($session = $sessions->get($assessment->id))
           <tr>
-            <td data-label="Title"><strong>{{ $paper->title }}</strong></td>
-            <td class="muted" data-label="Duration">{{ $paper->duration_minutes }} min</td>
+            <td data-label="Title"><strong>{{ $assessment->title }}</strong></td>
+            <td class="muted" data-label="Duration">{{ $assessment->duration_minutes }} min</td>
             <td data-label="Status">
               @if(! $session)
                 <span class="badge badge-warn">Not started</span>
@@ -39,7 +39,7 @@
             </td>
             <td>
               @if(! $session)
-                <form method="POST" action="{{ route('school.cbt.precheck.start', ['school' => $school->slug, 'paperId' => $paper->id]) }}">
+                <form method="POST" action="{{ route('school.cbt.precheck.start', ['school' => $school->slug, 'assessmentId' => $assessment->id]) }}">
                   @csrf
                   <button class="btn btn-primary btn-sm" type="submit">Start</button>
                 </form>

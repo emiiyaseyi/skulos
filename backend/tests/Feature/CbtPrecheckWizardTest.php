@@ -3,10 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\School;
-use App\Models\Tenant\CbtPaper;
+use App\Models\Tenant\CbtAssessment;
 use App\Models\Tenant\CbtPrecheckSession;
 use App\Models\Tenant\CbtQuestion;
-use App\Models\Tenant\CbtPaperQuestion;
+use App\Models\Tenant\CbtAssessmentQuestion;
 use App\Models\Tenant\CbtSecurityProfile;
 use App\Models\Tenant\CbtSession;
 use App\Models\User;
@@ -25,7 +25,7 @@ use Tests\TestCase;
  */
 class CbtPrecheckWizardTest extends TestCase
 {
-    use RefreshDatabase;
+    use \Tests\Concerns\MakesCbtQuestions, RefreshDatabase;
 
     protected string $tenantDir;
 
@@ -59,19 +59,19 @@ class CbtPrecheckWizardTest extends TestCase
         app(TenantManager::class)->use($school);
         CbtSecurityProfile::ensureSeeded();
         $profile = CbtSecurityProfile::where('name', $profileName)->first();
-        $paper = CbtPaper::create(['title' => 'Proctored Quiz', 'duration_minutes' => 30, 'security_profile_id' => $profile->id, 'audience' => 'student']);
-        $q = CbtQuestion::create(['type' => 'true_false', 'prompt' => 'Q1', 'correct_answer' => true, 'points' => 1]);
-        CbtPaperQuestion::create(['paper_id' => $paper->id, 'question_id' => $q->id, 'sequence' => 0]);
+        $paper = CbtAssessment::create(['title' => 'Proctored Quiz', 'duration_minutes' => 30, 'security_profile_id' => $profile->id, 'audience' => 'student']);
+        $q = $this->makeTrueFalseQuestion('Q1', true);
+        CbtAssessmentQuestion::create(['assessment_id' => $paper->id, 'question_id' => $q->id, 'sequence' => 0]);
         app(TenantManager::class)->forget();
 
         return [$school, $student, $paper];
     }
 
-    public function test_a_basic_tier_paper_only_shows_the_universal_steps(): void
+    public function test_a_basic_tier_assessment_only_shows_the_universal_steps(): void
     {
         [$school, $student, $paper] = $this->schoolWithStudentAndPaper('pwone', 'Basic');
 
-        $this->actingAs($student)->post(route('school.cbt.precheck.start', ['school' => $school->slug, 'paperId' => $paper->id]))
+        $this->actingAs($student)->post(route('school.cbt.precheck.start', ['school' => $school->slug, 'assessmentId' => $paper->id]))
             ->assertRedirect();
 
         app(TenantManager::class)->use($school);
@@ -85,8 +85,8 @@ class CbtPrecheckWizardTest extends TestCase
     {
         [$school, $student, $paper] = $this->schoolWithStudentAndPaper('pwtwo', 'Basic');
 
-        $this->actingAs($student)->post(route('school.cbt.precheck.start', ['school' => $school->slug, 'paperId' => $paper->id]));
-        $this->actingAs($student)->post(route('school.cbt.precheck.start', ['school' => $school->slug, 'paperId' => $paper->id]));
+        $this->actingAs($student)->post(route('school.cbt.precheck.start', ['school' => $school->slug, 'assessmentId' => $paper->id]));
+        $this->actingAs($student)->post(route('school.cbt.precheck.start', ['school' => $school->slug, 'assessmentId' => $paper->id]));
 
         app(TenantManager::class)->use($school);
         $this->assertSame(1, CbtPrecheckSession::count());
@@ -97,7 +97,7 @@ class CbtPrecheckWizardTest extends TestCase
     {
         [$school, $student, $paper] = $this->schoolWithStudentAndPaper('pwthree', 'Basic');
 
-        $this->actingAs($student)->post(route('school.cbt.precheck.start', ['school' => $school->slug, 'paperId' => $paper->id]));
+        $this->actingAs($student)->post(route('school.cbt.precheck.start', ['school' => $school->slug, 'assessmentId' => $paper->id]));
         app(TenantManager::class)->use($school);
         $precheck = CbtPrecheckSession::first();
         $id = $precheck->id;
@@ -130,7 +130,7 @@ class CbtPrecheckWizardTest extends TestCase
     {
         [$school, $student, $paper] = $this->schoolWithStudentAndPaper('pwfour', 'Basic');
 
-        $this->actingAs($student)->post(route('school.cbt.precheck.start', ['school' => $school->slug, 'paperId' => $paper->id]));
+        $this->actingAs($student)->post(route('school.cbt.precheck.start', ['school' => $school->slug, 'assessmentId' => $paper->id]));
         app(TenantManager::class)->use($school);
         $precheck = CbtPrecheckSession::first();
         $id = $precheck->id;
@@ -146,11 +146,11 @@ class CbtPrecheckWizardTest extends TestCase
         app(TenantManager::class)->forget();
     }
 
-    public function test_a_maximum_tier_paper_requires_every_step_including_uploads(): void
+    public function test_a_maximum_tier_assessment_requires_every_step_including_uploads(): void
     {
         [$school, $student, $paper] = $this->schoolWithStudentAndPaper('pwfive', 'Maximum');
 
-        $this->actingAs($student)->post(route('school.cbt.precheck.start', ['school' => $school->slug, 'paperId' => $paper->id]));
+        $this->actingAs($student)->post(route('school.cbt.precheck.start', ['school' => $school->slug, 'assessmentId' => $paper->id]));
         app(TenantManager::class)->use($school);
         $precheck = CbtPrecheckSession::first();
         $id = $precheck->id;
@@ -194,7 +194,7 @@ class CbtPrecheckWizardTest extends TestCase
     {
         [$school, $student, $paper] = $this->schoolWithStudentAndPaper('pwsix', 'Maximum');
 
-        $this->actingAs($student)->post(route('school.cbt.precheck.start', ['school' => $school->slug, 'paperId' => $paper->id]));
+        $this->actingAs($student)->post(route('school.cbt.precheck.start', ['school' => $school->slug, 'assessmentId' => $paper->id]));
         app(TenantManager::class)->use($school);
         $precheck = CbtPrecheckSession::first();
         $id = $precheck->id;
@@ -226,7 +226,7 @@ class CbtPrecheckWizardTest extends TestCase
         $role = $this->rbac->cloneTemplateRole($school, 'student');
         $school->users()->attach($student2->id, ['role_id' => $role->id, 'status' => 'active']);
 
-        $this->actingAs($student1)->post(route('school.cbt.precheck.start', ['school' => $school->slug, 'paperId' => $paper->id]));
+        $this->actingAs($student1)->post(route('school.cbt.precheck.start', ['school' => $school->slug, 'assessmentId' => $paper->id]));
         app(TenantManager::class)->use($school);
         $id = CbtPrecheckSession::first()->id;
         app(TenantManager::class)->forget();

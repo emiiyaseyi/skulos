@@ -25,7 +25,7 @@
           @php($precheck = $approval->precheckSession)
           <tr>
             <td data-label="Taker">{{ $precheck?->takeable?->name ?? 'Unknown' }}</td>
-            <td class="muted" data-label="Assessment">{{ $precheck?->paper?->title }}</td>
+            <td class="muted" data-label="Assessment">{{ $precheck?->assessment?->title }}</td>
             <td data-label="Photo ID">
               <img src="{{ route('school.cbt.face-approvals.photo-id-image', ['school' => $school->slug, 'approvalId' => $approval->id]) }}" alt="Photo ID" style="width:5rem;height:5rem;object-fit:cover;border-radius:6px" />
             </td>

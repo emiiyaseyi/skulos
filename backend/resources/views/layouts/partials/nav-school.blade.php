@@ -563,15 +563,26 @@
   // same admin tier the question bank/paper builder/security profiles/
   // face approvals controllers already gate on (those screens expose
   // correct answers or other takers' live data).
+  // Entry names follow the reference repo's own admin menu (user
+  // directive 2026-07-31, with a screenshot of it: "IT SHOULD HAVE THE
+  // SAME BACKEND AND FRONT END AS IT IS IN LEARNGUARD"). "Papers" was
+  // removed outright — it was invented here, has no counterpart in the
+  // reference, and already meant an exam-timetable row elsewhere in
+  // SKULOS (see ExamPaper). Entries the reference has but SKULOS has
+  // not built yet (Overview, Admin Backend, Score Matrix, Bulk
+  // Assignment, Bulk Scheduling, Assessment Manager, Storage
+  // Management, 360 Precheck Videos) are deliberately absent rather
+  // than shown as dead links; they appear here as each real screen
+  // lands.
   if ($navRbac->check($navUser, $school, 'assessment_hub.view')) {
     $groups['Learning Management'][] = $link('school.cbt.take.available', 'Take Assessments', 'quiz');
   }
   if ($navRbac->check($navUser, $school, 'assessment_hub.create')) {
+    $groups['Learning Management'][] = $link('school.cbt.assessments.index', 'Assessments', 'quiz');
     $groups['Learning Management'][] = $link('school.cbt.questions.index', 'Question Bank', 'quiz');
-    $groups['Learning Management'][] = $link('school.cbt.papers.index', 'Papers', 'quiz');
     $groups['Learning Management'][] = $link('school.cbt.security-profiles.index', 'Security Profiles', 'sliders');
+    $groups['Learning Management'][] = $link('school.cbt.live-monitor.index', 'Proctor / Invigilator View', 'proctor');
     $groups['Learning Management'][] = $link('school.cbt.face-approvals.index', 'Face Match Approvals', 'proctor');
-    $groups['Learning Management'][] = $link('school.cbt.live-monitor.index', 'Live Monitor', 'proctor');
     $groups['Learning Management'][] = $link('school.cbt.incidents.index', 'Incidents', 'warning');
   }
 

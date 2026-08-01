@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\School;
-use App\Models\Tenant\CbtPaper;
-use App\Models\Tenant\CbtPaperQuestion;
+use App\Models\Tenant\CbtAssessment;
+use App\Models\Tenant\CbtAssessmentQuestion;
 use App\Models\Tenant\CbtQuestion;
 use App\Models\Tenant\CbtSecurityEvent;
 use App\Models\Tenant\CbtSecurityProfile;
@@ -26,7 +26,7 @@ use Tests\TestCase;
  */
 class CbtRiskScoringTest extends TestCase
 {
-    use RefreshDatabase;
+    use \Tests\Concerns\MakesCbtQuestions, RefreshDatabase;
 
     protected string $tenantDir;
 
@@ -60,9 +60,9 @@ class CbtRiskScoringTest extends TestCase
         app(TenantManager::class)->use($school);
         CbtSecurityProfile::ensureSeeded();
         $profile = CbtSecurityProfile::where('name', $profileName)->first();
-        $paper = CbtPaper::create(['title' => 'Quiz', 'duration_minutes' => 30, 'security_profile_id' => $profile->id, 'audience' => 'student']);
-        $q = CbtQuestion::create(['type' => 'true_false', 'prompt' => 'Q1', 'correct_answer' => true, 'points' => 1]);
-        CbtPaperQuestion::create(['paper_id' => $paper->id, 'question_id' => $q->id, 'sequence' => 0]);
+        $paper = CbtAssessment::create(['title' => 'Quiz', 'duration_minutes' => 30, 'security_profile_id' => $profile->id, 'audience' => 'student']);
+        $q = $this->makeTrueFalseQuestion('Q1', true);
+        CbtAssessmentQuestion::create(['assessment_id' => $paper->id, 'question_id' => $q->id, 'sequence' => 0]);
         app(TenantManager::class)->forget();
 
         return [$school, $student, $paper];
@@ -72,7 +72,7 @@ class CbtRiskScoringTest extends TestCase
     {
         [$school, $student, $paper] = $this->schoolWithSession('crsone');
 
-        $this->actingAs($student)->post(route('school.cbt.take.start', ['school' => $school->slug, 'paperId' => $paper->id]));
+        $this->actingAs($student)->post(route('school.cbt.take.start', ['school' => $school->slug, 'assessmentId' => $paper->id]));
         app(TenantManager::class)->use($school);
         $session = CbtSession::first();
         app(TenantManager::class)->forget();
@@ -94,7 +94,7 @@ class CbtRiskScoringTest extends TestCase
     {
         [$school, $student, $paper] = $this->schoolWithSession('crstwo', 'Medium');
 
-        $this->actingAs($student)->post(route('school.cbt.take.start', ['school' => $school->slug, 'paperId' => $paper->id]));
+        $this->actingAs($student)->post(route('school.cbt.take.start', ['school' => $school->slug, 'assessmentId' => $paper->id]));
         app(TenantManager::class)->use($school);
         $session = CbtSession::first();
         app(TenantManager::class)->forget();
@@ -121,7 +121,7 @@ class CbtRiskScoringTest extends TestCase
     {
         [$school, $student, $paper] = $this->schoolWithSession('crsthree', 'High'); // High: tab_switch_action=lock, limit=3
 
-        $this->actingAs($student)->post(route('school.cbt.take.start', ['school' => $school->slug, 'paperId' => $paper->id]));
+        $this->actingAs($student)->post(route('school.cbt.take.start', ['school' => $school->slug, 'assessmentId' => $paper->id]));
         app(TenantManager::class)->use($school);
         $session = CbtSession::first();
         app(TenantManager::class)->forget();
@@ -149,7 +149,7 @@ class CbtRiskScoringTest extends TestCase
     {
         [$school, $student, $paper] = $this->schoolWithSession('crsfour');
 
-        $this->actingAs($student)->post(route('school.cbt.take.start', ['school' => $school->slug, 'paperId' => $paper->id]));
+        $this->actingAs($student)->post(route('school.cbt.take.start', ['school' => $school->slug, 'assessmentId' => $paper->id]));
         app(TenantManager::class)->use($school);
         $session = CbtSession::first();
         app(TenantManager::class)->forget();

@@ -1,4 +1,4 @@
-@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => $paper->title])
+@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => $assessment->title])
 @section('title', 'Pre-Assessment Check')
 @section('bare', true)
 
@@ -6,7 +6,7 @@
 <div style="max-width:34rem;margin:1.5rem auto;padding:0 1.25rem">
   <div class="page-head">
     <div>
-      <h1 class="title">{{ $paper->title }}</h1>
+      <h1 class="title">{{ $assessment->title }}</h1>
       <p class="subtitle">Step {{ $stepIndex + 1 }} of {{ count($steps) }} &middot; {{ $stepLabels[$precheck->current_step] }}</p>
     </div>
   </div>

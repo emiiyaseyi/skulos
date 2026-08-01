@@ -4,7 +4,7 @@ namespace App\Http\Controllers\School;
 
 use App\Http\Controllers\Controller;
 use App\Models\School;
-use App\Models\Tenant\CbtPaper;
+use App\Models\Tenant\CbtAssessment;
 use App\Models\Tenant\CbtSession;
 use App\Services\Cbt\BreakRequestService;
 use App\Services\Cbt\CbtSessionService;
@@ -16,11 +16,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
 /**
- * SKULOS Assessment Hub, Phase 2b: the taker-facing side (a School\User —
- * student or staff, both reached here through the normal 'web' guard,
- * the app has no separate student/staff nav file — see CbtSession's own
- * docblock for why `takeable` is polymorphic and how an Applicant would
- * plug into this same controller shape later, unbuilt this phase).
+ * The taker-facing side (a School\User — student or staff, both
+ * reached here through the normal 'web' guard, the app has no separate
+ * student/staff nav file — see CbtSession's own docblock for why
+ * `takeable` is polymorphic and how an Applicant would plug into this
+ * same controller shape later, unbuilt so far).
  */
 class CbtTakeController extends Controller
 {
@@ -33,7 +33,7 @@ class CbtTakeController extends Controller
     {
         $role = Auth::user()->roleIn($this->school($request));
 
-        return $role?->slug === 'student' ? CbtPaper::AUDIENCE_STUDENT : CbtPaper::AUDIENCE_STAFF;
+        return $role?->slug === 'student' ? CbtAssessment::AUDIENCE_STUDENT : CbtAssessment::AUDIENCE_STAFF;
     }
 
     protected function authorizeAction(Request $request, string $permission): void
@@ -52,14 +52,17 @@ class CbtTakeController extends Controller
         $taker = Auth::user();
         $audience = $this->audienceFor($request);
 
-        $papers = CbtPaper::where('audience', $audience)->where('is_active', true)->orderByDesc('id')->get();
+        $assessments = CbtAssessment::with(['classArms', 'takers'])
+            ->where('audience', $audience)->where('is_active', true)->orderByDesc('id')->get()
+            ->filter(fn (CbtAssessment $assessment) => $assessment->isEligible($taker))
+            ->values();
         $sessions = CbtSession::where('takeable_type', $taker::class)->where('takeable_id', $taker->id)
-            ->get()->keyBy('paper_id');
+            ->get()->keyBy('assessment_id');
 
         return view('school.cbt.take.available', [
             'school' => $school,
             'accent' => $school->branding()['color'] ?? null,
-            'papers' => $papers,
+            'assessments' => $assessments,
             'sessions' => $sessions,
         ]);
     }
@@ -68,22 +71,23 @@ class CbtTakeController extends Controller
     {
         $this->authorizeAction($request, 'assessment_hub.view');
         $school = $this->school($request);
-        $paper = CbtPaper::where('is_active', true)->where('audience', $this->audienceFor($request))->findOrFail($request->route('paperId'));
+        $assessment = CbtAssessment::where('is_active', true)->where('audience', $this->audienceFor($request))->findOrFail($request->route('assessmentId'));
+        abort_unless($assessment->isEligible(Auth::user()), 403, 'You are not eligible to take this assessment.');
 
-        $existingFinished = CbtSession::where('paper_id', $paper->id)
+        $existingFinished = CbtSession::where('assessment_id', $assessment->id)
             ->where('takeable_type', Auth::user()::class)->where('takeable_id', Auth::id())
             ->whereIn('status', [CbtSession::STATUS_SUBMITTED, CbtSession::STATUS_AUTO_SUBMITTED, CbtSession::STATUS_GRADED])
             ->exists();
         abort_if($existingFinished, 422, 'You have already completed this assessment.');
 
-        $session = $sessions->start(Auth::user(), $paper, $request->ip(), $request->userAgent());
+        $session = $sessions->start(Auth::user(), $assessment, $request->ip(), $request->userAgent());
 
         return redirect()->route('school.cbt.take.session', ['school' => $school->slug, 'sessionId' => $session->id]);
     }
 
     protected function ownedSession(Request $request): CbtSession
     {
-        $session = CbtSession::with(['paper.securityProfile', 'paper.paperQuestions.question'])->findOrFail($request->route('sessionId'));
+        $session = CbtSession::with(['assessment.securityProfile', 'assessment.assessmentQuestions.question.answers'])->findOrFail($request->route('sessionId'));
         abort_unless($session->takeable_type === Auth::user()::class && $session->takeable_id === Auth::id(), 403);
 
         return $session;
@@ -105,7 +109,7 @@ class CbtTakeController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'] ?? null,
             'session' => $session,
-            'paper' => $session->paper,
+            'assessment' => $session->assessment,
             'existingAnswers' => $existingAnswers,
         ]);
     }
@@ -127,11 +131,11 @@ class CbtTakeController extends Controller
 
     /**
      * The take screen's own JS reports raw proctoring signals here (tab
-     * switch, fullscreen exit, copy/paste, right-click — Phase 2c; AI
-     * checks join in Phase 2e). A `tab_switch_action=lock` profile that
-     * has crossed its own tab_switch_limit auto-submits the session as a
-     * direct side effect of the event that pushed it over, matching
-     * LearnGuard's own "violations_suspended" behaviour.
+     * switch, fullscreen exit, copy/paste, right-click, plus the AI
+     * face/object checks). A `tab_switch_action=lock` profile that has
+     * crossed its own tab_switch_limit auto-submits the session as a
+     * direct side effect of the event that pushed it over, matching the
+     * reference repo's own "violations_suspended" behaviour.
      */
     public function reportEvent(Request $request, RiskScoringService $risk, CbtSessionService $sessions, CbtSnapshotService $snapshots): \Illuminate\Http\JsonResponse
     {
@@ -141,14 +145,12 @@ class CbtTakeController extends Controller
         $data = $request->validate([
             'type' => ['required', Rule::in([
                 'tab_switch', 'fullscreen_exit', 'copy_attempt', 'paste_attempt', 'right_click', 'window_blur',
-                // Phase 2e: AI proctoring signals, reported periodically by
-                // the take screen's own face-api.js/YOLOv5n checks.
                 'face_not_detected', 'face_mismatch', 'object_detected',
             ])],
             'meta' => ['nullable', 'array'],
-            // Phase 2g: an optional evidence capture taken alongside a
-            // concerning AI signal — never required, most events (tab
-            // switch, copy/paste) never carry one.
+            // An optional evidence capture taken alongside a concerning
+            // AI signal — never required, most events (tab switch,
+            // copy/paste) never carry one.
             'snapshot' => ['nullable', 'string', 'starts_with:data:image/'],
         ]);
 
@@ -159,7 +161,7 @@ class CbtTakeController extends Controller
             $snapshots->capture($session, 'webcam', $data['snapshot'], $this->school($request)->slug);
         }
 
-        $profile = $session->paper->securityProfile;
+        $profile = $session->assessment->securityProfile;
         $autoSubmitted = false;
         if ($data['type'] === 'tab_switch' && $profile->tab_switch_action === 'lock'
             && $profile->tab_switch_limit && $session->tab_switches >= $profile->tab_switch_limit) {
@@ -170,7 +172,7 @@ class CbtTakeController extends Controller
         return response()->json(['recorded' => true, 'auto_submitted' => $autoSubmitted]);
     }
 
-    /** A taker's own break request — staff decides from the live monitor (Phase 2g). */
+    /** A taker's own break request — staff decides from the live monitor. */
     public function requestBreak(Request $request, BreakRequestService $breaks): \Illuminate\Http\JsonResponse
     {
         $session = $this->ownedSession($request);

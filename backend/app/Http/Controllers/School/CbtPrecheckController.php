@@ -4,7 +4,7 @@ namespace App\Http\Controllers\School;
 
 use App\Http\Controllers\Controller;
 use App\Models\School;
-use App\Models\Tenant\CbtPaper;
+use App\Models\Tenant\CbtAssessment;
 use App\Models\Tenant\CbtFaceApproval;
 use App\Models\Tenant\CbtPrecheckSession;
 use App\Models\Tenant\CbtSession;
@@ -18,12 +18,11 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
- * SKULOS Assessment Hub, Phase 2d: the pre-exam wizard sat in front of
- * CbtTakeController's timed flow. See PrecheckWizardService and
- * CbtPrecheckSession::activeSteps() for how the step list is derived
- * per paper; this controller only ever handles the current step's own
- * input and hands off to CbtSessionService::start() once every active
- * step is done.
+ * The pre-exam wizard sat in front of CbtTakeController's timed flow.
+ * See PrecheckWizardService and CbtPrecheckSession::activeSteps() for
+ * how the step list is derived per assessment; this controller only
+ * ever handles the current step's own input and hands off to
+ * CbtSessionService::start() once every active step is done.
  */
 class CbtPrecheckController extends Controller
 {
@@ -45,29 +44,30 @@ class CbtPrecheckController extends Controller
     {
         $role = Auth::user()->roleIn($this->school($request));
 
-        return $role?->slug === 'student' ? CbtPaper::AUDIENCE_STUDENT : CbtPaper::AUDIENCE_STAFF;
+        return $role?->slug === 'student' ? CbtAssessment::AUDIENCE_STUDENT : CbtAssessment::AUDIENCE_STAFF;
     }
 
     public function start(Request $request, PrecheckWizardService $wizard): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request);
         $school = $this->school($request);
-        $paper = CbtPaper::where('is_active', true)->where('audience', $this->audienceFor($request))->findOrFail($request->route('paperId'));
+        $assessment = CbtAssessment::where('is_active', true)->where('audience', $this->audienceFor($request))->findOrFail($request->route('assessmentId'));
+        abort_unless($assessment->isEligible(Auth::user()), 403, 'You are not eligible to take this assessment.');
 
-        $alreadyAttempted = CbtSession::where('paper_id', $paper->id)
+        $alreadyAttempted = CbtSession::where('assessment_id', $assessment->id)
             ->where('takeable_type', Auth::user()::class)->where('takeable_id', Auth::id())
             ->whereIn('status', [CbtSession::STATUS_SUBMITTED, CbtSession::STATUS_AUTO_SUBMITTED, CbtSession::STATUS_GRADED])
             ->exists();
         abort_if($alreadyAttempted, 422, 'You have already completed this assessment.');
 
-        $precheck = $wizard->start(Auth::user(), $paper);
+        $precheck = $wizard->start(Auth::user(), $assessment);
 
         return redirect()->route('school.cbt.precheck.show', ['school' => $school->slug, 'precheckId' => $precheck->id]);
     }
 
     protected function ownedPrecheck(Request $request): CbtPrecheckSession
     {
-        $precheck = CbtPrecheckSession::with('paper.securityProfile')->findOrFail($request->route('precheckId'));
+        $precheck = CbtPrecheckSession::with('assessment.securityProfile')->findOrFail($request->route('precheckId'));
         abort_unless($precheck->takeable_type === Auth::user()::class && $precheck->takeable_id === Auth::id(), 403);
 
         return $precheck;
@@ -93,7 +93,7 @@ class CbtPrecheckController extends Controller
             if ($faceApproval?->status === CbtFaceApproval::STATUS_APPROVED) {
                 $finished = $wizard->completeStep($precheck, 'face', []);
                 if ($finished) {
-                    $session = $sessions->start(Auth::user(), $precheck->paper, $request->ip(), $request->userAgent());
+                    $session = $sessions->start(Auth::user(), $precheck->assessment, $request->ip(), $request->userAgent());
                     $precheck->forceFill(['cbt_session_id' => $session->id])->save();
 
                     return redirect()->route('school.cbt.take.session', ['school' => $school->slug, 'sessionId' => $session->id]);
@@ -110,8 +110,8 @@ class CbtPrecheckController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'] ?? null,
             'precheck' => $precheck,
-            'paper' => $precheck->paper,
-            'profile' => $precheck->paper->securityProfile,
+            'assessment' => $precheck->assessment,
+            'profile' => $precheck->assessment->securityProfile,
             'steps' => $steps,
             'stepIndex' => $stepIndex === false ? 0 : $stepIndex,
             'stepLabels' => config('skulos.precheck_wizard_steps'),
@@ -183,7 +183,7 @@ class CbtPrecheckController extends Controller
             return redirect()->route('school.cbt.precheck.show', ['school' => $school->slug, 'precheckId' => $precheck->id]);
         }
 
-        $session = $sessions->start(Auth::user(), $precheck->paper, $request->ip(), $request->userAgent());
+        $session = $sessions->start(Auth::user(), $precheck->assessment, $request->ip(), $request->userAgent());
         $precheck->forceFill(['cbt_session_id' => $session->id])->save();
 
         return redirect()->route('school.cbt.take.session', ['school' => $school->slug, 'sessionId' => $session->id]);

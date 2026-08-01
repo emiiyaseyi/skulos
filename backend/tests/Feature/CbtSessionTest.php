@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\School;
-use App\Models\Tenant\CbtPaper;
-use App\Models\Tenant\CbtPaperQuestion;
+use App\Models\Tenant\CbtAssessment;
+use App\Models\Tenant\CbtAssessmentQuestion;
 use App\Models\Tenant\CbtQuestion;
 use App\Models\Tenant\CbtSecurityProfile;
 use App\Models\Tenant\CbtSession;
@@ -23,7 +23,7 @@ use Tests\TestCase;
  */
 class CbtSessionTest extends TestCase
 {
-    use RefreshDatabase;
+    use \Tests\Concerns\MakesCbtQuestions, RefreshDatabase;
 
     protected string $tenantDir;
 
@@ -57,11 +57,11 @@ class CbtSessionTest extends TestCase
         app(TenantManager::class)->use($school);
         CbtSecurityProfile::ensureSeeded();
         $basic = CbtSecurityProfile::where('name', 'Basic')->first();
-        $paper = CbtPaper::create(['title' => 'Quick Quiz', 'duration_minutes' => 20, 'security_profile_id' => $basic->id, 'audience' => 'student']);
-        $mcq = CbtQuestion::create(['type' => 'multiple_choice_single', 'prompt' => '2+2?', 'options' => ['3', '4', '5'], 'correct_answer' => '4', 'points' => 2]);
-        $essay = CbtQuestion::create(['type' => 'essay', 'prompt' => 'Explain gravity.', 'points' => 5]);
-        CbtPaperQuestion::create(['paper_id' => $paper->id, 'question_id' => $mcq->id, 'sequence' => 0]);
-        CbtPaperQuestion::create(['paper_id' => $paper->id, 'question_id' => $essay->id, 'sequence' => 1]);
+        $paper = CbtAssessment::create(['title' => 'Quick Quiz', 'duration_minutes' => 20, 'security_profile_id' => $basic->id, 'audience' => 'student']);
+        $mcq = $this->makeChoiceQuestion('2+2?', ['3', '4', '5'], ['4'], 2);
+        $essay = $this->makeEssayQuestion('Explain gravity.', 5);
+        CbtAssessmentQuestion::create(['assessment_id' => $paper->id, 'question_id' => $mcq->id, 'sequence' => 0]);
+        CbtAssessmentQuestion::create(['assessment_id' => $paper->id, 'question_id' => $essay->id, 'sequence' => 1]);
         app(TenantManager::class)->forget();
 
         return [$school, $student, $paper, $mcq, $essay];
@@ -74,7 +74,7 @@ class CbtSessionTest extends TestCase
         $this->actingAs($student)->get(route('school.cbt.take.available', ['school' => $school->slug]))
             ->assertOk()->assertSee('Quick Quiz');
 
-        $this->actingAs($student)->post(route('school.cbt.take.start', ['school' => $school->slug, 'paperId' => $paper->id]))
+        $this->actingAs($student)->post(route('school.cbt.take.start', ['school' => $school->slug, 'assessmentId' => $paper->id]))
             ->assertRedirect();
 
         app(TenantManager::class)->use($school);
@@ -86,13 +86,13 @@ class CbtSessionTest extends TestCase
         app(TenantManager::class)->forget();
 
         // Resuming an already-in-progress attempt returns the SAME session, not a second one.
-        $this->actingAs($student)->post(route('school.cbt.take.start', ['school' => $school->slug, 'paperId' => $paper->id]));
+        $this->actingAs($student)->post(route('school.cbt.take.start', ['school' => $school->slug, 'assessmentId' => $paper->id]));
         app(TenantManager::class)->use($school);
         $this->assertSame(1, CbtSession::count());
         app(TenantManager::class)->forget();
 
         $this->actingAs($student)->post(route('school.cbt.take.answer', ['school' => $school->slug, 'sessionId' => $session->id]), [
-            'question_id' => $mcq->id, 'answer' => '4',
+            'question_id' => $mcq->id, 'answer' => $this->answerIdFor($mcq, '4'),
         ])->assertOk()->assertJson(['saved' => true]);
 
         $this->actingAs($student)->post(route('school.cbt.take.answer', ['school' => $school->slug, 'sessionId' => $session->id]), [
@@ -116,22 +116,22 @@ class CbtSessionTest extends TestCase
         app(TenantManager::class)->forget();
     }
 
-    public function test_a_fully_objective_paper_finalizes_to_graded_immediately_on_submit(): void
+    public function test_a_fully_objective_assessment_finalizes_to_graded_immediately_on_submit(): void
     {
         [$school, $student, $paper, $mcq, $essay] = $this->schoolWithStudentAndPaper('cstwo');
 
         app(TenantManager::class)->use($school);
         // Drop the essay question, leaving only the objective one.
-        CbtPaperQuestion::where('paper_id', $paper->id)->where('question_id', $essay->id)->delete();
+        CbtAssessmentQuestion::where('assessment_id', $paper->id)->where('question_id', $essay->id)->delete();
         app(TenantManager::class)->forget();
 
-        $this->actingAs($student)->post(route('school.cbt.take.start', ['school' => $school->slug, 'paperId' => $paper->id]));
+        $this->actingAs($student)->post(route('school.cbt.take.start', ['school' => $school->slug, 'assessmentId' => $paper->id]));
         app(TenantManager::class)->use($school);
         $session = CbtSession::first();
         app(TenantManager::class)->forget();
 
         $this->actingAs($student)->post(route('school.cbt.take.answer', ['school' => $school->slug, 'sessionId' => $session->id]), [
-            'question_id' => $mcq->id, 'answer' => '4',
+            'question_id' => $mcq->id, 'answer' => $this->answerIdFor($mcq, '4'),
         ]);
         $this->actingAs($student)->post(route('school.cbt.take.submit', ['school' => $school->slug, 'sessionId' => $session->id]));
 
@@ -150,7 +150,7 @@ class CbtSessionTest extends TestCase
         $role = $this->rbac->cloneTemplateRole($school, 'student');
         $school->users()->attach($student2->id, ['role_id' => $role->id, 'status' => 'active']);
 
-        $this->actingAs($student1)->post(route('school.cbt.take.start', ['school' => $school->slug, 'paperId' => $paper->id]));
+        $this->actingAs($student1)->post(route('school.cbt.take.start', ['school' => $school->slug, 'assessmentId' => $paper->id]));
         app(TenantManager::class)->use($school);
         $session = CbtSession::first();
         app(TenantManager::class)->forget();
@@ -165,7 +165,7 @@ class CbtSessionTest extends TestCase
 
         app(TenantManager::class)->use($school);
         $session = CbtSession::create([
-            'paper_id' => $paper->id, 'takeable_type' => User::class, 'takeable_id' => $student->id,
+            'assessment_id' => $paper->id, 'takeable_type' => User::class, 'takeable_id' => $student->id,
             'started_at' => now()->subMinutes(40), 'ends_at' => now()->subMinutes(20),
         ]);
         app(TenantManager::class)->forget();

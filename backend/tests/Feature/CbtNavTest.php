@@ -56,7 +56,7 @@ class CbtNavTest extends TestCase
         $response->assertOk()
             ->assertSee('Learning Management')
             ->assertSee('Question Bank')
-            ->assertSee('Live Monitor')
+            ->assertSee('Proctor / Invigilator View')
             ->assertSee('Incidents');
     }
 
@@ -73,7 +73,7 @@ class CbtNavTest extends TestCase
         $response->assertOk()
             ->assertSee('Take Assessments')
             ->assertDontSee('Question Bank')
-            ->assertDontSee('Live Monitor');
+            ->assertDontSee('Proctor / Invigilator View');
     }
 
     public function test_the_whole_group_is_hidden_when_the_module_is_disabled(): void

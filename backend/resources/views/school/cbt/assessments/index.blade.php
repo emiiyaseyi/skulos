@@ -1,11 +1,11 @@
-@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => 'Assessment Papers'])
-@section('title', 'Assessment Papers')
+@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => 'Assessments'])
+@section('title', 'Assessments')
 
 @section('content')
 <div class="page-head">
   <div>
-    <h1 class="title">Assessment Papers</h1>
-    <p class="subtitle">Timed papers assembled from your question bank.</p>
+    <h1 class="title">Assessments</h1>
+    <p class="subtitle">Timed assessments assembled from your question bank.</p>
   </div>
   <div class="stack" style="flex-direction:row;gap:.6rem">
     <a class="btn btn-ghost btn-sm" href="{{ route('school.cbt.questions.index', ['school' => $school->slug]) }}">Question bank</a>
@@ -21,8 +21,8 @@
 @endif
 
 <div class="card" style="margin-bottom:1.1rem">
-  <h3 style="margin-bottom:.8rem">New paper</h3>
-  <form method="POST" action="{{ route('school.cbt.papers.store', ['school' => $school->slug]) }}">
+  <h3 style="margin-bottom:.8rem">New assessment</h3>
+  <form method="POST" action="{{ route('school.cbt.assessments.store', ['school' => $school->slug]) }}">
     @csrf
     <div class="grid cols-2" style="gap:.75rem">
       <div class="field">
@@ -61,25 +61,26 @@
 </div>
 
 <div class="card">
-  <h3 style="margin-bottom:.8rem">Papers</h3>
-  @if($papers->isEmpty())
-    <p class="muted">No papers yet.</p>
+  <h3 style="margin-bottom:.8rem">Assessments</h3>
+  @if($assessments->isEmpty())
+    <p class="muted">No assessments yet.</p>
   @else
     <div style="overflow-x:auto">
     <table class="table-stack">
-      <thead><tr><th>Title</th><th>Audience</th><th>Duration</th><th>Security</th><th>Questions</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>Title</th><th>Subject</th><th>Audience</th><th>Duration</th><th>Security</th><th>Questions</th><th>Status</th><th></th></tr></thead>
       <tbody>
-        @foreach($papers as $paper)
+        @foreach($assessments as $assessment)
           <tr>
-            <td data-label="Title"><strong>{{ $paper->title }}</strong></td>
-            <td class="muted" data-label="Audience">{{ ucfirst($paper->audience) }}</td>
-            <td class="muted" data-label="Duration">{{ $paper->duration_minutes }} min</td>
-            <td class="muted" data-label="Security">{{ $paper->securityProfile?->name }}</td>
-            <td class="muted" data-label="Questions">{{ $paper->paper_questions_count }}</td>
-            <td data-label="Status"><span class="badge {{ $paper->is_active ? 'badge-ok' : 'badge-warn' }}">{{ $paper->is_active ? 'Active' : 'Inactive' }}</span></td>
+            <td data-label="Title"><strong>{{ $assessment->title }}</strong></td>
+            <td class="muted" data-label="Subject">{{ $assessment->subject?->name ?? 'Not set' }}</td>
+            <td class="muted" data-label="Audience">{{ ucfirst($assessment->audience) }}</td>
+            <td class="muted" data-label="Duration">{{ $assessment->duration_minutes }} min</td>
+            <td class="muted" data-label="Security">{{ $assessment->securityProfile?->name }}</td>
+            <td class="muted" data-label="Questions">{{ $assessment->assessment_questions_count }}</td>
+            <td data-label="Status"><span class="badge {{ $assessment->is_active ? 'badge-ok' : 'badge-warn' }}">{{ $assessment->is_active ? 'Active' : 'Inactive' }}</span></td>
             <td style="white-space:nowrap">
-              <a class="btn btn-ghost btn-sm" href="{{ route('school.cbt.papers.edit', ['school' => $school->slug, 'paperId' => $paper->id]) }}">Edit</a>
-              <form method="POST" action="{{ route('school.cbt.papers.destroy', ['school' => $school->slug, 'paperId' => $paper->id]) }}" style="display:inline" onsubmit="return confirm('Remove this paper?')">
+              <a class="btn btn-ghost btn-sm" href="{{ route('school.cbt.assessments.edit', ['school' => $school->slug, 'assessmentId' => $assessment->id]) }}">Edit</a>
+              <form method="POST" action="{{ route('school.cbt.assessments.destroy', ['school' => $school->slug, 'assessmentId' => $assessment->id]) }}" style="display:inline" onsubmit="return confirm('Remove this assessment?')">
                 @csrf @method('DELETE')
                 <button class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit">Delete</button>
               </form>
@@ -89,7 +90,7 @@
       </tbody>
     </table>
     </div>
-    <div style="margin-top:1rem">{{ $papers->links() }}</div>
+    <div style="margin-top:1rem">{{ $assessments->links() }}</div>
   @endif
 </div>
 @endsection

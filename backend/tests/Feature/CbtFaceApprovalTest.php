@@ -4,8 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\School;
 use App\Models\Tenant\CbtFaceApproval;
-use App\Models\Tenant\CbtPaper;
-use App\Models\Tenant\CbtPaperQuestion;
+use App\Models\Tenant\CbtAssessment;
+use App\Models\Tenant\CbtAssessmentQuestion;
 use App\Models\Tenant\CbtPrecheckSession;
 use App\Models\Tenant\CbtQuestion;
 use App\Models\Tenant\CbtSecurityProfile;
@@ -26,7 +26,7 @@ use Tests\TestCase;
  */
 class CbtFaceApprovalTest extends TestCase
 {
-    use RefreshDatabase;
+    use \Tests\Concerns\MakesCbtQuestions, RefreshDatabase;
 
     protected string $tenantDir;
 
@@ -64,9 +64,9 @@ class CbtFaceApprovalTest extends TestCase
         app(TenantManager::class)->use($school);
         CbtSecurityProfile::ensureSeeded();
         $maximum = CbtSecurityProfile::where('name', 'Maximum')->first();
-        $paper = CbtPaper::create(['title' => 'Locked Down Quiz', 'duration_minutes' => 30, 'security_profile_id' => $maximum->id, 'audience' => 'student']);
-        $q = CbtQuestion::create(['type' => 'true_false', 'prompt' => 'Q1', 'correct_answer' => true, 'points' => 1]);
-        CbtPaperQuestion::create(['paper_id' => $paper->id, 'question_id' => $q->id, 'sequence' => 0]);
+        $paper = CbtAssessment::create(['title' => 'Locked Down Quiz', 'duration_minutes' => 30, 'security_profile_id' => $maximum->id, 'audience' => 'student']);
+        $q = $this->makeTrueFalseQuestion('Q1', true);
+        CbtAssessmentQuestion::create(['assessment_id' => $paper->id, 'question_id' => $q->id, 'sequence' => 0]);
         app(TenantManager::class)->forget();
 
         return [$school, $student, $owner, $paper];
@@ -74,7 +74,7 @@ class CbtFaceApprovalTest extends TestCase
 
     protected function precheckToFaceStep($school, $student, $paper): int
     {
-        $this->actingAs($student)->post(route('school.cbt.precheck.start', ['school' => $school->slug, 'paperId' => $paper->id]));
+        $this->actingAs($student)->post(route('school.cbt.precheck.start', ['school' => $school->slug, 'assessmentId' => $paper->id]));
         app(TenantManager::class)->use($school);
         $id = CbtPrecheckSession::first()->id;
         app(TenantManager::class)->forget();

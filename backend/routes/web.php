@@ -571,7 +571,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::prefix('assessment/take')->name('school.cbt.take.')->group(function () {
             $cbtTake = \App\Http\Controllers\School\CbtTakeController::class;
             Route::get('/', [$cbtTake, 'available'])->name('available');
-            Route::post('/{paperId}/start', [$cbtTake, 'start'])->name('start');
+            Route::post('/{assessmentId}/start', [$cbtTake, 'start'])->name('start');
             Route::get('/session/{sessionId}', [$cbtTake, 'take'])->name('session');
             Route::post('/session/{sessionId}/answer', [$cbtTake, 'saveAnswer'])->name('answer');
             Route::post('/session/{sessionId}/event', [$cbtTake, 'reportEvent'])->name('event');
@@ -587,7 +587,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         // final step completes (see PrecheckWizardService).
         Route::prefix('assessment/precheck')->name('school.cbt.precheck.')->group(function () {
             $precheck = \App\Http\Controllers\School\CbtPrecheckController::class;
-            Route::post('/{paperId}/start', [$precheck, 'start'])->name('start');
+            Route::post('/{assessmentId}/start', [$precheck, 'start'])->name('start');
             Route::get('/{precheckId}', [$precheck, 'show'])->name('show');
             Route::post('/{precheckId}/advance', [$precheck, 'advance'])->name('advance');
             Route::get('/{precheckId}/photo-id-image', [$precheck, 'photoIdImage'])->name('photo-id-image');
@@ -944,20 +944,29 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             // run of this controller — Laravel matches in registration
             // order, not by specificity).
             Route::post('/bulk-action', [$cbtQuestions, 'bulkAction'])->name('bulk-action');
+            // Category CRUD — also static paths, so registered ahead of
+            // the {questionId} routes for the same reason.
+            Route::get('/import', [$cbtQuestions, 'importForm'])->name('import.form');
+            Route::post('/import', [$cbtQuestions, 'import'])->name('import');
+            Route::get('/import/template/{format}', [$cbtQuestions, 'template'])->name('import.template');
+            Route::get('/export/{format}', [$cbtQuestions, 'export'])->name('export');
+            Route::post('/categories', [$cbtQuestions, 'storeCategory'])->name('categories.store');
+            Route::post('/categories/{categoryId}', [$cbtQuestions, 'updateCategory'])->name('categories.update');
+            Route::delete('/categories/{categoryId}', [$cbtQuestions, 'destroyCategory'])->name('categories.destroy');
             Route::post('/{questionId}', [$cbtQuestions, 'update'])->name('update');
             Route::delete('/{questionId}', [$cbtQuestions, 'destroy'])->name('destroy');
         });
 
-        Route::prefix('assessment/papers')->name('school.cbt.papers.')->group(function () {
-            $cbtPapers = \App\Http\Controllers\School\CbtPaperController::class;
-            Route::get('/', [$cbtPapers, 'index'])->name('index');
-            Route::post('/', [$cbtPapers, 'store'])->name('store');
-            Route::get('/{paperId}', [$cbtPapers, 'edit'])->name('edit');
-            Route::post('/{paperId}', [$cbtPapers, 'update'])->name('update');
-            Route::delete('/{paperId}', [$cbtPapers, 'destroy'])->name('destroy');
-            Route::post('/{paperId}/questions', [$cbtPapers, 'addQuestion'])->name('questions.store');
-            Route::delete('/{paperId}/questions/{paperQuestionId}', [$cbtPapers, 'removeQuestion'])->name('questions.destroy');
-            Route::post('/{paperId}/questions/{paperQuestionId}/move/{direction}', [$cbtPapers, 'moveQuestion'])->name('questions.move');
+        Route::prefix('assessment/assessments')->name('school.cbt.assessments.')->group(function () {
+            $cbtAssessments = \App\Http\Controllers\School\CbtAssessmentController::class;
+            Route::get('/', [$cbtAssessments, 'index'])->name('index');
+            Route::post('/', [$cbtAssessments, 'store'])->name('store');
+            Route::get('/{assessmentId}', [$cbtAssessments, 'edit'])->name('edit');
+            Route::post('/{assessmentId}', [$cbtAssessments, 'update'])->name('update');
+            Route::delete('/{assessmentId}', [$cbtAssessments, 'destroy'])->name('destroy');
+            Route::post('/{assessmentId}/questions', [$cbtAssessments, 'addQuestion'])->name('questions.store');
+            Route::delete('/{assessmentId}/questions/{assessmentQuestionId}', [$cbtAssessments, 'removeQuestion'])->name('questions.destroy');
+            Route::post('/{assessmentId}/questions/{assessmentQuestionId}/move/{direction}', [$cbtAssessments, 'moveQuestion'])->name('questions.move');
         });
 
         Route::prefix('assessment/security-profiles')->name('school.cbt.security-profiles.')->group(function () {

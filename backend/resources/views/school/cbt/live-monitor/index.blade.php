@@ -19,7 +19,7 @@
     <h3 style="margin-bottom:.6rem">Still in pre-check ({{ $prechecks->count() }})</h3>
     <div style="display:flex;flex-wrap:wrap;gap:.6rem">
       @foreach($prechecks as $precheck)
-        <span class="badge badge-warn">{{ $precheck->takeable?->name ?? 'Unknown' }} &middot; {{ $precheck->paper?->title }} &middot; {{ $precheck->current_step }}</span>
+        <span class="badge badge-warn">{{ $precheck->takeable?->name ?? 'Unknown' }} &middot; {{ $precheck->assessment?->title }} &middot; {{ $precheck->current_step }}</span>
       @endforeach
     </div>
   </div>
@@ -51,7 +51,7 @@
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.4rem">
           <div>
             <strong>{{ $session->takeable?->name ?? 'Unknown' }}</strong>
-            <div class="muted" style="font-size:.85rem">{{ $session->paper?->title }}</div>
+            <div class="muted" style="font-size:.85rem">{{ $session->assessment?->title }}</div>
           </div>
           <span class="badge" style="background:{{ $riskColor }};color:#fff">{{ ucfirst($session->risk_level) }} &middot; {{ $session->risk_score }}</span>
         </div>
