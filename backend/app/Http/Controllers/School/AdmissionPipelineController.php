@@ -76,7 +76,7 @@ class AdmissionPipelineController extends Controller
         };
     }
 
-    public function board(Request $request): \Illuminate\View\View
+    public function board(Request $request, \App\Services\Cbt\ScoreReportingService $reporting): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'admissions.decide');
         $school = $this->school($request);
@@ -89,6 +89,39 @@ class AdmissionPipelineController extends Controller
 
         $counts = collect(self::TABS)->mapWithKeys(fn ($t) => [$t => $this->scopeTab(Applicant::query(), $t)->count()]);
 
+        // Staff reviewing an applicant used to have to leave this board
+        // and check the Score Matrix separately just to see how they did
+        // on an admission assessment (user directive 2026-08-02). One
+        // query for the page's own 30 rows, not per-row, keeping the
+        // MOST RECENT graded/submitted attempt only — good enough for a
+        // glance column, the full history is still on the Score Matrix.
+        $applicantIds = $applicants->pluck('id');
+        $assessmentResults = \App\Models\Tenant\CbtSession::with('assessment')
+            ->where('takeable_type', Applicant::class)
+            ->whereIn('takeable_id', $applicantIds)
+            ->whereIn('status', [
+                \App\Models\Tenant\CbtSession::STATUS_SUBMITTED,
+                \App\Models\Tenant\CbtSession::STATUS_AUTO_SUBMITTED,
+                \App\Models\Tenant\CbtSession::STATUS_GRADED,
+            ])
+            ->orderByDesc('id')
+            ->get()
+            ->groupBy('takeable_id')
+            ->map(function ($sessions) use ($reporting) {
+                $latest = $sessions->first();
+                $score = $latest->total_score !== null ? (float) $latest->total_score : null;
+
+                return [
+                    'assessment' => $latest->assessment,
+                    'status' => $latest->status,
+                    'score' => $score,
+                    'maxScore' => $latest->max_score,
+                    'passed' => $latest->status === \App\Models\Tenant\CbtSession::STATUS_GRADED
+                        ? $reporting->passed($latest->assessment, $score)
+                        : null,
+                ];
+            });
+
         return view('school.admissions.pipeline', [
             'school' => $school,
             'accent' => $school->branding()['color'],
@@ -96,6 +129,7 @@ class AdmissionPipelineController extends Controller
             'tab' => $tab,
             'tabs' => self::TABS,
             'counts' => $counts,
+            'assessmentResults' => $assessmentResults,
         ]);
     }
 

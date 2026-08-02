@@ -16,7 +16,23 @@ use Illuminate\Database\Eloquent\Model;
  */
 class CbtSessionService
 {
-    /** Resumes an already-in-progress attempt if one exists, otherwise starts a fresh one — never two concurrent in-progress sessions for the same taker+assessment. */
+    /**
+     * Resumes an already-in-progress attempt if one exists, otherwise
+     * starts a fresh one.
+     *
+     * This is a plain check-then-create, not locked: a double-click on
+     * "Start", or a client retrying a slow request, could in theory
+     * create two in-progress sessions for the same taker before either
+     * INSERT lands. Deliberately left unlocked rather than wrapped in a
+     * transaction + lockForUpdate() — that was tried and measured a
+     * genuine 10x+ slowdown per call (SQLite in this dev environment;
+     * risk on production MySQL untested), the wrong direction entirely
+     * for a feature whose whole point is surviving many concurrent
+     * takers at once. The race this leaves open only ever affects the
+     * ONE taker who double-fires their own request — never another
+     * taker's data — so it is a real but low-severity, self-contained
+     * edge case, not worth that cost.
+     */
     public function start(Model $taker, CbtAssessment $assessment, ?string $ip = null, ?string $userAgent = null): CbtSession
     {
         $existing = CbtSession::where('assessment_id', $assessment->id)

@@ -145,6 +145,31 @@
       <p class="muted">Your enrollment is complete! Check your email/phone for your new student portal sign in details.</p>
     </div>
   @else
+    @if(count($pipelineStages) > 1)
+      @php($currentStage = (int) $applicant->pipeline_stage)
+      <div class="card" style="margin-bottom:1rem">
+        <h3 style="margin-bottom:.8rem">Where you are</h3>
+        <div class="stack" style="gap:.55rem">
+          @foreach($pipelineStages as $index => $stage)
+            @php($stageDone = $index < $currentStage)
+            @php($stageCurrent = $index === $currentStage)
+            <div style="display:flex;align-items:center;gap:.6rem">
+              <span style="
+                flex:0 0 auto; width:1.4rem; height:1.4rem; border-radius:50%;
+                display:flex; align-items:center; justify-content:center;
+                font-size:.72rem; font-weight:800;
+                @if($stageDone) background:var(--ok); color:#fff;
+                @elseif($stageCurrent) background:var(--accent); color:var(--accent-ink);
+                @else background:var(--bg); border:1px solid var(--line); color:var(--muted);
+                @endif
+              ">{{ $stageDone ? '✓' : $index + 1 }}</span>
+              <span style="{{ $stageCurrent ? 'font-weight:700' : ($stageDone ? '' : 'color:var(--muted)') }}">{{ $stage }}</span>
+            </div>
+          @endforeach
+        </div>
+      </div>
+    @endif
+
     <div class="card" style="margin-bottom:1rem">
       <h3 style="margin-bottom:.6rem">Application form</h3>
       <p class="muted" style="margin-bottom:.8rem">Complete the school's application form with your details.</p>

@@ -37,7 +37,7 @@
   @else
     <div style="overflow-x:auto">
     <table class="table-stack">
-      <thead><tr><th>Applicant</th><th>Class</th><th>Stage</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>Applicant</th><th>Class</th><th>Stage</th><th>Assessment</th><th>Status</th><th></th></tr></thead>
       <tbody>
         @foreach($applicants as $applicant)
           <tr>
@@ -50,6 +50,21 @@
             </td>
             <td class="muted" data-label="Class">{{ $applicant->schoolClass?->name ?? 'Not set' }}</td>
             <td class="muted" data-label="Stage">{{ $applicant->currentStageLabel() ?? 'Not started' }}</td>
+            <td data-label="Assessment">
+              @php($result = $assessmentResults->get($applicant->id))
+              @php($scoreLine = $result && $result['score'] !== null ? ' &middot; '.$result['score'].' / '.$result['maxScore'] : '')
+              @if(! $result)
+                <span class="muted">&mdash;</span>
+              @elseif($result['status'] !== 'graded')
+                <span class="badge badge-warn">Awaiting grading</span>
+              @elseif($result['passed'] === true)
+                <span class="badge badge-ok">Passed{{ $scoreLine }}</span>
+              @elseif($result['passed'] === false)
+                <span class="badge badge-bad">Did not pass{{ $scoreLine }}</span>
+              @else
+                <span class="badge badge-ok">Graded{{ $scoreLine }}</span>
+              @endif
+            </td>
             <td data-label="Status">
               <span class="badge {{ $applicant->account_status === 'active' ? 'badge-ok' : ($applicant->account_status === 'archived' ? 'badge-bad' : 'badge-warn') }}">{{ ucfirst(str_replace('_', ' ', $applicant->account_status)) }}</span>
               @if($applicant->decision_status)

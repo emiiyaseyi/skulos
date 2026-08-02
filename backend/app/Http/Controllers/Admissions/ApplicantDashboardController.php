@@ -67,6 +67,17 @@ class ApplicantDashboardController extends Controller
             ->filter(fn ($assessment) => $assessment->isEligible($applicant))
             ->count();
 
+        // Pipeline progress (user directive 2026-08-02): the applicant
+        // themselves never had any visible confirmation of where they
+        // actually stand in the school's own pipeline — e.g. passing an
+        // admission assessment auto-advances them a stage (see
+        // AdmissionAssessmentController::maybeAdvancePipelineOnPass()),
+        // but nothing on THIS dashboard ever reflected that. A plain
+        // stage list + current index is enough for a simple stepper,
+        // same "labels not keys" shape Applicant::pipelineChain() itself
+        // already uses.
+        $pipelineStages = Applicant::pipelineChain();
+
         return view('admissions.dashboard', [
             'school' => $school,
             'accent' => $school?->branding()['color'] ?? null,
@@ -78,6 +89,7 @@ class ApplicantDashboardController extends Controller
             'applicationWindow' => $applicationWindow,
             'bankAccounts' => \App\Models\Tenant\BankAccount::active()->orderBy('sort_order')->get(),
             'assessmentCount' => $assessmentCount,
+            'pipelineStages' => $pipelineStages,
         ]);
     }
 
