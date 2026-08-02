@@ -100,7 +100,13 @@ class PlanSeeder extends Seeder
                 // nav link (hasFeature() says yes) but 403 the moment they
                 // click it (moduleState() says no), a real conflict caught
                 // before writing any Finance code.
-                'modules' => ['finance'], 'features' => $foundationFeatures,
+                // 'assessment_hub' added 2026-08-01, user directive: every
+                // tier gets the Assessment Hub (question bank, timed
+                // sessions, admission/class/teacher assessments), no
+                // tier restriction — same reasoning as 'finance' above,
+                // real screens exist now so the module must be claimed
+                // by a plan or a school assigned one loses access to it.
+                'modules' => ['finance', 'assessment_hub'], 'features' => $foundationFeatures,
                 'default' => true, 'purchasable' => true, 'order' => 1,
             ],
             [
@@ -108,17 +114,17 @@ class PlanSeeder extends Seeder
                 // 'admissions' module toggle removed alongside the feature
                 // keys above (2026-07-18, suspended pending the module
                 // actually being built).
-                'modules' => ['finance'], 'features' => $advanceFeatures,
+                'modules' => ['finance', 'assessment_hub'], 'features' => $advanceFeatures,
                 'default' => false, 'purchasable' => true, 'order' => 2,
             ],
             [
                 'name' => 'Professional', 'slug' => 'professional', 'price' => 1200,
-                'modules' => ['admissions', 'lms', 'hr', 'payroll', 'ai', 'finance'], 'features' => $professionalFeatures,
+                'modules' => ['admissions', 'lms', 'hr', 'payroll', 'ai', 'finance', 'assessment_hub'], 'features' => $professionalFeatures,
                 'default' => false, 'purchasable' => false, 'order' => 3,
             ],
             [
                 'name' => 'Enterprise', 'slug' => 'enterprise', 'price' => 1500,
-                'modules' => ['admissions', 'lms', 'hr', 'payroll', 'ai', 'finance', 'hostel', 'transport', 'inventory', 'medical', 'library', 'visitors', 'assets', 'discipline'],
+                'modules' => ['admissions', 'lms', 'hr', 'payroll', 'ai', 'finance', 'assessment_hub', 'hostel', 'transport', 'inventory', 'medical', 'library', 'visitors', 'assets', 'discipline'],
                 'features' => $enterpriseFeatures,
                 'default' => false, 'purchasable' => false, 'order' => 4,
             ],

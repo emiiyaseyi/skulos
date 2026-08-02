@@ -21,6 +21,14 @@
 
   #lgShell *{ box-sizing:border-box; }
 
+  /* .lg-panel/.lg-overlay both set their own display:flex below, which
+     otherwise silently wins over the browser's built-in [hidden]{display:
+     none} rule (equal specificity, author stylesheet loads later) — the
+     calculator, notes pad, and submit-confirmation modal would all
+     render open on page load regardless of their hidden attribute
+     without this. */
+  #lgShell [hidden]{ display:none !important; }
+
   /* Top bar */
   .lg-topbar{
     position:sticky; top:0; z-index:20; display:flex; align-items:center; gap:1rem;

@@ -39,6 +39,41 @@ return Application::configure(basePath: dirname(__DIR__))
                 ? route('school.login', ['school' => $school])
                 : route('login');
         });
+
+        // The mirror image of the guest-redirect bug above, same root
+        // cause: found live 2026-08-01, an applicant who was already
+        // signed in clicked "Continue your application" (which points
+        // at their own admissions login page) and landed on the bare
+        // platform chooser page instead of their dashboard. Laravel's
+        // own default for an ALREADY-authenticated user hitting a
+        // guest-only route is unconditionally route('login') too — the
+        // one route literally named that — regardless of which guard
+        // (web on the bare domain, web on a school subdomain, or
+        // applicant) actually holds the session. Laravel's own
+        // RedirectIfAuthenticated::redirectTo() only ever forwards the
+        // request here, never which guard matched, so this branches on
+        // the route itself instead — the admissions login group is the
+        // only guest route named school.admissions.*.
+        $middleware->redirectUsersTo(function (\Illuminate\Http\Request $request) {
+            $school = $request->route('school');
+            $routeName = (string) $request->route()?->getName();
+
+            if ($school && str_starts_with($routeName, 'school.admissions.')) {
+                return route('school.admissions.dashboard', ['school' => $school]);
+            }
+
+            if ($school) {
+                return route('school.dashboard', ['school' => $school]);
+            }
+
+            // Bare platform domain, 'web' guard — matches the '/' route's
+            // own existing rule just above: only a super admin has a real
+            // destination here, everyone else has nowhere better than the
+            // login page they were already trying to reach.
+            return \Illuminate\Support\Facades\Auth::user()?->is_super_admin
+                ? route('admin.dashboard')
+                : route('login');
+        });
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // A stale/expired CSRF token (e.g. a tab left open past the idle

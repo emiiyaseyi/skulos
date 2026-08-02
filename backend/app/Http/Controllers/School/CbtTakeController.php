@@ -53,7 +53,7 @@ class CbtTakeController extends Controller
         $taker = Auth::user();
         $audience = $this->audienceFor($request);
 
-        $assessments = CbtAssessment::with(['classArms', 'takers'])
+        $assessments = CbtAssessment::with(['classArms', 'takers', 'pools.category', 'assessmentQuestions'])
             ->where('audience', $audience)->where('is_active', true)->orderByDesc('id')->get()
             ->filter(fn (CbtAssessment $assessment) => $assessment->isEligible($taker))
             ->values();

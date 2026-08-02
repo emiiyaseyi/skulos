@@ -60,7 +60,8 @@ class AdmissionAssessmentController extends Controller
         $school = $this->school($request);
         $applicant = $this->applicant();
 
-        $assessments = CbtAssessment::where('audience', CbtAssessment::AUDIENCE_APPLICANT)
+        $assessments = CbtAssessment::with(['pools.category', 'assessmentQuestions'])
+            ->where('audience', CbtAssessment::AUDIENCE_APPLICANT)
             ->where('is_active', true)->orderByDesc('id')->get()
             ->filter(fn (CbtAssessment $assessment) => $assessment->isEligible($applicant))
             ->values();
