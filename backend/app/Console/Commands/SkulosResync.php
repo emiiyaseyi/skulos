@@ -39,7 +39,7 @@ class SkulosResync extends Command
 {
     protected $signature = 'skulos:resync {--modules : Also resync module states from each school\'s current plan, preserving active add-on grants}';
 
-    protected $description = 'Reaches every already-provisioned school with the latest tenant migrations, wildcard role permissions, and (with --modules) plan module states, in one pass';
+    protected $description = 'Reaches every already-provisioned school with the latest tenant migrations, cloned-role permissions, and (with --modules) plan module states, in one pass';
 
     public function handle(TenantManager $tenants, Rbac $rbac): int
     {
@@ -62,8 +62,8 @@ class SkulosResync extends Command
             }
         }
 
-        $this->info("Step 2/".($this->option('modules') ? '3' : '2').": wildcard role permission resync");
-        $this->resyncWildcardRoles($schools);
+        $this->info("Step 2/".($this->option('modules') ? '3' : '2').": cloned-role permission resync");
+        $this->resyncRolePermissions($schools);
 
         if ($this->option('modules')) {
             $this->info('Step 3/3: module state resync from current plan');
@@ -76,29 +76,37 @@ class SkulosResync extends Command
     }
 
     /**
-     * A school that cloned a wildcard template role (school-owner,
-     * school-admin, principal, head-teacher — config('skulos.roles') grant
-     * === ['*']) before a new permission existed is frozen without it
-     * forever, even though the template's own grant conceptually means
-     * "everything". Additive only, and further scoped to permissions
-     * CREATED AFTER the school's own role was last deliberately touched
-     * (its `updated_at`, moved forward by RoleManagementController::
-     * updateRolePermissions() every time a school edits that role's
-     * permissions, in addition to the initial clone): a plain
-     * "template has it, school role doesn't" diff cannot tell a genuinely
-     * new permission apart from one the school explicitly unchecked, both
-     * look identical as a missing row. Comparing against the timestamp of
-     * the school's own last deliberate choice can: anything older than
-     * that choice was already considered and correctly stays missing;
-     * anything newer could not have been considered yet and is added.
+     * A school that cloned ANY role — not just a wildcard one
+     * (school-owner/school-admin/principal/head-teacher, config(
+     * 'skulos.roles') grant === ['*']) — before a new permission existed
+     * on that role is frozen without it forever, even once the config
+     * grant list is updated to include it. **Found live 2026-08-02**:
+     * this method originally only ever covered wildcard roles, on the
+     * assumption an explicit grant list (student/parent/teacher/...)
+     * would rarely change — wrong in practice, `assessment_hub.view` was
+     * added to student/parent/teacher/class-teacher's own config grants
+     * earlier this project and never reached a single already-cloned
+     * school, silently 403ing every existing student/parent on every
+     * provisioned school the whole time, caught only by live-testing a
+     * real student login. Every role, wildcard or explicit-list alike,
+     * has the exact same shape of gap, so this now covers every role
+     * that has a template.
+     *
+     * Additive only, and further scoped to permissions CREATED AFTER the
+     * school's own role was last deliberately touched (its `updated_at`,
+     * moved forward by RoleManagementController::updateRolePermissions()
+     * every time a school edits that role's permissions, in addition to
+     * the initial clone): a plain "template has it, school role doesn't"
+     * diff cannot tell a genuinely new permission apart from one the
+     * school explicitly unchecked, both look identical as a missing row.
+     * Comparing against the timestamp of the school's own last
+     * deliberate choice can: anything older than that choice was already
+     * considered and correctly stays missing; anything newer could not
+     * have been considered yet and is added.
      */
-    protected function resyncWildcardRoles(\Illuminate\Support\Collection $schools): void
+    protected function resyncRolePermissions(\Illuminate\Support\Collection $schools): void
     {
-        $wildcardSlugs = collect(config('skulos.roles', []))
-            ->filter(fn ($def) => ($def['grants'] ?? []) === ['*'])
-            ->keys();
-
-        $templates = Role::whereNull('school_id')->whereIn('slug', $wildcardSlugs)->get()->keyBy('slug');
+        $templates = Role::whereNull('school_id')->get()->keyBy('slug');
 
         foreach ($schools as $school) {
             foreach ($templates as $slug => $template) {

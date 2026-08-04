@@ -38,18 +38,39 @@ class PlanSeeder extends Seeder
             'student_reports', 'attendance_reports', 'basic_analytics_dashboard', 'export_to_pdf', 'subject_insights',
             'export_to_excel', 'bulk_import', 'bulk_export',
             'knowledge_base', 'staff_onboarding_training', 'standard_support',
+            // Assessment Hub (cbt_examination/question_bank/random_
+            // questions/examination_analytics) added 2026-08-02: the
+            // module is on every plan tier with no restriction (user
+            // directive) and the light-mode engine — timed sessions,
+            // question bank with import/export, randomised pools,
+            // scoring/reporting — is genuinely built and live. The
+            // catalog's other 3 examination features (learnguard_
+            // secure_browser/webcam_monitoring/browser_lockdown) stay
+            // Professional-only below: proctoring is explicitly
+            // deferred scope, not yet built at all, so claiming it here
+            // would be exactly the false-marketing-claim mistake this
+            // pass was meant to fix.
+            'cbt_examination', 'question_bank', 'random_questions', 'examination_analytics',
         ];
 
         $advanceFeatures = array_merge($foundationFeatures, [
             // Admissions (online_admissions/admission_workflow/
-            // applicant_tracking/admission_letters/online_document_upload)
-            // deliberately excluded (user directive 2026-07-18: "SUSPEND"
-            // building it, after initially confirming it should be built
-            // now): keeping it out of Advance's feature list is what
-            // actually stops it from showing at all (the nav's own
-            // standing rule is "a feature not included is not shown at
-            // all", never a "Soon" placeholder for something with no
-            // screen). Add back in once the module is actually built.
+            // applicant_tracking/online_document_upload) added
+            // 2026-08-02: the whole module was built across an earlier
+            // session (public apply, fee review, form builder, document
+            // upload/approval, the pipeline board, applicant conversion
+            // to a real enrolled student) but the feature catalog was
+            // never updated to say so — the marketing site's own static
+            // snapshot already claimed these features live, while the
+            // actual Plan row behind the admin billing screens still
+            // excluded them, a real drift this fixes. admission_letters
+            // is deliberately NOT included: no real offer/rejection
+            // letter generation exists, that catalog key was repointed
+            // to the Fee Review screen purely to stop the nav item from
+            // sitting dead (see nav_permission_map's own comment) — a
+            // repoint for nav housekeeping, not something to also claim
+            // as a genuine, sellable feature.
+            'online_admissions', 'admission_workflow', 'applicant_tracking', 'online_document_upload',
             'timetable_management', 'teacher_workload', 'advanced_report_cards', 'unlimited_grading_systems',
             'custom_report_card_designer', 'class_position_ranking',
             'email_notifications', 'parent_broadcast', 'communication_history',
@@ -64,8 +85,11 @@ class PlanSeeder extends Seeder
             'automated_receipts', 'automated_invoicing', 'outstanding_fee_tracking',
             'hr_management', 'staff_attendance', 'leave_management', 'performance_appraisal', 'staff_document_management',
             'lms', 'courses', 'assignments', 'quizzes', 'learning_resources', 'discussion_boards', 'certificates',
-            'cbt_examination', 'learnguard_secure_browser', 'webcam_monitoring', 'browser_lockdown',
-            'question_bank', 'random_questions', 'examination_analytics',
+            // cbt_examination/question_bank/random_questions/
+            // examination_analytics moved to Foundation above (already
+            // inherited here via array_merge) — only the genuinely
+            // unbuilt proctoring features stay Professional-exclusive.
+            'learnguard_secure_browser', 'webcam_monitoring', 'browser_lockdown',
             'ai_report_comments', 'ai_student_performance_insights', 'ai_lesson_planning', 'ai_question_generator', 'ai_risk_analysis',
             'sms_notifications', 'whatsapp_notifications', 'automated_notifications',
             'workflow_automation', 'scheduled_reports', 'approval_workflows',
