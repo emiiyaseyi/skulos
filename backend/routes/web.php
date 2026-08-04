@@ -670,6 +670,10 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/sessions/{sessionId}/deny-break', [$hub, 'denyBreak'])->name('deny-break');
             Route::delete('/sessions/{sessionId}', [$hub, 'deleteAttempt'])->name('delete-attempt');
             Route::post('/events/{eventId}/override', [$hub, 'overrideEvent'])->name('override-event');
+            // Gradebook (user directive 2026-08-02): manual-mode push of
+            // a graded score into the linked CA/Exam component.
+            Route::post('/sessions/{sessionId}/push-gradebook', [$hub, 'pushGradebook'])->name('push-gradebook');
+            Route::post('/push-gradebook-all', [$hub, 'pushGradebookAll'])->name('push-gradebook-all');
         });
 
         // Assessment Hub: proctor + grader assignment, and the grader's

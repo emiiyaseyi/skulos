@@ -278,6 +278,57 @@
     @endif
   </div>
 
+@elseif($tab === 'gradebook')
+  <div class="card">
+    @if(! $linked)
+      <p class="muted">This assessment isn't linked to a CA/Exam component. Link one from Settings to have graded scores reach the gradebook.</p>
+    @else
+      <div class="page-head" style="margin-bottom:.8rem">
+        <div>
+          <h3>Counts toward: {{ $component->name }}</h3>
+          <p class="subtitle">Out of {{ $component->max_score }} &middot; {{ $assessment->gradebook_sync_mode === 'auto' ? 'Automatic sync' : 'Review then push' }}</p>
+        </div>
+        @if($assessment->gradebook_sync_mode !== 'auto' && $sessions->whereNull('gradebook_synced_at')->isNotEmpty())
+          <form method="POST" action="{{ route('school.cbt.hub.push-gradebook-all', ['school' => $school->slug, 'assessmentId' => $assessment->id]) }}">
+            @csrf
+            <button class="btn btn-primary btn-sm" type="submit">Push all</button>
+          </form>
+        @endif
+      </div>
+      @if($sessions->isEmpty())
+        <p class="muted">No graded attempts yet.</p>
+      @else
+        <div style="overflow-x:auto">
+        <table class="table-stack">
+          <thead><tr><th>Taker</th><th>Raw score</th><th>Scaled score</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            @foreach($sessions as $session)
+              <tr>
+                <td data-label="Taker">{{ $session->takeable?->name ?? 'Unknown' }}</td>
+                <td class="muted" data-label="Raw score">{{ $session->total_score }} / {{ $session->max_score }}</td>
+                <td class="muted" data-label="Scaled score">{{ app(\App\Services\Cbt\GradebookSyncService::class)->previewScore($session) }} / {{ $component->max_score }}</td>
+                <td data-label="Status">
+                  @if($session->gradebook_synced_at)
+                    <span class="badge badge-ok">Synced {{ $session->gradebook_synced_at->diffForHumans() }}</span>
+                  @else
+                    <span class="badge badge-warn">Not synced</span>
+                  @endif
+                </td>
+                <td>
+                  <form method="POST" action="{{ route('school.cbt.hub.push-gradebook', ['school' => $school->slug, 'assessmentId' => $assessment->id, 'sessionId' => $session->id]) }}">
+                    @csrf
+                    <button class="btn btn-ghost btn-sm" type="submit">{{ $session->gradebook_synced_at ? 'Re-push' : 'Push to gradebook' }}</button>
+                  </form>
+                </td>
+              </tr>
+            @endforeach
+          </tbody>
+        </table>
+        </div>
+      @endif
+    @endif
+  </div>
+
 @elseif($tab === 'brand')
   <div class="card">
     <h3 style="margin-bottom:.5rem">Branding</h3>

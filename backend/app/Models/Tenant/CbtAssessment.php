@@ -73,6 +73,13 @@ class CbtAssessment extends Model
         'randomize', 'num_questions', 'opens_at', 'closes_at', 'access_pin',
         'results_mode', 'results_delay_days', 'timer_mode', 'score_aggregation',
         'pass_message', 'fail_message',
+        // Gradebook linkage (audience=student only) — see
+        // GradebookSyncService's own docblock. created_by_staff_id is
+        // deliberately NOT here: it is set once, from the
+        // authenticated user's own Staff row, never from request input
+        // (the same self-mutation-guard shape as Payment::status and
+        // Applicant::pipeline_stage elsewhere in this app).
+        'assessment_component_id', 'gradebook_sync_mode',
     ];
 
     protected function casts(): array
@@ -135,6 +142,17 @@ class CbtAssessment extends Model
     public function applicantSchoolClass(): BelongsTo
     {
         return $this->belongsTo(SchoolClass::class, 'applicant_school_class_id');
+    }
+
+    public function createdByStaff(): BelongsTo
+    {
+        return $this->belongsTo(Staff::class, 'created_by_staff_id');
+    }
+
+    /** The CA/Exam component this assessment's score syncs into, if the teacher linked one — see GradebookSyncService. */
+    public function assessmentComponent(): BelongsTo
+    {
+        return $this->belongsTo(AssessmentComponent::class);
     }
 
     public function assessmentQuestions(): HasMany

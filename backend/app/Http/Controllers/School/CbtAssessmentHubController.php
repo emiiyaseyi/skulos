@@ -40,6 +40,7 @@ class CbtAssessmentHubController extends Controller
         'graders' => 'Graders',
         'questions' => 'Questions',
         'events' => 'Events',
+        'gradebook' => 'Gradebook',
         'brand' => 'Brand',
         'settings' => 'Settings',
     ];
@@ -146,6 +147,14 @@ class CbtAssessmentHubController extends Controller
                 'events' => CbtSecurityEvent::with('session.takeable')->whereIn('session_id', $sessionIds)
                     ->orderByDesc('occurred_at')->paginate(50)->withQueryString(),
             ],
+            'gradebook' => [
+                'linked' => (bool) $assessment->assessment_component_id,
+                'component' => $assessment->assessmentComponent,
+                'sessions' => $assessment->assessment_component_id
+                    ? CbtSession::with('takeable')->where('assessment_id', $assessment->id)
+                        ->where('status', CbtSession::STATUS_GRADED)->orderByDesc('id')->get()
+                    : collect(),
+            ],
             'settings' => [
                 'schedules' => CbtSchedule::with('takeable')->where('assessment_id', $assessment->id)->count(),
             ],
@@ -178,6 +187,34 @@ class CbtAssessmentHubController extends Controller
         $control->reinstate($this->ownedSession($request));
 
         return back()->with('status', 'Attempt reinstated with the lost time given back.');
+    }
+
+    public function pushGradebook(Request $request, \App\Services\Cbt\GradebookSyncService $sync): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request);
+        $session = $this->ownedSession($request);
+        abort_unless($sync->syncable($session) || $session->gradebook_synced_at, 422, 'This attempt cannot be pushed to the gradebook.');
+        $sync->sync($session);
+
+        return back()->with('status', 'Score pushed to the gradebook.');
+    }
+
+    public function pushGradebookAll(Request $request, \App\Services\Cbt\GradebookSyncService $sync): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request);
+        $assessment = $this->assessment($request);
+
+        $pushed = 0;
+        CbtSession::where('assessment_id', $assessment->id)->where('status', CbtSession::STATUS_GRADED)
+            ->whereNull('gradebook_synced_at')->get()
+            ->each(function (CbtSession $session) use ($sync, &$pushed) {
+                if ($sync->syncable($session)) {
+                    $sync->sync($session);
+                    $pushed++;
+                }
+            });
+
+        return back()->with('status', "{$pushed} score(s) pushed to the gradebook.");
     }
 
     public function forceSubmit(Request $request, AttemptControlService $control, CbtSessionService $sessions): \Illuminate\Http\RedirectResponse

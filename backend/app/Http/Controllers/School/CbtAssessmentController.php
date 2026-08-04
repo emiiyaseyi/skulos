@@ -9,7 +9,9 @@ use App\Models\Tenant\CbtAssessmentQuestion;
 use App\Models\Tenant\CbtQuestion;
 use App\Models\Tenant\CbtSecurityProfile;
 use App\Models\Tenant\ClassArm;
+use App\Models\Tenant\Staff;
 use App\Models\Tenant\Subject;
+use App\Models\Tenant\TeachingAssignment;
 use App\Models\Tenant\Term;
 use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
@@ -43,6 +45,65 @@ class CbtAssessmentController extends Controller
         );
     }
 
+    /**
+     * True for a wildcard/admin role — checked via assessment_hub.export,
+     * a real permission (CbtQuestionBankController's own export action)
+     * that no scoped teaching role (teacher/class-teacher/subject-
+     * teacher) is ever granted, the same "borrow an existing, unrelated
+     * permission as the blanket-access signal" pattern
+     * ExaminationController::hasBlanketAccess() already uses with
+     * examinations.approve_results. A blanket role builds/sees every
+     * assessment in the school; anyone else is restricted to their own
+     * TeachingAssignment subjects/class arms below.
+     */
+    protected function hasBlanketAccess(Request $request): bool
+    {
+        return app(Rbac::class)->check(Auth::user(), $this->school($request), 'assessment_hub.export');
+    }
+
+    protected function currentStaff(): ?Staff
+    {
+        return Staff::where('user_id', Auth::id())->first();
+    }
+
+    /** Null means "unrestricted" (blanket access); otherwise the subject ids this user actually teaches, from their own TeachingAssignment rows. */
+    protected function allowedSubjectIds(Request $request): ?array
+    {
+        if ($this->hasBlanketAccess($request)) {
+            return null;
+        }
+        $staff = $this->currentStaff();
+
+        return $staff ? TeachingAssignment::where('staff_id', $staff->id)->pluck('subject_id')->unique()->values()->all() : [];
+    }
+
+    /** Null means "unrestricted" (blanket access); otherwise the class arm ids this user actually teaches. */
+    protected function allowedClassArmIds(Request $request): ?array
+    {
+        if ($this->hasBlanketAccess($request)) {
+            return null;
+        }
+        $staff = $this->currentStaff();
+
+        return $staff ? TeachingAssignment::where('staff_id', $staff->id)->pluck('class_arm_id')->unique()->values()->all() : [];
+    }
+
+    /**
+     * A scoped teacher's own index only ever LISTS their own creations,
+     * but that alone does not stop a direct URL/POST to another
+     * teacher's assessment id — this is the actual enforcement, checked
+     * up front in every action that reads or mutates one specific
+     * already-existing assessment. A blanket role is never restricted.
+     */
+    protected function authorizeOwnership(Request $request, CbtAssessment $assessment): void
+    {
+        if ($this->hasBlanketAccess($request)) {
+            return;
+        }
+        $staff = $this->currentStaff();
+        abort_unless($staff && $assessment->created_by_staff_id === $staff->id, 403, 'You do not have permission for this.');
+    }
+
     public function index(Request $request): \Illuminate\View\View
     {
         // 'create', not 'view': see CbtQuestionBankController::index()'s
@@ -52,10 +113,20 @@ class CbtAssessmentController extends Controller
         $school = $this->school($request);
         CbtSecurityProfile::ensureSeeded();
 
+        $query = CbtAssessment::with(['securityProfile', 'subject'])->withCount('assessmentQuestions')->orderByDesc('id');
+
+        // A scoped teacher sees only what they themselves built (user
+        // directive 2026-08-02) — a blanket role still sees the whole
+        // school's list, unchanged from before this scoping existed.
+        if (! $this->hasBlanketAccess($request)) {
+            $staff = $this->currentStaff();
+            $query->where('created_by_staff_id', $staff?->id ?? 0);
+        }
+
         return view('school.cbt.assessments.index', [
             'school' => $school,
             'accent' => $school->branding()['color'],
-            'assessments' => CbtAssessment::with(['securityProfile', 'subject'])->withCount('assessmentQuestions')->orderByDesc('id')->paginate(30)->withQueryString(),
+            'assessments' => $query->paginate(30)->withQueryString(),
             'securityProfiles' => CbtSecurityProfile::orderBy('id')->get(),
         ]);
     }
@@ -67,6 +138,12 @@ class CbtAssessmentController extends Controller
 
         $data = $this->validatedAssessment($request);
         $assessment = CbtAssessment::create($data);
+        // Not part of $data: created_by_staff_id is deliberately absent
+        // from $fillable (never settable via mass assignment, i.e.
+        // never from request input, however this data array was built)
+        // — set directly here instead, the one place it is ever allowed
+        // to change.
+        $assessment->forceFill(['created_by_staff_id' => $this->currentStaff()?->id])->save();
 
         return redirect()->route('school.cbt.assessments.edit', ['school' => $school->slug, 'assessmentId' => $assessment->id])
             ->with('status', 'Assessment created. Add questions below.');
@@ -74,9 +151,20 @@ class CbtAssessmentController extends Controller
 
     protected function validatedAssessment(Request $request): array
     {
+        $allowedSubjectIds = $this->allowedSubjectIds($request);
+
         $data = $request->validate([
             'title' => ['required', 'string', 'max:150'],
-            'subject_id' => ['nullable', 'exists:tenant.subjects,id'],
+            'subject_id' => [
+                'nullable', 'exists:tenant.subjects,id',
+                // A scoped teacher (allowedSubjectIds() not null) can
+                // only ever build an assessment for a subject they
+                // actually teach — enforced here, not just left to the
+                // edit view's own restricted <select> options, so a
+                // tampered request can't name a subject outside that
+                // list either.
+                Rule::when($allowedSubjectIds !== null, [Rule::in($allowedSubjectIds)]),
+            ],
             'term_id' => ['nullable', 'exists:tenant.terms,id'],
             'instructions' => ['nullable', 'string', 'max:2000'],
             'duration_minutes' => ['required', 'integer', 'min:1', 'max:600'],
@@ -124,7 +212,21 @@ class CbtAssessmentController extends Controller
                 CbtAssessment::SCORE_SUM,
                 CbtAssessment::SCORE_AVERAGE_SECTIONS,
             ])],
+            // Gradebook linkage (user directive 2026-08-02) — only ever
+            // meaningful for a class assessment with both a subject and
+            // a term set, since a Score row needs both; the edit view's
+            // own JS keeps the component picker disabled until then, the
+            // abort_unless() calls below are the real enforcement. See
+            // GradebookSyncService.
+            'assessment_component_id' => ['nullable', 'exists:tenant.assessment_components,id'],
+            'gradebook_sync_mode' => ['sometimes', Rule::in(['auto', 'manual'])],
         ]);
+
+        if ($data['assessment_component_id'] ?? null) {
+            abort_unless($data['audience'] === CbtAssessment::AUDIENCE_STUDENT, 422, 'Only class assessments can link to a gradebook component.');
+            abort_unless(! empty($data['subject_id']) && ! empty($data['term_id']), 422, 'Choose a subject and term before linking a gradebook component.');
+        }
+
         $data['requires_double_grading'] = $request->boolean('requires_double_grading');
         $data['shuffle_questions'] = $request->boolean('shuffle_questions');
         $data['randomize'] = $request->boolean('randomize');
@@ -138,6 +240,7 @@ class CbtAssessmentController extends Controller
     {
         $this->authorizeAction($request, 'assessment_hub.update');
         $assessment = CbtAssessment::findOrFail($request->route('assessmentId'));
+        $this->authorizeOwnership($request, $assessment);
 
         $data = $request->validate([
             'category_id' => ['required', 'exists:tenant.cbt_question_categories,id'],
@@ -170,7 +273,9 @@ class CbtAssessmentController extends Controller
     public function destroyPool(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'assessment_hub.update');
-        \App\Models\Tenant\CbtQuestionPool::findOrFail($request->route('poolId'))->delete();
+        $pool = \App\Models\Tenant\CbtQuestionPool::with('assessment')->findOrFail($request->route('poolId'));
+        $this->authorizeOwnership($request, $pool->assessment);
+        $pool->delete();
 
         return back()->with('status', 'Pool removed.');
     }
@@ -181,21 +286,30 @@ class CbtAssessmentController extends Controller
         $school = $this->school($request);
         $assessment = CbtAssessment::with(['assessmentQuestions.question', 'securityProfile', 'classArms', 'pools.category'])
             ->findOrFail($request->route('assessmentId'));
+        $this->authorizeOwnership($request, $assessment);
+
+        $allowedSubjectIds = $this->allowedSubjectIds($request);
+        $allowedClassArmIds = $this->allowedClassArmIds($request);
 
         return view('school.cbt.assessments.edit', [
             'school' => $school,
             'accent' => $school->branding()['color'],
             'assessment' => $assessment,
             'securityProfiles' => CbtSecurityProfile::orderBy('id')->get(),
-            'subjects' => Subject::orderBy('name')->get(),
+            'subjects' => $allowedSubjectIds === null
+                ? Subject::orderBy('name')->get()
+                : Subject::whereIn('id', $allowedSubjectIds)->orderBy('name')->get(),
             'terms' => Term::orderBy('id')->get(),
-            'classArms' => ClassArm::with(['schoolClass', 'arm'])->get(),
+            'classArms' => $allowedClassArmIds === null
+                ? ClassArm::with(['schoolClass', 'arm'])->get()
+                : ClassArm::with(['schoolClass', 'arm'])->whereIn('id', $allowedClassArmIds)->get(),
             'schoolClasses' => \App\Models\Tenant\SchoolClass::orderBy('sequence')->get(),
             'categories' => \App\Models\Tenant\CbtQuestionCategory::withCount(['questions' => fn ($q) => $q->where('is_active', true)])
                 ->orderBy('sort_order')->orderBy('name')->get(),
             'bankQuestions' => CbtQuestion::where('is_active', true)
                 ->whereNotIn('id', $assessment->assessmentQuestions->pluck('question_id'))
                 ->orderByDesc('id')->get(),
+            'assessmentComponents' => \App\Models\Tenant\AssessmentComponent::orderBy('sequence')->get(),
         ]);
     }
 
@@ -204,12 +318,23 @@ class CbtAssessmentController extends Controller
         $this->authorizeAction($request, 'assessment_hub.update');
         $school = $this->school($request);
         $assessment = CbtAssessment::findOrFail($request->route('assessmentId'));
+        $this->authorizeOwnership($request, $assessment);
 
         $data = $this->validatedAssessment($request);
         $data['is_active'] = $request->boolean('is_active');
         $assessment->update($data);
 
-        $assessment->classArms()->sync($request->input('class_arm_ids', []));
+        $classArmIds = $request->input('class_arm_ids', []);
+        $allowedClassArmIds = $this->allowedClassArmIds($request);
+        if ($allowedClassArmIds !== null) {
+            // Same tamper-guard as subject_id in validatedAssessment():
+            // a scoped teacher's own restricted <select multiple> should
+            // never submit anything outside their own TeachingAssignment
+            // class arms, but a crafted request could — silently drop
+            // anything outside that list rather than trust the client.
+            $classArmIds = array_values(array_intersect($classArmIds, $allowedClassArmIds));
+        }
+        $assessment->classArms()->sync($classArmIds);
 
         return redirect()->route('school.cbt.assessments.edit', ['school' => $school->slug, 'assessmentId' => $assessment->id])
             ->with('status', 'Assessment updated.');
@@ -220,6 +345,7 @@ class CbtAssessmentController extends Controller
         $this->authorizeAction($request, 'assessment_hub.delete');
         $school = $this->school($request);
         $assessment = CbtAssessment::findOrFail($request->route('assessmentId'));
+        $this->authorizeOwnership($request, $assessment);
         $assessment->delete();
 
         return redirect()->route('school.cbt.assessments.index', ['school' => $school->slug])->with('status', 'Assessment removed.');
@@ -229,6 +355,7 @@ class CbtAssessmentController extends Controller
     {
         $this->authorizeAction($request, 'assessment_hub.update');
         $assessment = CbtAssessment::findOrFail($request->route('assessmentId'));
+        $this->authorizeOwnership($request, $assessment);
 
         $data = $request->validate(['question_id' => ['required', 'exists:tenant.cbt_questions,id']]);
 
@@ -243,7 +370,8 @@ class CbtAssessmentController extends Controller
     public function removeQuestion(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'assessment_hub.update');
-        $assessmentQuestion = CbtAssessmentQuestion::findOrFail($request->route('assessmentQuestionId'));
+        $assessmentQuestion = CbtAssessmentQuestion::with('assessment')->findOrFail($request->route('assessmentQuestionId'));
+        $this->authorizeOwnership($request, $assessmentQuestion->assessment);
         $assessmentId = $assessmentQuestion->assessment_id;
         $removedSequence = $assessmentQuestion->sequence;
         $assessmentQuestion->delete();
@@ -255,7 +383,8 @@ class CbtAssessmentController extends Controller
     public function moveQuestion(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'assessment_hub.update');
-        $assessmentQuestion = CbtAssessmentQuestion::findOrFail($request->route('assessmentQuestionId'));
+        $assessmentQuestion = CbtAssessmentQuestion::with('assessment')->findOrFail($request->route('assessmentQuestionId'));
+        $this->authorizeOwnership($request, $assessmentQuestion->assessment);
         $direction = $request->route('direction');
         abort_unless(in_array($direction, ['up', 'down'], true), 404);
 

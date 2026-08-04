@@ -116,6 +116,46 @@
     </div>
     @endif
 
+    @if($assessment->audience === 'student')
+    <h4 style="margin:1rem 0 .5rem">Gradebook</h4>
+    <div class="grid cols-2" style="gap:.75rem">
+      <div class="field">
+        <label for="assessment_component_id">Counts toward</label>
+        <select id="assessment_component_id" name="assessment_component_id">
+          <option value="">Not linked to the gradebook</option>
+          <optgroup label="Continuous Assessment">
+            @foreach($assessmentComponents->where('type', 'ca') as $component)
+              <option value="{{ $component->id }}" @selected($assessment->assessment_component_id === $component->id)>{{ $component->name }} (out of {{ $component->max_score }})</option>
+            @endforeach
+          </optgroup>
+          <optgroup label="Examination">
+            @foreach($assessmentComponents->where('type', 'exam') as $component)
+              <option value="{{ $component->id }}" @selected($assessment->assessment_component_id === $component->id)>{{ $component->name }} (out of {{ $component->max_score }})</option>
+            @endforeach
+          </optgroup>
+        </select>
+        <p class="muted" style="font-size:.78rem;margin-top:.3rem">
+          @if($assessment->subject_id && $assessment->term_id)
+            Requires the Subject and Term above, both already set. A taker's score is scaled to the component's own maximum.
+          @else
+            Set Subject and Term above first — a gradebook score needs both.
+          @endif
+        </p>
+      </div>
+      <div class="field">
+        <label>When a score reaches the gradebook</label>
+        <label style="display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem;font-weight:400">
+          <input type="radio" name="gradebook_sync_mode" value="auto" @checked($assessment->gradebook_sync_mode === 'auto') />
+          Automatic — the moment a taker is graded, replacing any existing manual score
+        </label>
+        <label style="display:flex;align-items:center;gap:.4rem;font-weight:400">
+          <input type="radio" name="gradebook_sync_mode" value="manual" @checked($assessment->gradebook_sync_mode !== 'auto') />
+          Review then push — graded scores wait in the assessment's Gradebook tab until pushed
+        </label>
+      </div>
+    </div>
+    @endif
+
     <h4 style="margin:1rem 0 .5rem">Access and grading</h4>
     <div class="grid cols-2" style="gap:.75rem">
       <div class="field">

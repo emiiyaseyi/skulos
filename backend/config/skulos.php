@@ -2891,7 +2891,18 @@ return [
             'report_cards.view', 'report_cards.create', 'report_cards.update',
             'timetable.view', 'assignments.view', 'assignments.create', 'assignments.update', 'assignments.delete',
             'calendar.view', 'communication.view', 'communication.create',
-            'assessment_hub.view', 'assessment_hub.grade',
+            // create/update/delete/bulk added 2026-08-02 (user directive:
+            // "class teacher and subject teacher can set assessment for
+            // the classes assigned to them"), matching subject-teacher's
+            // own tier below — a class teacher builds assessments for
+            // their own class, scoped server-side to their own
+            // TeachingAssignment rows (CbtAssessmentController::
+            // allowedPairs()), never the whole school. Deliberately NOT
+            // granted assessment_hub.export — that stays the "blanket
+            // access" signal a scoped role never holds, mirroring
+            // ExaminationController::hasBlanketAccess()'s own choice of
+            // an unused-by-scoped-roles permission as its marker.
+            'assessment_hub.view', 'assessment_hub.create', 'assessment_hub.update', 'assessment_hub.delete', 'assessment_hub.bulk', 'assessment_hub.grade',
         ]],
         'subject-teacher' => ['name' => 'Subject Teacher', 'grants' => [
             'students.view', 'attendance.view',

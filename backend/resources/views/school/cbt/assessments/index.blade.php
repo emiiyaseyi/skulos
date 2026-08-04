@@ -44,8 +44,9 @@
       <div class="field">
         <label for="audience">Who takes this</label>
         <select id="audience" name="audience" required>
-          <option value="student">Students</option>
-          <option value="staff">Staff</option>
+          <option value="student">Students (class assessment)</option>
+          <option value="staff">Staff (teacher assessment)</option>
+          <option value="applicant">Applicants (admission assessment)</option>
         </select>
       </div>
     </div>

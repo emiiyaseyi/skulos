@@ -43,6 +43,7 @@ class CbtSession extends Model
             'started_at' => 'datetime',
             'ends_at' => 'datetime',
             'submitted_at' => 'datetime',
+            'gradebook_synced_at' => 'datetime',
             'total_score' => 'decimal:2',
             'max_score' => 'decimal:2',
             'is_flagged' => 'boolean',
@@ -145,5 +146,13 @@ class CbtSession extends Model
             'total_score' => $totals['score'],
             'max_score' => $totals['max'],
         ])->save();
+
+        // Gradebook auto-sync (user directive 2026-08-02): this is the
+        // one real choke point every grading path already flows through
+        // (immediate at submit for an all-objective assessment, or once
+        // essay grading finishes the last response) — a no-op unless
+        // the assessment actually links a component AND the teacher
+        // chose 'auto' sync, see GradebookSyncService::syncIfAutomatic().
+        app(\App\Services\Cbt\GradebookSyncService::class)->syncIfAutomatic($this);
     }
 }
