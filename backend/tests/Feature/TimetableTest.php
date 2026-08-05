@@ -285,6 +285,57 @@ class TimetableTest extends TestCase
             ->assertOk()->assertSee('Mathematics');
     }
 
+    /**
+     * Real bug found live 2026-08-05, greenfield: after a full week of
+     * real entries was populated, the Master Timetable showed every
+     * class 100% "Free" the moment a real term was selected, even
+     * though the universal grid was fully saved. Root cause:
+     * Eloquent\Collection::merge() (unlike the base Collection's) dedupes
+     * by the MODEL'S OWN primary key and reindexes numerically,
+     * silently discarding gridForClassArm()'s day:period string keys.
+     * The earlier fallback test above only ever saved ONE cell and read
+     * it back through the editable builder view, whose subject <select>
+     * lists every subject regardless of grid data, so assertSee passed
+     * even with a fully broken merge. This test uses the read-only
+     * Master Timetable (no such select) across TWO periods with a real
+     * term selected, the shape that actually exposed the bug live.
+     */
+    public function test_a_terms_master_timetable_grid_shows_every_universal_cell_not_free(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'ttmastertermmerge');
+        [$classArmA, , $subject, $staffA] = $this->seedAcademics($school);
+        app(TenantManager::class)->use($school);
+        $periodOne = TimetablePeriod::first();
+        $periodTwo = TimetablePeriod::create(['name' => 'Period 2', 'sequence' => 2, 'starts_at' => '08:40', 'ends_at' => '09:20', 'is_teaching_period' => true]);
+        [$termOne] = $this->twoTerms();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post(route('school.timetable.save', ['school' => $school->slug, 'classArmId' => $classArmA->id, 'term_id' => 'all']), [
+            'cells' => [
+                'monday' => [
+                    $periodOne->id => ['subject_id' => $subject->id, 'staff_id' => $staffA->id],
+                    $periodTwo->id => ['subject_id' => $subject->id, 'staff_id' => $staffA->id],
+                ],
+            ],
+        ])->assertRedirect();
+
+        $this->actingAs($owner)->get(route('school.timetable.master', ['school' => $school->slug, 'term_id' => $termOne->id]))
+            ->assertOk()->assertSee('Ada Teacher');
+
+        // Assert at the service level, exactly where the bug actually
+        // lived, rather than scraping HTML: with the merge bug present,
+        // BOTH keys below silently disappear (the whole grid reindexes
+        // to 0,1,2...) even though class arm A's own Monday cells were
+        // saved and never overridden by term one.
+        app(TenantManager::class)->use($school);
+        $grid = (new \App\Services\Timetable\TimetableService())->gridForClassArm($classArmA->id, $termOne);
+        app(TenantManager::class)->forget();
+        $this->assertArrayHasKey('monday:'.$periodOne->id, $grid);
+        $this->assertArrayHasKey('monday:'.$periodTwo->id, $grid);
+        $this->assertSame($subject->id, $grid['monday:'.$periodOne->id]->subject_id);
+        $this->assertSame($subject->id, $grid['monday:'.$periodTwo->id]->subject_id);
+    }
+
     /** A teacher genuinely double booked within the same term (or the universal grid) is skipped, matching the pre-term-switcher behaviour. */
     public function test_a_teacher_conflict_is_still_caught_within_the_same_term(): void
     {

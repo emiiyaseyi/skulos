@@ -203,7 +203,17 @@ class TimetableService
 
             $termSpecific = (clone $baseQuery)->where('term_id', $term->id)->with($with)->get()->keyBy($key);
 
-            return $universal->merge($termSpecific)->all();
+            // Eloquent\Collection::merge() overrides the base Collection's
+            // merge() to dedupe by the MODEL'S OWN primary key and
+            // reindex the result numerically, silently discarding the
+            // day:period string keys keyBy() just assigned (found live
+            // 2026-08-05: every class showed 100% free periods on the
+            // Master Timetable the moment a class arm actually had a
+            // full week of real entries, since the merged grid's keys
+            // were 0,1,2... not "monday:1"). Force plain array-key merge
+            // (safe here: every key is a non-numeric "day:period_id"
+            // string, so PHP's array_merge never renumbers it) instead.
+            return array_merge($universal->all(), $termSpecific->all());
         };
     }
 
