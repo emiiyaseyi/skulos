@@ -42,6 +42,10 @@
   </form>
 </div>
 
+@if($termClosedMessage ?? null)
+  <div class="flash flash-bad" style="margin-bottom:1.25rem">{{ $termClosedMessage }} You can still review the register below, just not change it.</div>
+@endif
+
 @if($classArms->isEmpty())
   <div class="card"><p class="muted">You are not assigned to any class yet.</p></div>
 @elseif(! $selectedArm)

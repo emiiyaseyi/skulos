@@ -506,6 +506,13 @@ class RoleDashboard
         $absent = $todayCounts['absent'] ?? 0;
         $attendanceRate = $marked > 0 ? round(($present / $marked) * 100, 1) : null;
 
+        // Term-wide rates (user directive 2026-08-05): "Today" alone
+        // told a class teacher nothing about the term as a whole — one
+        // bad or good day looked the same as a settled pattern. Simple
+        // whereBetween over the term's own dates; a future date has no
+        // rows yet so it never dilutes the rate, no need to cap "today".
+        [$termAttendanceRate, $termAbsentRate] = $this->termAttendanceRates($classArm->id, $term);
+
         return [
             'kind' => $kind,
             'figs' => [
@@ -517,6 +524,8 @@ class RoleDashboard
                 ['n' => number_format($present), 'l' => 'Present Today', 'ic' => 'students', 'c' => '#0EA5A0', 'pct' => '60%'],
                 ['n' => number_format($absent), 'l' => 'Absent Today', 'ic' => 'students', 'c' => '#E14F63', 'pct' => '30%'],
                 ['n' => $average !== null ? "{$average}%" : 'N/A', 'l' => 'Class Average', 'ic' => 'results', 'c' => '#6D4FE0', 'pct' => '65%'],
+                ['n' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : 'N/A', 'l' => 'Attendance This Term', 'ic' => 'students', 'c' => '#12A97B', 'pct' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : '0%'],
+                ['n' => $termAbsentRate !== null ? "{$termAbsentRate}%" : 'N/A', 'l' => 'Absent This Term', 'ic' => 'students', 'c' => '#E14F63', 'pct' => $termAbsentRate !== null ? "{$termAbsentRate}%" : '0%'],
             ],
             'panel' => [
                 'type' => 'class_overview',
@@ -542,6 +551,31 @@ class RoleDashboard
                     ->all(),
             ],
         ];
+    }
+
+    /**
+     * @param  int|array|\Illuminate\Support\Collection  $classArmIds
+     * @return array{0: ?float, 1: ?float} [attendance rate %, absent rate %] across the given term's own date range for one or more class arms — null/null if nothing marked yet.
+     */
+    protected function termAttendanceRates($classArmIds, ?Term $term): array
+    {
+        if (! $term || ! $term->starts_on || ! $term->ends_on) {
+            return [null, null];
+        }
+
+        $classArmIds = $classArmIds instanceof \Illuminate\Support\Collection ? $classArmIds->all() : (array) $classArmIds;
+        $counts = Attendance::students()->whereIn('class_arm_id', $classArmIds)
+            ->whereBetween('date', [$term->starts_on->toDateString(), $term->ends_on->toDateString()])
+            ->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+        $marked = $counts->sum();
+        if ($marked === 0) {
+            return [null, null];
+        }
+
+        $rate = round((($counts['present'] ?? 0) / $marked) * 100, 1);
+        $absentRate = round((($counts['absent'] ?? 0) / $marked) * 100, 1);
+
+        return [$rate, $absentRate];
     }
 
     protected function subjectTeacher(User $user): array
@@ -577,8 +611,14 @@ class RoleDashboard
         $present = $todayCounts['present'] ?? 0;
         $absent = $todayCounts['absent'] ?? 0;
         $attendanceRate = $marked > 0 ? round(($present / $marked) * 100, 1) : null;
-        $classesMarkedToday = Attendance::students()->whereIn('class_arm_id', $classArmIds)->forDate(now())
-            ->distinct('class_arm_id')->count('class_arm_id');
+
+        // "Classes Marked Today" replaced (user directive 2026-08-05:
+        // "let's look for better data") — a subject teacher can hold
+        // many class arms, and a bare X/Y-marked count said nothing
+        // about how those classes are actually doing. Term-wide rates,
+        // same helper the class-teacher panel now uses, are the
+        // genuinely useful number here.
+        [$termAttendanceRate, $termAbsentRate] = $this->termAttendanceRates($classArmIds, $term);
 
         return [
             'kind' => 'subject_teacher',
@@ -590,7 +630,7 @@ class RoleDashboard
                 ['n' => $attendanceRate !== null ? "{$attendanceRate}%" : 'N/A', 'l' => 'Attendance Today', 'ic' => 'students', 'c' => '#12A97B', 'pct' => $attendanceRate !== null ? "{$attendanceRate}%" : '0%'],
                 ['n' => number_format($present), 'l' => 'Present Today', 'ic' => 'students', 'c' => '#0EA5A0', 'pct' => '60%'],
                 ['n' => number_format($absent), 'l' => 'Absent Today', 'ic' => 'students', 'c' => '#E14F63', 'pct' => '30%'],
-                ['n' => $classesMarkedToday.'/'.$classArmIds->count(), 'l' => 'Classes Marked Today', 'ic' => 'academics', 'c' => '#6D4FE0', 'pct' => $classArmIds->count() > 0 ? round(($classesMarkedToday / $classArmIds->count()) * 100).'%' : '0%'],
+                ['n' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : 'N/A', 'l' => 'Attendance This Term', 'ic' => 'students', 'c' => '#12A97B', 'pct' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : '0%'],
             ],
             'panel' => [
                 'type' => 'subject_overview',

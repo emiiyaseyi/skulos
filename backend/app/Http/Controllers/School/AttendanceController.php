@@ -107,6 +107,20 @@ class AttendanceController extends Controller
         // ... AND HOLIDAYS FROM THE ATTENDANCE SO THAT IT WAS NOT PICKED").
         $nonSchoolDates = app(AttendanceService::class)->nonSchoolDatesWithin(now()->subYear(), now()->addMonths(3));
 
+        // Surfaced up front rather than only as a failed-save error (user
+        // directive 2026-08-05) — a scoped teacher sees exactly why the
+        // form is closed before they even try to save. The same
+        // markClass()'s own check is the real enforcement; this is just
+        // an honest heads up.
+        $termClosedMessage = null;
+        if ($scopedArmIds !== null) {
+            $dateTerm = \App\Models\Tenant\Term::where('starts_on', '<=', $date)
+                ->where('ends_on', '>=', $date)->first();
+            if ($dateTerm && $dateTerm->ends_on->isPast()) {
+                $termClosedMessage = "{$dateTerm->name} ended on {$dateTerm->ends_on->format('d M Y')}. Attendance can no longer be marked for it.";
+            }
+        }
+
         return view('school.attendance.index', [
             'school' => $school,
             'accent' => $school->branding()['color'],
@@ -117,7 +131,8 @@ class AttendanceController extends Controller
             'existingMarks' => $existingMarks,
             'summary' => $summary,
             'statuses' => Attendance::statuses(),
-            'canMark' => $this->canMark($school),
+            'canMark' => $this->canMark($school) && ! $termClosedMessage,
+            'termClosedMessage' => $termClosedMessage,
             'nonSchoolDates' => $nonSchoolDates,
         ]);
     }
@@ -247,6 +262,23 @@ class AttendanceController extends Controller
         $scopedArmIds = app(TeacherScope::class)->classArmIds($user, $school);
         if ($scopedArmIds !== null && ! $scopedArmIds->contains((int) $data['class_arm_id'])) {
             abort(404);
+        }
+
+        // A term that has ended is closed to new marking for an ordinary
+        // (scoped) teacher — user directive 2026-08-05: "make it
+        // impossible for teachers to mark attendance after the last day
+        // of the term or end of term as set under the calendar". A
+        // blanket/admin role (scopedArmIds() null, the same signal
+        // TeacherScope already uses to mean "not one of the teacher-
+        // scoped roles") can still correct historical records, mirroring
+        // how ExaminationController's own blanket roles bypass its
+        // window checks.
+        if ($scopedArmIds !== null) {
+            $term = \App\Models\Tenant\Term::where('starts_on', '<=', $data['date'])
+                ->where('ends_on', '>=', $data['date'])->first();
+            if ($term && $term->ends_on->isPast()) {
+                return back()->withInput()->with('error', "{$term->name} ended on {$term->ends_on->format('d M Y')}. Attendance can no longer be marked for it.");
+            }
         }
 
         // Only ever mark students who genuinely belong to this class arm

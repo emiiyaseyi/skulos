@@ -558,4 +558,66 @@ class AttendanceScreenTest extends TestCase
             ->assertOk()
             ->assertDontSee('By class');
     }
+
+    /**
+     * User directive 2026-08-05: "make it imposible for teachers to mark
+     * attendance after the last day of the term or end of term as set
+     * under the calendar and dates." A scoped (ordinary) teacher is
+     * blocked once the term containing the marked date has ended; a
+     * blanket/admin role can still correct historical records.
+     */
+    public function test_a_scoped_teacher_cannot_mark_attendance_for_a_date_in_an_ended_term(): void
+    {
+        [$school, $teacherUser] = $this->schoolWithMember('class-teacher', 'attterm1');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $arm, 'studentA' => $student] = $this->twoClassesWithStudents();
+        $staff = Staff::create(['staff_id' => 'STF/0006', 'first_name' => 'Tee', 'last_name' => 'Cher', 'status' => 'active', 'user_id' => $teacherUser->id]);
+        $arm->update(['class_teacher_staff_id' => $staff->id]);
+        $academicSession = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026', 'is_current' => true]);
+        $term = \App\Models\Tenant\Term::create([
+            'academic_session_id' => $academicSession->id, 'name' => 'First Term', 'sequence' => 1,
+            'starts_on' => '2026-01-01', 'ends_on' => '2026-01-10',
+        ]);
+        $term->makeCurrent();
+        app(TenantManager::class)->forget();
+        Carbon::setTestNow('2026-01-20');
+
+        $response = $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/attendance?class_arm_id={$arm->id}&date=2026-01-05");
+        $response->assertOk()->assertSee('First Term ended on 10 Jan 2026', false);
+
+        $this->actingAs($teacherUser)->post("http://{$school->slug}.localhost/attendance/mark", [
+            'class_arm_id' => $arm->id, 'date' => '2026-01-05',
+            'marks' => [$student->id => 'present'],
+        ])->assertRedirect()->assertSessionHas('error');
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame(0, Attendance::students()->forDate('2026-01-05')->count(), 'the mark must not have been saved');
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_a_blanket_role_can_still_mark_attendance_for_a_date_in_an_ended_term(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'attterm2');
+
+        app(TenantManager::class)->use($school);
+        ['armA' => $arm, 'studentA' => $student] = $this->twoClassesWithStudents();
+        $academicSession = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026', 'is_current' => true]);
+        $term = \App\Models\Tenant\Term::create([
+            'academic_session_id' => $academicSession->id, 'name' => 'First Term', 'sequence' => 1,
+            'starts_on' => '2026-01-01', 'ends_on' => '2026-01-10',
+        ]);
+        $term->makeCurrent();
+        app(TenantManager::class)->forget();
+        Carbon::setTestNow('2026-01-20');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/attendance/mark", [
+            'class_arm_id' => $arm->id, 'date' => '2026-01-05',
+            'marks' => [$student->id => 'present'],
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame(1, Attendance::students()->forDate('2026-01-05')->count());
+        app(TenantManager::class)->forget();
+    }
 }
