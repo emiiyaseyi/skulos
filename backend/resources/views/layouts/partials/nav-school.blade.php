@@ -609,13 +609,22 @@
   // A class/subject teacher's own queue of parent-submitted profile
   // change requests routed to their classes (user request 2026-07-26:
   // "parent should be able to edit their child details... class teacher
-  // has to approve the changes first"). Shown unconditionally to every
-  // teacher-scoped role the same way Academic Report is shown
-  // unconditionally to every family-scoped one above; an individual
-  // teacher with nothing currently routed to them just sees an empty
-  // queue, the same shape as Pending review for an admin with nothing
-  // pending.
-  if ($isTeacherScoped) {
+  // has to approve the changes first"). Corrected 2026-08-05, user
+  // report: "subject teachers should not have access to student profile
+  // change request as its meant for only class teachers and admin. This
+  // only shows if the subject teacher is given the access" — a subject
+  // teacher/plain teacher has nothing to review by design (requests only
+  // ever route to a real class_teacher_staff_id), so the earlier
+  // "unconditional, they'll just see an empty queue" reasoning was
+  // wrong per the user's own explicit correction. Now shown only to the
+  // two roles that actually manage a class, or to a subject/plain
+  // teacher an admin has explicitly given the 'students' extra-access
+  // override (the existing per-staff grant mechanism, Staff show page).
+  $canReviewProfileChanges = $scopedRoleSlug && (
+    in_array($scopedRoleSlug, config('skulos.class_review_role_slugs', []), true)
+    || ($isTeacherScoped && $navRbac->hasModuleOverride($school, $navUser, 'students'))
+  );
+  if ($canReviewProfileChanges) {
     $groups['Academic'][] = $link('school.students.profile-change.class-teacher.index', 'Change Requests', 'inbox');
   }
 

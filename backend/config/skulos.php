@@ -2628,6 +2628,13 @@ return [
     */
     'teacher_scoped_roles' => ['class-teacher', 'subject-teacher', 'class-assistant', 'teacher'],
 
+    // Which teacher_scoped_roles actually manage a class and so can have
+    // a parent's profile change request routed to them (2026-08-05,
+    // "student profile change request... meant for only class teachers
+    // and admin"). A subject/plain teacher only ever gets this via an
+    // explicit per-staff 'students' extra-access override, never by role.
+    'class_review_role_slugs' => ['class-teacher', 'class-assistant'],
+
     /*
     | Parent and student are restricted to their own family's data only
     | (user request 2026-07-13: "BUILD THE FULL STUDENT AND PARENT

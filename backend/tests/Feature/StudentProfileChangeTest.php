@@ -353,4 +353,44 @@ class StudentProfileChangeTest extends TestCase
         $this->assertSame('ADM/001', $student->fresh()->admission_number);
         $this->assertSame($originalArmId, $student->fresh()->current_class_arm_id);
     }
+
+    /**
+     * User correction 2026-08-05: "subject teachers should not have
+     * access to student profile change request as its meant for only
+     * class teachers and admin. This only shows if the subject teacher
+     * is given the access."
+     */
+    public function test_a_subject_teacher_cannot_reach_the_class_teacher_queue_by_default(): void
+    {
+        [$school] = $this->schoolWithMember('school-owner', 'pctest16');
+        app(TenantManager::class)->use($school);
+        [, $subjectTeacher] = $this->schoolWithMemberReuse($school, 'subject-teacher');
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($subjectTeacher)->get("http://{$school->slug}.localhost/students/change-requests/class-teacher")
+            ->assertForbidden();
+    }
+
+    public function test_a_class_teacher_can_still_reach_the_queue(): void
+    {
+        [$school] = $this->schoolWithMember('school-owner', 'pctest17');
+        app(TenantManager::class)->use($school);
+        [, , $teacherUser] = $this->studentWithClassTeacherAndParent($school);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/students/change-requests/class-teacher")
+            ->assertOk();
+    }
+
+    public function test_a_subject_teacher_granted_the_students_extra_access_override_can_reach_the_queue(): void
+    {
+        [$school] = $this->schoolWithMember('school-owner', 'pctest18');
+        app(TenantManager::class)->use($school);
+        [, $subjectTeacher] = $this->schoolWithMemberReuse($school, 'subject-teacher');
+        $this->rbac->grantModuleOverride($school, $subjectTeacher, 'students');
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($subjectTeacher)->get("http://{$school->slug}.localhost/students/change-requests/class-teacher")
+            ->assertOk();
+    }
 }

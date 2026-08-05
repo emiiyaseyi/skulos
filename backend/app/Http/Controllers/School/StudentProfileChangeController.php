@@ -174,6 +174,30 @@ class StudentProfileChangeController extends Controller
         return back()->with('status', "Your requested change for {$student->fullName()} has been sent for review, and will apply once approved.");
     }
 
+    /**
+     * Whether $user may reach the class-teacher review queue at all —
+     * an admin, a real class-teacher/class-assistant, or a subject/plain
+     * teacher an admin has explicitly given the 'students' extra-access
+     * override (2026-08-05 correction: "subject teachers should not have
+     * access to student profile change request... meant for only class
+     * teachers and admin. This only shows if the subject teacher is
+     * given the access"). Mirrors the nav's own $canReviewProfileChanges
+     * gate exactly, so a direct URL hit can't bypass what the menu hides.
+     */
+    protected function canReviewClassTeacherQueue(User $user, School $school, bool $canManage): bool
+    {
+        if ($canManage) {
+            return true;
+        }
+        $slug = optional($user->roleIn($school))->slug;
+        if ($slug && in_array($slug, config('skulos.class_review_role_slugs', []), true)) {
+            return true;
+        }
+
+        return $slug && in_array($slug, config('skulos.teacher_scoped_roles', []), true)
+            && app(Rbac::class)->hasModuleOverride($school, $user, 'students');
+    }
+
     /** Every pending-class-teacher request routed to the acting staff member's own assigned classes. */
     public function classTeacherIndex(Request $request): \Illuminate\View\View
     {
@@ -181,7 +205,7 @@ class StudentProfileChangeController extends Controller
         $user = Auth::user();
         $staff = Staff::where('user_id', $user->id)->first();
         $canManage = app(Rbac::class)->check($user, $school, 'students.manage_settings');
-        abort_unless($staff || $canManage, 403, 'You do not have permission for this.');
+        abort_unless($this->canReviewClassTeacherQueue($user, $school, $canManage), 403, 'You do not have permission for this.');
 
         $requests = StudentProfileChangeRequest::where('status', StudentProfileChangeRequest::STATUS_PENDING_CLASS_TEACHER)
             ->when(! $canManage, fn ($q) => $q->where('class_teacher_staff_id', $staff?->id))
