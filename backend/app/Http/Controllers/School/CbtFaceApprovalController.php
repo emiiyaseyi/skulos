@@ -14,9 +14,9 @@ use Illuminate\Validation\Rule;
 /**
  * SKULOS Assessment Hub, Phase 2e: staff review queue for a live face
  * match that couldn't reach the 50% threshold after 3 client-side
- * attempts. Gated on assessment_hub.create (the same admin tier as the
- * question bank/paper builder), not .view — this screen shows a
- * taker's uploaded ID and live capture side by side.
+ * attempts. Gated on assessment_hub.export (corrected 2026-08-05 from
+ * .create, see CbtAdminConsoleController's own docblock), not .view —
+ * this screen shows a taker's uploaded ID and live capture side by side.
  */
 class CbtFaceApprovalController extends Controller
 {
@@ -28,7 +28,7 @@ class CbtFaceApprovalController extends Controller
     protected function authorizeAction(Request $request): void
     {
         abort_unless(
-            app(Rbac::class)->check(Auth::user(), $this->school($request), 'assessment_hub.create'),
+            app(Rbac::class)->check(Auth::user(), $this->school($request), 'assessment_hub.export'),
             403,
             'You do not have permission for this.'
         );

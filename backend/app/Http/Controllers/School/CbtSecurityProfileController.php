@@ -34,10 +34,16 @@ class CbtSecurityProfileController extends Controller
 
     public function index(Request $request): \Illuminate\View\View
     {
-        // 'create', not 'view': see CbtQuestionBankController::index()'s
-        // own comment — assessment_hub.view is also granted to
-        // students/parents to see/take their own assessments.
-        $this->authorizeAction($request, 'assessment_hub.create');
+        // assessment_hub.export, not .create (corrected 2026-08-05, user
+        // directive: "teachers should not be having access to the
+        // security profiles"). Security profiles are a school-wide
+        // proctoring policy, not a per-assessment setting a class/subject
+        // teacher builds — .create/.update were broadened to those roles
+        // 2026-08-02 for their own scoped assessment building only, and
+        // this screen shared the same gate as an unintended side effect.
+        // .export is never granted to a scoped teacher role, the same
+        // "blanket access" signal used elsewhere in this module.
+        $this->authorizeAction($request, 'assessment_hub.export');
         $school = $this->school($request);
         CbtSecurityProfile::ensureSeeded();
 
@@ -50,7 +56,7 @@ class CbtSecurityProfileController extends Controller
 
     public function update(Request $request): \Illuminate\Http\RedirectResponse
     {
-        $this->authorizeAction($request, 'assessment_hub.update');
+        $this->authorizeAction($request, 'assessment_hub.export');
         $profile = CbtSecurityProfile::findOrFail($request->route('profileId'));
 
         $data = $request->validate([

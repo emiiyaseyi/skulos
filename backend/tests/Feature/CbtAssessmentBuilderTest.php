@@ -68,6 +68,21 @@ class CbtAssessmentBuilderTest extends TestCase
         app(TenantManager::class)->forget();
     }
 
+    /**
+     * User directive 2026-08-05: "teachers should not be having access
+     * to the security profiles." A subject teacher holds
+     * assessment_hub.create/.update (2026-08-02) for building their own
+     * assessments, but security profiles are a school-wide proctoring
+     * policy, gated on the separate .export "blanket access" signal.
+     */
+    public function test_a_subject_teacher_cannot_reach_security_profiles(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'cpbsecoff');
+
+        $this->actingAs($teacher)->get(route('school.cbt.security-profiles.index', ['school' => $school->slug]))
+            ->assertForbidden();
+    }
+
     public function test_owner_can_build_an_assessment_and_reorder_its_questions(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'cpbtwo');

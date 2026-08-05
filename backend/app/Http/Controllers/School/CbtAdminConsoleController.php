@@ -21,10 +21,21 @@ use Illuminate\Support\Facades\Storage;
  * The Admin Backend console — the reference repo's own siteadmin.php,
  * one screen with ten tabs covering every assessment in the school:
  * Overview, Assessments, Live Exams, High Risk, Suspended, Proctors,
- * Graders, Media Gallery, Question Bank, Branding.
+ * Graders, Media Gallery, Question Bank, Branding. Sees and controls
+ * EVERY staff member's assessments school-wide, not just the acting
+ * user's own.
  *
- * Gated on assessment_hub.create, the same admin tier as every other
- * screen that exposes other takers' live data or correct answers.
+ * Gated on assessment_hub.export (2026-08-05, corrected from .create —
+ * user directive: "not all staff should have access to admin backend.
+ * This is only for admin of the school to set"). .create/.update were
+ * broadened to class-teacher/subject-teacher on 2026-08-02 so a teacher
+ * could build THEIR OWN scoped assessments, which as a side effect also
+ * opened this full, unscoped admin console to them, since it shared the
+ * same gate. .export is never granted to a scoped teacher role (the
+ * same "blanket access" signal ExaminationController::hasBlanketAccess()
+ * and CbtAssessmentController::hasBlanketAccess() already use), and — like
+ * every module permission — is a real, independently grantable code, so
+ * an admin can hand it to another staff role from Role Management.
  */
 class CbtAdminConsoleController extends Controller
 {
@@ -49,7 +60,7 @@ class CbtAdminConsoleController extends Controller
     protected function authorizeAction(Request $request): void
     {
         abort_unless(
-            app(Rbac::class)->check(Auth::user(), $this->school($request), 'assessment_hub.create'),
+            app(Rbac::class)->check(Auth::user(), $this->school($request), 'assessment_hub.export'),
             403,
             'You do not have permission for this.'
         );

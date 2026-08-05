@@ -15,10 +15,12 @@ use Illuminate\Support\Facades\Auth;
  * SKULOS Assessment Hub, Phase 2g: a live grid of every attempt
  * currently running (plus who's still mid pre-exam wizard), with
  * risk pills, an inline risk-trend sparkline, and break approve/deny
- * actions. Gated on assessment_hub.create (the same admin tier as the
- * question bank/paper builder/security profiles/face approvals) — a
- * screen showing every taker's live risk data is not something a
- * student's own .view grant should ever reach.
+ * actions. Gated on assessment_hub.export (corrected 2026-08-05 from
+ * .create, the same "not all staff should have access to admin
+ * backend" fix applied to CbtAdminConsoleController/
+ * CbtSecurityProfileController) — a screen showing every taker's live
+ * risk data across the whole school is not something a class/subject
+ * teacher's own scoped assessment-building grant should ever reach.
  */
 class CbtLiveMonitorController extends Controller
 {
@@ -30,7 +32,7 @@ class CbtLiveMonitorController extends Controller
     protected function authorizeAction(Request $request): void
     {
         abort_unless(
-            app(Rbac::class)->check(Auth::user(), $this->school($request), 'assessment_hub.create'),
+            app(Rbac::class)->check(Auth::user(), $this->school($request), 'assessment_hub.export'),
             403,
             'You do not have permission for this.'
         );

@@ -583,9 +583,20 @@
     $groups['Learning Management'][] = $link('school.cbt.grader.index', 'Grading', 'approve');
   }
   if ($navRbac->check($navUser, $school, 'assessment_hub.create')) {
-    $groups['Learning Management'][] = $link('school.cbt.console.index', 'Admin Backend', 'sliders');
     $groups['Learning Management'][] = $link('school.cbt.assessments.index', 'Assessments', 'quiz');
     $groups['Learning Management'][] = $link('school.cbt.questions.index', 'Question Bank', 'quiz');
+  }
+  // The rest of this block is school-wide admin territory — every
+  // staff member's assessments, live risk data, and proctoring policy,
+  // not one teacher's own scoped work — so it stays on the "blanket
+  // access" signal .export, not the .create/.update grant a class or
+  // subject teacher holds for building their own assessments (2026-08-05
+  // correction, user directives: "not all staff should have access to
+  // admin backend, this is only for admin of the school to set" and
+  // "teachers should not be having access to the security profiles").
+  // An admin can still hand .export to another role from Role Management.
+  if ($navRbac->check($navUser, $school, 'assessment_hub.export')) {
+    $groups['Learning Management'][] = $link('school.cbt.console.index', 'Admin Backend', 'sliders');
 
     // Supervision screens only exist when proctoring is switched on
     // (see App\Support\AssessmentMode). Light mode ships the timed

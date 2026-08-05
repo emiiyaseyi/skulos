@@ -14,7 +14,9 @@ use Illuminate\Support\Facades\Auth;
  * SKULOS Assessment Hub, Phase 2g: incidents raised automatically (a
  * session's risk crossing "high", see RiskScoringService) or manually
  * by staff from the live monitor. Same open/resolved shape as every
- * other approval-style state machine in this app.
+ * other approval-style state machine in this app. Gated on
+ * assessment_hub.export (corrected 2026-08-05 from .create, see
+ * CbtAdminConsoleController's own docblock).
  */
 class CbtIncidentController extends Controller
 {
@@ -26,7 +28,7 @@ class CbtIncidentController extends Controller
     protected function authorizeAction(Request $request): void
     {
         abort_unless(
-            app(Rbac::class)->check(Auth::user(), $this->school($request), 'assessment_hub.create'),
+            app(Rbac::class)->check(Auth::user(), $this->school($request), 'assessment_hub.export'),
             403,
             'You do not have permission for this.'
         );

@@ -102,6 +102,39 @@ class CbtAdminConsoleTest extends TestCase
             ->assertForbidden();
     }
 
+    /**
+     * User directive 2026-08-05: "not all staff should have access to
+     * admin backend. This is only for admin of the school to set."
+     * class-teacher/subject-teacher hold assessment_hub.create/.update
+     * (2026-08-02, for building their OWN scoped assessments) but must
+     * not reach this school-wide admin console as a side effect.
+     */
+    public function test_a_class_teacher_with_create_and_update_cannot_reach_the_console(): void
+    {
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'conteacher']));
+        $this->rbac->setModuleState($school, 'assessment_hub', \App\Models\Module::STATE_ENABLED);
+        $teacher = User::factory()->create();
+        $role = $this->rbac->cloneTemplateRole($school, 'class-teacher');
+        $school->users()->attach($teacher->id, ['role_id' => $role->id, 'status' => 'active']);
+
+        $this->actingAs($teacher)->get(route('school.cbt.console.index', ['school' => $school->slug]))
+            ->assertForbidden();
+    }
+
+    public function test_a_role_granted_export_via_role_management_can_reach_the_console(): void
+    {
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'conexport']));
+        $this->rbac->setModuleState($school, 'assessment_hub', \App\Models\Module::STATE_ENABLED);
+        $teacher = User::factory()->create();
+        $role = $this->rbac->cloneTemplateRole($school, 'class-teacher');
+        $school->users()->attach($teacher->id, ['role_id' => $role->id, 'status' => 'active']);
+        $permission = \App\Models\Permission::where('code', 'assessment_hub.export')->firstOrFail();
+        $role->permissions()->syncWithoutDetaching([$permission->id]);
+
+        $this->actingAs($teacher)->get(route('school.cbt.console.index', ['school' => $school->slug]))
+            ->assertOk();
+    }
+
     public function test_suspending_then_reinstating_gives_the_lost_time_back(): void
     {
         [$school, $student, $owner, $assessment] = $this->schoolWith('conthree');
