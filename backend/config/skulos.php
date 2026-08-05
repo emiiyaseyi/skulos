@@ -542,6 +542,16 @@ return [
                 ],
                 'start_route' => 'school.students',
                 'hidden_for_teacher_scoped' => true,
+                // family_only (2026-08-05, real bug found live: a bursar,
+                // who genuinely holds students.view for a completely
+                // unrelated reason, was seeing this "For Parents" article
+                // — hidden_for_teacher_scoped/hidden_for_family_scoped
+                // above can only ever HIDE from those two specific
+                // scopes, they cannot RESTRICT an article to being shown
+                // ONLY to one. Every non-generic "For Parents"/"For
+                // Teachers" article needs this positive flag, not just
+                // the negative exclusions.
+                'family_only' => true,
             ],
             [
                 'title' => "Paying your child's fees",
@@ -554,6 +564,7 @@ return [
                 ],
                 'start_route' => 'school.finance.payments.create',
                 'hidden_for_teacher_scoped' => true,
+                'family_only' => true,
             ],
             [
                 'title' => 'Checking your payment history',
@@ -565,6 +576,7 @@ return [
                 ],
                 'start_route' => 'school.finance.payments.index',
                 'hidden_for_teacher_scoped' => true,
+                'family_only' => true,
             ],
             [
                 // Deliberately NOT hidden_for_teacher_scoped: unlike the
@@ -623,6 +635,15 @@ return [
                 // this specific, teacher-voiced ARTICLE is hidden from a
                 // family-scoped viewer regardless.
                 'hidden_for_family_scoped' => true,
+                // teacher_only (2026-08-05, real bug found live: a bursar,
+                // who holds no permission this route even checks, was
+                // still NOT the actual leak vector here — but a
+                // registrar/secretary/ict-officer role sharing
+                // examinations.view for a completely different reason
+                // would have been. This positive restriction closes that
+                // for every current and future non-teacher role, the
+                // same reasoning as family_only above.
+                'teacher_only' => true,
             ],
             [
                 'title' => 'Viewing your timetable',
@@ -634,6 +655,7 @@ return [
                 ],
                 'start_route' => 'school.timetable.mine',
                 'hidden_for_family_scoped' => true,
+                'teacher_only' => true,
             ],
             [
                 'title' => "Messaging a student's guardian",
@@ -645,6 +667,7 @@ return [
                 ],
                 'start_route' => 'school.chat.index',
                 'hidden_for_family_scoped' => true,
+                'teacher_only' => true,
             ],
         ],
     ],

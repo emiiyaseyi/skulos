@@ -90,6 +90,23 @@ class KnowledgeBaseController extends Controller
         if ($teacherScoped && $article->hidden_for_teacher_scoped) {
             return false;
         }
+        // Positive restriction, the inverse of the two hides above (real
+        // bug found live 2026-08-05: a bursar, who genuinely holds
+        // students.view/finance.view for their own unrelated reason, was
+        // seeing the whole "For Parents" category — hidden_for_* can
+        // only ever HIDE from a scope it names, it has no way to
+        // restrict an article to ONLY that scope, so any THIRD role
+        // sharing the same permission slipped straight through). Per-
+        // article DB columns, same as hidden_for_family_scoped/
+        // hidden_for_teacher_scoped just above, not the route-level
+        // $meta array (a route can be reused by an article that should
+        // NOT carry this restriction).
+        if ($article->family_only && ! $familyScoped) {
+            return false;
+        }
+        if ($article->teacher_only && ! $teacherScoped) {
+            return false;
+        }
 
         $permission = $meta['permission'] ?? null;
 

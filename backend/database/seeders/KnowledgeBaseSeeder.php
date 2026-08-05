@@ -50,6 +50,8 @@ class KnowledgeBaseSeeder extends Seeder
                         'start_route' => $article['start_route'] ?? null,
                         'hidden_for_family_scoped' => $article['hidden_for_family_scoped'] ?? false,
                         'hidden_for_teacher_scoped' => $article['hidden_for_teacher_scoped'] ?? false,
+                        'family_only' => $article['family_only'] ?? false,
+                        'teacher_only' => $article['teacher_only'] ?? false,
                         'sequence' => $articleSequence,
                         'is_published' => true,
                     ]);
@@ -67,6 +69,8 @@ class KnowledgeBaseSeeder extends Seeder
                     $existing->update([
                         'hidden_for_family_scoped' => $article['hidden_for_family_scoped'] ?? false,
                         'hidden_for_teacher_scoped' => $article['hidden_for_teacher_scoped'] ?? false,
+                        'family_only' => $article['family_only'] ?? false,
+                        'teacher_only' => $article['teacher_only'] ?? false,
                     ]);
                 }
 

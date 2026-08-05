@@ -348,6 +348,33 @@ class KnowledgeBaseTest extends TestCase
             ->assertSee('Taking attendance');
     }
 
+    /**
+     * Real bug found live 2026-08-05: a bursar is neither family_scoped
+     * nor teacher_scoped, but genuinely holds students.view/finance.view
+     * for their own unrelated reason (viewing student records, managing
+     * fees), which is exactly the permission "For Parents"/"For
+     * Teachers" articles' routes also require — the existing hidden_for_
+     * family_scoped/hidden_for_teacher_scoped exclusions only ever fire
+     * for those two named scopes, so a bursar slipped straight through
+     * and saw the whole "For Parents" and "For Teachers" categories.
+     * family_only/teacher_only close this for every such third role.
+     */
+    public function test_a_bursar_does_not_see_parent_or_teacher_specific_articles(): void
+    {
+        [$school, $bursar] = $this->schoolWithMember('bursar', 'kbbursarnoleaks');
+        $this->seed(\Database\Seeders\KnowledgeBaseSeeder::class);
+
+        $response = $this->actingAs($bursar)->get("http://{$school->slug}.localhost/help");
+
+        $response->assertOk()
+            ->assertDontSee(e("Viewing your child's academic report"), false)
+            ->assertDontSee(e("Paying your child's fees"), false)
+            ->assertDontSee('Checking your payment history')
+            ->assertDontSee('Entering scores for your subject')
+            ->assertDontSee('Viewing your timetable')
+            ->assertDontSee(e("Messaging a student's guardian"), false);
+    }
+
     public function test_deleting_a_category_removes_its_articles(): void
     {
         $admin = $this->superAdmin();
