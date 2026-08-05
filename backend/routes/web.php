@@ -587,6 +587,16 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         // SKULOS Assessment Hub, Phase 2b: the taker-facing side (student
         // or staff, both reached through the normal 'web' guard — see
         // CbtTakeController's own docblock).
+        // A parent's own per-child view (user directive 2026-08-05): NOT
+        // the taker-facing screen below, a parent has no eligibility of
+        // their own to check — see CbtParentAssessmentController's own
+        // docblock for why this is a genuinely separate controller.
+        Route::prefix('assessment/mine')->name('school.cbt.parent.')->group(function () {
+            $cbtParent = \App\Http\Controllers\School\CbtParentAssessmentController::class;
+            Route::get('/', [$cbtParent, 'index'])->name('index');
+            Route::get('/{studentId}', [$cbtParent, 'child'])->name('child');
+        });
+
         Route::prefix('assessment/take')->name('school.cbt.take.')->group(function () {
             $cbtTake = \App\Http\Controllers\School\CbtTakeController::class;
             Route::get('/', [$cbtTake, 'available'])->name('available');

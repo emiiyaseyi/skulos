@@ -575,7 +575,20 @@
   // than shown as dead links; they appear here as each real screen
   // lands.
   if ($navRbac->check($navUser, $school, 'assessment_hub.view')) {
-    $groups['Learning Management'][] = $link('school.cbt.take.available', 'Take Assessments', 'quiz');
+    // A parent has no eligibility of their own to take anything — the
+    // taker-facing screen makes no sense for them (2026-08-05 directive:
+    // "parent view of assessments should be for each child"), so they
+    // get the dedicated per-child cards screen instead, same singular/
+    // plural label rule as "My Child(ren)" above.
+    if ($scopedRoleSlug === 'parent') {
+      $childAssessmentsLabel = "My Child's Assessments";
+      if (app(\App\Services\Rbac\FamilyScope::class)->studentIds($navUser, $school)?->count() !== 1) {
+        $childAssessmentsLabel = "My Children's Assessments";
+      }
+      $groups['Learning Management'][] = $link('school.cbt.parent.index', $childAssessmentsLabel, 'quiz');
+    } else {
+      $groups['Learning Management'][] = $link('school.cbt.take.available', 'Take Assessments', 'quiz');
+    }
   }
   // Grading is its own tier: a marker needs .grade but not the admin
   // .create that every console screen below requires.
