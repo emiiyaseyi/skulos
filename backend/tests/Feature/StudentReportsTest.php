@@ -195,6 +195,57 @@ class StudentReportsTest extends TestCase
             ->assertSee('<optgroup label="Secondary">', false);
     }
 
+    /**
+     * User directive 2026-08-05: "admin can toggle if subject teachers
+     * should have access to class boradhsheets or not." A subject
+     * teacher keeps ordinary examinations.view (score entry works fine)
+     * but no longer reaches the class-wide broadsheet by default.
+     */
+    public function test_a_subject_teacher_cannot_reach_the_broadsheet_by_default(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'srsubjectoff');
+
+        app(TenantManager::class)->use($school);
+        [$classArmId, $termId] = $this->seedBroadsheet();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/reports/students?class_arm_id={$classArmId}&term_id={$termId}")
+            ->assertForbidden();
+    }
+
+    public function test_a_subject_teacher_granted_the_broadsheet_permission_via_role_management_can_reach_it(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'srsubjecton');
+
+        app(TenantManager::class)->use($school);
+        [$classArmId, $termId] = $this->seedBroadsheet();
+        $role = $this->rbac->cloneTemplateRole($school, 'subject-teacher');
+        $permission = \App\Models\Permission::where('code', 'examinations.view_broadsheet')->firstOrFail();
+        $role->permissions()->syncWithoutDetaching([$permission->id]);
+        // TeacherScope still applies on top of the permission grant: a
+        // subject teacher only ever sees classes they actually teach in.
+        $staff = \App\Models\Tenant\Staff::create(['staff_id' => 'T1', 'first_name' => 'Tade', 'last_name' => 'Teacher', 'user_id' => $teacher->id]);
+        \App\Models\Tenant\TeachingAssignment::create(['staff_id' => $staff->id, 'subject_id' => \App\Models\Tenant\Subject::first()->id, 'class_arm_id' => $classArmId]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/reports/students?class_arm_id={$classArmId}&term_id={$termId}")
+            ->assertOk();
+    }
+
+    public function test_a_class_teacher_still_reaches_the_broadsheet_for_their_own_class(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('class-teacher', 'srclassteacheron');
+
+        app(TenantManager::class)->use($school);
+        [$classArmId, $termId] = $this->seedBroadsheet();
+        \App\Models\Tenant\ClassArm::whereKey($classArmId)->update(['class_teacher_staff_id' =>
+            \App\Models\Tenant\Staff::create(['staff_id' => 'T1', 'first_name' => 'Tade', 'last_name' => 'Teacher', 'user_id' => $teacher->id])->id]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/reports/students?class_arm_id={$classArmId}&term_id={$termId}")
+            ->assertOk();
+    }
+
     public function test_a_role_without_examinations_view_cannot_reach_it(): void
     {
         [$school, $user] = $this->schoolWithMember('security', 'srfour');

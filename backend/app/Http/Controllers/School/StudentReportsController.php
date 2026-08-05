@@ -46,7 +46,7 @@ class StudentReportsController extends Controller
 
     public function index(Request $request, ResultService $results): \Illuminate\View\View
     {
-        $this->authorizeAction($request, 'examinations.view');
+        $this->authorizeAction($request, 'examinations.view_broadsheet');
         $school = $this->school($request);
         $user = Auth::user();
 
@@ -124,7 +124,7 @@ class StudentReportsController extends Controller
     /** CSV export of the same broadsheet the index screen shows (matches the standing "export what I'm looking at" pattern StudentController::export() already uses). */
     public function export(Request $request, ResultService $results): \Symfony\Component\HttpFoundation\Response
     {
-        $this->authorizeAction($request, 'examinations.view');
+        $this->authorizeAction($request, 'examinations.view_broadsheet');
         $school = $this->school($request);
         $user = Auth::user();
 

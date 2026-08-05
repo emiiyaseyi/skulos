@@ -2707,7 +2707,12 @@ return [
         'result_management' => 'report_cards.view',
         'basic_report_cards' => 'report_cards.view',
         'advanced_report_cards' => 'report_cards.view',
-        'student_reports' => 'examinations.view',
+        // A distinct permission from plain examinations.view (2026-08-05,
+        // user directive: "admin can toggle if subject teachers should
+        // have access to class boradhsheets or not"), so revoking a
+        // subject teacher's broadsheet access from Role Management never
+        // also takes away their ordinary score-entry screen.
+        'student_reports' => 'examinations.view_broadsheet',
         'unlimited_grading_systems' => 'examinations.view',
         'student_promotion' => 'academics.view',
         'school_profile' => 'school_info.view',
@@ -2740,7 +2745,17 @@ return [
     ],
 
     'extra_permissions' => [
-        'examinations' => ['approve_results', 'publish_results'],
+        // view_broadsheet (2026-08-05, user directive: "admin can toggle
+        // if subject teachers should have access to class boradhsheets
+        // or not"): a distinct permission from plain examinations.view
+        // so it can be revoked/granted per role from Role Management
+        // without touching ordinary score entry. Granted by default to
+        // class-teacher (their own class's broadsheet, already
+        // TeacherScope-restricted) but deliberately NOT to subject-teacher/
+        // teacher — an admin opts a subject teacher in from Role
+        // Management, the same generic mechanism already used for
+        // report_cards.bulk_generate_all above.
+        'examinations' => ['approve_results', 'publish_results', 'view_broadsheet'],
         'communication' => ['broadcast'],
         'school_info' => ['manage_settings'],
         'students' => ['manage_settings'],
@@ -2898,7 +2913,7 @@ return [
         ]],
         'class-teacher' => ['name' => 'Class Teacher', 'grants' => [
             'students.view', 'students.update', 'attendance.*',
-            'examinations.view', 'examinations.create', 'examinations.update',
+            'examinations.view', 'examinations.create', 'examinations.update', 'examinations.view_broadsheet',
             'report_cards.view', 'report_cards.create', 'report_cards.update',
             'timetable.view', 'assignments.view', 'assignments.create', 'assignments.update', 'assignments.delete',
             'calendar.view', 'communication.view', 'communication.create',
