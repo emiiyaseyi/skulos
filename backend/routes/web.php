@@ -577,6 +577,11 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/', [$assignments, 'index'])->name('index');
             Route::get('/create', [$assignments, 'create'])->name('create');
             Route::post('/create', [$assignments, 'store'])->name('store');
+            // Registered before the {assignmentId} wildcard below, the
+            // same registration-order rule already documented in this
+            // file (a parent's own per-child cards screen).
+            Route::get('/mine', [$assignments, 'parentIndex'])->name('mine');
+            Route::get('/mine/{studentId}', [$assignments, 'parentChild'])->name('mine.child');
             Route::get('/{assignmentId}', [$assignments, 'show'])->name('show');
             Route::post('/{assignmentId}/submit', [$assignments, 'submit'])->name('submit');
             Route::get('/{assignmentId}/submissions/{submissionId}/file', [$assignments, 'submissionFile'])->name('submissions.file');

@@ -470,4 +470,79 @@ class AssignmentController extends Controller
 
         return \Illuminate\Support\Facades\Storage::disk('local')->response($submission->file_path);
     }
+
+    /**
+     * A parent's own per-child view (user directive 2026-08-05: "let's
+     * move assignment to under learning management. Parent should also
+     * see each child card showing assignments etc same as what we
+     * mentioned under assessment"), one card per child with total/
+     * submitted/left counts — the flat, all-children-merged index()
+     * above stays exactly as it is for every other role, this is an
+     * additional, parent-only entry point, same shape as
+     * CbtParentAssessmentController.
+     */
+    public function parentIndex(Request $request, FamilyScope $familyScope): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'assignments.view');
+        $school = $this->school($request);
+        $children = $this->children($request, $familyScope);
+
+        $cards = $children->map(function (Student $child) {
+            $assignments = $child->current_class_arm_id
+                ? Assignment::where('class_arm_id', $child->current_class_arm_id)->pluck('id')
+                : collect();
+            $submittedCount = $assignments->isEmpty() ? 0
+                : AssignmentSubmission::where('student_id', $child->id)->whereIn('assignment_id', $assignments)->count();
+
+            return [
+                'student' => $child,
+                'total' => $assignments->count(),
+                'submitted' => $submittedCount,
+                'left' => max(0, $assignments->count() - $submittedCount),
+            ];
+        });
+
+        return view('school.assignments.parent-index', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'cards' => $cards,
+        ]);
+    }
+
+    public function parentChild(Request $request, FamilyScope $familyScope): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'assignments.view');
+        $school = $this->school($request);
+        $children = $this->children($request, $familyScope);
+        $child = $children->firstWhere('id', (int) $request->route('studentId'));
+        abort_if(! $child, 404);
+
+        $assignments = $child->current_class_arm_id
+            ? Assignment::with('subject', 'creator')->where('class_arm_id', $child->current_class_arm_id)->orderByDesc('due_on')->get()
+            : collect();
+        $submissions = AssignmentSubmission::where('student_id', $child->id)
+            ->whereIn('assignment_id', $assignments->pluck('id'))->get()->keyBy('assignment_id');
+
+        $rows = $assignments->map(fn (Assignment $assignment) => [
+            'assignment' => $assignment,
+            'submission' => $submissions->get($assignment->id),
+        ]);
+
+        return view('school.assignments.parent-child', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'student' => $child,
+            'rows' => $rows,
+        ]);
+    }
+
+    /** @return \Illuminate\Support\Collection<int, Student> */
+    protected function children(Request $request, FamilyScope $familyScope): \Illuminate\Support\Collection
+    {
+        $school = $this->school($request);
+        $studentIds = $familyScope->studentIds(Auth::user(), $school);
+        abort_if($studentIds === null, 403, 'This screen is for parents only.');
+
+        return Student::with('currentClassArm.schoolClass')->whereIn('id', $studentIds)->orderBy('first_name')->get();
+    }
 }

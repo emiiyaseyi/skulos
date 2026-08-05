@@ -209,10 +209,16 @@ class PlanFeatureNavTest extends TestCase
 
         $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard");
 
+        // Learning Management is deliberately NOT in this list any more:
+        // Assignments moved there 2026-08-05 and, like every role, is
+        // checked by real RBAC permission rather than the plan-feature
+        // catalog (see nav-school.blade.php's own comment on that
+        // choice), so a wildcard owner role always sees the group
+        // regardless of plan, the same way it always saw Academic for
+        // the identical reason before this move.
         $response->assertOk()
             ->assertDontSee('Admissions')
-            ->assertDontSee('Human Resources')
-            ->assertDontSee('Learning Management');
+            ->assertDontSee('Human Resources');
     }
 
     public function test_school_model_has_any_feature_in_category_helper(): void

@@ -427,8 +427,12 @@ class AssignmentTest extends TestCase
         ])->assertForbidden();
     }
 
-    /** User directive 2026-07-16: "ASSIGNMENT MENU SHOULD BE MOVED TO ACADEMIC SECTION". */
-    public function test_assignments_appears_under_academic_in_the_nav(): void
+    /**
+     * User directive 2026-08-05: "let's move assignment to under
+     * learning management" — supersedes the 2026-07-16 placement in
+     * Academic this test used to assert.
+     */
+    public function test_assignments_appears_under_learning_management_in_the_nav(): void
     {
         $this->seed(\Database\Seeders\PlanSeeder::class);
         [$school, $owner] = $this->schoolWithMember('school-owner', 'asgnine');
@@ -436,6 +440,65 @@ class AssignmentTest extends TestCase
 
         $this->actingAs($owner)->get(route('school.dashboard', ['school' => $school->slug]))
             ->assertOk()
-            ->assertSeeInOrder(['Academic', 'Assignments']);
+            ->assertSeeInOrder(['Learning Management', 'Assignments']);
+    }
+
+    /**
+     * User directive 2026-08-05: "Parent should also see each child card
+     * showing assignments etc same as what we mentioned under
+     * assessment." A parent gets per-child cards, not the flat merged
+     * list every other role sees.
+     */
+    public function test_a_parent_sees_a_card_per_child_with_real_counts(): void
+    {
+        [$school, $parentUser] = $this->schoolWithMember('parent', 'asgparentone');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 6', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id]);
+        $subject = Subject::create(['name' => 'Maths', 'code' => 'MTH']);
+        $childA = Student::create(['admission_number' => 'CH1', 'first_name' => 'Ada', 'last_name' => 'Obi', 'current_class_arm_id' => $arm->id]);
+        $childB = Student::create(['admission_number' => 'CH2', 'first_name' => 'Bode', 'last_name' => 'Obi']);
+        StudentGuardian::create(['student_id' => $childA->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parentUser->id, 'is_primary' => true]);
+        StudentGuardian::create(['student_id' => $childB->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parentUser->id, 'is_primary' => true]);
+        $assignment = Assignment::create(['title' => 'Reading log', 'subject_id' => $subject->id, 'class_arm_id' => $arm->id, 'due_on' => now()->addDays(2)]);
+        \App\Models\Tenant\AssignmentSubmission::create(['assignment_id' => $assignment->id, 'student_id' => $childA->id, 'content' => 'Done.', 'submitted_at' => now()]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($parentUser)->get(route('school.assignments.mine', ['school' => $school->slug]));
+        $response->assertOk()->assertSee('Ada Obi')->assertSee('Bode Obi');
+        $response->assertSeeInOrder(['Ada Obi', '1', 'Total', '1', 'Submitted', '0', 'Left']);
+    }
+
+    public function test_the_child_detail_screen_shows_submission_status(): void
+    {
+        [$school, $parentUser] = $this->schoolWithMember('parent', 'asgparenttwo');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 6', 'sequence' => 1]);
+        $arm = ClassArm::create(['school_class_id' => $class->id]);
+        $subject = Subject::create(['name' => 'Maths', 'code' => 'MTH']);
+        $child = Student::create(['admission_number' => 'CH1', 'first_name' => 'Ada', 'last_name' => 'Obi', 'current_class_arm_id' => $arm->id]);
+        StudentGuardian::create(['student_id' => $child->id, 'name' => 'Parent', 'relationship' => 'Mother', 'guardian_user_id' => $parentUser->id, 'is_primary' => true]);
+        $assignment = Assignment::create(['title' => 'Reading log', 'subject_id' => $subject->id, 'class_arm_id' => $arm->id, 'due_on' => now()->addDays(2)]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($parentUser)->get(route('school.assignments.mine.child', ['school' => $school->slug, 'studentId' => $child->id]))
+            ->assertOk()->assertSee('Reading log')->assertSee('Not submitted');
+    }
+
+    public function test_a_parent_cannot_open_a_child_that_is_not_theirs(): void
+    {
+        [$school, $parentUser] = $this->schoolWithMember('parent', 'asgparentthree');
+
+        app(TenantManager::class)->use($school);
+        $stranger = Student::create(['admission_number' => 'Z1', 'first_name' => 'Chi', 'last_name' => 'Eze']);
+        $strangerId = $stranger->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($parentUser)->get(route('school.assignments.mine.child', ['school' => $school->slug, 'studentId' => $strangerId]))
+            ->assertNotFound();
     }
 }

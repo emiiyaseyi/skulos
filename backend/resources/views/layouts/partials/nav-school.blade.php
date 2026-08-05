@@ -528,23 +528,34 @@
     }
   }
 
-  // Assignments (user directive 2026-07-16: "ASSIGNMENT MENU SHOULD BE
-  // MOVED TO ACADEMIC SECTION WHICH ONLY CLASS TEACHER, SUBJECT TEACHER,
-  // PARENT AND STUDENT CAN SEE WITH THEIR RESPECTIVE ACCESS RIGHTS. ADMIN
-  // CAN SEE ALL ACTIVE ASSIGNMENTS..."). Deliberately not routed through
-  // the plan-feature catalog loop above (unlike everything else that
-  // moved into Academic): 'assignments' is not part of the Foundation or
-  // Advance launch plans' feature list, so gating it there would silently
-  // remove an already-built, already-visible screen from every real
-  // school on those tiers, a pricing decision this nav change is not the
-  // place to make. Checked by real RBAC permission instead, so it shows
-  // for a restricted teacher/parent/student role exactly the same way it
-  // shows for an unrestricted admin one, each still only ever sees their
-  // own scoped assignments once they get to the actual screen (see
+  // Assignments — moved from Academic to Learning Management (user
+  // directive 2026-08-05: "let's move assignment to under learning
+  // management"), superseding the 2026-07-16 placement in Academic.
+  // Deliberately not routed through the plan-feature catalog loop above
+  // (unlike everything else in Learning Management): 'assignments' is
+  // not part of the Foundation or Advance launch plans' feature list,
+  // so gating it there would silently remove an already-built,
+  // already-visible screen from every real school on those tiers, a
+  // pricing decision this nav change is not the place to make. Checked
+  // by real RBAC permission instead, so it shows for a restricted
+  // teacher/parent/student role exactly the same way it shows for an
+  // unrestricted admin one, each still only ever sees their own scoped
+  // assignments once they get to the actual screen (see
   // AssignmentController::index()'s TeacherScope/FamilyScope filtering).
   if ($navRbac->check($navUser, $school, 'assignments.view') && ! isset($renderedRoutes['school.assignments.index'])) {
     $renderedRoutes['school.assignments.index'] = true;
-    $groups['Academic'][] = $link('school.assignments.index', 'Assignments', 'assignments');
+    // A parent gets the dedicated per-child cards screen instead of the
+    // flat, all-children-merged list every other role sees (2026-08-05
+    // directive, same shape as the assessment cards above).
+    if ($scopedRoleSlug === 'parent') {
+      $childAssignmentsLabel = "My Child's Assignments";
+      if (app(\App\Services\Rbac\FamilyScope::class)->studentIds($navUser, $school)?->count() !== 1) {
+        $childAssignmentsLabel = "My Children's Assignments";
+      }
+      $groups['Learning Management'][] = $link('school.assignments.mine', $childAssignmentsLabel, 'assignments');
+    } else {
+      $groups['Learning Management'][] = $link('school.assignments.index', 'Assignments', 'assignments');
+    }
   }
 
   // SKULOS Assessment Hub, Phase 2h: a new top-level "Learning
