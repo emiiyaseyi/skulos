@@ -50,8 +50,6 @@ class AssessmentController extends Controller
         $this->authorizeAction($request, 'examinations.view');
         $school = $this->school($request);
 
-        $components = AssessmentComponent::orderBy('sequence')->get();
-
         // Score entry windows (user request 2026-07-18): a window is per
         // (component, term) since the same component recurs every term,
         // so this screen needs its own term picker, same shape as Report
@@ -59,6 +57,29 @@ class AssessmentController extends Controller
         $terms = Term::with('session')->orderByDesc('starts_on')->get();
         $termId = $request->integer('term_id') ?: null;
         $term = ($termId ? Term::find($termId) : null) ?? Term::current()->first();
+
+        // Per-term structure (user directive 2026-08-05: "the assessment
+        // structure can be changed per term so its not a fixed one
+        // across the whole session or school life time"). "editingTermId"
+        // (distinct from the score-entry-window $term above) is which
+        // scope this screen's own add/edit/delete actions apply to —
+        // "all" (the universal set) or one specific term's own fork.
+        // Defaults to "all" so an admin editing the structure for the
+        // very first time still shapes the universal set every already
+        // provisioned school already depends on, not an empty new fork.
+        $editingTermParam = $request->query('editing_term_id', 'all');
+        $editingTerm = $editingTermParam !== 'all' ? Term::find($editingTermParam) : null;
+        $isForked = $editingTerm && AssessmentComponent::where('term_id', $editingTerm->id)->exists();
+        // A term with no fork of its own previews the universal set
+        // read-only (same "preview the shared catalog until it has one
+        // of its own" shape as TimetablePeriod's per-section preview) —
+        // add/edit/delete stay disabled until it is explicitly
+        // customized, so nothing is ever silently created half-forked.
+        $components = ($editingTerm && ! $isForked)
+            ? AssessmentComponent::whereNull('term_id')->orderBy('sequence')->get()
+            : AssessmentComponent::where('term_id', $editingTerm?->id)->orderBy('sequence')->get();
+        $canEditStructure = ! $editingTerm || $isForked;
+
         $windowsByComponent = $term
             ? AssessmentWindow::where('term_id', $term->id)->get()->keyBy('assessment_component_id')
             : collect();
@@ -68,32 +89,98 @@ class AssessmentController extends Controller
             'accent' => $school->branding()['color'],
             'caComponents' => $components->where('type', AssessmentComponent::TYPE_CA)->values(),
             'examComponents' => $components->where('type', AssessmentComponent::TYPE_EXAM)->values(),
-            'totalPossible' => AssessmentComponent::totalPossible(),
-            'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'examinations.approve_results'),
+            'totalPossible' => (float) $components->sum('max_score'),
+            // Folds the fork state into the SAME flag every existing
+            // control in this view already checks, so a term merely
+            // previewing the universal structure (not yet customized)
+            // never shows editable-looking controls that would actually
+            // 403 or silently create a half-fork on submit. The couple
+            // of permission-only actions (fork/unfork itself, the
+            // score-entry-window term picker, Extension requests)
+            // deliberately use canManagePermission instead, below.
+            'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'examinations.approve_results') && $canEditStructure,
+            'canManagePermission' => app(Rbac::class)->check(Auth::user(), $school, 'examinations.approve_results'),
             'terms' => $terms,
             'term' => $term,
             'windowsByComponent' => $windowsByComponent,
             'pendingExtensionCount' => AssessmentWindowExtension::pending()->count(),
+            'editingTerm' => $editingTerm,
+            'isForked' => $isForked,
         ]);
     }
 
     public function store(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'examinations.approve_results');
+        $editingTermParam = $request->input('editing_term_id', 'all');
+        $editingTermId = $editingTermParam !== 'all' ? (int) $editingTermParam : null;
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:100', Rule::unique('tenant.assessment_components', 'name')],
+            'name' => ['required', 'string', 'max:100', Rule::unique('tenant.assessment_components', 'name')->where('term_id', $editingTermId)],
             'type' => ['required', Rule::in([AssessmentComponent::TYPE_CA, AssessmentComponent::TYPE_EXAM])],
             'max_score' => ['required', 'numeric', 'min:0.01', 'max:1000'],
         ]);
 
         AssessmentComponent::create([
+            'term_id' => $editingTermId,
             'name' => $data['name'],
             'type' => $data['type'],
             'max_score' => $data['max_score'],
-            'sequence' => (int) AssessmentComponent::max('sequence') + 1,
+            'sequence' => (int) AssessmentComponent::where('term_id', $editingTermId)->max('sequence') + 1,
         ]);
 
         return back()->with('status', "\"{$data['name']}\" added.");
+    }
+
+    /**
+     * A term editing the universal structure for the first time (its own
+     * fork has never existed) gets a real, independent copy seeded from
+     * whatever the universal set currently is — the same "Customize...
+     * for this [scope]" fork action already established for
+     * TimetablePeriod's own per-section catalog, so a school can start
+     * from its existing structure and adjust just one term, not build a
+     * brand new one from nothing.
+     */
+    public function forkTerm(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'examinations.approve_results');
+        $data = $request->validate(['term_id' => ['required', 'exists:tenant.terms,id']]);
+
+        if (AssessmentComponent::where('term_id', $data['term_id'])->exists()) {
+            return back()->with('error', 'This term already has its own structure.');
+        }
+
+        foreach (AssessmentComponent::whereNull('term_id')->orderBy('sequence')->get() as $universal) {
+            AssessmentComponent::create([
+                'term_id' => $data['term_id'],
+                'name' => $universal->name,
+                'type' => $universal->type,
+                'max_score' => $universal->max_score,
+                'sequence' => $universal->sequence,
+            ]);
+        }
+
+        return redirect()->route('school.examinations.structure', [
+            'school' => $this->school($request)->slug, 'editing_term_id' => $data['term_id'],
+        ])->with('status', 'This term now has its own independent structure, starting from the universal one.');
+    }
+
+    /** Deletes every one of a term's own component rows, reverting it back to following the universal structure. */
+    public function unforkTerm(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'examinations.approve_results');
+        $data = $request->validate(['term_id' => ['required', 'exists:tenant.terms,id']]);
+
+        $components = AssessmentComponent::where('term_id', $data['term_id'])->get();
+        $scored = Score::whereIn('assessment_component_id', $components->pluck('id'))->exists();
+        if ($scored) {
+            return back()->with('error', 'This term already has scores entered against its own structure, remove those first if you want to revert to the universal one.');
+        }
+
+        AssessmentComponent::where('term_id', $data['term_id'])->delete();
+
+        return redirect()->route('school.examinations.structure', [
+            'school' => $this->school($request)->slug, 'editing_term_id' => 'all',
+        ])->with('status', 'Reverted to following the universal structure.');
     }
 
     public function update(Request $request): \Illuminate\Http\RedirectResponse
@@ -102,7 +189,7 @@ class AssessmentController extends Controller
         $component = AssessmentComponent::findOrFail($request->route('componentId'));
 
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:100', Rule::unique('tenant.assessment_components', 'name')->ignore($component->id)],
+            'name' => ['required', 'string', 'max:100', Rule::unique('tenant.assessment_components', 'name')->where('term_id', $component->term_id)->ignore($component->id)],
             'max_score' => ['required', 'numeric', 'min:0.01', 'max:1000'],
         ]);
 
@@ -181,7 +268,13 @@ class AssessmentController extends Controller
     {
         $this->authorizeAction($request, 'examinations.approve_results');
 
-        if (AssessmentComponent::exists()) {
+        // Deliberately scoped to the universal set only (term_id null):
+        // this action is the Guided Setup wizard's own one-time "start
+        // from empty" step, never reachable from the per-term editing UI
+        // above, so a term that already forked its own structure must
+        // never block (or be affected by) seeding the school's universal
+        // defaults.
+        if (AssessmentComponent::whereNull('term_id')->exists()) {
             return back()->with('error', 'An assessment structure already exists, defaults are only for starting from empty.');
         }
 

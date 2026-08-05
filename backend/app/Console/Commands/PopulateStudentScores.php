@@ -104,7 +104,12 @@ class PopulateStudentScores extends Command
                 continue;
             }
 
-            $components = AssessmentComponent::orderBy('sequence')->get();
+            // Demo/seed data only, deliberately scoped to the universal
+            // structure regardless of any per-term fork a school may
+            // have set up (2026-08-05) — this command exists to backfill
+            // sample scores, not to model real per-term structural
+            // variation.
+            $components = AssessmentComponent::whereNull('term_id')->orderBy('sequence')->get();
             if ($components->isEmpty()) {
                 $this->line("Skipping {$school->name} ({$school->slug}): no assessment components configured.");
                 $tenants->forget();

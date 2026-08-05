@@ -309,7 +309,7 @@ class CbtAssessmentController extends Controller
             'bankQuestions' => CbtQuestion::where('is_active', true)
                 ->whereNotIn('id', $assessment->assessmentQuestions->pluck('question_id'))
                 ->orderByDesc('id')->get(),
-            'assessmentComponents' => \App\Models\Tenant\AssessmentComponent::orderBy('sequence')->get(),
+            'assessmentComponents' => \App\Models\Tenant\AssessmentComponent::forTerm($assessment->term_id),
         ]);
     }
 

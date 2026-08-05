@@ -802,6 +802,8 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             $windows = \App\Http\Controllers\School\AssessmentWindowController::class;
             Route::post('/structure/windows', [$windows, 'updateWindow'])->name('structure.windows.update');
             Route::post('/structure/bulk-destroy', [$assessment, 'bulkDestroy'])->name('structure.bulk-destroy');
+            Route::post('/structure/fork-term', [$assessment, 'forkTerm'])->name('structure.fork-term');
+            Route::post('/structure/unfork-term', [$assessment, 'unforkTerm'])->name('structure.unfork-term');
 
             Route::post('/structure/{componentId}', [$assessment, 'update'])->name('structure.update');
             Route::delete('/structure/{componentId}', [$assessment, 'destroy'])->name('structure.destroy');

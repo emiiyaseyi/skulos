@@ -8,7 +8,7 @@
     <p class="subtitle">The Test / Continuous Assessment and Examination components every subject is scored against. Currently sums to {{ rtrim(rtrim(number_format($totalPossible, 2), '0'), '.') }} marks in total.</p>
   </div>
   <div class="stack" style="flex-direction:row;gap:.6rem">
-    @if($canManage)
+    @if($canManagePermission)
       <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.window-extensions.index', ['school' => $school->slug]) }}">Extension requests @if($pendingExtensionCount)<span class="badge badge-warn">{{ $pendingExtensionCount }}</span>@endif</a>
     @endif
     <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.grading', ['school' => $school->slug]) }}">Grading</a>
@@ -16,22 +16,60 @@
   </div>
 </div>
 
-@if($canManage)
-  <div class="card" style="margin-bottom:1.1rem;max-width:24rem">
-    <form method="GET" action="{{ route('school.examinations.structure', ['school' => $school->slug]) }}">
-      <div class="field" style="margin:0">
-        <label for="term_id">Score entry windows for term</label>
-        <select id="term_id" name="term_id" onchange="this.form.requestSubmit()">
-          @foreach($terms as $t)
-            <option value="{{ $t->id }}" @selected($term && $term->id === $t->id)>{{ $t->name }} ({{ $t->session?->name }})</option>
-          @endforeach
-        </select>
-      </div>
-    </form>
+@php
+  $editingTermIdValue = $editingTerm->id ?? 'all';
+@endphp
+
+@if($canManagePermission)
+  <div class="grid cols-2" style="gap:.8rem;margin-bottom:1.1rem;align-items:start">
+    <div class="card">
+      <form method="GET" action="{{ route('school.examinations.structure', ['school' => $school->slug]) }}">
+        @if($term)<input type="hidden" name="term_id" value="{{ $term->id }}" />@endif
+        <div class="field" style="margin:0">
+          <label for="editing_term_id">Editing structure for</label>
+          <select id="editing_term_id" name="editing_term_id" onchange="this.form.requestSubmit()">
+            <option value="all" @selected($editingTermIdValue === 'all')>All terms (the universal structure)</option>
+            @foreach($terms as $t)
+              <option value="{{ $t->id }}" @selected($editingTermIdValue === $t->id)>{{ $t->name }} ({{ $t->session?->name }}) only</option>
+            @endforeach
+          </select>
+        </div>
+      </form>
+      @if($editingTerm)
+        <p class="muted" style="margin-top:.5rem;font-size:.82rem">
+          @if($isForked)
+            Editing {{ $editingTerm->name }}'s own independent structure. Changes here never affect the universal structure or any other term.
+          @else
+            Following the universal structure below — {{ $editingTerm->name }} has no independent structure of its own yet.
+          @endif
+        </p>
+        <form method="POST" action="{{ route($isForked ? 'school.examinations.structure.unfork-term' : 'school.examinations.structure.fork-term', ['school' => $school->slug]) }}" style="margin-top:.5rem" @if($isForked) onsubmit="return confirm('Revert to the universal structure? {{ $editingTerm->name }}\'s own components will be removed.')" @endif>
+          @csrf
+          <input type="hidden" name="term_id" value="{{ $editingTerm->id }}" />
+          <button class="btn btn-ghost btn-sm" type="submit">{{ $isForked ? 'Revert to the universal structure' : 'Customize the structure for '.$editingTerm->name }}</button>
+        </form>
+      @else
+        <p class="muted" style="margin-top:.5rem;font-size:.82rem">Every term without its own structure follows this one (user directive 2026-08-05: "the assessment structure can be changed per term so its not a fixed one across the whole session or school life time").</p>
+      @endif
+    </div>
+
+    <div class="card">
+      <form method="GET" action="{{ route('school.examinations.structure', ['school' => $school->slug]) }}">
+        <input type="hidden" name="editing_term_id" value="{{ $editingTermIdValue }}" />
+        <div class="field" style="margin:0">
+          <label for="term_id">Score entry windows for term</label>
+          <select id="term_id" name="term_id" onchange="this.form.requestSubmit()">
+            @foreach($terms as $t)
+              <option value="{{ $t->id }}" @selected($term && $term->id === $t->id)>{{ $t->name }} ({{ $t->session?->name }})</option>
+            @endforeach
+          </select>
+        </div>
+      </form>
+    </div>
   </div>
 @endif
 
-@if($canManage && $caComponents->isEmpty() && $examComponents->isEmpty())
+@if($canManage && ! $editingTerm && $caComponents->isEmpty() && $examComponents->isEmpty())
   <div class="card" style="margin-bottom:1.1rem">
     <h3 style="margin-bottom:.4rem">Load a default structure</h3>
     <p class="muted" style="margin-bottom:.8rem">Two Continuous Assessments (20 marks each) plus one Exam (60 marks), the common Nigerian school split. You can add, remove, rename, or reweight anything afterwards.</p>
@@ -55,7 +93,7 @@
       <table>
         <thead><tr>
           @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="ca-select-all" aria-label="Select all CA components" /></th>@endif
-          <th>Name</th><th>Out of</th>@if($canManage && $term)<th>Entry window</th>@endif @if($canManage)<th></th>@endif</tr></thead>
+          <th>Name</th><th>Out of</th>@if($canManagePermission && $term)<th>Entry window</th>@endif @if($canManage)<th></th>@endif</tr></thead>
         <tbody>
           @foreach($caComponents as $component)
             @php $window = $windowsByComponent->get($component->id); @endphp
@@ -63,7 +101,7 @@
               @if($canManage)<td><input type="checkbox" form="bulkCaForm" class="ca-row-check" name="component_ids[]" value="{{ $component->id }}" aria-label="Select {{ $component->name }}" /></td>@endif
               <td><strong>{{ $component->name }}</strong></td>
               <td class="muted">{{ rtrim(rtrim(number_format($component->max_score, 2), '0'), '.') }}</td>
-              @if($canManage && $term)
+              @if($canManagePermission && $term)
                 <td class="muted">
                   @if($window && ($window->opens_at || $window->closes_at))
                     {{ $window->opens_at?->format('d M, g:ia') ?? 'Any time' }} &rarr; {{ $window->closes_at?->format('d M, g:ia') ?? 'No close' }}
@@ -95,7 +133,7 @@
               </td>
             </tr>
             @endif
-            @if($canManage && $term)
+            @if($canManagePermission && $term)
             <tr id="window-{{ $component->id }}" class="component-edit-row">
               <td colspan="5">
                 <form method="POST" action="{{ route('school.examinations.structure.windows.update', ['school' => $school->slug]) }}" style="display:flex;gap:.5rem;padding:.6rem 0;flex-wrap:wrap;align-items:flex-end">
@@ -144,6 +182,7 @@
       <form method="POST" action="{{ route('school.examinations.structure.store', ['school' => $school->slug]) }}" style="display:flex;gap:.5rem;margin-top:1rem;flex-wrap:wrap">
         @csrf
         <input type="hidden" name="type" value="ca" />
+        <input type="hidden" name="editing_term_id" value="{{ $editingTermIdValue }}" />
         <input name="name" placeholder="e.g. First CA" required style="flex:1;min-width:9rem" />
         <input name="max_score" type="number" step="0.01" min="0.01" placeholder="Out of" required style="max-width:7rem" />
         <button class="btn btn-primary btn-sm" type="submit">Add</button>
@@ -163,7 +202,7 @@
       <table>
         <thead><tr>
           @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="exam-select-all" aria-label="Select all exam components" /></th>@endif
-          <th>Name</th><th>Out of</th>@if($canManage && $term)<th>Entry window</th>@endif @if($canManage)<th></th>@endif</tr></thead>
+          <th>Name</th><th>Out of</th>@if($canManagePermission && $term)<th>Entry window</th>@endif @if($canManage)<th></th>@endif</tr></thead>
         <tbody>
           @foreach($examComponents as $component)
             @php $window = $windowsByComponent->get($component->id); @endphp
@@ -171,7 +210,7 @@
               @if($canManage)<td><input type="checkbox" form="bulkExamForm" class="exam-row-check" name="component_ids[]" value="{{ $component->id }}" aria-label="Select {{ $component->name }}" /></td>@endif
               <td><strong>{{ $component->name }}</strong></td>
               <td class="muted">{{ rtrim(rtrim(number_format($component->max_score, 2), '0'), '.') }}</td>
-              @if($canManage && $term)
+              @if($canManagePermission && $term)
                 <td class="muted">
                   @if($window && ($window->opens_at || $window->closes_at))
                     {{ $window->opens_at?->format('d M, g:ia') ?? 'Any time' }} &rarr; {{ $window->closes_at?->format('d M, g:ia') ?? 'No close' }}
@@ -203,7 +242,7 @@
               </td>
             </tr>
             @endif
-            @if($canManage && $term)
+            @if($canManagePermission && $term)
             <tr id="window-{{ $component->id }}" class="component-edit-row">
               <td colspan="5">
                 <form method="POST" action="{{ route('school.examinations.structure.windows.update', ['school' => $school->slug]) }}" style="display:flex;gap:.5rem;padding:.6rem 0;flex-wrap:wrap;align-items:flex-end">
@@ -252,6 +291,7 @@
       <form method="POST" action="{{ route('school.examinations.structure.store', ['school' => $school->slug]) }}" style="display:flex;gap:.5rem;margin-top:1rem;flex-wrap:wrap">
         @csrf
         <input type="hidden" name="type" value="exam" />
+        <input type="hidden" name="editing_term_id" value="{{ $editingTermIdValue }}" />
         <input name="name" placeholder="e.g. Exam" required style="flex:1;min-width:9rem" />
         <input name="max_score" type="number" step="0.01" min="0.01" placeholder="Out of" required style="max-width:7rem" />
         <button class="btn btn-primary btn-sm" type="submit">Add</button>

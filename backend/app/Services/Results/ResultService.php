@@ -67,7 +67,7 @@ class ResultService
      */
     public function termAveragePercentage(int $termId): ?float
     {
-        $totalPossible = AssessmentComponent::totalPossible();
+        $totalPossible = AssessmentComponent::totalPossible($termId);
         if ($totalPossible <= 0) {
             return null;
         }
@@ -96,7 +96,7 @@ class ResultService
      */
     public function studentAveragePercentage(int $studentId, int $termId): ?float
     {
-        $totalPossible = AssessmentComponent::totalPossible();
+        $totalPossible = AssessmentComponent::totalPossible($termId);
         if ($totalPossible <= 0) {
             return null;
         }
@@ -269,7 +269,7 @@ class ResultService
      */
     public function averagePercentageForClassArms(array $classArmIds, int $termId): ?float
     {
-        $totalPossible = AssessmentComponent::totalPossible();
+        $totalPossible = AssessmentComponent::totalPossible($termId);
         if ($totalPossible <= 0 || $classArmIds === []) {
             return null;
         }
@@ -340,7 +340,7 @@ class ResultService
      */
     public function subjectAveragesForTerm(int $termId, ?array $classArmIds = null): \Illuminate\Support\Collection
     {
-        $totalPossible = AssessmentComponent::totalPossible();
+        $totalPossible = AssessmentComponent::totalPossible($termId);
         if ($totalPossible <= 0) {
             return collect();
         }
@@ -411,7 +411,7 @@ class ResultService
      */
     public function studentsBelowAverageThreshold($students, int $termId, float $thresholdPct, ?int $limit = null): array
     {
-        $totalPossible = AssessmentComponent::totalPossible();
+        $totalPossible = AssessmentComponent::totalPossible($termId);
         if ($totalPossible <= 0) {
             return [];
         }
@@ -457,7 +457,7 @@ class ResultService
      */
     public function averagesByStudent(array $studentIds, int $termId): array
     {
-        $totalPossible = AssessmentComponent::totalPossible();
+        $totalPossible = AssessmentComponent::totalPossible($termId);
         if ($totalPossible <= 0 || empty($studentIds)) {
             return [];
         }

@@ -49,7 +49,12 @@ class SchoolCloneService
                 ->table('class_subject')->get(['school_class_id', 'subject_id', 'is_mandatory', 'is_examinable'])->toArray(),
             'grading_scales' => GradingScale::get(['id', 'name', 'is_default'])->toArray(),
             'grading_bands' => GradingBand::get(['id', 'grading_scale_id', 'min_score', 'max_score', 'grade', 'remark', 'points'])->toArray(),
-            'assessment_components' => AssessmentComponent::get(['id', 'name', 'max_score', 'sequence'])->toArray(),
+            // Universal (term_id null) rows only: a cloned school gets new
+            // Term rows with new ids, so a term-specific fork from the
+            // source school would either dangle or collide by name once
+            // copied here — the universal structure is the only part
+            // that is safe and meaningful to carry over.
+            'assessment_components' => AssessmentComponent::whereNull('term_id')->get(['id', 'name', 'max_score', 'sequence'])->toArray(),
             'houses' => House::get(['id', 'name', 'color'])->toArray(),
             'dashboard_layout' => Setting::grab('dashboard_layout'),
             'dashboard_widgets' => Setting::grab('dashboard_widgets'),

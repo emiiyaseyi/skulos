@@ -283,7 +283,7 @@ class ExaminationController extends Controller
                 ->where('current_class_arm_id', $classArmId)
                 ->orderBy('first_name')
                 ->get();
-            $components = AssessmentComponent::orderBy('sequence')->get();
+            $components = AssessmentComponent::forTerm($termId);
 
             // Assessment score-entry windows (user request 2026-07-18): a
             // blanket-access role (the one that also bypasses allowedPairs()'
@@ -393,7 +393,7 @@ class ExaminationController extends Controller
 
         $showRemark = app(ReportCardPreferences::class)->shows('subject_remark');
 
-        $components = AssessmentComponent::orderBy('sequence')->get()->keyBy('id');
+        $components = AssessmentComponent::forTerm($term)->keyBy('id');
         $studentIds = Student::active()->where('current_class_arm_id', $data['class_arm_id'])->pluck('id')->all();
 
         // A report card past the approved stage is locked for editing (ReportCardReview::LOCKED_FOR_EDITING);
@@ -574,7 +574,7 @@ class ExaminationController extends Controller
         abort_if(empty($subjectIds), 403, 'You do not teach a subject in this class.');
 
         $subjects = Subject::whereIn('id', $subjectIds)->get()->keyBy('id');
-        $components = AssessmentComponent::orderBy('sequence')->get();
+        $components = AssessmentComponent::forTerm((int) $data['term_id']);
         $students = Student::active()->where('current_class_arm_id', $data['class_arm_id'])->orderBy('first_name')->get();
 
         $existing = Score::where('class_arm_id', $data['class_arm_id'])
@@ -644,7 +644,7 @@ class ExaminationController extends Controller
         abort_if(empty($allowedSubjectIds), 403, 'You do not teach a subject in this class.');
 
         $subjects = Subject::whereIn('id', $allowedSubjectIds)->get()->keyBy('id');
-        $components = AssessmentComponent::orderBy('sequence')->get();
+        $components = AssessmentComponent::forTerm((int) $data['term_id']);
 
         $columnMap = [];
         foreach ($subjects as $subject) {

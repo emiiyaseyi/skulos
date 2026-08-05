@@ -261,4 +261,122 @@ class AssessmentStructureScreenTest extends TestCase
         $this->actingAs($teacher)->get("http://{$school->slug}.localhost/examinations/structure")
             ->assertOk()->assertDontSee('Remove');
     }
+
+    protected function schoolWithTerm(string $roleSlug, string $slug): array
+    {
+        [$school, $owner] = $this->schoolWithMember($roleSlug, $slug);
+        app(TenantManager::class)->use($school);
+        $session = AcademicSession::create(['name' => '2025/2026']);
+        $term = Term::create(['academic_session_id' => $session->id, 'name' => 'Third Term', 'sequence' => 3]);
+        app(TenantManager::class)->forget();
+
+        return [$school, $owner, $term];
+    }
+
+    /**
+     * User directive 2026-08-05: "the assessment structure can be
+     * changed per term so its not a fixed one across the whole session
+     * or school life time." A term with no fork of its own still
+     * previews (read only) the universal structure, and adding
+     * universal components stays completely unaffected by a term
+     * having been picked in the "editing structure for" selector.
+     */
+    public function test_a_term_previews_the_universal_structure_until_forked(): void
+    {
+        [$school, $owner, $term] = $this->schoolWithTerm('school-owner', 'structterm1');
+
+        app(TenantManager::class)->use($school);
+        AssessmentComponent::create(['name' => 'First CA', 'type' => 'ca', 'max_score' => 20, 'sequence' => 1]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/examinations/structure?editing_term_id={$term->id}")
+            ->assertOk()
+            ->assertSee('First CA')
+            ->assertDontSee('Remove')
+            ->assertSee('Customize the structure for');
+    }
+
+    public function test_forking_a_term_copies_the_universal_structure_and_edits_never_touch_it(): void
+    {
+        [$school, $owner, $term] = $this->schoolWithTerm('school-owner', 'structterm2');
+
+        app(TenantManager::class)->use($school);
+        AssessmentComponent::create(['name' => 'First CA', 'type' => 'ca', 'max_score' => 20, 'sequence' => 1]);
+        AssessmentComponent::create(['name' => 'Exam', 'type' => 'exam', 'max_score' => 80, 'sequence' => 2]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/examinations/structure/fork-term", [
+            'term_id' => $term->id,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $termComponents = AssessmentComponent::where('term_id', $term->id)->pluck('name')->sort()->values()->all();
+        app(TenantManager::class)->forget();
+        $this->assertSame(['Exam', 'First CA'], $termComponents);
+
+        // Editing the term's OWN First CA never touches the universal one.
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/examinations/structure?editing_term_id={$term->id}");
+        app(TenantManager::class)->use($school);
+        $termCa = AssessmentComponent::where('term_id', $term->id)->where('name', 'First CA')->first();
+        app(TenantManager::class)->forget();
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/examinations/structure/{$termCa->id}", [
+            'name' => 'First CA', 'max_score' => 30, 'editing_term_id' => $term->id,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $universalCa = AssessmentComponent::whereNull('term_id')->where('name', 'First CA')->first();
+        app(TenantManager::class)->forget();
+        $this->assertEquals(20, $universalCa->max_score, 'the universal structure must be untouched by a term-scoped edit');
+    }
+
+    public function test_a_new_component_added_while_editing_a_forked_term_belongs_only_to_that_term(): void
+    {
+        [$school, $owner, $term] = $this->schoolWithTerm('school-owner', 'structterm3');
+
+        app(TenantManager::class)->use($school);
+        AssessmentComponent::create(['name' => 'First CA', 'type' => 'ca', 'max_score' => 20, 'sequence' => 1]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/examinations/structure/fork-term", ['term_id' => $term->id]);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/examinations/structure", [
+            'name' => 'Second CA', 'type' => 'ca', 'max_score' => 15, 'editing_term_id' => $term->id,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $onTerm = AssessmentComponent::where('term_id', $term->id)->where('name', 'Second CA')->exists();
+        $onUniversal = AssessmentComponent::whereNull('term_id')->where('name', 'Second CA')->exists();
+        app(TenantManager::class)->forget();
+        $this->assertTrue($onTerm);
+        $this->assertFalse($onUniversal, 'a component added while editing a specific term must never leak into the universal structure');
+    }
+
+    /** Score entry must read whichever structure is actually active for the term being scored, not always the universal one. */
+    public function test_score_entry_uses_the_forked_terms_own_structure_not_the_universal_one(): void
+    {
+        [$school, $owner, $term] = $this->schoolWithTerm('school-owner', 'structterm4');
+        $term->update(['is_current' => true]);
+
+        app(TenantManager::class)->use($school);
+        AssessmentComponent::create(['name' => 'First CA', 'type' => 'ca', 'max_score' => 20, 'sequence' => 1]);
+        $section = Section::create(['name' => 'Secondary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS 1', 'sequence' => 1]);
+        $arm = Arm::create(['name' => 'A']);
+        $classArm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => $arm->id]);
+        $subject = Subject::create(['name' => 'Mathematics']);
+        $class->subjects()->attach($subject->id, ['is_mandatory' => true, 'is_examinable' => true]);
+        Student::create(['admission_number' => 'A1', 'first_name' => 'Ada', 'last_name' => 'Obi', 'current_class_arm_id' => $classArm->id]);
+        app(TenantManager::class)->forget();
+
+        // Fork the term with a DIFFERENT structure: one component, "Project", out of 50.
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/examinations/structure/fork-term", ['term_id' => $term->id]);
+        app(TenantManager::class)->use($school);
+        AssessmentComponent::where('term_id', $term->id)->delete();
+        $projectComponent = AssessmentComponent::create(['term_id' => $term->id, 'name' => 'Project', 'type' => 'ca', 'max_score' => 50, 'sequence' => 1]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/examinations?pair={$classArm->id}:{$subject->id}&term_id={$term->id}");
+
+        $response->assertOk()->assertSee('Project')->assertDontSee('First CA');
+    }
 }
