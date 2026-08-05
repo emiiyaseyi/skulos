@@ -89,7 +89,12 @@
     </form>
 
     <div class="card">
-      <p class="muted" style="margin-bottom:.8rem">{{ $questions->total() }} question(s) found{{ $activeCategoryId ? ' in this category' : ' site-wide' }}.</p>
+      <p class="muted" style="margin-bottom:.8rem">
+        {{ $questions->total() }} question(s) found{{ $activeCategoryId ? ' in this category' : ' site-wide' }}.
+        @unless($isBlanket)
+          Showing your own questions, plus any other teacher has marked for general use.
+        @endunless
+      </p>
 
       @if($questions->isEmpty())
         <p class="muted">No questions here yet.</p>
@@ -117,7 +122,7 @@
 
         <div style="overflow-x:auto">
         <table class="table-stack">
-          <thead><tr><th style="width:2.2rem"><input type="checkbox" id="qSelectAll" aria-label="Select all" /></th><th>Question</th><th>Type</th><th>Category</th><th>Marks</th><th>Modified</th><th>Actions</th></tr></thead>
+          <thead><tr><th style="width:2.2rem"><input type="checkbox" id="qSelectAll" aria-label="Select all" /></th><th>Question</th><th>Type</th><th>Category</th><th>Marks</th><th>Visibility</th><th>Modified</th><th>Actions</th></tr></thead>
           <tbody>
             @foreach($questions as $question)
               <tr>
@@ -129,23 +134,34 @@
                 <td class="muted" data-label="Type">{{ ucfirst(str_replace('_', ' ', $question->type)) }}</td>
                 <td class="muted" data-label="Category">{{ $question->category?->name ?: 'Uncategorised' }}</td>
                 <td class="muted" data-label="Marks">{{ $question->points }}</td>
+                @php($ownsThis = $isBlanket || $question->created_by_staff_id === $ownStaffId)
+                <td data-label="Visibility">
+                  <span class="badge {{ $question->visibility === 'general' ? 'badge-ok' : '' }}">{{ $question->visibility === 'general' ? 'General' : 'Private' }}</span>
+                  @if(! $ownsThis && $question->creator)
+                    <div class="muted" style="font-size:.75rem;margin-top:.2rem">By {{ $question->creator->fullName() }}</div>
+                  @endif
+                </td>
                 <td class="muted" data-label="Modified">{{ $question->updated_at?->format('d M Y') }}</td>
                 <td style="white-space:nowrap">
-                  <details style="display:inline-block">
-                    <summary class="btn btn-ghost btn-sm" style="display:inline-block;cursor:pointer">Edit</summary>
-                    <form method="POST" action="{{ route('school.cbt.questions.update', ['school' => $school->slug, 'questionId' => $question->id]) }}" enctype="multipart/form-data" style="margin-top:.6rem;min-width:20rem;text-align:left">
-                      @csrf
-                      @include('school.cbt.questions._fields', ['prefix' => 'edit_'.$question->id, 'question' => $question])
-                      <label style="display:flex;align-items:center;gap:.4rem;margin:.6rem 0">
-                        <input type="checkbox" name="is_active" value="1" @checked($question->is_active) /> Active
-                      </label>
-                      <button class="btn btn-primary btn-sm" type="submit">Save</button>
+                  @if($ownsThis)
+                    <details style="display:inline-block">
+                      <summary class="btn btn-ghost btn-sm" style="display:inline-block;cursor:pointer">Edit</summary>
+                      <form method="POST" action="{{ route('school.cbt.questions.update', ['school' => $school->slug, 'questionId' => $question->id]) }}" enctype="multipart/form-data" style="margin-top:.6rem;min-width:20rem;text-align:left">
+                        @csrf
+                        @include('school.cbt.questions._fields', ['prefix' => 'edit_'.$question->id, 'question' => $question])
+                        <label style="display:flex;align-items:center;gap:.4rem;margin:.6rem 0">
+                          <input type="checkbox" name="is_active" value="1" @checked($question->is_active) /> Active
+                        </label>
+                        <button class="btn btn-primary btn-sm" type="submit">Save</button>
+                      </form>
+                    </details>
+                    <form method="POST" action="{{ route('school.cbt.questions.destroy', ['school' => $school->slug, 'questionId' => $question->id]) }}" style="display:inline" onsubmit="return confirm('Remove this question?')">
+                      @csrf @method('DELETE')
+                      <button class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit">Delete</button>
                     </form>
-                  </details>
-                  <form method="POST" action="{{ route('school.cbt.questions.destroy', ['school' => $school->slug, 'questionId' => $question->id]) }}" style="display:inline" onsubmit="return confirm('Remove this question?')">
-                    @csrf @method('DELETE')
-                    <button class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit">Delete</button>
-                  </form>
+                  @else
+                    <span class="muted" style="font-size:.82rem">Shared, view only</span>
+                  @endif
                 </td>
               </tr>
             @endforeach

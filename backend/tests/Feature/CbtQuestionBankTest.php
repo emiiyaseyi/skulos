@@ -445,4 +445,121 @@ class CbtQuestionBankTest extends TestCase
         $this->actingAs($student)->get(route('school.cbt.questions.index', ['school' => $school->slug]))
             ->assertForbidden();
     }
+
+    protected function attachStaff(School $school, \App\Models\User $user, string $staffId): \App\Models\Tenant\Staff
+    {
+        app(TenantManager::class)->use($school);
+        $staff = \App\Models\Tenant\Staff::create(['staff_id' => $staffId, 'first_name' => 'Tade', 'last_name' => 'Teacher', 'user_id' => $user->id]);
+        app(TenantManager::class)->forget();
+
+        return $staff;
+    }
+
+    /**
+     * User directive 2026-08-05: "teachers should only see the question
+     * bank they created only and not the ones created by other users."
+     * A new question defaults to private, so a second teacher never
+     * even sees it, let alone edits it.
+     */
+    public function test_a_subject_teacher_only_sees_their_own_questions_by_default(): void
+    {
+        [$school, $teacherA] = $this->schoolWithMember('subject-teacher', 'cqbvistwo');
+        $this->attachStaff($school, $teacherA, 'T1');
+        $teacherB = User::factory()->create();
+        $roleB = $this->rbac->cloneTemplateRole($school, 'subject-teacher');
+        $school->users()->attach($teacherB->id, ['role_id' => $roleB->id, 'status' => 'active']);
+        $this->attachStaff($school, $teacherB, 'T2');
+
+        $this->actingAs($teacherA)->post(route('school.cbt.questions.store', ['school' => $school->slug]), [
+            'type' => 'true_false', 'prompt' => 'Teacher A private question.', 'points' => 1,
+            'true_false_answer' => '1',
+        ])->assertRedirect();
+
+        // Defaults to private: teacher A sees it, teacher B does not.
+        $this->actingAs($teacherA)->get(route('school.cbt.questions.index', ['school' => $school->slug]))
+            ->assertOk()->assertSee('Teacher A private question.');
+        $this->actingAs($teacherB)->get(route('school.cbt.questions.index', ['school' => $school->slug]))
+            ->assertOk()->assertDontSee('Teacher A private question.');
+    }
+
+    public function test_marking_a_question_general_makes_it_visible_to_other_teachers_but_not_editable_by_them(): void
+    {
+        [$school, $teacherA] = $this->schoolWithMember('subject-teacher', 'cqbvisthree');
+        $this->attachStaff($school, $teacherA, 'T1');
+        $teacherB = User::factory()->create();
+        $roleB = $this->rbac->cloneTemplateRole($school, 'subject-teacher');
+        $school->users()->attach($teacherB->id, ['role_id' => $roleB->id, 'status' => 'active']);
+        $this->attachStaff($school, $teacherB, 'T2');
+
+        $this->actingAs($teacherA)->post(route('school.cbt.questions.store', ['school' => $school->slug]), [
+            'type' => 'true_false', 'prompt' => 'Shared question.', 'points' => 1,
+            'true_false_answer' => '1', 'visibility' => 'general',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $question = CbtQuestion::where('prompt', 'Shared question.')->firstOrFail();
+        $this->assertSame('general', $question->visibility);
+        app(TenantManager::class)->forget();
+
+        // Teacher B can now see it...
+        $this->actingAs($teacherB)->get(route('school.cbt.questions.index', ['school' => $school->slug]))
+            ->assertOk()->assertSee('Shared question.');
+
+        // ...but cannot edit or delete someone else's question, general or not.
+        $this->actingAs($teacherB)->post(route('school.cbt.questions.update', ['school' => $school->slug, 'questionId' => $question->id]), [
+            'type' => 'true_false', 'prompt' => 'Hijacked.', 'points' => 1, 'true_false_answer' => '1',
+        ])->assertForbidden();
+        $this->actingAs($teacherB)->delete(route('school.cbt.questions.destroy', ['school' => $school->slug, 'questionId' => $question->id]))
+            ->assertForbidden();
+    }
+
+    public function test_bulk_action_only_ever_touches_the_acting_teachers_own_questions(): void
+    {
+        [$school, $teacherA] = $this->schoolWithMember('subject-teacher', 'cqbvisfour');
+        $this->attachStaff($school, $teacherA, 'T1');
+        $teacherB = User::factory()->create();
+        $roleB = $this->rbac->cloneTemplateRole($school, 'subject-teacher');
+        $school->users()->attach($teacherB->id, ['role_id' => $roleB->id, 'status' => 'active']);
+        $this->attachStaff($school, $teacherB, 'T2');
+
+        $this->actingAs($teacherA)->post(route('school.cbt.questions.store', ['school' => $school->slug]), [
+            'type' => 'true_false', 'prompt' => 'A owns this.', 'points' => 1, 'true_false_answer' => '1',
+        ]);
+        $this->actingAs($teacherB)->post(route('school.cbt.questions.store', ['school' => $school->slug]), [
+            'type' => 'true_false', 'prompt' => 'B owns this.', 'points' => 1, 'true_false_answer' => '1', 'visibility' => 'general',
+        ]);
+
+        app(TenantManager::class)->use($school);
+        $ids = CbtQuestion::pluck('id', 'prompt');
+        app(TenantManager::class)->forget();
+
+        // Teacher A tries to bulk-delete BOTH questions (their own and
+        // B's general one, which they can see but never own) — only
+        // their own should actually be removed.
+        $this->actingAs($teacherA)->post(route('school.cbt.questions.bulk-action', ['school' => $school->slug]), [
+            'question_ids' => [$ids['A owns this.'], $ids['B owns this.']],
+            'action' => 'delete',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertFalse(CbtQuestion::whereKey($ids['A owns this.'])->exists());
+        $this->assertTrue(CbtQuestion::whereKey($ids['B owns this.'])->exists());
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_a_blanket_role_sees_and_manages_every_question_regardless_of_visibility(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'cqbvisfive');
+        $teacher = User::factory()->create();
+        $roleT = $this->rbac->cloneTemplateRole($school, 'subject-teacher');
+        $school->users()->attach($teacher->id, ['role_id' => $roleT->id, 'status' => 'active']);
+        $this->attachStaff($school, $teacher, 'T1');
+
+        $this->actingAs($teacher)->post(route('school.cbt.questions.store', ['school' => $school->slug]), [
+            'type' => 'true_false', 'prompt' => 'A private teacher question.', 'points' => 1, 'true_false_answer' => '1',
+        ]);
+
+        $this->actingAs($owner)->get(route('school.cbt.questions.index', ['school' => $school->slug]))
+            ->assertOk()->assertSee('A private teacher question.');
+    }
 }

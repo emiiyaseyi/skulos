@@ -7,6 +7,7 @@ use App\Models\School;
 use App\Models\Tenant\CbtQuestion;
 use App\Models\Tenant\CbtQuestionAnswer;
 use App\Models\Tenant\CbtQuestionCategory;
+use App\Models\Tenant\Staff;
 use App\Services\Cbt\QuestionAnswerWriter;
 use App\Services\Cbt\QuestionPortabilityService;
 use App\Services\Media\ImageProcessingService;
@@ -42,6 +43,62 @@ class CbtQuestionBankController extends Controller
         );
     }
 
+    /**
+     * A blanket role sees and manages every question in the school; a
+     * scoped teacher only ever sees their own (see visibleQuestions())
+     * and may only edit/delete/bulk-act on their own (see
+     * authorizeOwnership()). Same "blanket access" signal already used
+     * across the rest of Assessment Hub (ExaminationController::
+     * hasBlanketAccess(), CbtAssessmentController::hasBlanketAccess()).
+     */
+    protected function hasBlanketAccess(Request $request): bool
+    {
+        return app(Rbac::class)->check(Auth::user(), $this->school($request), 'assessment_hub.export');
+    }
+
+    protected function currentStaff(): ?Staff
+    {
+        return Staff::where('user_id', Auth::id())->first();
+    }
+
+    /**
+     * User directive 2026-08-05: "teachers should only see the question
+     * bank they created only and not the ones created by other users.
+     * Let's add a feature under the question bank to mark if its for
+     * general use or private use only." A scoped teacher sees their own
+     * questions regardless of visibility, plus anyone else's marked
+     * 'general'; a 'private' question stays invisible to everyone but
+     * its own creator. A blanket role is unrestricted, unchanged.
+     */
+    protected function visibleQuestions(Request $request): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = CbtQuestion::query();
+        if (! $this->hasBlanketAccess($request)) {
+            $staff = $this->currentStaff();
+            $query->where(function ($q) use ($staff) {
+                $q->where('created_by_staff_id', $staff?->id ?? 0)
+                    ->orWhere('visibility', CbtQuestion::VISIBILITY_GENERAL);
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * Being able to SEE a 'general' question (visibleQuestions() above)
+     * never implies being able to edit/delete it — only its own creator
+     * (or a blanket role) may. Mirrors CbtAssessmentController::
+     * authorizeOwnership() exactly.
+     */
+    protected function authorizeOwnership(Request $request, CbtQuestion $question): void
+    {
+        if ($this->hasBlanketAccess($request)) {
+            return;
+        }
+        $staff = $this->currentStaff();
+        abort_unless($staff && $question->created_by_staff_id === $staff->id, 403, 'You do not have permission for this.');
+    }
+
     public function index(Request $request): \Illuminate\View\View
     {
         // 'create', not 'view': assessment_hub.view is also granted to
@@ -55,7 +112,7 @@ class CbtQuestionBankController extends Controller
         $categoryId = $request->query('cat');
         $search = trim((string) $request->query('search', ''));
 
-        $questions = CbtQuestion::with(['category', 'answers'])
+        $questions = $this->visibleQuestions($request)->with(['category', 'answers', 'creator'])
             ->when($categoryId, fn ($q) => $q->where('category_id', $categoryId))
             ->when($search !== '', fn ($q) => $q->where(fn ($inner) => $inner
                 ->where('prompt', 'like', "%{$search}%")
@@ -70,7 +127,9 @@ class CbtQuestionBankController extends Controller
             'categories' => CbtQuestionCategory::withCount('questions')->orderBy('sort_order')->orderBy('name')->get(),
             'activeCategoryId' => $categoryId,
             'search' => $search,
-            'totalCount' => CbtQuestion::count(),
+            'totalCount' => $this->visibleQuestions($request)->count(),
+            'isBlanket' => $this->hasBlanketAccess($request),
+            'ownStaffId' => $this->currentStaff()?->id,
         ]);
     }
 
@@ -86,6 +145,11 @@ class CbtQuestionBankController extends Controller
         }
 
         $question = CbtQuestion::create($data);
+        // Not part of $data/$fillable's create() call: created_by_staff_id
+        // is deliberately excluded from mass assignment (same reasoning
+        // as CbtAssessment::created_by_staff_id) so a tampered request
+        // could never claim authorship of someone else's question.
+        $question->forceFill(['created_by_staff_id' => $this->currentStaff()?->id])->save();
         $answers->write($question, $request->all());
 
         $this->assertHasOptions($question);
@@ -98,6 +162,7 @@ class CbtQuestionBankController extends Controller
         $this->authorizeAction($request, 'assessment_hub.update');
         $school = $this->school($request);
         $question = CbtQuestion::findOrFail($request->route('questionId'));
+        $this->authorizeOwnership($request, $question);
 
         $data = $this->validatedQuestion($request);
 
@@ -122,6 +187,7 @@ class CbtQuestionBankController extends Controller
             'prompt' => ['required', 'string', 'max:5000'],
             'points' => ['required', 'numeric', 'min:0.5'],
             'category_id' => ['nullable', 'exists:tenant.cbt_question_categories,id'],
+            'visibility' => ['nullable', Rule::in([CbtQuestion::VISIBILITY_GENERAL, CbtQuestion::VISIBILITY_PRIVATE])],
             'general_feedback' => ['nullable', 'string', 'max:2000'],
             'marking_guidance' => ['nullable', 'string', 'max:2000'],
             'image' => ['nullable', 'file', 'image', 'max:2048'],
@@ -130,6 +196,13 @@ class CbtQuestionBankController extends Controller
         $data['shuffle_answers'] = $request->boolean('shuffle_answers');
         $data['case_sensitive'] = $request->boolean('case_sensitive');
         $data['is_mandatory'] = $request->boolean('is_mandatory');
+        // Defaults to 'private' (2026-08-05 directive: "teachers should
+        // only see the question bank they created"), not carried over
+        // from an existing row on update — a teacher must explicitly
+        // re-tick "general" every time they save if they still want it
+        // shared, the same honest, no-silent-default approach used for
+        // every other on/off setting in this app.
+        $data['visibility'] = $data['visibility'] ?? CbtQuestion::VISIBILITY_PRIVATE;
 
         return $data;
     }
@@ -147,6 +220,7 @@ class CbtQuestionBankController extends Controller
     {
         $this->authorizeAction($request, 'assessment_hub.delete');
         $question = CbtQuestion::findOrFail($request->route('questionId'));
+        $this->authorizeOwnership($request, $question);
         $question->delete();
 
         return back()->with('status', 'Question removed.');
@@ -163,7 +237,15 @@ class CbtQuestionBankController extends Controller
             'new_mark' => ['nullable', 'numeric', 'min:0.5'],
         ]);
 
+        // Being merely VISIBLE (a 'general' question someone else made)
+        // never lets a scoped teacher bulk-edit or delete it — only
+        // their own creations, same rule as the single destroy()/
+        // update() actions above. A blanket role is unrestricted.
         $scope = CbtQuestion::whereIn('id', $data['question_ids']);
+        if (! $this->hasBlanketAccess($request)) {
+            $staff = $this->currentStaff();
+            $scope->where('created_by_staff_id', $staff?->id ?? 0);
+        }
 
         if ($data['action'] === 'delete') {
             $count = $scope->count();
@@ -307,7 +389,9 @@ class CbtQuestionBankController extends Controller
                 'general_feedback' => $row['general_feedback'] ?? null,
                 'marking_guidance' => $row['marking_guidance'] ?? null,
                 'is_active' => true,
+                'visibility' => CbtQuestion::VISIBILITY_PRIVATE,
             ]);
+            $question->forceFill(['created_by_staff_id' => $this->currentStaff()?->id])->save();
 
             foreach ($row['answers'] as $sortOrder => $answer) {
                 CbtQuestionAnswer::create(array_merge($answer, [

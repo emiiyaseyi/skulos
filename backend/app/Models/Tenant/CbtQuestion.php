@@ -36,11 +36,17 @@ class CbtQuestion extends Model
         'short_answer', 'essay', 'matching',
     ];
 
+    /** 'general' = every teacher with question-bank access can see and reuse it; 'private' = only its own creator (and a blanket/admin role) can. */
+    public const VISIBILITY_GENERAL = 'general';
+
+    public const VISIBILITY_PRIVATE = 'private';
+
     protected $connection = 'tenant';
 
     protected $fillable = [
         'category_id', 'name', 'type', 'prompt', 'points', 'image_path', 'is_active',
         'shuffle_answers', 'general_feedback', 'marking_guidance', 'case_sensitive', 'is_mandatory',
+        'visibility',
         // Legacy Phase 2a columns, still fillable so the data migration
         // that reads them can run; never read at runtime any more.
         'options', 'correct_answer', 'category',
@@ -62,6 +68,11 @@ class CbtQuestion extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(CbtQuestionCategory::class, 'category_id');
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(Staff::class, 'created_by_staff_id');
     }
 
     public function answers(): HasMany

@@ -37,6 +37,7 @@
   $caseChecked = (bool) ($q->case_sensitive ?? false);
   $mandatoryChecked = (bool) ($q->is_mandatory ?? false);
   $categoryValue = $q->category_id ?? old('category_id');
+  $visibilityValue = old('visibility', $q->visibility ?? \App\Models\Tenant\CbtQuestion::VISIBILITY_PRIVATE);
 @endphp
 
 <div class="grid cols-2" style="gap:.75rem">
@@ -134,6 +135,13 @@
 <label style="display:flex;align-items:center;gap:.4rem;margin:.4rem 0">
   <input type="checkbox" name="is_mandatory" value="1" @checked($mandatoryChecked) /> Always include this question when an assessment draws a random subset
 </label>
+<div class="field">
+  <label for="{{ $prefix }}_visibility">Visibility</label>
+  <select id="{{ $prefix }}_visibility" name="visibility">
+    <option value="{{ \App\Models\Tenant\CbtQuestion::VISIBILITY_PRIVATE }}" @selected($visibilityValue === \App\Models\Tenant\CbtQuestion::VISIBILITY_PRIVATE)>Private (only you can see and use this)</option>
+    <option value="{{ \App\Models\Tenant\CbtQuestion::VISIBILITY_GENERAL }}" @selected($visibilityValue === \App\Models\Tenant\CbtQuestion::VISIBILITY_GENERAL)>General use (every teacher can see and reuse this)</option>
+  </select>
+</div>
 
 @once
 <script>
