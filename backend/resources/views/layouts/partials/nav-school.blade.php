@@ -955,8 +955,12 @@
   // nav entry for it, a "student" role does not (see ChatService::
   // isGuardianOf()'s deliberate role-slug guard), neither does an
   // unrestricted staff role (owner/admin send broadcasts, not this).
+  // Grouped under Communication, not Main (user directive 2026-08-05:
+  // "let's move chat to under communication"), alongside Announcements/
+  // Messages, which already land there via the 'communication'
+  // plan_feature_catalog category's own label.
   if ($isTeacherScoped || $scopedRoleSlug === 'parent') {
-    $groups['Main'][] = $link('school.chat.index', 'Chat', 'chat');
+    $groups['Communication'][] = $link('school.chat.index', 'Chat', 'chat');
   }
 
   // Build the Academic > Examinations nested subsection (see
