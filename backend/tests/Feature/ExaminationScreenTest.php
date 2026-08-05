@@ -130,6 +130,7 @@ class ExaminationScreenTest extends TestCase
         \App\Models\Tenant\GradingBand::create(['grading_scale_id' => $scale->id, 'min_score' => 70, 'max_score' => 100, 'grade' => 'A']);
         \App\Models\Tenant\Comment::create(['min_score' => 70, 'max_score' => 100, 'text' => 'Excellent performance.', 'is_active' => true]);
         \App\Models\Tenant\Setting::put(\App\Http\Controllers\School\ReportCardController::SETTING_SUGGESTED_REMARK_ENABLED, true);
+        app(\App\Services\ReportCards\ReportCardPreferences::class)->setFields(['subject_remark' => true]);
         app(TenantManager::class)->forget();
 
         $response = $this->actingAs($teacher)->get("http://{$school->slug}.localhost/examinations?pair={$f['classArm']->id}:{$f['subject']->id}");
@@ -198,6 +199,79 @@ class ExaminationScreenTest extends TestCase
         $adaTotal = Score::where('student_id', $f['ada']->id)->sum('score');
         app(TenantManager::class)->forget();
         $this->assertEquals(86, $adaTotal);
+    }
+
+    /**
+     * User report 2026-08-05: "I thought we have remove remarks from
+     * result entering in staff view. Admin can toggle it on back."
+     * subject_remark defaults off, so the remark column should not even
+     * render on the score-entry screen by default.
+     */
+    public function test_the_remark_column_is_hidden_from_score_entry_by_default(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'examremarkoff');
+        $f = $this->seedAcademics($school);
+        $this->attachTeacher($school, $teacher, $f['classArm']->id, $f['subject']->id);
+
+        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/examinations?pair={$f['classArm']->id}:{$f['subject']->id}")
+            ->assertOk()
+            ->assertDontSee('name="remarks[', false)
+            ->assertDontSee('>Remark<', false);
+    }
+
+    /**
+     * Real bug found while investigating the report above: the
+     * remarks[] textarea has posted to save() since it was built, but
+     * nothing ever wrote it to SubjectRemark — a teacher's typed remark
+     * was silently discarded on every save. Fixed alongside wiring the
+     * admin toggle back in.
+     */
+    public function test_an_admin_enabled_remark_is_shown_and_actually_persisted_on_save(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'examremarkon');
+        $f = $this->seedAcademics($school);
+        $this->attachTeacher($school, $teacher, $f['classArm']->id, $f['subject']->id);
+        [$first, $second, $exam] = $f['components'];
+
+        app(TenantManager::class)->use($school);
+        app(\App\Services\ReportCards\ReportCardPreferences::class)->setFields(['subject_remark' => true]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/examinations?pair={$f['classArm']->id}:{$f['subject']->id}")
+            ->assertOk()->assertSee('js-remark', false);
+
+        $this->actingAs($teacher)->post("http://{$school->slug}.localhost/examinations/scores", [
+            'term_id' => $f['term']->id,
+            'class_arm_id' => $f['classArm']->id,
+            'subject_id' => $f['subject']->id,
+            'scores' => [$f['ada']->id => [$first->id => 18, $second->id => 16, $exam->id => 52]],
+            'remarks' => [$f['ada']->id => 'A hard working student.'],
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame('A hard working student.', \App\Models\Tenant\SubjectRemark::where('student_id', $f['ada']->id)->value('remark'));
+        app(TenantManager::class)->forget();
+    }
+
+    /** A tampered request cannot smuggle a remark in while the school has the field turned off. */
+    public function test_a_remark_is_ignored_on_save_while_the_field_is_turned_off(): void
+    {
+        [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'examremarkignored');
+        $f = $this->seedAcademics($school);
+        $this->attachTeacher($school, $teacher, $f['classArm']->id, $f['subject']->id);
+        [$first, $second, $exam] = $f['components'];
+
+        $this->actingAs($teacher)->post("http://{$school->slug}.localhost/examinations/scores", [
+            'term_id' => $f['term']->id,
+            'class_arm_id' => $f['classArm']->id,
+            'subject_id' => $f['subject']->id,
+            'scores' => [$f['ada']->id => [$first->id => 18, $second->id => 16, $exam->id => 52]],
+            'remarks' => [$f['ada']->id => 'Smuggled remark.'],
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame(0, \App\Models\Tenant\SubjectRemark::count());
+        app(TenantManager::class)->forget();
     }
 
     public function test_saving_again_updates_existing_scores_instead_of_duplicating(): void
@@ -301,6 +375,10 @@ class ExaminationScreenTest extends TestCase
         $f = $this->seedAcademics($school);
         $this->attachTeacher($school, $teacher, $f['classArm']->id, $f['subject']->id);
         [$first, $second, $exam] = $f['components'];
+
+        app(TenantManager::class)->use($school);
+        app(\App\Services\ReportCards\ReportCardPreferences::class)->setFields(['subject_remark' => true]);
+        app(TenantManager::class)->forget();
 
         $this->actingAs($teacher)->post("http://{$school->slug}.localhost/examinations/scores", [
             'term_id' => $f['term']->id,

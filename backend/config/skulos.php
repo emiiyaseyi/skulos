@@ -2416,7 +2416,11 @@ return [
         // so it should not be seen under the subject scores entry,
         // parent report and under report cards by default"), an admin
         // opts it on from Report Settings rather than opting it off.
-        'subject_remark' => ['label' => 'Subject remark (from the grading scale)', 'group' => 'academic', 'default' => false],
+        // The score-entry gating itself was only actually wired 2026-08-05
+        // (a real gap: the toggle existed and defaulted off, but the
+        // remark box on the score entry screen kept rendering regardless,
+        // and a typed remark was silently discarded on save either way).
+        'subject_remark' => ['label' => 'Subject remark (shown at score entry, on the report card, and to parents)', 'group' => 'academic', 'default' => false],
         // Superseded 2026-07-24 by the dedicated Term Calculation
         // settings screen (Examinations > Term Calculation,
         // ReportCardCumulativePolicy): a single on/off checkbox here

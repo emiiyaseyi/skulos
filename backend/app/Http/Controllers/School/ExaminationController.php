@@ -20,6 +20,7 @@ use App\Models\Tenant\Term;
 use App\Services\Bulk\CsvReader;
 use App\Services\Rbac\Rbac;
 use App\Services\Rbac\TeacherScope;
+use App\Services\ReportCards\ReportCardPreferences;
 use App\Services\Results\AssessmentWindowService;
 use App\Services\Results\CommentBank;
 use App\Services\Results\ResultService;
@@ -267,6 +268,16 @@ class ExaminationController extends Controller
         // down; a teacher still types their own remark either way.
         $suggestedRemarkEnabled = ReportCardController::suggestedRemarkEnabled();
 
+        // Whether the remark box itself even appears here at all (user
+        // report 2026-08-05: "I thought we have remove remarks from
+        // result entering in staff view. Admin can toggle it on back").
+        // Reuses the existing "Subject remark" report card field toggle
+        // (Report Card Field Settings, Academic group) rather than a
+        // second, separate setting, matching the earlier explicit
+        // directive that this one flag governs the remark everywhere it
+        // appears, score entry included, not just the printed card.
+        $showRemark = app(ReportCardPreferences::class)->shows('subject_remark');
+
         if ($selectedPair && $termId) {
             $students = Student::active()
                 ->where('current_class_arm_id', $classArmId)
@@ -349,6 +360,7 @@ class ExaminationController extends Controller
             'existingScores' => $existingScores,
             'summaries' => $summaries,
             'remarks' => $remarks,
+            'showRemark' => $showRemark,
             'suggestions' => $suggestions,
             'subjectsInThisClass' => $subjectsInThisClass,
             'narrativeClasses' => $narrativeClasses,
@@ -369,6 +381,7 @@ class ExaminationController extends Controller
             'class_arm_id' => ['required', 'integer'],
             'subject_id' => ['required', 'integer'],
             'scores' => ['array'],
+            'remarks' => ['array'],
         ]);
 
         $pairs = $this->allowedPairs($request, (int) $data['term_id']);
@@ -377,6 +390,8 @@ class ExaminationController extends Controller
 
         $term = Term::find($data['term_id']);
         abort_unless($term, 404);
+
+        $showRemark = app(ReportCardPreferences::class)->shows('subject_remark');
 
         $components = AssessmentComponent::orderBy('sequence')->get()->keyBy('id');
         $studentIds = Student::active()->where('current_class_arm_id', $data['class_arm_id'])->pluck('id')->all();
@@ -463,7 +478,44 @@ class ExaminationController extends Controller
             );
         }
 
+        // Real bug found 2026-08-05 while investigating "I thought we
+        // have remove remarks from result entering in staff view": the
+        // remarks[] textarea has posted here since it was first built,
+        // but nothing ever wrote it anywhere — a teacher's typed remark
+        // was silently discarded on every save, which almost certainly
+        // reads as "remarks got removed" from the teacher's side. Gated
+        // on the same 'subject_remark' toggle that hides the box itself,
+        // so a tampered request can't smuggle a remark in while the
+        // school has it turned off.
+        $remarksSaved = 0;
+        if ($showRemark) {
+            foreach ($request->input('remarks', []) as $studentId => $remark) {
+                if (! in_array((int) $studentId, $studentIds, true)) {
+                    continue;
+                }
+                if (in_array((int) $studentId, $lockedStudentIds, true)) {
+                    continue;
+                }
+                $remark = trim((string) $remark);
+                if ($remark === '') {
+                    continue;
+                }
+                SubjectRemark::updateOrCreate(
+                    [
+                        'student_id' => (int) $studentId,
+                        'subject_id' => (int) $data['subject_id'],
+                        'term_id' => (int) $data['term_id'],
+                    ],
+                    ['class_arm_id' => (int) $data['class_arm_id'], 'remark' => $remark]
+                );
+                $remarksSaved++;
+            }
+        }
+
         $message = count($toSave).' score'.(count($toSave) === 1 ? '' : 's').' saved.';
+        if ($remarksSaved > 0) {
+            $message .= " {$remarksSaved} remark".($remarksSaved === 1 ? '' : 's').' saved.';
+        }
         if ($windowSkipped > 0) {
             $message .= " {$windowSkipped} score(s) skipped, the entry window is closed for ".implode(', ', array_keys($windowClosedComponents)).'. Request an extension from this screen if you still need to enter these.';
         }

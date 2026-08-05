@@ -152,7 +152,9 @@
             @endforeach
             <th>Total</th>
             <th>Grade</th>
-            <th>Remark</th>
+            @if($showRemark ?? true)
+              <th>Remark</th>
+            @endif
           </tr>
         </thead>
         <tbody>
@@ -179,19 +181,23 @@
               @endforeach
               <td class="scores-total js-total" data-label="Total">{{ $summaries[$student->id]['total'] ?? 0 }}</td>
               <td class="js-grade" data-label="Grade">{{ $summaries[$student->id]['grade'] ?? 'Not graded' }}</td>
-              <td data-label="Remark">
-                @if($canSave)
-                  <textarea name="remarks[{{ $student->id }}]" placeholder="No suggestion yet" class="js-remark {{ $savedRemark ? '' : 'remark-suggested' }}" data-user-edited="{{ $savedRemark ? '1' : '0' }}">{{ old('remarks.'.$student->id, $savedRemark ?? ($suggestions[$student->id] ?? '')) }}</textarea>
-                @else
-                  {{ $savedRemark ?: 'Not entered' }}
-                @endif
-              </td>
+              @if($showRemark ?? true)
+                <td data-label="Remark">
+                  @if($canSave)
+                    <textarea name="remarks[{{ $student->id }}]" placeholder="No suggestion yet" class="js-remark {{ $savedRemark ? '' : 'remark-suggested' }}" data-user-edited="{{ $savedRemark ? '1' : '0' }}">{{ old('remarks.'.$student->id, $savedRemark ?? ($suggestions[$student->id] ?? '')) }}</textarea>
+                  @else
+                    {{ $savedRemark ?: 'Not entered' }}
+                  @endif
+                </td>
+              @endif
             </tr>
           @endforeach
         </tbody>
       </table>
       </div>
-      <p class="muted" style="margin-top:.6rem">Remarks are suggested from your school's comment bank based on each student's score, in grey until you save. Edit, replace, or clear any of them before saving.</p>
+      @if($showRemark ?? true)
+        <p class="muted" style="margin-top:.6rem">Remarks are suggested from your school's comment bank based on each student's score, in grey until you save. Edit, replace, or clear any of them before saving.</p>
+      @endif
       @if($canSave)
         <div style="display:flex;align-items:center;gap:.8rem;margin-top:1.2rem">
           <button class="btn btn-primary" type="submit">Save scores</button>
