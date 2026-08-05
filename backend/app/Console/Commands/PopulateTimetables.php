@@ -60,6 +60,30 @@ class PopulateTimetables extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * Rebuilt conflict-aware (user directive 2026-08-05, live report:
+     * "all timetables are showing free... no class should have a free
+     * period except for SSS 2 and 3 who can have a max of free period of
+     * 1 per day which should be tagged as library for reading... twice a
+     * week... no clash since we have just one library"). Two real
+     * constraints beyond the original naive cycling:
+     *
+     * 1. A teacher can only be in one class at a time — checked directly
+     *    here (the same query TimetableService::staffBookedElsewhere()
+     *    runs internally, but that method is protected and this needs
+     *    to try SEVERAL candidate pairs per cell before falling back,
+     *    not just skip-and-report the way a single manual save does).
+     * 2. The school has exactly one library, so at most one class arm
+     *    may hold a library period in any given (day, period) slot —
+     *    reserved up front, school-wide, before any subject is placed,
+     *    so it can never lose out to a later-processed arm.
+     *
+     * There is no dedicated "free period"/"library" column on
+     * TimetableEntry — a real Subject named "Library" (created if
+     * missing) is used as the subject for that slot instead, with no
+     * staff assigned (a supervised reading period needs no subject
+     * teacher the way a lesson does).
+     */
     protected function populateWeeklyTimetable(TimetableService $timetable): void
     {
         $periods = TimetablePeriod::where('is_teaching_period', true)->orderBy('sequence')->get();
@@ -69,9 +93,45 @@ class PopulateTimetables extends Command
             return;
         }
         $weekDays = array_keys($timetable->weekDays());
+        $librarySubject = Subject::firstOrCreate(['name' => 'Library']);
+
+        $arms = ClassArm::with('schoolClass.section')->get()
+            ->sortBy(fn (ClassArm $arm) => $arm->orderKey())->values();
+
+        // Library eligibility: SSS 2 and SSS 3 only, matched on the
+        // class's own name rather than a hardcoded id (portable across
+        // schools whose SSS classes are seeded in any order).
+        $libraryEligible = $arms->filter(fn (ClassArm $arm) => in_array(
+            trim((string) $arm->schoolClass?->name), ['SSS 2', 'SSS 3'], true
+        ));
+
+        // Reserve 2 library slots per eligible arm, one per day, before
+        // touching any subject — a school-wide set of occupied (day,
+        // period) pairs is all that is needed to guarantee no two arms
+        // ever claim the same slot, since there is only one library.
+        $occupiedLibrarySlots = [];
+        $librarySlotsFor = [];
+        foreach ($libraryEligible as $arm) {
+            $assigned = [];
+            foreach ($weekDays as $day) {
+                if (count($assigned) >= 2) {
+                    break;
+                }
+                foreach ($periods as $period) {
+                    $key = $day.'|'.$period->id;
+                    if (! isset($occupiedLibrarySlots[$key])) {
+                        $assigned[] = ['day' => $day, 'period_id' => $period->id];
+                        $occupiedLibrarySlots[$key] = true;
+                        break;
+                    }
+                }
+            }
+            $librarySlotsFor[$arm->id] = $assigned;
+        }
 
         $armCount = 0;
-        foreach (ClassArm::with('schoolClass.section')->get() as $arm) {
+        $conflictCells = 0;
+        foreach ($arms as $arm) {
             // Every (subject, staff) pair this class actually has, cycled
             // to fill the week: a real curriculum repeats subjects across
             // the week rather than teaching each one exactly once.
@@ -82,13 +142,47 @@ class PopulateTimetables extends Command
                 continue;
             }
 
+            $reservedLibrary = collect($librarySlotsFor[$arm->id] ?? [])
+                ->mapWithKeys(fn ($slot) => [$slot['day'].'|'.$slot['period_id'] => true]);
+
             $cells = [];
             $cursor = 0;
             foreach ($weekDays as $day) {
                 foreach ($periods as $period) {
-                    $pair = $pairs[$cursor % $pairs->count()];
-                    $cursor++;
-                    $cells[$day][$period->id] = ['subject_id' => $pair->subject_id, 'staff_id' => $pair->staff_id];
+                    if ($reservedLibrary->has($day.'|'.$period->id)) {
+                        $cells[$day][$period->id] = ['subject_id' => $librarySubject->id, 'staff_id' => null];
+
+                        continue;
+                    }
+
+                    // Try each candidate pair, starting from the round
+                    // robin position, until one is genuinely free at
+                    // this slot across every OTHER already-populated
+                    // class arm. Falls back to the plain round robin
+                    // choice (and counts it) only if every pair this
+                    // class has is booked elsewhere at this exact slot,
+                    // which a real, sane timetable should essentially
+                    // never hit.
+                    $picked = null;
+                    for ($attempt = 0; $attempt < $pairs->count(); $attempt++) {
+                        $candidate = $pairs[($cursor + $attempt) % $pairs->count()];
+                        $booked = TimetableEntry::where('staff_id', $candidate->staff_id)
+                            ->where('day_of_week', $day)->where('timetable_period_id', $period->id)
+                            ->where('class_arm_id', '!=', $arm->id)->exists();
+                        if (! $booked) {
+                            $picked = $candidate;
+                            $cursor += $attempt + 1;
+
+                            break;
+                        }
+                    }
+                    if (! $picked) {
+                        $picked = $pairs[$cursor % $pairs->count()];
+                        $cursor++;
+                        $conflictCells++;
+                    }
+
+                    $cells[$day][$period->id] = ['subject_id' => $picked->subject_id, 'staff_id' => $picked->staff_id];
                 }
             }
 
@@ -96,7 +190,10 @@ class PopulateTimetables extends Command
             $armCount++;
         }
 
-        $this->info("Weekly timetable populated for {$armCount} class(es).");
+        $this->info("Weekly timetable populated for {$armCount} class(es), {$libraryEligible->count()} with library periods.");
+        if ($conflictCells > 0) {
+            $this->warn("{$conflictCells} slot(s) could not find a fully conflict-free teacher and used the fallback pairing.");
+        }
     }
 
     protected function populateExaminationTimetable(ExamTimetableService $exams): void
