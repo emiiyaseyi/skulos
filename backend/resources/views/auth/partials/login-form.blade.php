@@ -18,8 +18,9 @@
     {{-- Admissions module (user directive 2026-07-30): a prospective
          student/parent with no account yet starts here, not at the
          Student sign-in above (which needs an existing admission
-         number). --}}
-    <a class="btn btn-ghost btn-block" href="{{ route('school.admissions.apply.start', ['school' => $school->slug]) }}">Seek Admission</a>
+         number). Points at the real landing page (2026-08-05), not
+         straight into the application form — see PublicApplicationController::landing(). --}}
+    <a class="btn btn-ghost btn-block" href="{{ route('school.admissions.landing', ['school' => $school->slug]) }}">Seek Admission</a>
   </div>
 @else
   @if($errors->any())

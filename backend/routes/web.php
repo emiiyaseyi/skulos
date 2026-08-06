@@ -345,6 +345,13 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         // Public "Seek Admission" entry point, Phase 1c: no auth needed
         // to view or submit (a fresh visitor has no account yet), same
         // as the public Start-a-Trial form's own lack of a guest gate.
+        // The real "Seek Admission" first stop (user directive 2026-08-05):
+        // school logo + a choice between starting a new application or
+        // continuing one already started, before either the form or the
+        // sign-in screen. Registered outside the 'apply' group below
+        // since it isn't itself part of the apply flow's own prefix.
+        Route::get('/start', [\App\Http\Controllers\Admissions\PublicApplicationController::class, 'landing'])->name('landing');
+
         Route::prefix('apply')->name('apply.')->group(function () {
             $apply = \App\Http\Controllers\Admissions\PublicApplicationController::class;
             Route::get('/', [$apply, 'start'])->name('start');

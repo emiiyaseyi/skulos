@@ -64,6 +64,26 @@ class PublicApplicationController extends Controller
             ->values();
     }
 
+    /**
+     * The real "Seek Admission" landing page (user directive 2026-08-05:
+     * "When one click on the 'Seek Admission'... add the school logo at
+     * the top... then the two cards" — a new application, or continuing
+     * one already started). Previously the login page's own "Seek
+     * Admission" link jumped straight into the application form below,
+     * with a plain text link at the bottom for "already applied" — this
+     * is now the real first stop, and start()/apply.blade.php stay
+     * exactly as they were for the "start a new one" path.
+     */
+    public function landing(Request $request): \Illuminate\View\View
+    {
+        $school = $this->school($request);
+
+        return view('admissions.landing', [
+            'school' => $school,
+            'accent' => $school->branding()['color'] ?? null,
+        ]);
+    }
+
     public function start(Request $request): \Illuminate\View\View
     {
         $school = $this->school($request);

@@ -131,6 +131,32 @@ class AdmissionPublicApplyTest extends TestCase
             ->assertOk()->assertSee('Seek Admission');
     }
 
+    /**
+     * User directive 2026-08-05: "When one click on the 'Seek
+     * Admission'... add the school logo at the top... then the two
+     * cards" (a new application, or continuing one already started).
+     */
+    public function test_the_seek_admission_link_points_at_the_new_landing_page(): void
+    {
+        [$school] = $this->schoolWithOpenWindow('aplanding');
+
+        $response = $this->get("http://{$school->slug}.localhost/login");
+
+        $response->assertOk()->assertSee(route('school.admissions.landing', ['school' => $school->slug]), false);
+    }
+
+    public function test_the_landing_page_shows_a_card_for_a_new_application_and_one_to_continue(): void
+    {
+        [$school] = $this->schoolWithOpenWindow('aplandingtwo');
+
+        $this->get(route('school.admissions.landing', ['school' => $school->slug]))
+            ->assertOk()
+            ->assertSee('Start a new application')
+            ->assertSee('Continue an existing application')
+            ->assertSee(route('school.admissions.apply.start', ['school' => $school->slug]), false)
+            ->assertSee(route('school.admissions.login', ['school' => $school->slug]), false);
+    }
+
     public function test_no_open_windows_shows_a_friendly_message_instead_of_a_form(): void
     {
         $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'apthree']));

@@ -203,4 +203,35 @@ class AdmissionApplicantAuthTest extends TestCase
         $this->assertTrue($applicant->fresh()->isActive());
         app(TenantManager::class)->forget();
     }
+
+    /**
+     * User directive 2026-08-05: "Applicant should also be able to use
+     * their application number to sign in also and also add the school
+     * logo at the top here too." Signing in by admission_number (the
+     * applicant's own reference number) already worked at the
+     * controller level; this locks in the clearer "Application
+     * Reference Number" wording and the logo, both added this session.
+     */
+    public function test_the_login_screen_shows_the_school_logo_and_application_number_wording(): void
+    {
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'admseven']));
+
+        $this->get("http://{$school->slug}.localhost/admissions/login")
+            ->assertOk()
+            ->assertSee('Application Reference Number')
+            ->assertSee('adm-logo', false);
+    }
+
+    /** The reference-number sign-in path the wording above now describes, end to end. */
+    public function test_an_applicant_can_sign_in_using_their_reference_number_as_the_identifier(): void
+    {
+        [$school, $applicant] = $this->schoolWithApplicant('admeight', [
+            'password' => Hash::make('secret123'),
+        ]);
+
+        $this->post("http://{$school->slug}.localhost/admissions/login", [
+            'identifier' => $applicant->admission_number,
+            'password' => 'secret123',
+        ])->assertRedirect(route('school.admissions.dashboard', ['school' => $school->slug]));
+    }
 }
