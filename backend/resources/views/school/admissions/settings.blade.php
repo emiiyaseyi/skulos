@@ -105,6 +105,26 @@
 </div>
 
 <div class="card" style="margin-bottom:1.25rem">
+  <h3 style="margin-bottom:.4rem">Admission/offer letter content</h3>
+  <p class="muted" style="margin-bottom:.8rem">
+    The two body paragraphs of the printable admission letter sent to an offered applicant.
+    You can use <code>{applicant_name}</code>, <code>{school_name}</code>, <code>{class}</code>, and <code>{session}</code> anywhere in the text.
+  </p>
+  <form method="POST" action="{{ route('school.admissions.settings.letter-content', ['school' => $school->slug]) }}">
+    @csrf
+    <div class="field">
+      <label for="letter_intro">Opening paragraph</label>
+      <textarea id="letter_intro" name="letter_intro" rows="3" maxlength="2000" required>{{ old('letter_intro', $letterIntro) }}</textarea>
+    </div>
+    <div class="field">
+      <label for="letter_next_steps">Next steps paragraph</label>
+      <textarea id="letter_next_steps" name="letter_next_steps" rows="3" maxlength="2000" required>{{ old('letter_next_steps', $letterNextSteps) }}</textarea>
+    </div>
+    <button class="btn btn-primary btn-sm" type="submit">Save letter content</button>
+  </form>
+</div>
+
+<div class="card" style="margin-bottom:1.25rem">
   <h3 style="margin-bottom:.8rem">Open a new admission window</h3>
   <form method="POST" action="{{ route('school.admissions.settings.windows.store', ['school' => $school->slug]) }}">
     @csrf

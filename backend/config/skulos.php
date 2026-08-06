@@ -1153,6 +1153,21 @@ return [
     'default_admission_reference_prefix' => 'APP',
 
     /*
+    | Admission/offer letter body copy (2026-08-06, user directive: "the
+    | school admin can change the content of the admission or offer
+    | letter"), admin-editable per school via the Admissions settings
+    | screen (Setting keys "admission_letter_intro"/"admission_letter_
+    | next_steps"). Support the placeholders AdmissionLetterContentService
+    | replaces at render time — {applicant_name}/{school_name}/{class}/
+    | {session} — so an admin can personalize wording without touching
+    | code. Defaults reproduce the original fixed copy this module always
+    | used before this setting existed, so an already-provisioned school's
+    | letter never silently changes underneath it.
+    */
+    'default_admission_letter_intro' => 'We are pleased to inform you that, following review of your application, you have been offered admission to {school_name} for the {class} class, {session}.',
+    'default_admission_letter_next_steps' => 'To secure this place, please sign in to your application on the school\'s admissions portal and formally accept this offer. Once accepted, you will be asked to pay the applicable school fees for {class}; your child\'s admission and class placement will be finalized once this is complete.',
+
+    /*
     | Who can approve a new fee item before parents ever see it (user
     | request 2026-07-25: "admin can set an approval level for school
     | fees which the school owner, principal, vice principal, head

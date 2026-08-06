@@ -56,11 +56,7 @@
     <div class="adl-body">
       <p>Dear {{ $applicant->name }},</p>
       <p><strong>Offer of Admission</strong></p>
-      <p>
-        We are pleased to inform you that, following review of your application,
-        you have been offered admission to {{ $school->name }} for the
-        {{ $applicant->schoolClass?->name ?? 'requested' }} class, {{ $applicant->session?->name ?? 'upcoming session' }}.
-      </p>
+      <p>{{ $letterContent['intro'] }}</p>
 
       <div class="adl-details">
         <div><span>Applicant</span><b>{{ $applicant->name }}</b></div>
@@ -69,13 +65,7 @@
         <div><span>Session</span><b>{{ $applicant->session?->name ?? 'N/A' }}</b></div>
       </div>
 
-      <p>
-        To secure this place, please sign in to your application on the school's
-        admissions portal and formally accept this offer. Once accepted, you
-        will be asked to pay the applicable school fees for {{ $applicant->schoolClass?->name ?? 'the class' }};
-        your child's admission and class placement will be finalized once
-        this is complete.
-      </p>
+      <p>{{ $letterContent['nextSteps'] }}</p>
       <p>We look forward to welcoming {{ $applicant->name }} to our community.</p>
     </div>
 

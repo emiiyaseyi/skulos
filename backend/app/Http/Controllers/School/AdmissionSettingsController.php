@@ -54,6 +54,8 @@ class AdmissionSettingsController extends Controller
             'passwordStyle' => Setting::grab('admission_password_style') ?? config('skulos.default_admission_password_style', 'random'),
             'referenceStyle' => Setting::grab('admission_reference_style') ?? config('skulos.default_admission_reference_style', 'custom'),
             'referencePrefix' => Setting::grab('admission_reference_prefix') ?? config('skulos.default_admission_reference_prefix', 'APP'),
+            'letterIntro' => Setting::grab('admission_letter_intro') ?? config('skulos.default_admission_letter_intro'),
+            'letterNextSteps' => Setting::grab('admission_letter_next_steps') ?? config('skulos.default_admission_letter_next_steps'),
             'batches' => $this->windowBatches(),
             'sessions' => AcademicSession::active()->orderByDesc('id')->get(),
             'classes' => SchoolClass::active()->with('section')->orderBy('sequence')->get(),
@@ -194,6 +196,28 @@ class AdmissionSettingsController extends Controller
         }
 
         return back()->with('status', 'Reference number format updated.');
+    }
+
+    /**
+     * The admission/offer letter's two body paragraphs, admin-editable
+     * (user directive 2026-08-06: "confirm that the school admin can
+     * change the content of the admission or offer letter" — it could
+     * not, this closes that gap). See AdmissionLetterContentService for
+     * the supported {placeholder} tokens and where these render.
+     */
+    public function updateLetterContent(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'admissions.manage_settings');
+
+        $data = $request->validate([
+            'letter_intro' => ['required', 'string', 'max:2000'],
+            'letter_next_steps' => ['required', 'string', 'max:2000'],
+        ]);
+
+        Setting::put('admission_letter_intro', $data['letter_intro']);
+        Setting::put('admission_letter_next_steps', $data['letter_next_steps']);
+
+        return back()->with('status', 'Admission letter content updated.');
     }
 
     public function storeWindow(Request $request): \Illuminate\Http\RedirectResponse

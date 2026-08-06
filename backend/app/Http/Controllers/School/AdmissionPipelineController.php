@@ -230,7 +230,7 @@ class AdmissionPipelineController extends Controller
     }
 
     /** Staff-facing view/print of the same admission letter the applicant sees (2026-08-06), reusing the one shared view. */
-    public function letter(Request $request): \Illuminate\View\View
+    public function letter(Request $request, \App\Services\Admissions\AdmissionLetterContentService $letterContent): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'admissions.decide');
         $school = $this->school($request);
@@ -244,6 +244,7 @@ class AdmissionPipelineController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'applicant' => $applicant,
+            'letterContent' => $letterContent->render($school, $applicant),
             'backRoute' => route('school.admissions.pipeline', ['school' => $school->slug]),
         ]);
     }

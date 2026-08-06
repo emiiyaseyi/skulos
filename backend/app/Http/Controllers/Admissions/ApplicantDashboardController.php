@@ -169,7 +169,7 @@ class ApplicantDashboardController extends Controller
      * acceptance/conversion so the applicant can always retrieve it, not
      * just in the narrow window before they respond.
      */
-    public function admissionLetter(Request $request): \Illuminate\View\View
+    public function admissionLetter(Request $request, \App\Services\Admissions\AdmissionLetterContentService $letterContent): \Illuminate\View\View
     {
         $school = $request->attributes->get('school');
         $applicant = Auth::guard('applicant')->user()->load('schoolClass', 'session');
@@ -183,6 +183,7 @@ class ApplicantDashboardController extends Controller
             'school' => $school,
             'accent' => $school?->branding()['color'] ?? null,
             'applicant' => $applicant,
+            'letterContent' => $letterContent->render($school, $applicant),
             'backRoute' => route('school.admissions.dashboard', ['school' => $school->slug]),
         ]);
     }

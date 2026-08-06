@@ -128,6 +128,25 @@ class AdmissionAutomatedEnrollmentTest extends TestCase
             ->assertOk()->assertSee('Greenfield Academy')->assertSee('Ada Obi');
     }
 
+    /** User directive 2026-08-06: "confirm that the school admin can change the content of the admission or offer letter." */
+    public function test_an_admin_can_edit_the_letter_content_and_placeholders_are_replaced(): void
+    {
+        [$school, $admin, $applicant] = $this->fixture('aaeletter');
+
+        $this->actingAs($admin)->post(route('school.admissions.settings.letter-content', ['school' => $school->slug]), [
+            'letter_intro' => 'Custom intro for {applicant_name} joining {school_name}, {class} class.',
+            'letter_next_steps' => 'Custom next steps for {class}.',
+        ])->assertRedirect();
+
+        $this->actingAs($admin)->post(route('school.admissions.pipeline.offer', ['school' => $school->slug, 'applicantId' => $applicant->id]));
+
+        $this->actingAs($admin)->get(route('school.admissions.pipeline.letter', ['school' => $school->slug, 'applicantId' => $applicant->id]))
+            ->assertOk()
+            ->assertSee('Custom intro for Ada Obi joining Greenfield Academy, JSS 1 class.')
+            ->assertSee('Custom next steps for JSS 1.')
+            ->assertDontSee('following review of your application');
+    }
+
     public function test_accepting_an_offer_creates_a_dormant_student_in_the_lowest_population_arm_with_an_active_guardian_login(): void
     {
         [$school, $admin, $applicant, $armA, $armB] = $this->fixture('aaefour');
