@@ -79,8 +79,17 @@
                     <button class="btn btn-ghost btn-sm" type="submit">Advance stage</button>
                   </form>
                 @endif
-                <form method="POST" action="{{ route('school.admissions.pipeline.offer', ['school' => $school->slug, 'applicantId' => $applicant->id]) }}" style="display:inline">
+                @php($applicantArms = $applicant->schoolClass?->arms()->with('arm')->get() ?? collect())
+                <form method="POST" action="{{ route('school.admissions.pipeline.offer', ['school' => $school->slug, 'applicantId' => $applicant->id]) }}" style="display:inline-flex;align-items:center;gap:.3rem">
                   @csrf
+                  @if($applicantArms->count() > 1)
+                    <select name="preferred_class_arm_id" style="max-width:9rem" title="Preferred stream (optional, defaults to the class with the fewest students)">
+                      <option value="">Auto (fewest students)</option>
+                      @foreach($applicantArms as $armOption)
+                        <option value="{{ $armOption->id }}">{{ $armOption->label() }}</option>
+                      @endforeach
+                    </select>
+                  @endif
                   <button class="btn btn-primary btn-sm" type="submit">Offer admission</button>
                 </form>
                 <form method="POST" action="{{ route('school.admissions.pipeline.waitlist', ['school' => $school->slug, 'applicantId' => $applicant->id]) }}" style="display:inline">
@@ -98,7 +107,8 @@
                   </form>
                 @endif
               @elseif($tab === 'offered')
-                <a class="btn btn-primary btn-sm" href="{{ route('school.admissions.pipeline.convert.form', ['school' => $school->slug, 'applicantId' => $applicant->id]) }}">Complete enrollment</a>
+                <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.pipeline.letter', ['school' => $school->slug, 'applicantId' => $applicant->id]) }}" target="_blank">View letter</a>
+                <a class="btn btn-primary btn-sm" href="{{ route('school.admissions.pipeline.convert.form', ['school' => $school->slug, 'applicantId' => $applicant->id]) }}">Complete enrollment manually</a>
                 @if($applicant->email)
                   <form method="POST" action="{{ route('school.admissions.pipeline.nudge', ['school' => $school->slug, 'applicantId' => $applicant->id]) }}" style="display:inline">
                     @csrf
@@ -106,8 +116,17 @@
                   </form>
                 @endif
               @elseif($tab === 'waitlisted')
-                <form method="POST" action="{{ route('school.admissions.pipeline.offer', ['school' => $school->slug, 'applicantId' => $applicant->id]) }}" style="display:inline">
+                @php($applicantArms = $applicant->schoolClass?->arms()->with('arm')->get() ?? collect())
+                <form method="POST" action="{{ route('school.admissions.pipeline.offer', ['school' => $school->slug, 'applicantId' => $applicant->id]) }}" style="display:inline-flex;align-items:center;gap:.3rem">
                   @csrf
+                  @if($applicantArms->count() > 1)
+                    <select name="preferred_class_arm_id" style="max-width:9rem" title="Preferred stream (optional, defaults to the class with the fewest students)">
+                      <option value="">Auto (fewest students)</option>
+                      @foreach($applicantArms as $armOption)
+                        <option value="{{ $armOption->id }}">{{ $armOption->label() }}</option>
+                      @endforeach
+                    </select>
+                  @endif
                   <button class="btn btn-primary btn-sm" type="submit">Offer admission</button>
                 </form>
                 <form method="POST" action="{{ route('school.admissions.pipeline.reject', ['school' => $school->slug, 'applicantId' => $applicant->id]) }}" style="display:inline">

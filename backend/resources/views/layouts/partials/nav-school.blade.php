@@ -319,17 +319,22 @@
     // every other feature. 'applicant_tracking' now points at the real
     // pipeline board (Phase 1g, repointed from Fee Review the moment this
     // landed, same as school_profile's own repoint above once its real
-    // screen existed). 'admission_letters' now repointed to Fee Review
-    // itself (live feedback 2026-07-31: it wasn't reachable from any
-    // submenu, only as a cross-link button on other admissions screens)
-    // — real offer/rejection letter generation isn't built and isn't
-    // planned, so this key was otherwise permanently unused.
+    // screen existed). 'admission_letters' repointed again 2026-08-06,
+    // once real offer letter generation actually landed (automated
+    // offer -> accept -> pay -> class-teacher onboarding pipeline): a
+    // per-applicant printable letter is now genuinely real, reachable via
+    // a "View letter" link on each offered applicant's own row on the
+    // pipeline board (AdmissionPipelineController::letter()) — the $link
+    // helper only ever builds zero-param routes, so this key points at
+    // that same board rather than a dead/impossible direct link, the
+    // same "point at where the real thing actually lives" reasoning as
+    // the original Fee Review repoint, just at a truer destination now.
     // 'online_document_upload' stays unmapped (renders as "Soon") until
     // document upload/approval (Phase 1f) is actually built.
     'online_admissions' => ['school.admissions.settings.edit', 'Admissions Settings', 'settings'],
     'admission_workflow' => ['school.admissions.form-builder.index', 'Admission Form Builder', 'builder'],
     'applicant_tracking' => ['school.admissions.pipeline', 'Applicants', 'students'],
-    'admission_letters' => ['school.admissions.fees.index', 'Fee Review', 'billing'],
+    'admission_letters' => ['school.admissions.pipeline', 'Admission Letters', 'billing'],
   ];
 
   // The report card browse/review page lives under Academic in the plan
@@ -498,8 +503,13 @@
         // for it either, kept anyway as a harmless no-op safeguard.
         // "Staff Portal"/"Teacher Portal" and "Student Portal"/"Student
         // Records" are NOT in this list, per their respective merges
-        // both collapse into one line, not two.
-        $alwaysOwnLine = in_array($featureKey, ['parent_portal'], true);
+        // both collapse into one line, not two. 'admission_letters'
+        // joined 2026-08-06: it now points at the same pipeline board
+        // route as 'applicant_tracking' (the $link helper has no way to
+        // build a per-applicant letter URL from a bare catalog key, see
+        // the comment on that array entry), and without this it would be
+        // silently deduped away entirely rather than shown as its own line.
+        $alwaysOwnLine = in_array($featureKey, ['parent_portal', 'admission_letters'], true);
         if (! $alwaysOwnLine) {
           if (isset($renderedRoutes[$routeName])) {
             continue; // several feature keys can point at the same already built screen
@@ -661,6 +671,14 @@
   );
   if ($canReviewProfileChanges) {
     $groups['Academic'][] = $link('school.students.profile-change.class-teacher.index', 'Change Requests', 'inbox');
+  }
+
+  // Automated admissions pipeline (2026-08-06): the receiving class
+  // teacher's own onboarding queue for a dormant, fees-cleared admission
+  // — granted by default only to class-teacher (config('skulos.roles')),
+  // same tier/placement as Change Requests just above.
+  if ($navRbac->check($navUser, $school, 'admissions.onboard')) {
+    $groups['Academic'][] = $link('school.admissions.onboarding.index', 'Onboard New Students', 'inbox');
   }
 
   // "Enter Scores" (school.examinations.index), the real score-entry

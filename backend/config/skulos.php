@@ -1345,6 +1345,15 @@ return [
         'student_profile_change_pending_admin' => ['label' => 'Student profile change awaiting your review', 'type' => 'urgent'],
         'student_profile_change_approved' => ['label' => 'Your requested change was approved', 'type' => 'system'],
         'student_profile_change_rejected' => ['label' => 'Your requested change was rejected', 'type' => 'system'],
+        // Automated admissions pipeline (2026-08-06): offer -> accept ->
+        // pay -> class-teacher onboard. The offer itself is Mail-only
+        // (AdmissionOfferMail, no guardian User exists yet at that point)
+        // so it has no category here; these three cover every stage from
+        // acceptance onward, once a real guardian/class-teacher User
+        // exists to notify in-app.
+        'admission_fees_cleared' => ['label' => 'Admission fees cleared', 'type' => 'finance'],
+        'admission_onboarding_pending' => ['label' => 'A new student is awaiting onboarding', 'type' => 'academic'],
+        'admission_onboarded' => ['label' => 'Enrollment complete', 'type' => 'academic'],
     ],
 
     /*
@@ -1379,6 +1388,9 @@ return [
         'profile_approval' => 'school.profile.approvals',
         'profile_change_approved' => 'school.profile.edit',
         'profile_change_rejected' => 'school.profile.edit',
+        'admission_fees_cleared' => 'school.finance.payments.index',
+        'admission_onboarding_pending' => 'school.admissions.onboarding.index',
+        'admission_onboarded' => 'school.students.index',
     ],
 
     /*
@@ -2700,12 +2712,10 @@ return [
         'online_admissions' => 'admissions.manage_settings',
         'admission_workflow' => 'admissions.manage_settings',
         'applicant_tracking' => 'admissions.decide',
-        // 'admission_letters' repointed to the real Fee Review screen
-        // (live feedback 2026-07-31: "Admission Fee Review is not found
-        // under any submenu"), same repoint-once-a-real-screen-exists
-        // pattern applicant_tracking used above — real offer/rejection
-        // letter generation isn't built and isn't part of this plan, so
-        // this key would otherwise sit unused indefinitely.
+        // 'admission_letters' repointed again 2026-08-06 to the real
+        // pipeline board, once real offer letter generation actually
+        // landed (see nav-school.blade.php's own comment on this key) —
+        // same admissions.decide gate the board itself already checks.
         'admission_letters' => 'admissions.decide',
         'student_records' => 'students.view',
         'staff_records' => 'staff.view',
@@ -2809,7 +2819,12 @@ return [
         // manage_settings above, not bundled with everyday
         // review/decide/document-approve actions (admissions.update
         // already covers those via the standard action set).
-        'admissions' => ['manage_settings', 'decide', 'review_documents'],
+        // 'onboard' (2026-08-06): the receiving class teacher's own final
+        // confirm step in the automated offer -> accept -> pay -> onboard
+        // pipeline, granted by default only to class-teacher below — a
+        // distinct action from 'decide'/'review_documents' above, which
+        // stay admin/registrar tier.
+        'admissions' => ['manage_settings', 'decide', 'review_documents', 'onboard'],
     ],
 
     /*
@@ -2952,6 +2967,10 @@ return [
             // ExaminationController::hasBlanketAccess()'s own choice of
             // an unused-by-scoped-roles permission as its marker.
             'assessment_hub.view', 'assessment_hub.create', 'assessment_hub.update', 'assessment_hub.delete', 'assessment_hub.bulk', 'assessment_hub.grade',
+            // Automated admissions pipeline (2026-08-06): the receiving
+            // class teacher's own final onboarding step for a dormant
+            // pending_enrollment student assigned to their class.
+            'admissions.onboard',
         ]],
         'subject-teacher' => ['name' => 'Subject Teacher', 'grants' => [
             'students.view', 'attendance.view',

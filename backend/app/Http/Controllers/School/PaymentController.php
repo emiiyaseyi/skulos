@@ -648,6 +648,19 @@ class PaymentController extends Controller
             return false;
         }
 
+        // Automated admissions pipeline (2026-08-06): a verified payment
+        // against a still-dormant new admission is the trigger that opens
+        // the class-teacher onboarding gate — see FeeBalanceService::
+        // newAdmissionFeesCleared() for why this is idempotent/safe to
+        // call on every verify, not just the one that actually clears it.
+        if ($status === Payment::STATUS_VERIFIED && $payment->student && $payment->student->status === Student::STATUS_PENDING_ENROLLMENT) {
+            $term = Term::find(Setting::grab('finance_active_term_id')) ?? Term::current()->first();
+            $wasCleared = (bool) $payment->student->admission_fees_cleared_at;
+            if ($term && ! $wasCleared && app(\App\Services\Finance\FeeBalanceService::class)->newAdmissionFeesCleared($payment->student, $term)) {
+                $this->notifyAdmissionFeesCleared($payment->student);
+            }
+        }
+
         $verb = $status === Payment::STATUS_VERIFIED ? 'verified' : 'rejected';
         $category = $status === Payment::STATUS_VERIFIED ? 'payment_verified' : 'payment_rejected';
         Notification::create([
@@ -659,6 +672,37 @@ class PaymentController extends Controller
         ]);
 
         return true;
+    }
+
+    /**
+     * Automated admissions pipeline (2026-08-06): the moment a dormant new
+     * admission's fees clear, the guardian is told (their next step is
+     * done) and the receiving class teacher is told a student is now
+     * waiting in their onboarding queue.
+     */
+    protected function notifyAdmissionFeesCleared(Student $student): void
+    {
+        $guardianUserIds = StudentGuardian::where('student_id', $student->id)->whereNotNull('guardian_user_id')->pluck('guardian_user_id');
+        foreach ($guardianUserIds as $guardianUserId) {
+            Notification::create([
+                'user_id' => $guardianUserId,
+                'category' => 'admission_fees_cleared',
+                'type' => Notification::typeFor('admission_fees_cleared'),
+                'title' => 'Admission fees cleared',
+                'body' => "{$student->fullName()}'s school fees have been received. Their class teacher will complete their enrollment shortly.",
+            ]);
+        }
+
+        $classTeacherUserId = $student->currentClassArm?->classTeacher?->user_id;
+        if ($classTeacherUserId) {
+            Notification::create([
+                'user_id' => $classTeacherUserId,
+                'category' => 'admission_onboarding_pending',
+                'type' => Notification::typeFor('admission_onboarding_pending'),
+                'title' => 'A new student is awaiting onboarding',
+                'body' => "{$student->fullName()} has cleared their admission fees and is waiting in your onboarding queue.",
+            ]);
+        }
     }
 
     /** Bulk verify/reject for ticked pending payments, matching the standing bulk-actions convention every list screen follows (audit finding M-12, 2026-07-17). */

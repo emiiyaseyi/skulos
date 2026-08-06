@@ -8,6 +8,7 @@ use App\Models\School;
 use App\Models\Tenant\AdmissionPayment;
 use App\Models\Tenant\Applicant;
 use App\Models\Tenant\ClassArm;
+use App\Services\Admissions\AdmissionOfferService;
 use App\Services\Admissions\ApplicantConversionService;
 use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
@@ -164,9 +165,29 @@ class AdmissionPipelineController extends Controller
         return back()->with('status', "{$applicant->name} {$verb}.");
     }
 
-    public function offer(Request $request): \Illuminate\Http\RedirectResponse
+    public function offer(Request $request, AdmissionOfferService $offers): \Illuminate\Http\RedirectResponse
     {
-        return $this->decide($request, Applicant::DECISION_OFFERED);
+        $response = $this->decide($request, Applicant::DECISION_OFFERED);
+        // decide() unconditionally sets decision_status to the $decision
+        // passed in above (or aborts before returning), so the applicant
+        // is guaranteed offered by this point — the notice is a side
+        // effect of offer() specifically, not of decide() itself, which
+        // waitlist()/reject() below also share and must NOT trigger this.
+        $applicant = Applicant::findOrFail($request->route('applicantId'));
+
+        // Admin's optional stream override (2026-08-06, user directive:
+        // "the admin determines which class teacher if the class has more
+        // than one stream but by default, the class with the lowest
+        // number of child get the new student"). Left blank, acceptance
+        // falls back to ClassArmAssignmentService::lowestPopulationArm().
+        $armData = $request->validate(['preferred_class_arm_id' => ['nullable', 'exists:tenant.class_arms,id']]);
+        if (! empty($armData['preferred_class_arm_id'])) {
+            $applicant->forceFill(['preferred_class_arm_id' => $armData['preferred_class_arm_id']])->save();
+        }
+
+        $offers->sendOfferNotice($this->school($request), $applicant);
+
+        return $response;
     }
 
     public function waitlist(Request $request): \Illuminate\Http\RedirectResponse
@@ -206,6 +227,25 @@ class AdmissionPipelineController extends Controller
         Mail::to($applicant->email)->send(new \App\Mail\AdmissionReminderMail($applicant, $school, $message));
 
         return back()->with('status', "Reminder sent to {$applicant->name}.");
+    }
+
+    /** Staff-facing view/print of the same admission letter the applicant sees (2026-08-06), reusing the one shared view. */
+    public function letter(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'admissions.decide');
+        $school = $this->school($request);
+        $applicant = Applicant::with(['schoolClass', 'session'])->findOrFail($request->route('applicantId'));
+        abort_unless(
+            in_array($applicant->decision_status, [Applicant::DECISION_OFFERED, Applicant::DECISION_CONVERTED], true),
+            404
+        );
+
+        return view('admissions.letter', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'applicant' => $applicant,
+            'backRoute' => route('school.admissions.pipeline', ['school' => $school->slug]),
+        ]);
     }
 
     public function convertForm(Request $request): \Illuminate\View\View

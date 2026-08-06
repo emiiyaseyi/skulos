@@ -82,6 +82,24 @@
   @elseif($applicant->decision_status === 'offered')
     <div class="card" style="margin-bottom:1rem">
       <h3 style="margin-bottom:.6rem">Congratulations, you have been offered admission!</h3>
+      <p class="muted" style="margin-bottom:.8rem">
+        <a href="{{ route('school.admissions.letter', ['school' => $school->slug]) }}" target="_blank">View your admission letter</a>
+      </p>
+
+      @if(! $applicant->offer_response)
+        <p class="muted" style="margin-bottom:1rem">Please accept or decline this offer to continue.</p>
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1.2rem">
+          <form method="POST" action="{{ route('school.admissions.offer.accept', ['school' => $school->slug]) }}" style="flex:1">
+            @csrf
+            <button class="btn btn-primary btn-block" type="submit">Accept offer</button>
+          </form>
+          <form method="POST" action="{{ route('school.admissions.offer.decline', ['school' => $school->slug]) }}" style="flex:1" onsubmit="return confirm('Decline this offer of admission? This cannot be undone.')">
+            @csrf
+            <button class="btn btn-ghost btn-block" type="submit">Decline offer</button>
+          </form>
+        </div>
+      @endif
+
       @if(! $acceptanceFeeRequired)
         <p class="muted">No acceptance fee is required. The school will complete your enrollment shortly.</p>
       @elseif(! $acceptancePayment)
@@ -141,8 +159,23 @@
       <p class="muted">Your application was not successful this time.{{ $applicant->decision_notes ? ' '.$applicant->decision_notes : '' }}</p>
     </div>
   @elseif($applicant->decision_status === 'converted')
+    @php($convertedStudent = $applicant->convertedStudent)
     <div class="card" style="margin-bottom:1rem">
-      <p class="muted">Your enrollment is complete! Check your email/phone for your new student portal sign in details.</p>
+      @if($convertedStudent && $convertedStudent->status === \App\Models\Tenant\Student::STATUS_PENDING_ENROLLMENT)
+        @if(! $convertedStudent->admission_fees_cleared_at)
+          <h3 style="margin-bottom:.6rem">Offer accepted — pay school fees to continue</h3>
+          <p class="muted" style="margin-bottom:.8rem">
+            {{ $convertedStudent->fullName() }}'s admission number is {{ $convertedStudent->admission_number }}.
+            Sign in to your parent portal to pay their school fees and complete enrollment.
+          </p>
+          <a class="btn btn-primary btn-sm" href="{{ $school->portalUrl('/login') }}">Go to parent portal</a>
+        @else
+          <h3 style="margin-bottom:.6rem">Fees cleared — awaiting class placement</h3>
+          <p class="muted">{{ $convertedStudent->fullName() }}'s school fees have been received. Their class teacher will complete their enrollment shortly.</p>
+        @endif
+      @else
+        <p class="muted">Your enrollment is complete! Check your email/phone for your new student portal sign in details.</p>
+      @endif
     </div>
   @else
     @if(count($pipelineStages) > 1)

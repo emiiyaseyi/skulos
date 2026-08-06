@@ -6,6 +6,7 @@ use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * The enrollable unit, e.g. "Basic 1 A". A class with no arms has a single
@@ -44,6 +45,12 @@ class ClassArm extends Model
     public function assistantTeacher(): BelongsTo
     {
         return $this->belongsTo(Staff::class, 'assistant_teacher_staff_id');
+    }
+
+    /** The inverse of Student::currentClassArm() — previously missing, added 2026-08-06 for ClassArmAssignmentService::lowestPopulationArm(). */
+    public function students(): HasMany
+    {
+        return $this->hasMany(Student::class, 'current_class_arm_id');
     }
 
     /**

@@ -309,6 +309,13 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             // canSignIn()'s reference-number-as-bootstrap-password path).
             Route::post('/application-fee', [$dashboard, 'submitApplicationFee'])->name('application-fee');
 
+            // Automated admissions pipeline (2026-08-06): the printable
+            // admission letter, and the parent's own explicit accept/
+            // decline of an offer — see AdmissionAcceptanceService.
+            Route::get('/letter', [$dashboard, 'admissionLetter'])->name('letter');
+            Route::post('/offer/accept', [$dashboard, 'acceptOffer'])->name('offer.accept');
+            Route::post('/offer/decline', [$dashboard, 'declineOffer'])->name('offer.decline');
+
             // Admissions module, Phase 1e: the school's own custom
             // application form, one step at a time.
             $form = \App\Http\Controllers\Admissions\ApplicationFormController::class;
@@ -1119,8 +1126,20 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/{applicantId}/waitlist', [$pipeline, 'waitlist'])->name('pipeline.waitlist');
             Route::post('/{applicantId}/reject', [$pipeline, 'reject'])->name('pipeline.reject');
             Route::post('/{applicantId}/nudge', [$pipeline, 'nudge'])->name('pipeline.nudge');
+            Route::get('/{applicantId}/letter', [$pipeline, 'letter'])->name('pipeline.letter');
             Route::get('/{applicantId}/convert', [$pipeline, 'convertForm'])->name('pipeline.convert.form');
             Route::post('/{applicantId}/convert', [$pipeline, 'convert'])->name('pipeline.convert');
+        });
+
+        // Automated admissions pipeline (2026-08-06): the receiving class
+        // teacher's own onboarding queue for a dormant, fees-cleared
+        // admission — the final step before a student appears in their
+        // class like anyone else.
+        Route::prefix('admissions/onboarding')->name('school.admissions.onboarding.')->group(function () {
+            $onboarding = \App\Http\Controllers\School\ClassOnboardingController::class;
+            Route::get('/', [$onboarding, 'index'])->name('index');
+            Route::get('/{studentId}', [$onboarding, 'show'])->name('show');
+            Route::post('/{studentId}/onboard', [$onboarding, 'onboard'])->name('onboard');
         });
 
         // Behavioural/psychomotor trait catalog (user request 2026-07-18,

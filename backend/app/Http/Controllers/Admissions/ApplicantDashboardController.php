@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Tenant\AdmissionPayment;
 use App\Models\Tenant\AdmissionWindow;
 use App\Models\Tenant\Applicant;
+use App\Services\Admissions\AdmissionAcceptanceService;
 use App\Services\Media\ImageProcessingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -160,5 +161,59 @@ class ApplicantDashboardController extends Controller
         ]);
 
         return back()->with('status', 'Acceptance fee evidence received. The school will confirm it shortly.');
+    }
+
+    /**
+     * Automated admissions pipeline (2026-08-06): the printable admission
+     * letter, viewable once an offer exists — still shown after
+     * acceptance/conversion so the applicant can always retrieve it, not
+     * just in the narrow window before they respond.
+     */
+    public function admissionLetter(Request $request): \Illuminate\View\View
+    {
+        $school = $request->attributes->get('school');
+        $applicant = Auth::guard('applicant')->user()->load('schoolClass', 'session');
+
+        abort_unless(
+            in_array($applicant->decision_status, [Applicant::DECISION_OFFERED, Applicant::DECISION_CONVERTED], true),
+            404
+        );
+
+        return view('admissions.letter', [
+            'school' => $school,
+            'accent' => $school?->branding()['color'] ?? null,
+            'applicant' => $applicant,
+            'backRoute' => route('school.admissions.dashboard', ['school' => $school->slug]),
+        ]);
+    }
+
+    /**
+     * The parent's explicit acceptance of an offer (user directive
+     * 2026-08-06: "require the parent to accept the offer of admission").
+     * Creates the dormant Student + provisions both logins immediately —
+     * see AdmissionAcceptanceService for the full reasoning.
+     */
+    public function acceptOffer(Request $request, AdmissionAcceptanceService $acceptance): \Illuminate\Http\RedirectResponse
+    {
+        $school = $request->attributes->get('school');
+        $applicant = Auth::guard('applicant')->user();
+        abort_unless($applicant->decision_status === Applicant::DECISION_OFFERED && ! $applicant->offer_response, 422, 'This offer cannot be accepted right now.');
+
+        $acceptance->accept($school, $applicant);
+
+        return redirect()->route('school.admissions.dashboard', ['school' => $school->slug])
+            ->with('status', 'Offer accepted. You can now pay school fees for your child below.');
+    }
+
+    public function declineOffer(Request $request, AdmissionAcceptanceService $acceptance): \Illuminate\Http\RedirectResponse
+    {
+        $school = $request->attributes->get('school');
+        $applicant = Auth::guard('applicant')->user();
+        abort_unless($applicant->decision_status === Applicant::DECISION_OFFERED && ! $applicant->offer_response, 422, 'This offer cannot be declined right now.');
+
+        $acceptance->decline($applicant);
+
+        return redirect()->route('school.admissions.dashboard', ['school' => $school->slug])
+            ->with('status', 'You have declined this offer of admission.');
     }
 }

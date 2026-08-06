@@ -56,6 +56,53 @@ class FeeBalanceService
     }
 
     /**
+     * Automated admissions pipeline (2026-08-06, user directive: "for new
+     * students, they are to pay both optional and non optional fees for
+     * that child"). A thin wrapper, not new balance math: owedForClass()
+     * already sums both optional AND non-optional active/approved fee
+     * items for a class/term, exactly what a brand new admission owes —
+     * named separately here purely so the call site (newAdmissionFeesCleared
+     * below, and anywhere else this pipeline reads it) says what it means.
+     */
+    public function newAdmissionOwedForClass(int $schoolClassId, Term $term): float
+    {
+        return $this->owedForClass($schoolClassId, $term);
+    }
+
+    /**
+     * Whether $student (a pending_enrollment admission) has paid enough,
+     * verified, to clear the new-admission fee gate — both optional and
+     * non-optional items, so a payment covering only the non-optional
+     * total does NOT clear it. Idempotent: sets admission_fees_cleared_at
+     * once, the first time this returns true, never re-evaluates or
+     * unsets it afterward (a fee item's amount/approval status changing
+     * later must not retroactively un-clear an admission already in
+     * progress through onboarding). Called opportunistically wherever a
+     * payment is verified (PaymentController::applyDecision()).
+     */
+    public function newAdmissionFeesCleared(Student $student, Term $term): bool
+    {
+        if ($student->admission_fees_cleared_at) {
+            return true;
+        }
+
+        $classId = $student->currentClassArm?->school_class_id;
+        if (! $classId) {
+            return false;
+        }
+
+        $owed = $this->newAdmissionOwedForClass($classId, $term);
+        $paid = $this->paidByStudent($student->id);
+        $cleared = $paid >= $owed;
+
+        if ($cleared) {
+            $student->forceFill(['admission_fees_cleared_at' => now()])->save();
+        }
+
+        return $cleared;
+    }
+
+    /**
      * How much $guardianUser's linked children collectively still owe
      * this term, 0 if fully settled (or if they have no linked children,
      * or nothing is owed at all, e.g. no fee items configured).

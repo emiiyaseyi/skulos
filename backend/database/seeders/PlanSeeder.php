@@ -64,13 +64,12 @@ class PlanSeeder extends Seeder
             // snapshot already claimed these features live, while the
             // actual Plan row behind the admin billing screens still
             // excluded them, a real drift this fixes. admission_letters
-            // is deliberately NOT included: no real offer/rejection
-            // letter generation exists, that catalog key was repointed
-            // to the Fee Review screen purely to stop the nav item from
-            // sitting dead (see nav_permission_map's own comment) — a
-            // repoint for nav housekeeping, not something to also claim
-            // as a genuine, sellable feature.
-            'online_admissions', 'admission_workflow', 'applicant_tracking', 'online_document_upload',
+            // added 2026-08-06, now that real offer letter generation
+            // (the automated offer -> accept -> pay -> class-teacher
+            // onboarding pipeline) actually exists — previously excluded
+            // deliberately while that catalog key was only ever a nav
+            // housekeeping repoint with nothing real behind it.
+            'online_admissions', 'admission_workflow', 'applicant_tracking', 'online_document_upload', 'admission_letters',
             'timetable_management', 'teacher_workload', 'advanced_report_cards', 'unlimited_grading_systems',
             'custom_report_card_designer', 'class_position_ranking',
             'email_notifications', 'parent_broadcast', 'communication_history',

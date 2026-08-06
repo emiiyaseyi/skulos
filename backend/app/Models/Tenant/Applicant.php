@@ -36,6 +36,13 @@ class Applicant extends Authenticatable
 
     public const DECISION_CONVERTED = 'converted';
 
+    // The parent's own response to an offer (2026-08-06), a separate state
+    // machine from decision_status above (the SCHOOL's decision) — see the
+    // migration that added these columns for the full reasoning.
+    public const OFFER_ACCEPTED = 'accepted';
+
+    public const OFFER_DECLINED = 'declined';
+
     protected $connection = 'tenant';
 
     protected $fillable = [
@@ -52,6 +59,8 @@ class Applicant extends Authenticatable
             'password' => 'hashed',
             'expires_at' => 'datetime',
             'date_of_birth' => 'date',
+            'decided_at' => 'datetime',
+            'offer_responded_at' => 'datetime',
         ];
     }
 
@@ -73,6 +82,12 @@ class Applicant extends Authenticatable
     public function convertedStudent(): BelongsTo
     {
         return $this->belongsTo(Student::class, 'converted_student_id');
+    }
+
+    /** The admin's optional stream override, set at offer time (AdmissionAcceptanceService::accept() falls back to the lowest-population arm when this is null). */
+    public function preferredClassArm(): BelongsTo
+    {
+        return $this->belongsTo(ClassArm::class, 'preferred_class_arm_id');
     }
 
     public function isActive(): bool

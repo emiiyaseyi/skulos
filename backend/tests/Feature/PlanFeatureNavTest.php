@@ -839,10 +839,10 @@ class PlanFeatureNavTest extends TestCase
             // reachable from there instead of its own top-level nav
             // entry, same as the school_profile repoint precedent).
             ->assertSee('Applicants')
-            // 'admission_letters' is now also repointed, to the real Fee
-            // Review screen (live feedback 2026-07-31: it wasn't
-            // reachable from any submenu before this).
-            ->assertSee('Fee Review')
+            // 'admission_letters' repointed again 2026-08-06, to the real
+            // pipeline board, once real offer letter generation actually
+            // landed (nav-school.blade.php's own comment on this key).
+            ->assertSee('Admission Letters')
             // The module-toggle fallback only ever rescues a feature key
             // with a REAL screen built (the four above); it must not
             // resurrect every other marketing catalog key in the same

@@ -284,7 +284,7 @@ class AttendanceController extends Controller
         // Only ever mark students who genuinely belong to this class arm
         // right now, a stale or crafted student id in the submitted form
         // is silently dropped rather than acted on.
-        $validStudentIds = Student::where('current_class_arm_id', $data['class_arm_id'])->pluck('id')->all();
+        $validStudentIds = Student::active()->where('current_class_arm_id', $data['class_arm_id'])->pluck('id')->all();
         $marks = collect($data['marks'])->only($validStudentIds)->all();
 
         try {
