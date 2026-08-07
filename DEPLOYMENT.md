@@ -116,6 +116,16 @@ This is a different scenario from the "Backend on cPanel" section above. That se
 
 From this point on, the school's install checks in on its own. If the subscription lapses on the platform side (the same suspend/demand actions already used for platform-hosted billing), this install's next check-in fails, a warning banner appears there with a day count, and if it is not resolved before the grace period runs out the install locks itself out with a plain explanation, until the platform side reinstates it and a check-in succeeds again.
 
+**Updating an existing self-hosted install.** A self-hosted school runs its own separate, standalone copy of this codebase — pushing a change to this repo's `main` branch does **not** reach it automatically, the same way it never reaches any other independently deployed copy. Someone with access to that school's server has to pull and apply the new code themselves:
+
+1. `git pull origin main` (or re-upload a fresh zip of `backend/` if the school's host has no git/shell access — same "what to copy" caveat as the initial install above, keep their own `.env` and `storage/` untouched).
+2. `composer install --no-dev --optimize-autoloader` if `composer.json`/`composer.lock` changed.
+3. `php artisan migrate --force` — always run this after every update, even one that looks purely cosmetic; schema changes on the platform's own tenant migrations apply here identically, since a self-hosted install runs the exact same migration files against its own single database.
+4. `php artisan config:clear && php artisan view:clear` if config or Blade views changed (a stale compiled view/config can otherwise mask that the update even happened).
+5. Confirm the install still checks in cleanly (`php artisan license:check` by hand), since an update should never by itself affect license status.
+
+There is currently no notification, changelog, or version-pinning mechanism telling a self-hosted school an update exists or is safe to apply — this is a manual, trust-the-operator process today. Worth building later if self-hosted deployments become common: at minimum, an admin-visible "installed version" vs. "latest available" indicator on the self-hosted license settings screen.
+
 ### Linking a created school to a subdomain in cPanel (planning, 2026-07-10, not yet executed)
 
 The app already assumes each school lives at `{slug}.{APP_DOMAIN}` (`Route::domain('{school}.'.$domain)` in `routes/web.php`, `School::portalUrl()`). Locally this "just works" with no setup because `*.localhost` resolves to the dev machine automatically. In production, a real subdomain needs real DNS and (for HTTPS) a certificate that covers it, neither of which `TenantManager::provision()` touches today (it only creates the tenant database). Two ways to close that gap, in order of preference:
