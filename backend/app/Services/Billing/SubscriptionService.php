@@ -23,6 +23,27 @@ class SubscriptionService
         return $school->plan ?? Plan::where('is_default', true)->first();
     }
 
+    /**
+     * The price per student per term this school is actually billed at
+     * (2026-08-07, user directive: "change a school plan amount if its
+     * needs to increase or decrease the cost per child per term"). A
+     * school's own price_per_student_per_term_override, when set,
+     * replaces the plan's price for billing purposes only — it does not
+     * change which features/modules the school has, those still come
+     * entirely from the assigned Plan. Null if there is no plan to price
+     * against at all (matches amountDue()'s own existing null case).
+     */
+    public function effectivePrice(School $school): ?float
+    {
+        if ($school->price_per_student_per_term_override !== null) {
+            return (float) $school->price_per_student_per_term_override;
+        }
+
+        $plan = $this->plan($school);
+
+        return $plan ? (float) $plan->price_per_student_per_term : null;
+    }
+
     /** Real active learner count, read from the school's own tenant database. */
     public function activeLearnerCount(School $school): int
     {
@@ -33,15 +54,15 @@ class SubscriptionService
         return $this->tenants->connectTo($school, fn () => \App\Models\Tenant\Student::active()->count());
     }
 
-    /** Active learners × the plan's per-student, per-term price. Null if there is no plan to price against at all. */
+    /** Active learners × the school's effective per-student, per-term price (its own override, or the plan's price). Null if there is no plan/price to bill against at all. */
     public function amountDue(School $school): ?float
     {
-        $plan = $this->plan($school);
-        if (! $plan) {
+        $price = $this->effectivePrice($school);
+        if ($price === null) {
             return null;
         }
 
-        return $this->activeLearnerCount($school) * (float) $plan->price_per_student_per_term;
+        return $this->activeLearnerCount($school) * $price;
     }
 
     /**
@@ -54,11 +75,11 @@ class SubscriptionService
     public function billingSnapshot(School $school): array
     {
         $learners = $this->activeLearnerCount($school);
-        $plan = $this->plan($school);
+        $price = $this->effectivePrice($school);
 
         return [
             'learners' => $learners,
-            'amountDue' => $plan ? $learners * (float) $plan->price_per_student_per_term : null,
+            'amountDue' => $price !== null ? $learners * $price : null,
             'daysUntilDue' => $this->daysUntilDue($school),
         ];
     }

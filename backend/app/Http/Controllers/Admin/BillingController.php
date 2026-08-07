@@ -8,9 +8,12 @@ use App\Models\Module;
 use App\Models\Plan;
 use App\Models\School;
 use App\Models\SchoolAddOn;
+use App\Models\SubscriptionEvent;
+use App\Services\Billing\SubscriptionService;
 use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -103,6 +106,54 @@ class BillingController extends Controller
         return back()->with('status', "{$school->name} is now on the {$plan->name} plan.");
     }
 
+    /**
+     * A negotiated discount/promo/correction for ONE school's cost per
+     * student per term, independent of its Plan (2026-08-07, user
+     * directive: "it should also be able to change a school plan amount
+     * if its needs to increase or decrease the cost per child per
+     * term") — unlike assignPlan(), this never touches the school's
+     * feature/module set, only what SubscriptionService::amountDue()
+     * bills them. A blank/null value clears the override, falling back
+     * to the plan's own price.
+     */
+    public function updateSchoolPrice(Request $request, School $school): \Illuminate\Http\RedirectResponse
+    {
+        // A "Clear override" submit posts an empty string, not the field's
+        // absence, so it must be normalised to null before validation, the
+        // same fix PaymentController::updateActiveTerm() already needed.
+        if ($request->input('price_per_student_per_term') === '') {
+            $request->merge(['price_per_student_per_term' => null]);
+        }
+        $data = $request->validate(['price_per_student_per_term' => ['nullable', 'numeric', 'min:0']]);
+
+        $school->update(['price_per_student_per_term_override' => $data['price_per_student_per_term'] ?? null]);
+
+        return back()->with('status', $data['price_per_student_per_term'] !== null
+            ? "{$school->name}'s price per student per term set to ₦".number_format((float) $data['price_per_student_per_term'], 2).'.'
+            : "{$school->name} reset to its plan's own price.");
+    }
+
+    /** Same as updateSchoolPrice(), applied to every ticked school at once — the same bulk-select pattern already used on the Schools index (SchoolAdminController::bulkAction()). */
+    public function bulkUpdateSchoolPrice(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        if ($request->input('price_per_student_per_term') === '') {
+            $request->merge(['price_per_student_per_term' => null]);
+        }
+        $data = $request->validate([
+            'school_ids' => ['required', 'array', 'min:1'],
+            'school_ids.*' => ['exists:schools,id'],
+            'price_per_student_per_term' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $count = School::whereIn('id', $data['school_ids'])->update([
+            'price_per_student_per_term_override' => $data['price_per_student_per_term'] ?? null,
+        ]);
+
+        return back()->with('status', $data['price_per_student_per_term'] !== null
+            ? "{$count} school(s) set to ₦".number_format((float) $data['price_per_student_per_term'], 2).' per student per term.'
+            : "{$count} school(s) reset to their plan's own price.");
+    }
+
     /** Grant or revoke one optional module for a school, regardless of its plan. */
     public function toggleFeature(Request $request, School $school, Rbac $rbac): \Illuminate\Http\RedirectResponse
     {
@@ -164,18 +215,65 @@ class BillingController extends Controller
         return back()->with('status', "{$name} removed from {$school->name}.");
     }
 
-    public function addWaiver(Request $request, School $school): \Illuminate\Http\RedirectResponse
+    /**
+     * Actually waives billing (user directive 2026-08-07: "fix this so
+     * that the platform owner/admin can give it to a school" — a waiver
+     * used to only ever create a BillingWaiver label, never consulted by
+     * SubscriptionService::amountDue()/billingSnapshot() and never
+     * moving next_billing_date, so "marking a term free" changed nothing
+     * a school was actually billed). Now pushes next_billing_date
+     * forward by the given number of days, the same base-date logic
+     * SubscriptionController::extend() already uses, and reinstates a
+     * billing-suspended school the same courtesy renew() already gives a
+     * school that pays — waiving is functionally equivalent to paying.
+     */
+    public function addWaiver(Request $request, School $school, SubscriptionService $subs): \Illuminate\Http\RedirectResponse
     {
         $data = $request->validate([
             'label' => ['required', 'string', 'max:150'],
             'note' => ['nullable', 'string', 'max:500'],
+            'days' => ['required', 'integer', 'min:1', 'max:730'],
         ]);
 
-        BillingWaiver::create($data + ['school_id' => $school->id, 'granted_by' => Auth::id()]);
+        // (int) cast required: the 'integer' rule only validates format,
+        // it never casts, and a real HTTP body is always a string —
+        // found live via the exact same TypeError extend() itself was
+        // also silently carrying (see that method's own comment).
+        $base = $school->next_billing_date && $school->next_billing_date->isFuture() ? $school->next_billing_date : now();
+        $newDate = $base->copy()->addDays((int) $data['days']);
 
-        return back()->with('status', "Marked \"{$data['label']}\" free for {$school->name}.");
+        DB::transaction(function () use ($school, $data, $newDate) {
+            BillingWaiver::create([
+                'school_id' => $school->id, 'label' => $data['label'], 'note' => $data['note'] ?? null, 'granted_by' => Auth::id(),
+            ]);
+
+            $updates = ['next_billing_date' => $newDate];
+            if ($school->status === School::STATUS_SUSPENDED && $school->suspension_reason === School::SUSPENSION_REASON_BILLING) {
+                $updates['status'] = School::STATUS_ACTIVE;
+                $updates['suspension_reason'] = null;
+            }
+            $school->update($updates);
+
+            SubscriptionEvent::create([
+                'school_id' => $school->id, 'type' => SubscriptionEvent::TYPE_WAIVER,
+                'note' => trim("{$data['label']} ({$data['days']} day(s) waived).".($data['note'] ?? '' ? ' '.$data['note'] : '')),
+                'extended_to' => $newDate, 'actioned_by_user_id' => Auth::id(),
+            ]);
+        });
+
+        $subs->notifySchoolLeadership($school, 'subscription_extended', 'A billing period has been waived',
+            "Good news: \"{$data['label']}\" has been marked free for your school. Your next payment is now due {$newDate->format('d M Y')}.");
+
+        return back()->with('status', "\"{$data['label']}\" waived for {$school->name} — next payment now due {$newDate->format('d M Y')}.");
     }
 
+    /**
+     * Deletes the record only — a wrong grant's next_billing_date push is
+     * NOT reversed here (this is a correction to the audit trail, not an
+     * undo of a billing action); use extend()/demand() on the school's
+     * own Subscriptions page to correct the date if truly needed, the
+     * same as any other billing action already has to be corrected.
+     */
     public function removeWaiver(BillingWaiver $waiver): \Illuminate\Http\RedirectResponse
     {
         $waiver->delete();

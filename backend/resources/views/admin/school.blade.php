@@ -248,7 +248,8 @@
 
 <div class="card" style="margin-top:1.25rem">
   <h3 style="margin-bottom:.4rem">Billing</h3>
-  <p class="muted" style="margin-bottom:.8rem">Current plan: <strong style="color:var(--ink)">{{ $school->plan?->name ?? 'No plan set' }}</strong>{{ $school->plan ? ' ('.number_format($school->plan->price_per_student_per_term,2).' per student per term)' : '' }}. Manage plans from <a href="{{ route('admin.billing.index') }}">Billing</a>.</p>
+  @php($effectivePrice = $school->price_per_student_per_term_override ?? $school->plan?->price_per_student_per_term)
+  <p class="muted" style="margin-bottom:.8rem">Current plan: <strong style="color:var(--ink)">{{ $school->plan?->name ?? 'No plan set' }}</strong>{{ $effectivePrice !== null ? ' (&#8358;'.number_format((float) $effectivePrice, 2).' per student per term'.($school->price_per_student_per_term_override !== null ? ', custom price' : '').')' : '' }}. Manage plans and pricing from <a href="{{ route('admin.billing.index') }}">Billing</a>.</p>
 
   <b style="font-size:.82rem">Optional modules for this school</b>
   <p class="muted" style="margin-bottom:.6rem">These add to (or override) whatever the plan includes.</p>
@@ -296,6 +297,7 @@
   </form>
 
   <b style="font-size:.82rem">Free term waivers</b>
+  <p class="muted" style="margin-bottom:.6rem">Marking a term free pushes this school's next payment due date forward by the number of days you give, at no cost — it's a real billing action, not just a note.</p>
   @if($waivers->isEmpty())
     <p class="muted" style="font-size:.85rem;margin:.4rem 0 .8rem">None on record.</p>
   @else
@@ -314,6 +316,7 @@
   <form method="POST" action="{{ route('admin.billing.schools.waivers.store', $school) }}" style="display:flex;gap:.5rem;flex-wrap:wrap">
     @csrf
     <input name="label" placeholder="e.g. First Term 2025/2026" required style="flex:1;min-width:12rem" />
+    <input name="days" type="number" min="1" max="730" placeholder="Days, e.g. 90-120 for one term" required style="width:10rem" />
     <input name="note" placeholder="Note (optional)" style="flex:1;min-width:12rem" />
     <button class="btn btn-primary btn-sm" type="submit">Mark free</button>
   </form>

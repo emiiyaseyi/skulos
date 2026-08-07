@@ -211,8 +211,16 @@ class SubscriptionController extends Controller
     {
         $data = $request->validate(['days' => ['required', 'integer', 'min:1', 'max:365'], 'note' => ['nullable', 'string', 'max:500']]);
 
+        // The 'integer' rule only validates the format, it never casts —
+        // a real HTTP request body is always a string, so addDays()
+        // below would otherwise get a numeric string, not an int. This
+        // stayed hidden in the existing test suite because PHPUnit's own
+        // test client passes native PHP array values (a literal int
+        // stays an int), unlike a genuine HTTP form submission — found
+        // live 2026-08-07 while verifying the sibling waiver action,
+        // which hit the exact same TypeError against real Carbon.
         $base = $school->next_billing_date && $school->next_billing_date->isFuture() ? $school->next_billing_date : now();
-        $newDate = $base->copy()->addDays($data['days']);
+        $newDate = $base->copy()->addDays((int) $data['days']);
 
         // The school's due-date change and its audit-trail event are
         // platform-DB writes and must land together or not at all: a

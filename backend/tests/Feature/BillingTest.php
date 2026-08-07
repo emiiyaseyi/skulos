@@ -7,7 +7,9 @@ use App\Models\Module;
 use App\Models\Plan;
 use App\Models\School;
 use App\Models\SchoolAddOn;
+use App\Models\SubscriptionEvent;
 use App\Models\User;
+use App\Services\Billing\SubscriptionService;
 use App\Services\Rbac\Rbac;
 use App\Services\Tenancy\TenantManager;
 use Database\Seeders\RbacSeeder;
@@ -192,14 +194,22 @@ class BillingTest extends TestCase
         $this->assertDatabaseMissing('school_add_ons', ['id' => $addOn->id]);
     }
 
-    public function test_admin_can_mark_a_term_free_and_remove_the_waiver(): void
+    /**
+     * Real bug found 2026-08-07 (user directive: "fix this so that the
+     * platform owner/admin can give it to a school"): a waiver used to
+     * only ever create a BillingWaiver label, never consulted by
+     * SubscriptionService and never moving next_billing_date — this
+     * locks in that it now actually waives billing.
+     */
+    public function test_admin_can_mark_a_term_free_and_it_actually_pushes_the_due_date(): void
     {
         $admin = $this->superAdmin();
-        $school = School::factory()->create(['slug' => 'freeterm']);
+        $school = School::factory()->create(['slug' => 'freeterm', 'next_billing_date' => now()->addDays(10)]);
 
         $this->actingAs($admin)->post(route('admin.billing.schools.waivers.store', $school), [
             'label' => 'First Term 2025/2026',
             'note' => 'Promotional trial term',
+            'days' => 100,
         ])->assertRedirect();
 
         $waiver = BillingWaiver::where('school_id', $school->id)->first();
@@ -207,8 +217,82 @@ class BillingTest extends TestCase
         $this->assertSame('First Term 2025/2026', $waiver->label);
         $this->assertSame($admin->id, $waiver->granted_by);
 
+        $fresh = $school->fresh();
+        $this->assertEquals(now()->addDays(10)->addDays(100)->toDateString(), $fresh->next_billing_date->toDateString());
+
+        $event = SubscriptionEvent::where('school_id', $school->id)->where('type', SubscriptionEvent::TYPE_WAIVER)->first();
+        $this->assertNotNull($event, 'a real audit event must exist for the waived period');
+        $this->assertEquals($fresh->next_billing_date->toDateString(), $event->extended_to->toDateString());
+
         $this->actingAs($admin)->delete(route('admin.billing.waivers.destroy', $waiver))->assertRedirect();
         $this->assertDatabaseMissing('billing_waivers', ['id' => $waiver->id]);
+    }
+
+    public function test_marking_a_term_free_reinstates_a_school_locked_out_for_billing(): void
+    {
+        $admin = $this->superAdmin();
+        $school = School::factory()->create([
+            'slug' => 'lockedfreeterm',
+            'status' => School::STATUS_SUSPENDED,
+            'suspension_reason' => School::SUSPENSION_REASON_BILLING,
+        ]);
+
+        $this->actingAs($admin)->post(route('admin.billing.schools.waivers.store', $school), [
+            'label' => 'Goodwill waiver', 'days' => 90,
+        ])->assertRedirect();
+
+        $fresh = $school->fresh();
+        $this->assertSame(School::STATUS_ACTIVE, $fresh->status);
+        $this->assertNull($fresh->suspension_reason);
+    }
+
+    public function test_an_admin_can_set_a_custom_price_for_one_school(): void
+    {
+        $admin = $this->superAdmin();
+        $plan = Plan::create(['name' => 'Priced Plan', 'slug' => 'priced-plan', 'price_per_student_per_term' => 1000, 'modules' => [], 'features' => []]);
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'customprice', 'plan_id' => $plan->id]));
+
+        $this->actingAs($admin)->post(route('admin.billing.schools.price', $school), [
+            'price_per_student_per_term' => 650,
+        ])->assertRedirect();
+
+        $this->assertEquals(650, $school->fresh()->price_per_student_per_term_override);
+        $this->assertEquals(650.0, app(SubscriptionService::class)->effectivePrice($school->fresh()));
+
+        // Clearing (blank submit) falls back to the plan's own price.
+        $this->actingAs($admin)->post(route('admin.billing.schools.price', $school), [
+            'price_per_student_per_term' => '',
+        ])->assertRedirect();
+
+        $this->assertNull($school->fresh()->price_per_student_per_term_override);
+        $this->assertEquals(1000.0, app(SubscriptionService::class)->effectivePrice($school->fresh()));
+    }
+
+    public function test_an_admin_can_bulk_set_a_price_across_several_schools_at_once(): void
+    {
+        $admin = $this->superAdmin();
+        $plan = Plan::create(['name' => 'Bulk Plan', 'slug' => 'bulk-plan', 'price_per_student_per_term' => 500, 'modules' => [], 'features' => []]);
+        $one = School::factory()->create(['slug' => 'bulkone', 'plan_id' => $plan->id]);
+        $two = School::factory()->create(['slug' => 'bulktwo', 'plan_id' => $plan->id]);
+        $untouched = School::factory()->create(['slug' => 'bulkuntouched', 'plan_id' => $plan->id]);
+
+        $this->actingAs($admin)->post(route('admin.billing.schools.price.bulk'), [
+            'school_ids' => [$one->id, $two->id],
+            'price_per_student_per_term' => 425,
+        ])->assertRedirect();
+
+        $this->assertEquals(425, $one->fresh()->price_per_student_per_term_override);
+        $this->assertEquals(425, $two->fresh()->price_per_student_per_term_override);
+        $this->assertNull($untouched->fresh()->price_per_student_per_term_override, 'a school not ticked must be completely unaffected');
+    }
+
+    /** A school with no override at all must be billed at exactly its plan's price, unchanged by this feature existing. */
+    public function test_a_school_with_no_price_override_is_billed_at_the_plans_own_price(): void
+    {
+        $plan = Plan::create(['name' => 'Default Priced Plan', 'slug' => 'default-priced-plan', 'price_per_student_per_term' => 777, 'modules' => [], 'features' => []]);
+        $school = School::factory()->create(['slug' => 'nooverride', 'plan_id' => $plan->id]);
+
+        $this->assertEquals(777.0, app(SubscriptionService::class)->effectivePrice($school));
     }
 
     public function test_only_super_admin_can_manage_billing(): void

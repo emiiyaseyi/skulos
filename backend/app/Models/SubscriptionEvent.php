@@ -24,6 +24,9 @@ class SubscriptionEvent extends Model
     /** Confirm & Renew (user request 2026-07-19): an admin confirmed the verified payments received and advanced the school's next_billing_date. */
     public const TYPE_RENEWED = 'renewed';
 
+    /** A free-term waiver (2026-08-07, user directive: "fix this so that the platform owner/admin can give it to a school") — the same next_billing_date push extend() does, but with no payment required, tied to a real BillingWaiver record explaining why. */
+    public const TYPE_WAIVER = 'waiver';
+
     protected $fillable = ['school_id', 'type', 'note', 'extended_to', 'actioned_by_user_id'];
 
     protected function casts(): array

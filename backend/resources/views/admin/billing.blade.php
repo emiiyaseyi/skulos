@@ -121,13 +121,23 @@
 </div>
 
 <div class="card">
-  <h3 style="margin-bottom:.8rem">Schools</h3>
-  <div style="overflow-x:auto">
-  <table class="table-stack">
-    <thead><tr><th>School</th><th>Current plan</th><th>Change plan</th><th></th></tr></thead>
-    <tbody>
+  <h3 style="margin-bottom:.4rem">Schools</h3>
+  <p class="muted" style="margin-bottom:.8rem">"Price / term" is what this school is actually billed per student — its own override if set, otherwise its plan's own price. Overriding never changes which features/modules the school has, only the amount.</p>
+  @if($schools->isEmpty())
+    <p class="muted">No schools yet.</p>
+  @else
+    <form id="bulkPriceForm" method="POST" action="{{ route('admin.billing.schools.price.bulk') }}"></form>
+    <div style="overflow-x:auto">
+    <table class="table-stack">
+      <thead><tr>
+        <th style="width:2.2rem"><input type="checkbox" id="billing-school-select-all" aria-label="Select all schools" /></th>
+        <th>School</th><th>Current plan</th><th>Change plan</th><th>Price / term</th><th></th>
+      </tr></thead>
+      <tbody>
       @foreach($schools as $school)
+        @php($effectivePrice = $school->price_per_student_per_term_override ?? $school->plan?->price_per_student_per_term)
         <tr>
+          <td><input type="checkbox" form="bulkPriceForm" class="billing-school-row-check" name="school_ids[]" value="{{ $school->id }}" aria-label="Select {{ $school->name }}" /></td>
           <td data-label="School"><strong>{{ $school->name }}</strong></td>
           <td class="muted" data-label="Current plan">{{ $school->plan?->name ?? 'No plan set' }}</td>
           <td data-label="Change plan">
@@ -141,13 +151,44 @@
               <button class="btn btn-ghost btn-sm" type="submit">Apply</button>
             </form>
           </td>
+          <td data-label="Price / term">
+            <form method="POST" action="{{ route('admin.billing.schools.price', $school) }}" style="display:flex;gap:.4rem;align-items:center">
+              @csrf
+              <input type="number" name="price_per_student_per_term" step="0.01" min="0" value="{{ $school->price_per_student_per_term_override }}" placeholder="{{ $school->plan?->price_per_student_per_term ?? '0.00' }}" style="width:7rem" />
+              <button class="btn btn-ghost btn-sm" type="submit">Save</button>
+            </form>
+            @if($school->price_per_student_per_term_override !== null)
+              <div class="muted" style="font-size:.72rem;margin-top:.2rem">Custom (plan price: &#8358;{{ number_format((float) ($school->plan?->price_per_student_per_term ?? 0), 2) }})</div>
+            @endif
+          </td>
           <td><a class="btn btn-ghost btn-sm" href="{{ route('admin.schools.show', $school) }}">Manage features, add ons & waivers</a></td>
         </tr>
       @endforeach
-    </tbody>
-  </table>
-  </div>
-  <div style="margin-top:1rem">{{ $schools->links() }}</div>
+      </tbody>
+    </table>
+    </div>
+    <div style="margin-top:1rem">{{ $schools->links() }}</div>
+
+    <div class="row-between" style="margin-top:.8rem;flex-wrap:wrap;gap:.6rem">
+      <span class="muted" style="font-size:.85rem">Tick any number of schools above to change their price per student per term all at once.</span>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+        <input form="bulkPriceForm" type="number" name="price_per_student_per_term" step="0.01" min="0" placeholder="New price" style="width:8rem" />
+        <button form="bulkPriceForm" class="btn btn-primary btn-sm" type="submit">Apply to selected</button>
+        <button form="bulkPriceForm" class="btn btn-ghost btn-sm" type="submit" onclick="this.form.querySelector('[name=price_per_student_per_term]').value=''; return true;">Clear override for selected</button>
+      </div>
+    </div>
+    <script>
+      (function(){
+        var all = document.getElementById('billing-school-select-all');
+        var boxes = document.querySelectorAll('.billing-school-row-check');
+        all?.addEventListener('change', function(){ boxes.forEach(function(cb){ cb.checked = all.checked; }); });
+        document.getElementById('bulkPriceForm')?.addEventListener('submit', function(e){
+          var anyChecked = Array.prototype.some.call(boxes, function(cb){ return cb.checked; });
+          if (! anyChecked) { e.preventDefault(); alert('Tick at least one school first.'); }
+        });
+      })();
+    </script>
+  @endif
 </div>
 
 <style>
