@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AuditLog;
+use App\Models\Release;
 use App\Models\School;
 use App\Models\User;
 use App\Services\Licensing\LicenseService;
@@ -215,6 +216,106 @@ class SelfHostedLicenseTest extends TestCase
         $school = School::orderBy('id')->first();
         $this->assertTrue($school->is_self_hosted);
         $this->assertEquals('SKL-MANUAL-0001-XYZ', $school->license_key);
+    }
+
+    /** Release management (2026-08-07): bundled into the routine check-in response rather than a second endpoint. */
+    public function test_verify_endpoint_includes_the_latest_published_release_when_one_exists(): void
+    {
+        $school = School::factory()->create(['status' => School::STATUS_ACTIVE]);
+        app(LicenseService::class)->issueFor($school);
+        // published_at is deliberately excluded from $fillable (publishing
+        // must go through ReleaseService::publish(), never mass
+        // assignment) — forceCreate() here, same as Payment::forceCreate()
+        // elsewhere in this suite for the same reason.
+        Release::forceCreate([
+            'version' => '2026.08.07', 'notes' => 'First release', 'file_path' => 'releases/2026.08.07.zip',
+            'file_size' => 100, 'checksum' => str_repeat('a', 64), 'published_at' => now(),
+        ]);
+        Release::create([
+            'version' => '2026.09.01', 'notes' => 'Draft, must not be reported', 'file_path' => 'releases/2026.09.01.zip',
+            'file_size' => 100, 'checksum' => str_repeat('b', 64),
+        ]);
+
+        $this->postJson(route('license.verify'), ['license_key' => $school->fresh()->license_key])
+            ->assertOk()
+            ->assertJson(['valid' => true, 'latest_version' => '2026.08.07']);
+    }
+
+    public function test_verify_endpoint_has_no_release_info_when_nothing_is_published(): void
+    {
+        $school = School::factory()->create(['status' => School::STATUS_ACTIVE]);
+        app(LicenseService::class)->issueFor($school);
+
+        $this->postJson(route('license.verify'), ['license_key' => $school->fresh()->license_key])
+            ->assertOk()
+            ->assertJson(['valid' => true, 'latest_version' => null]);
+    }
+
+    public function test_check_self_hosted_stores_the_latest_available_version_from_a_valid_response(): void
+    {
+        config(['skulos.self_hosted' => true]);
+        $school = School::factory()->create(['status' => School::STATUS_ACTIVE]);
+        app(LicenseService::class)->issueFor($school);
+
+        Http::fake(['*' => Http::response(['valid' => true, 'latest_version' => '2026.08.07'], 200)]);
+
+        app(LicenseService::class)->checkSelfHosted();
+
+        $this->assertSame('2026.08.07', $school->fresh()->latest_available_version);
+    }
+
+    public function test_the_license_settings_page_shows_an_update_banner_only_when_versions_differ(): void
+    {
+        $admin = $this->superAdmin();
+        $school = School::factory()->create(['status' => School::STATUS_ACTIVE, 'latest_available_version' => '2026.08.07']);
+        app(LicenseService::class)->issueFor($school);
+
+        config(['skulos.version' => '2026.07.01']);
+        $this->actingAs($admin)->get(route('admin.settings.self-hosted-license.edit'))
+            ->assertOk()->assertSee('Update available: 2026.08.07');
+
+        config(['skulos.version' => '2026.08.07']);
+        $this->actingAs($admin)->get(route('admin.settings.self-hosted-license.edit'))
+            ->assertOk()->assertDontSee('Update available');
+    }
+
+    public function test_downloading_an_update_saves_it_once_the_checksum_matches(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $admin = $this->superAdmin();
+        $school = School::factory()->create();
+        app(LicenseService::class)->issueFor($school);
+        $zipBytes = 'fake release zip bytes';
+        $checksum = hash('sha256', $zipBytes);
+
+        Http::fake([
+            '*/latest-release' => Http::response(['valid' => true, 'latest_version' => '2026.08.07', 'latest_release_checksum' => $checksum], 200),
+            '*/download' => Http::response($zipBytes, 200),
+        ]);
+
+        $this->actingAs($admin)->post(route('admin.settings.self-hosted-license.download-update'))
+            ->assertRedirect()->assertSessionHas('status');
+
+        \Illuminate\Support\Facades\Storage::disk('local')->assertExists('updates/2026.08.07.zip');
+        $this->assertSame($zipBytes, \Illuminate\Support\Facades\Storage::disk('local')->get('updates/2026.08.07.zip'));
+    }
+
+    public function test_downloading_an_update_discards_it_and_errors_on_a_checksum_mismatch(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $admin = $this->superAdmin();
+        $school = School::factory()->create();
+        app(LicenseService::class)->issueFor($school);
+
+        Http::fake([
+            '*/latest-release' => Http::response(['valid' => true, 'latest_version' => '2026.08.07', 'latest_release_checksum' => str_repeat('0', 64)], 200),
+            '*/download' => Http::response('tampered or corrupted bytes', 200),
+        ]);
+
+        $this->actingAs($admin)->post(route('admin.settings.self-hosted-license.download-update'))
+            ->assertRedirect()->assertSessionHas('error');
+
+        \Illuminate\Support\Facades\Storage::disk('local')->assertMissing('updates/2026.08.07.zip');
     }
 
     public function test_a_locked_out_school_403s_via_the_normal_tenant_resolution_with_a_clear_message(): void

@@ -7,6 +7,12 @@ use Illuminate\Foundation\Configuration\Middleware;
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
+        // Stateless "api" middleware group (no CSRF, no session) — see
+        // routes/api.php's own docblock for why this exists: license
+        // check-in/release-download calls come from an external
+        // self-hosted server, not a browser, and would otherwise 419
+        // against routes/web.php's default CSRF protection.
+        api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )

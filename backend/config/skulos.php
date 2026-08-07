@@ -2891,8 +2891,30 @@ return [
     'self_hosted' => env('SKULOS_SELF_HOSTED', false),
     'self_hosted_license' => [
         'endpoint' => env('SKULOS_LICENSE_ENDPOINT', 'https://skulos.app/api/license/verify'),
+        // Release management (2026-08-07): the sibling endpoints
+        // ReleaseDownloadController exposes, each independently
+        // env-overridable rather than derived by string-manipulating
+        // 'endpoint' above, so customizing one alone never silently
+        // breaks the others.
+        'latest_release_endpoint' => env('SKULOS_LICENSE_LATEST_RELEASE_ENDPOINT', 'https://skulos.app/api/license/latest-release'),
+        'download_endpoint' => env('SKULOS_LICENSE_DOWNLOAD_ENDPOINT', 'https://skulos.app/api/license/download'),
         'grace_days' => (int) env('SKULOS_LICENSE_GRACE_DAYS', 14),
     ],
+
+    /*
+    | This installation's own current release version (2026-08-07,
+    | release management), e.g. "2026.08.07" — only meaningful on a
+    | self-hosted install, set/updated by the operator in their own .env
+    | as the last step of applying an update (see DEPLOYMENT.md's
+    | "Updating an existing self-hosted install" section). Compared
+    | against School::latest_available_version (set by this install's
+    | own hourly check-in) to decide whether to show an "update
+    | available" banner on the self-hosted license settings screen. Null
+    | on the main platform itself and on a self-hosted install that has
+    | never set it — both correctly show no banner rather than a false
+    | "update available" from comparing against nothing.
+    */
+    'version' => env('SKULOS_VERSION'),
 
     /*
     | Who a platform-owner broadcast reaches within each matched school

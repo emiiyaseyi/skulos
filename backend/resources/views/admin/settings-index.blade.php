@@ -37,5 +37,9 @@
     <h3 style="margin-bottom:.3rem">Self-Hosted License</h3>
     <p class="muted">Only for a self-hosted installation: the license key it checks in with, and its current status.</p>
   </a>
+  <a class="card" href="{{ route('admin.releases.index') }}" style="text-decoration:none;color:inherit;display:block">
+    <h3 style="margin-bottom:.3rem">Releases</h3>
+    <p class="muted">Build and publish the code releases self-hosted schools pull through their license.</p>
+  </a>
 </div>
 @endsection

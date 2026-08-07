@@ -66,6 +66,7 @@ class School extends Model
         'license_issued_at',
         'license_last_verified_at',
         'license_grace_started_at',
+        'latest_available_version',
     ];
 
     /**

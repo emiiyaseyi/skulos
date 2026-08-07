@@ -29,6 +29,10 @@ use Illuminate\Support\Str;
  */
 class LicenseService
 {
+    public function __construct(protected ReleaseService $releases)
+    {
+    }
+
     public function generateKey(): string
     {
         return 'SKL-'.strtoupper(Str::random(4)).'-'.strtoupper(Str::random(4)).'-'.strtoupper(Str::random(4));
@@ -87,7 +91,19 @@ class LicenseService
             return ['valid' => false, 'reason' => $school->suspension_reason ?: 'inactive'];
         }
 
-        return ['valid' => true, 'reason' => null, 'school_name' => $school->name];
+        // Bundled into the routine check-in response (2026-08-07) rather
+        // than a second endpoint the self-hosted side would have to poll
+        // separately — one HTTP round trip per hourly check-in either way.
+        $latest = $this->releases->latestPublished();
+
+        return [
+            'valid' => true,
+            'reason' => null,
+            'school_name' => $school->name,
+            'latest_version' => $latest?->version,
+            'latest_release_notes' => $latest?->notes,
+            'latest_release_checksum' => $latest?->checksum,
+        ];
     }
 
     /**
@@ -115,16 +131,18 @@ class LicenseService
         $graceDays = (int) config('skulos.self_hosted_license.grace_days', 14);
 
         $valid = false;
+        $latestVersion = null;
 
         try {
             $response = Http::timeout(10)->post($endpoint, ['license_key' => $school->license_key]);
             $valid = $response->successful() && (bool) $response->json('valid');
+            $latestVersion = $response->json('latest_version');
         } catch (\Throwable $e) {
             Log::warning("License check-in failed for school {$school->slug}: ".$e->getMessage());
         }
 
         if ($valid) {
-            $updates = ['license_last_verified_at' => now(), 'license_grace_started_at' => null];
+            $updates = ['license_last_verified_at' => now(), 'license_grace_started_at' => null, 'latest_available_version' => $latestVersion];
             if ($school->status === School::STATUS_SUSPENDED && $school->suspension_reason === School::SUSPENSION_REASON_LICENSE_EXPIRED) {
                 $updates['status'] = School::STATUS_ACTIVE;
                 $updates['suspension_reason'] = null;

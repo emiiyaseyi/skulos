@@ -45,14 +45,6 @@ Route::domain($appDomain)->group(function () {
     Route::post('/trial', [\App\Http\Controllers\TrialRequestController::class, 'store'])->name('trial.store');
     Route::get('/trial/thanks', [\App\Http\Controllers\TrialRequestController::class, 'thanks'])->name('trial.thanks');
 
-    // Self-hosted license check-in (user request 2026-07-18): called by a
-    // school's own self-hosted deployment, never by a browser. No auth,
-    // the license key itself is the credential; throttled since it is
-    // unauthenticated.
-    Route::post('/api/license/verify', [\App\Http\Controllers\LicenseVerifyController::class, 'verify'])
-        ->middleware('throttle:30,1')
-        ->name('license.verify');
-
     Route::middleware(['auth', 'super_admin'])->prefix('admin')->name('admin.')->group(function () {
         Route::get('/', [\App\Http\Controllers\Admin\PlatformDashboardController::class, 'index'])->name('dashboard');
         Route::get('/trial-requests', [\App\Http\Controllers\Admin\TrialRequestAdminController::class, 'index'])->name('trial-requests.index');
@@ -158,6 +150,21 @@ Route::domain($appDomain)->group(function () {
             $license = \App\Http\Controllers\Admin\LicenseSettingsController::class;
             Route::get('/', [$license, 'edit'])->name('edit');
             Route::post('/', [$license, 'update'])->name('update');
+            Route::post('/download-update', [$license, 'downloadUpdate'])->name('download-update');
+        });
+
+        // Self-hosted licensing: release management (2026-08-07) — a
+        // platform admin builds/publishes the packaged code releases a
+        // self-hosted school's own install can pull through the
+        // license-gated API endpoints (routes/api.php).
+        Route::prefix('releases')->name('releases.')->group(function () {
+            $releases = \App\Http\Controllers\Admin\ReleaseController::class;
+            Route::get('/', [$releases, 'index'])->name('index');
+            Route::post('/', [$releases, 'store'])->name('store');
+            Route::post('/{release}/publish', [$releases, 'publish'])->name('publish');
+            Route::post('/{release}/unpublish', [$releases, 'unpublish'])->name('unpublish');
+            Route::delete('/{release}', [$releases, 'destroy'])->name('destroy');
+            Route::get('/{release}/download', [$releases, 'download'])->name('download');
         });
 
         Route::prefix('subscriptions')->name('subscriptions.')->group(function () {

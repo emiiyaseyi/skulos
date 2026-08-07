@@ -14,6 +14,7 @@
   @if($school)
     <table style="margin-bottom:1.2rem">
       <tbody>
+        <tr><th>Installed version</th><td>{{ config('skulos.version') ?: 'Not set' }}</td></tr>
         <tr><th>Last check-in</th><td>{{ $school->license_last_verified_at?->toDayDateTimeString() ?: 'Never checked in yet' }}</td></tr>
         <tr>
           <th>Status</th>
@@ -31,6 +32,17 @@
         </tr>
       </tbody>
     </table>
+
+    @if($school->latest_available_version && $school->latest_available_version !== config('skulos.version'))
+      <div class="card" style="background:var(--soft);margin-bottom:1.2rem">
+        <h3 style="margin-bottom:.3rem">Update available: {{ $school->latest_available_version }}</h3>
+        <p class="muted" style="margin-bottom:.8rem">Download the release, verify its checksum, then apply it yourself over SSH — see "Updating an existing self-hosted install" in DEPLOYMENT.md. This never applies anything automatically.</p>
+        <form method="POST" action="{{ route('admin.settings.self-hosted-license.download-update') }}">
+          @csrf
+          <button class="btn btn-primary btn-sm" type="submit">Download update</button>
+        </form>
+      </div>
+    @endif
   @endif
 
   <form method="POST" action="{{ route('admin.settings.self-hosted-license.update') }}">
