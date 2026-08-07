@@ -66,7 +66,14 @@ class TrialRequestStatusMail extends Mailable
             $text .= "\n\nYour sign in details\nPortal: {$this->credentials['portal_url']}\nEmail: {$this->credentials['email']}\nTemporary password: {$this->credentials['password']}\n\nPlease sign in and change this password as soon as you can.";
         }
 
-        $html .= '<a href="'.config('app.url').'" style="display:inline-block;background-color:#E8A33D;color:#241503;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;">'
+        // On approval this must be the school's OWN portal URl (the one
+        // shown in the sign in details box just above), not the platform
+        // marketing root — found live 2026-08-07 while verifying the
+        // trial-approval flow end to end: the button silently sent a
+        // brand new customer to the generic homepage instead of straight
+        // to their own school's login page.
+        $ctaUrl = $approved && $this->credentials ? $this->credentials['portal_url'] : config('app.url');
+        $html .= '<a href="'.e($ctaUrl).'" style="display:inline-block;background-color:#E8A33D;color:#241503;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;">'
             .($approved ? 'Go to your school portal' : 'Visit SKULOS').'</a>';
 
         return new Content(

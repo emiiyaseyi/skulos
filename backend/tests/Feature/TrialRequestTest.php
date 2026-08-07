@@ -130,6 +130,32 @@ class TrialRequestTest extends TestCase
     }
 
     /**
+     * Real bug found 2026-08-07 live-verifying the whole trial flow end
+     * to end: the approval email's own "Go to your school portal" button
+     * ignored the school's real portal_url (shown correctly in the sign
+     * in details box directly above it) and linked to the generic
+     * platform marketing root instead — a brand new customer's very
+     * first click after signup would have landed on the wrong page.
+     */
+    public function test_the_approval_emails_own_button_links_to_the_new_schools_real_portal_not_the_platform_root(): void
+    {
+        Mail::fake();
+        $admin = $this->superAdmin();
+        $trial = TrialRequest::create([
+            'school_name' => 'Button Check Academy', 'contact_name' => 'Chidi', 'email' => 'chidi@buttoncheck.test',
+        ]);
+
+        $this->actingAs($admin)->post(route('admin.trial-requests.approve', $trial));
+
+        Mail::assertSent(TrialRequestStatusMail::class, function ($mail) {
+            $html = $mail->render();
+
+            return str_contains($html, 'href="'.$mail->credentials['portal_url'].'"')
+                && ! str_contains($html, 'href="'.config('app.url').'"');
+        });
+    }
+
+    /**
      * Bug found 2026-07-16 (user report: a platform broadcast to "school
      * owners" reached 0 schools). The new owner's role_id used to point
      * at the shared TEMPLATE role (school_id null, id=1 for every
