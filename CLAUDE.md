@@ -2,6 +2,24 @@
 
 This file exists so any future Claude session (or a different agent entirely) can pick up this project cold and have full context. Read this first, then [DEVELOPMENT_TRACKER.md](./DEVELOPMENT_TRACKER.md) for the complete build backlog and live status.
 
+### Live queue (2026-08-07) — Pre-launch readiness check: self-service "create a school" + "request a trial/demo" flow live-verified end to end, one real bug found and fixed
+
+User asked to "doublecheck that everything works fine in preparation for when i go live," specifically naming: can a new school be created, and can users request a demo/trial. The only self-service "create a new school" path in this app IS the "Start a Trial" lead form (`/trial` — no separate "sign up and create your own school instantly" flow exists, nor an automatic "1 term free" plan; a platform admin reviews every request and can waive billing per-school afterward via the existing `BillingWaiver` model if they choose to).
+
+**Live-verified for real on the running dev server** (`php artisan serve`, not just tinker): submitted a real trial request through the public `/trial` form, logged in as a (test) platform super admin, approved it from `/admin/trial-requests`, confirmed a real `School` row + a genuinely provisioned tenant database were created, confirmed the new owner could sign in at the school's own real subdomain and see a working, Foundation-tier-populated dashboard (default `Plan` correctly applies when no plan is explicitly assigned). All test artifacts (school, tenant sqlite file, owner user, trial request row) removed afterward.
+
+**A real bug found and fixed along the way** (`9ce2aec`): the approval email's own "Go to your school portal" button ignored `$credentials['portal_url']` (the correct link, shown right above it in the same email) and linked to the generic platform marketing root instead — a brand new customer's very first click after signup would have landed on the wrong page. New regression test (`TrialRequestTest::test_the_approval_emails_own_button_links_to_the_new_schools_real_portal_not_the_platform_root`) locks this in; full `TrialRequest`/`PlatformFlow`/`PlatformDashboard` suite re-run together, 50/50 passing.
+
+**Other launch-readiness facts surfaced, not fixed (business/ops decisions, not code gaps)**:
+- **No payment gateway is installed** (checked `composer.json`, confirmed no Paystack/Flutterwave/Stripe package) — Finance is bank-transfer evidence upload + human verification only, by original design, not an oversight. Whoever owns pricing/ops needs to know payment collection is manual at launch, not automated.
+- The queue worker cron (`Schedule::command('queue:work --stop-when-empty --max-time=50')`) is correctly wired in `routes/console.php`, piggybacking on the `schedule:run` cron cPanel deploys already need — confirmed present, not re-verified against a real cPanel cron entry (no production hosting exists yet).
+- **`DEVELOPMENT_TRACKER.md`'s own launch-blocking checklist near the "SKULOS FOUNDATION"/"SKULOS ADVANCE" headings is stale** — it still marks Online Admissions/Admission Workflow/Applicant Tracking/Admission Letters/Online Document Upload as "NOT BUILT", all of which are now extensively built (see this file's own Admissions entries above). Do not trust that checklist's checkboxes at face value; this file (CLAUDE.md) and the tracker's own Build Log narrative are more current. Refreshing that checklist section is a real, separate follow-up task, not done here.
+- Process/content items genuinely outside code's ability to verify: Staff Onboarding & Training materials, a defined Standard/Priority Support SLA, Implementation Assistance service — these are on the user, not something to "test."
+
+This was a scoped verification pass (the two flows the user explicitly named, plus a handful of high-value operational spot checks), not an exhaustive audit of the entire platform — flagged honestly rather than claiming a full sweep that didn't happen.
+
+---
+
 ## Session handover (read this first — kept current per user directive 2026-07-26: "always update the CLAUDE.md file on what you are doing, done and what's left"; and 2026-07-27: "so that no feedback is lost in my multiple work flow and responses, immediately i give a feedback or response or chat, update my current tasks list with what i have — update the claude.md with this now". This section is now updated the moment new feedback comes in, not just at session end — if you are reading this mid-session, the "Live queue" block below is the actual current state, more current than the narrative prose further down.)
 
 ### Live queue (2026-08-06, latest) — Automated admissions enrollment pipeline: BUILT, TESTED, LIVE-VERIFIED ON GREENFIELD, committed and pushed (`20974d4`, `dcf4cf8`)
