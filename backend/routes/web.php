@@ -829,6 +829,11 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/scores/bulk-template', [$examinations, 'bulkTemplate'])->name('scores.bulk-template');
             Route::post('/scores/bulk-upload', [$examinations, 'bulkUpload'])->name('scores.bulk-upload');
 
+            $workbook = \App\Http\Controllers\School\BulkScoreWorkbookController::class;
+            Route::get('/workbook', [$workbook, 'form'])->name('workbook');
+            Route::get('/workbook/download', [$workbook, 'download'])->name('workbook.download');
+            Route::post('/workbook/upload', [$workbook, 'upload'])->name('workbook.upload');
+
             $assessment = \App\Http\Controllers\School\AssessmentController::class;
             Route::get('/structure', [$assessment, 'index'])->name('structure');
             Route::post('/structure/apply-defaults', [$assessment, 'applyDefaults'])->name('structure.apply-defaults');

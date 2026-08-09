@@ -116,6 +116,41 @@ class ResultsTest extends TestCase
         $this->assertSame('C', $result['grade']);
     }
 
+    /**
+     * Mid-term report cards (2026-08-07): a subset of components (First
+     * CA + Second CA here, summing to only 40, not 100) must be
+     * normalized to a percentage of its OWN total before grade-band
+     * lookup, otherwise a perfect 40/40 would land in the bottom "F"
+     * band meant for a 0-100 scale. The raw 'total' stays the
+     * unnormalized sum for display; 'percentage' carries the normalized
+     * figure the band was actually looked up against.
+     */
+    public function test_subject_result_normalizes_a_component_subset_before_grading(): void
+    {
+        $chidi = Student::create(['admission_number' => 'A3', 'first_name' => 'Chidi', 'last_name' => 'Eze']);
+        $this->enterScores($chidi, [18, 16, 52]); // First CA 18, Second CA 16, Exam 52 (ignored below)
+
+        $caComponentIds = [$this->components[0]->id, $this->components[1]->id];
+        $result = app(ResultService::class)->subjectResult($chidi->id, $this->maths->id, $this->term->id, null, $caComponentIds);
+
+        // Raw sum of just the two CA components (18+16), not normalized.
+        $this->assertSame(34.0, $result['total']);
+        // 34 out of a possible 40 (20+20) = 85%, correctly landing in the "A" band.
+        $this->assertSame(85.0, $result['percentage']);
+        $this->assertSame('A', $result['grade']);
+        $this->assertSame(['First CA' => 18.0, 'Second CA' => 16.0], $result['components']);
+    }
+
+    /** When $allowedComponentIds is omitted entirely (every pre-existing caller), behavior is byte-for-byte identical to before this parameter existed: percentage equals the raw total. */
+    public function test_subject_result_percentage_equals_total_when_no_component_filter_is_given(): void
+    {
+        $ada = Student::create(['admission_number' => 'A4', 'first_name' => 'Ada', 'last_name' => 'Obi']);
+        $this->enterScores($ada, [18, 16, 52]);
+
+        $result = app(ResultService::class)->subjectResult($ada->id, $this->maths->id, $this->term->id);
+        $this->assertSame($result['total'], $result['percentage']);
+    }
+
     public function test_broadsheet_ranks_students_by_total(): void
     {
         $ada = Student::create(['admission_number' => 'A1', 'first_name' => 'Ada', 'last_name' => 'Obi']);

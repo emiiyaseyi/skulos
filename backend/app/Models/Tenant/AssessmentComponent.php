@@ -33,11 +33,16 @@ class AssessmentComponent extends Model
 
     protected $connection = 'tenant';
 
-    protected $fillable = ['term_id', 'name', 'type', 'max_score', 'sequence'];
+    protected $fillable = ['term_id', 'name', 'type', 'counts_for_midterm', 'counts_for_fullterm', 'max_score', 'sequence'];
 
     protected function casts(): array
     {
-        return ['max_score' => 'decimal:2', 'sequence' => 'integer'];
+        return [
+            'max_score' => 'decimal:2',
+            'sequence' => 'integer',
+            'counts_for_midterm' => 'boolean',
+            'counts_for_fullterm' => 'boolean',
+        ];
     }
 
     public function term(): BelongsTo
@@ -67,6 +72,25 @@ class AssessmentComponent extends Model
     public static function totalPossible(Term|int|null $term = null): float
     {
         return (float) static::forTerm($term)->sum('max_score');
+    }
+
+    /**
+     * The active structure for a term, narrowed to only the components
+     * an admin has opted into the given report type (mid-term report
+     * cards, 2026-08-07). Layers on top of forTerm() above, not
+     * instead of it: still respects the universal-vs-term-fork lookup,
+     * then filters by whichever of the two boolean flags applies.
+     */
+    public static function forReportType(Term|int|null $term, string $reportType): Collection
+    {
+        $flag = $reportType === ReportCardReview::REPORT_TYPE_MID_TERM ? 'counts_for_midterm' : 'counts_for_fullterm';
+
+        return static::forTerm($term)->where($flag, true)->values();
+    }
+
+    public static function totalPossibleForReportType(Term|int|null $term, string $reportType): float
+    {
+        return (float) static::forReportType($term, $reportType)->sum('max_score');
     }
 
     public function scopeCa($query)

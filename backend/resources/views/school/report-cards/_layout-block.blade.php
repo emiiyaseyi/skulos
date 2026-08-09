@@ -31,7 +31,7 @@
     @if($school->alternate_phone)<p class="rc-lb-text">{{ $school->alternate_phone }}</p>@endif
     @break
   @case('term_session')
-    <div class="term">{{ $data['term']['name'] }} Report &middot; {{ $data['term']['session'] }}</div>
+    <div class="term">{{ $data['term']['name'] }} @if(($data['report_type'] ?? 'full_term') === 'mid_term')Mid Term Report @else Report @endif&middot; {{ $data['term']['session'] }}</div>
     @break
   @case('student_name')
     <div><b>Name</b>{{ $data['identity']['name'] }}</div>

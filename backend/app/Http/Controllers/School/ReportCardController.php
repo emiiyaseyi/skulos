@@ -291,9 +291,11 @@ class ReportCardController extends Controller
         $student = Student::with('currentClassArm.schoolClass')->findOrFail($request->route('studentId'));
         $this->assertStudentVisible($request, $student);
         $term = Term::findOrFail($request->route('termId'));
+        $reportType = $this->resolveReportType($request);
 
         if ($isFamilyScoped) {
             $released = ReportCardReview::where('student_id', $student->id)->where('term_id', $term->id)
+                ->where('report_type', $reportType)
                 ->whereIn('status', ReportCardReview::VISIBLE_TO_FAMILY)->exists();
             abort_unless($released, 404);
         }
@@ -301,14 +303,18 @@ class ReportCardController extends Controller
         // Narrative Evaluation (2026-07-18, per-term 2026-07-26): overrides
         // the school's own global template choice for this one student's
         // class, for this one term, same reasoning as classEntry() below.
-        $narrativeClass = $student->currentClassArm?->schoolClass?->isNarrativeEvaluationForTerm($term->id);
+        // Deliberately not applied to a mid-term report: Narrative
+        // Evaluation is a comments-only, no-scores template, meaningless
+        // for a report built from a subset of scored components.
+        $narrativeClass = $reportType === ReportCardReview::REPORT_TYPE_FULL_TERM
+            && $student->currentClassArm?->schoolClass?->isNarrativeEvaluationForTerm($term->id);
 
         return view('school.report-cards.render', [
             'school' => $school,
             'accent' => $school->branding()['color'],
             'template' => $narrativeClass ? 'narrative' : $prefs->template(),
             'fields' => $prefs->fields(),
-            'data' => $cards->forStudent($student, $term),
+            'data' => $cards->forStudent($student, $term, null, $reportType),
             'gradeBands' => $this->gradeBands(),
             'layoutEnabled' => $layout->enabled(),
             'layoutZones' => $layout->zones(),
@@ -566,6 +572,22 @@ class ReportCardController extends Controller
     }
 
     /**
+     * Which report type (mid-term or full-term) a request is acting on
+     * (2026-08-07), the same "read from either a GET query string or a
+     * POST body field" shape as resolveTerm() above. Defaults to
+     * full-term so every existing form/link that predates this feature
+     * (no report_type field at all) keeps behaving exactly as before.
+     */
+    protected function resolveReportType(Request $request): string
+    {
+        $reportType = $request->input('report_type', ReportCardReview::REPORT_TYPE_FULL_TERM);
+
+        return in_array($reportType, [ReportCardReview::REPORT_TYPE_MID_TERM, ReportCardReview::REPORT_TYPE_FULL_TERM], true)
+            ? $reportType
+            : ReportCardReview::REPORT_TYPE_FULL_TERM;
+    }
+
+    /**
      * One class's students with their report card review status for the
      * selected (or current) term (user request 2026-07-11: "from each one
      * can either view a report card of a student, generate report card,
@@ -578,6 +600,7 @@ class ReportCardController extends Controller
         $school = $this->school($request);
         $class = SchoolClass::with(['section', 'arms'])->findOrFail($request->route('classId'));
         $term = $this->resolveTerm($request);
+        $reportType = $this->resolveReportType($request);
 
         $armIds = $class->arms->pluck('id');
 
@@ -602,6 +625,7 @@ class ReportCardController extends Controller
         }
         $reviews = ReportCardReview::whereIn('student_id', $students->pluck('id'))
             ->where('term_id', $term->id)
+            ->where('report_type', $reportType)
             ->with('assignedTo')
             ->get()
             ->keyBy('student_id');
@@ -611,6 +635,7 @@ class ReportCardController extends Controller
             'accent' => $school->branding()['color'],
             'class' => $class,
             'term' => $term,
+            'reportType' => $reportType,
             'students' => $students,
             'reviews' => $reviews,
             'staffOptions' => Staff::active()->orderBy('first_name')->get(),
@@ -638,6 +663,7 @@ class ReportCardController extends Controller
         $school = $this->school($request);
         $class = SchoolClass::with(['section', 'arms'])->findOrFail($request->route('classId'));
         $term = $this->resolveTerm($request);
+        $reportType = $this->resolveReportType($request);
 
         $armIds = $class->arms->pluck('id');
         $scopedArmIds = app(TeacherScope::class)->classArmIds(Auth::user(), $school);
@@ -646,13 +672,15 @@ class ReportCardController extends Controller
         }
 
         $students = Student::whereIn('current_class_arm_id', $armIds)->orderBy('last_name')->get();
-        $template = $class->isNarrativeEvaluationForTerm($term->id) ? 'narrative' : $prefs->template();
+        $template = ($reportType === ReportCardReview::REPORT_TYPE_FULL_TERM && $class->isNarrativeEvaluationForTerm($term->id))
+            ? 'narrative' : $prefs->template();
 
         return view('school.report-cards.class-print', [
             'school' => $school,
             'accent' => $school->branding()['color'],
             'class' => $class,
             'term' => $term,
+            'report_type' => $reportType,
             'template' => $template,
             'fields' => $prefs->fields(),
             'gradeBands' => $this->gradeBands(),
@@ -665,7 +693,7 @@ class ReportCardController extends Controller
             'headerAlign' => $layout->headerAlign(),
             'bodyAlign' => $layout->bodyAlign(),
             'customBlocks' => $this->customBlocksKeyed(),
-            'reportData' => $students->map(fn (Student $student) => $cards->forStudent($student, $term)),
+            'reportData' => $students->map(fn (Student $student) => $cards->forStudent($student, $term, null, $reportType)),
         ]);
     }
 
@@ -694,13 +722,14 @@ class ReportCardController extends Controller
         $student = Student::with('currentClassArm.schoolClass')->findOrFail($request->route('studentId'));
         $this->assertStudentVisible($request, $student);
         $term = $this->resolveTerm($request);
+        $reportType = $this->resolveReportType($request);
 
         $review = ReportCardReview::firstOrCreate(
-            ['student_id' => $student->id, 'term_id' => $term->id],
+            ['student_id' => $student->id, 'term_id' => $term->id, 'report_type' => $reportType],
             $this->newReviewAttributes($student->currentClassArm?->schoolClass?->default_reviewer_staff_id)
         );
 
-        return back()->with('status', "{$student->fullName()}'s report card is ready to review.");
+        return back()->with('status', "{$student->fullName()}'s ".ReportCardReview::reportTypeLabel($reportType)." is ready to review.");
     }
 
     /** Generate every student in a class at once. */
@@ -709,12 +738,13 @@ class ReportCardController extends Controller
         $this->authorizeAction($request, 'report_cards.create');
         $class = SchoolClass::with('arms')->findOrFail($request->route('classId'));
         $term = $this->resolveTerm($request);
+        $reportType = $this->resolveReportType($request);
         $armIds = $class->arms->pluck('id');
         $studentIds = Student::whereIn('current_class_arm_id', $armIds)->pluck('id');
 
         $created = 0;
         foreach ($studentIds as $studentId) {
-            $review = ReportCardReview::firstOrNew(['student_id' => $studentId, 'term_id' => $term->id]);
+            $review = ReportCardReview::firstOrNew(['student_id' => $studentId, 'term_id' => $term->id, 'report_type' => $reportType]);
             if (! $review->exists) {
                 $review->fill($this->newReviewAttributes($class->default_reviewer_staff_id));
                 $review->save();
@@ -743,13 +773,14 @@ class ReportCardController extends Controller
         $terms = Term::with('session')->orderByDesc('starts_on')->get();
         $termId = $request->integer('term_id') ?: null;
         $term = ($termId ? $terms->firstWhere('id', $termId) : null) ?? $terms->firstWhere('is_current', true) ?? $terms->first();
+        $reportType = $this->resolveReportType($request);
 
         $classes = SchoolClass::with(['section', 'arms'])->get()
             ->sortBy(fn (SchoolClass $c) => sprintf('%05d-%05d', $c->section?->sequence ?? 0, $c->sequence ?? 0))
-            ->map(function (SchoolClass $class) use ($term) {
+            ->map(function (SchoolClass $class) use ($term, $reportType) {
                 $armIds = $class->arms->pluck('id');
                 $studentIds = Student::whereIn('current_class_arm_id', $armIds)->pluck('id');
-                $alreadyGenerated = $term ? ReportCardReview::where('term_id', $term->id)->whereIn('student_id', $studentIds)->count() : 0;
+                $alreadyGenerated = $term ? ReportCardReview::where('term_id', $term->id)->where('report_type', $reportType)->whereIn('student_id', $studentIds)->count() : 0;
 
                 return [
                     'name' => $class->name,
@@ -766,6 +797,7 @@ class ReportCardController extends Controller
             'accent' => $school->branding()['color'],
             'terms' => $terms,
             'term' => $term,
+            'reportType' => $reportType,
             'classes' => $classes,
         ]);
     }
@@ -774,6 +806,7 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.bulk_generate_all');
         $term = $this->resolveTerm($request);
+        $reportType = $this->resolveReportType($request);
 
         $created = 0;
         $classesCovered = 0;
@@ -786,7 +819,7 @@ class ReportCardController extends Controller
             $classesCovered++;
 
             foreach ($studentIds as $studentId) {
-                $review = ReportCardReview::firstOrNew(['student_id' => $studentId, 'term_id' => $term->id]);
+                $review = ReportCardReview::firstOrNew(['student_id' => $studentId, 'term_id' => $term->id, 'report_type' => $reportType]);
                 if (! $review->exists) {
                     $review->fill($this->newReviewAttributes($class->default_reviewer_staff_id));
                     $review->save();
@@ -795,8 +828,8 @@ class ReportCardController extends Controller
             }
         }
 
-        return redirect()->route('school.report-cards.pending-review', ['school' => $this->school($request)->slug])
-            ->with('status', "{$created} report card(s) generated across {$classesCovered} class(es), ready for review.");
+        return redirect()->route('school.report-cards.pending-review', ['school' => $this->school($request)->slug, 'report_type' => $reportType])
+            ->with('status', "{$created} ".ReportCardReview::reportTypeLabel($reportType)." card(s) generated across {$classesCovered} class(es), ready for review.");
     }
 
     /**
@@ -817,10 +850,11 @@ class ReportCardController extends Controller
         $terms = Term::with('session')->orderByDesc('starts_on')->get();
         $termId = $request->integer('term_id') ?: null;
         $term = ($termId ? $terms->firstWhere('id', $termId) : null) ?? $terms->firstWhere('is_current', true) ?? $terms->first();
+        $reportType = $this->resolveReportType($request);
 
         $counts = ['approved' => 0, 'non_approved' => 0, 'already_released' => 0];
         if ($term) {
-            $reviews = ReportCardReview::where('term_id', $term->id)->get(['status']);
+            $reviews = ReportCardReview::where('term_id', $term->id)->where('report_type', $reportType)->get(['status']);
             foreach ($reviews as $review) {
                 if (in_array($review->status, ReportCardReview::VISIBLE_TO_FAMILY, true)) {
                     $counts['already_released']++;
@@ -837,6 +871,7 @@ class ReportCardController extends Controller
             'accent' => $school->branding()['color'],
             'terms' => $terms,
             'term' => $term,
+            'reportType' => $reportType,
             'counts' => $counts,
         ]);
     }
@@ -845,9 +880,11 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.release');
         $term = $this->resolveTerm($request);
+        $reportType = $this->resolveReportType($request);
         $data = $request->validate(['scope' => ['required', Rule::in(['approved', 'non_approved', 'all'])]]);
 
         $query = ReportCardReview::where('term_id', $term->id)
+            ->where('report_type', $reportType)
             ->whereNotIn('status', ReportCardReview::VISIBLE_TO_FAMILY);
 
         if ($data['scope'] === 'approved') {
@@ -866,11 +903,11 @@ class ReportCardController extends Controller
         // release report card"), a bulk release previously told nobody at
         // all despite being the more commonly used release path.
         foreach (Student::whereIn('id', $studentIds)->get() as $student) {
-            $this->notifyFamilyOfRelease($student, $term);
+            $this->notifyFamilyOfRelease($student, $term, $reportType);
         }
 
-        return redirect()->route('school.report-cards.bulk-release', ['school' => $this->school($request)->slug, 'term_id' => $term->id])
-            ->with('status', "{$count} report card(s) released for {$term->name}.");
+        return redirect()->route('school.report-cards.bulk-release', ['school' => $this->school($request)->slug, 'term_id' => $term->id, 'report_type' => $reportType])
+            ->with('status', "{$count} ".ReportCardReview::reportTypeLabel($reportType)." card(s) released for {$term->name}.");
     }
 
     /** Which staff member auto reviews every report card generated for this class (user request 2026-07-11). */
@@ -892,6 +929,7 @@ class ReportCardController extends Controller
         $student = Student::findOrFail($request->route('studentId'));
         $this->assertStudentVisible($request, $student);
         $term = $this->resolveTerm($request);
+        $reportType = $this->resolveReportType($request);
 
         $data = $request->validate([
             'assigned_to_staff_id' => ['required', 'exists:tenant.staff,id'],
@@ -900,7 +938,7 @@ class ReportCardController extends Controller
             'notes.required' => 'A comment is required when sending a report card back for correction.',
         ]);
 
-        $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id]);
+        $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id, 'report_type' => $reportType]);
         $review->fill([
             'status' => ReportCardReview::STATUS_NEEDS_CORRECTION,
             // A correction restarts the chain from the first stage, the
@@ -926,6 +964,7 @@ class ReportCardController extends Controller
         $this->authorizeAction($request, 'report_cards.update');
         $school = $this->school($request);
         $term = $this->resolveTerm($request);
+        $reportType = $this->resolveReportType($request);
 
         $data = $request->validate([
             'student_ids' => ['required', 'array', 'min:1'],
@@ -940,13 +979,13 @@ class ReportCardController extends Controller
             ? Student::whereIn('id', $data['student_ids'])->whereIn('current_class_arm_id', $scopedArmIds)->pluck('id')
             : collect($data['student_ids']);
 
-        $reviews = ReportCardReview::whereIn('student_id', $studentIds)->where('term_id', $term->id)->get()
+        $reviews = ReportCardReview::whereIn('student_id', $studentIds)->where('term_id', $term->id)->where('report_type', $reportType)->get()
             ->keyBy('student_id');
 
         $sent = 0;
         $skipped = 0;
         foreach ($studentIds as $studentId) {
-            $review = $reviews->get($studentId) ?? ReportCardReview::firstOrNew(['student_id' => $studentId, 'term_id' => $term->id]);
+            $review = $reviews->get($studentId) ?? ReportCardReview::firstOrNew(['student_id' => $studentId, 'term_id' => $term->id, 'report_type' => $reportType]);
 
             if (! $review->assigned_to_staff_id) {
                 $skipped++;
@@ -977,10 +1016,11 @@ class ReportCardController extends Controller
         $student = Student::findOrFail($request->route('studentId'));
         $this->assertStudentVisible($request, $student);
         $term = $this->resolveTerm($request);
+        $reportType = $this->resolveReportType($request);
 
         $data = $request->validate(['assigned_to_staff_id' => ['nullable', 'exists:tenant.staff,id']]);
 
-        $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id]);
+        $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id, 'report_type' => $reportType]);
         if (! $review->exists) {
             $review->status = ReportCardReview::STATUS_PENDING_REVIEW;
         }
@@ -1001,6 +1041,7 @@ class ReportCardController extends Controller
         $this->authorizeAction($request, 'report_cards.assign_review');
         $school = $this->school($request);
         $term = $this->resolveTerm($request);
+        $reportType = $this->resolveReportType($request);
 
         $data = $request->validate([
             'student_ids' => ['required', 'array', 'min:1'],
@@ -1018,7 +1059,7 @@ class ReportCardController extends Controller
 
         $count = 0;
         foreach ($studentIds as $studentId) {
-            $review = ReportCardReview::firstOrNew(['student_id' => $studentId, 'term_id' => $term->id]);
+            $review = ReportCardReview::firstOrNew(['student_id' => $studentId, 'term_id' => $term->id, 'report_type' => $reportType]);
             if (! $review->exists) {
                 $review->status = ReportCardReview::STATUS_PENDING_REVIEW;
             }
@@ -1044,8 +1085,9 @@ class ReportCardController extends Controller
         $student = Student::findOrFail($request->route('studentId'));
         $this->assertStudentVisible($request, $student);
         $term = $this->resolveTerm($request);
+        $reportType = $this->resolveReportType($request);
 
-        $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id]);
+        $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id, 'report_type' => $reportType]);
 
         if ($review->isFinalStage()) {
             $review->status = ReportCardReview::STATUS_APPROVED;
@@ -1069,6 +1111,7 @@ class ReportCardController extends Controller
         $this->authorizeAction($request, 'report_cards.assign_review');
         $school = $this->school($request);
         $term = $this->resolveTerm($request);
+        $reportType = $this->resolveReportType($request);
 
         $data = $request->validate([
             'student_ids' => ['required', 'array', 'min:1'],
@@ -1086,7 +1129,7 @@ class ReportCardController extends Controller
 
         $count = 0;
         foreach ($students as $student) {
-            $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id]);
+            $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id, 'report_type' => $reportType]);
 
             if ($review->isFinalStage()) {
                 $review->status = ReportCardReview::STATUS_APPROVED;
@@ -1114,6 +1157,7 @@ class ReportCardController extends Controller
         $student = Student::findOrFail($request->route('studentId'));
         $this->assertStudentVisible($request, $student);
         $term = $this->resolveTerm($request);
+        $reportType = $this->resolveReportType($request);
 
         $data = $request->validate([
             'promotion_recommendation' => ['required', Rule::in([
@@ -1122,7 +1166,7 @@ class ReportCardController extends Controller
             'promotion_reason' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id]);
+        $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id, 'report_type' => $reportType]);
         $review->fill($data)->save();
 
         return back()->with('status', "{$student->fullName()}'s promotion recommendation saved.");
@@ -1135,13 +1179,14 @@ class ReportCardController extends Controller
         $student = Student::findOrFail($request->route('studentId'));
         $this->assertStudentVisible($request, $student);
         $term = $this->resolveTerm($request);
+        $reportType = $this->resolveReportType($request);
 
-        $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id]);
+        $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id, 'report_type' => $reportType]);
         $review->status = ReportCardReview::STATUS_RELEASED;
         $review->released_at = now();
         $review->save();
 
-        $this->notifyFamilyOfRelease($student, $term);
+        $this->notifyFamilyOfRelease($student, $term, $reportType);
 
         return back()->with('status', "{$student->fullName()}'s report card released.");
     }
@@ -1155,7 +1200,7 @@ class ReportCardController extends Controller
      * release only ever changed the underlying ReportCardReview status,
      * nothing told the family it had happened.
      */
-    protected function notifyFamilyOfRelease(Student $student, Term $term): void
+    protected function notifyFamilyOfRelease(Student $student, Term $term, string $reportType = ReportCardReview::REPORT_TYPE_FULL_TERM): void
     {
         $userIds = \App\Models\Tenant\StudentGuardian::where('student_id', $student->id)
             ->whereNotNull('guardian_user_id')->pluck('guardian_user_id');
@@ -1163,13 +1208,14 @@ class ReportCardController extends Controller
             $userIds->push($student->user_id);
         }
 
+        $label = ReportCardReview::reportTypeLabel($reportType);
         foreach ($userIds->unique() as $userId) {
             \App\Models\Tenant\Notification::create([
                 'user_id' => $userId,
                 'category' => 'report_card_released',
                 'type' => \App\Models\Tenant\Notification::typeFor('report_card_released'),
                 'title' => 'Report card released',
-                'body' => "{$student->fullName()}'s {$term->name} report card is now available.",
+                'body' => "{$student->fullName()}'s {$term->name} {$label} is now available.",
             ]);
         }
     }
@@ -1190,8 +1236,9 @@ class ReportCardController extends Controller
         $student = Student::findOrFail($request->route('studentId'));
         $this->assertStudentVisible($request, $student);
         $term = $this->resolveTerm($request);
+        $reportType = $this->resolveReportType($request);
 
-        $review = ReportCardReview::where('student_id', $student->id)->where('term_id', $term->id)->firstOrFail();
+        $review = ReportCardReview::where('student_id', $student->id)->where('term_id', $term->id)->where('report_type', $reportType)->firstOrFail();
         abort_unless($review->status === ReportCardReview::STATUS_RELEASED, 422, 'Only a released report card can be locked.');
 
         $review->status = ReportCardReview::STATUS_LOCKED;
@@ -1208,8 +1255,9 @@ class ReportCardController extends Controller
         $student = Student::findOrFail($request->route('studentId'));
         $this->assertStudentVisible($request, $student);
         $term = $this->resolveTerm($request);
+        $reportType = $this->resolveReportType($request);
 
-        $review = ReportCardReview::where('student_id', $student->id)->where('term_id', $term->id)->firstOrFail();
+        $review = ReportCardReview::where('student_id', $student->id)->where('term_id', $term->id)->where('report_type', $reportType)->firstOrFail();
         abort_unless(
             in_array($review->status, [ReportCardReview::STATUS_RELEASED, ReportCardReview::STATUS_LOCKED], true),
             422,
@@ -1234,6 +1282,7 @@ class ReportCardController extends Controller
         $this->authorizeAction($request, 'report_cards.assign_review');
         $school = $this->school($request);
         $term = $this->currentTermOrAbort();
+        $reportType = $this->resolveReportType($request);
 
         // Paginated (Dbase recommendation standing rule: "paginate every
         // list screen"), found still missing here 2026-07-24 once the
@@ -1245,6 +1294,7 @@ class ReportCardController extends Controller
         // tradeoff every other paginated list screen in the app already
         // makes.
         $reviews = ReportCardReview::where('term_id', $term->id)
+            ->where('report_type', $reportType)
             ->whereIn('status', [ReportCardReview::STATUS_PENDING_REVIEW, ReportCardReview::STATUS_NEEDS_CORRECTION])
             ->with(['student.currentClassArm.schoolClass', 'assignedTo'])
             ->orderBy('updated_at')
@@ -1255,6 +1305,7 @@ class ReportCardController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'term' => $term,
+            'reportType' => $reportType,
             'reviews' => $reviews,
             'staffOptions' => Staff::active()->orderBy('first_name')->get(),
             'sections' => Section::with(['classes' => fn ($q) => $q->active()->orderBy('sequence')])->orderBy('sequence')->get(),
@@ -1272,8 +1323,9 @@ class ReportCardController extends Controller
         $student = Student::findOrFail($request->route('studentId'));
         $this->assertStudentVisible($request, $student);
         $term = $this->currentTermOrAbort();
+        $reportType = $this->resolveReportType($request);
 
-        $review = ReportCardReview::where('student_id', $student->id)->where('term_id', $term->id)->firstOrFail();
+        $review = ReportCardReview::where('student_id', $student->id)->where('term_id', $term->id)->where('report_type', $reportType)->firstOrFail();
         $staff = $review->assignedTo;
 
         if (! $staff) {
@@ -1305,6 +1357,7 @@ class ReportCardController extends Controller
         $this->authorizeAction($request, 'report_cards.assign_review');
         $school = $this->school($request);
         $term = $this->currentTermOrAbort();
+        $reportType = $this->resolveReportType($request);
 
         $data = $request->validate([
             'student_ids' => ['required', 'array', 'min:1'],
@@ -1316,7 +1369,7 @@ class ReportCardController extends Controller
             ? Student::whereIn('id', $data['student_ids'])->whereIn('current_class_arm_id', $scopedArmIds)->pluck('id')
             : collect($data['student_ids']);
 
-        $reviews = ReportCardReview::whereIn('student_id', $studentIds)->where('term_id', $term->id)->with('assignedTo', 'student')->get();
+        $reviews = ReportCardReview::whereIn('student_id', $studentIds)->where('term_id', $term->id)->where('report_type', $reportType)->with('assignedTo', 'student')->get();
 
         $nudged = 0;
         $skipped = 0;

@@ -82,7 +82,8 @@
         <p>{{ $school->motto }}</p>
       @endif
       @php($rcSessionYears = $data['term']['session'] ? trim(preg_replace('/\s*Session$/i', '', $data['term']['session'])) : null)
-      <div class="term">{{ $data['term']['name'] }} Report @if($rcSessionYears && ! str_contains($data['term']['name'], $rcSessionYears))&middot; {{ $data['term']['session'] }}@endif</div>
+      @php($rcReportTypeLabel = ($data['report_type'] ?? 'full_term') === 'mid_term' ? 'Mid Term Report' : 'Report')
+      <div class="term">{{ $data['term']['name'] }} {{ $rcReportTypeLabel }} @if($rcSessionYears && ! str_contains($data['term']['name'], $rcSessionYears))&middot; {{ $data['term']['session'] }}@endif</div>
     </div>
     @if($show('student_photo_header'))
       @if($data['identity']['photo_url'] ?? null)

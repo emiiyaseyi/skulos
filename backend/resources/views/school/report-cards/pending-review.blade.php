@@ -7,7 +7,15 @@
     <h1 class="title">Pending review</h1>
     <p class="subtitle">Every report card in {{ $term->name ?? 'the current term' }} still waiting on a decision, across all classes.</p>
   </div>
-  <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.index', ['school' => $school->slug]) }}">Back to Report Cards</a>
+  <div class="stack" style="flex-direction:row;gap:.6rem">
+    <form method="GET" action="{{ route('school.report-cards.pending-review', ['school' => $school->slug]) }}">
+      <select name="report_type" onchange="this.form.requestSubmit()">
+        <option value="{{ \App\Models\Tenant\ReportCardReview::REPORT_TYPE_FULL_TERM }}" @selected($reportType === \App\Models\Tenant\ReportCardReview::REPORT_TYPE_FULL_TERM)>Full Term Report</option>
+        <option value="{{ \App\Models\Tenant\ReportCardReview::REPORT_TYPE_MID_TERM }}" @selected($reportType === \App\Models\Tenant\ReportCardReview::REPORT_TYPE_MID_TERM)>Mid Term Report</option>
+      </select>
+    </form>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.index', ['school' => $school->slug]) }}">Back to Report Cards</a>
+  </div>
 </div>
 
 <div class="card" style="margin-bottom:1.1rem">
@@ -49,9 +57,9 @@
   @if($reviews->isEmpty())
     <p class="muted">Nothing is waiting on review right now.</p>
   @else
-    <form id="bulkReviewApproveForm" method="POST" action="{{ route('school.report-cards.bulk-approve', ['school' => $school->slug]) }}">@csrf</form>
-    <form id="bulkReviewSendBackForm" method="POST" action="{{ route('school.report-cards.bulk-send-back', ['school' => $school->slug]) }}">@csrf<input type="hidden" name="notes" value="" /></form>
-    <form id="bulkReviewNudgeForm" method="POST" action="{{ route('school.report-cards.bulk-nudge', ['school' => $school->slug]) }}">@csrf</form>
+    <form id="bulkReviewApproveForm" method="POST" action="{{ route('school.report-cards.bulk-approve', ['school' => $school->slug]) }}">@csrf<input type="hidden" name="report_type" value="{{ $reportType }}" /></form>
+    <form id="bulkReviewSendBackForm" method="POST" action="{{ route('school.report-cards.bulk-send-back', ['school' => $school->slug]) }}">@csrf<input type="hidden" name="report_type" value="{{ $reportType }}" /><input type="hidden" name="notes" value="" /></form>
+    <form id="bulkReviewNudgeForm" method="POST" action="{{ route('school.report-cards.bulk-nudge', ['school' => $school->slug]) }}">@csrf<input type="hidden" name="report_type" value="{{ $reportType }}" /></form>
 
     {{-- User request 2026-07-22: "under pending review section/page, let's also add the filter and sort option there too." --}}
     <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem">
@@ -89,6 +97,7 @@
             <td class="muted" data-label="Assigned to">
               <form method="POST" action="{{ route('school.report-cards.assign', ['school' => $school->slug, 'studentId' => $review->student_id]) }}">
                 @csrf
+                <input type="hidden" name="report_type" value="{{ $reportType }}" />
                 <select name="assigned_to_staff_id" onchange="this.form.submit()">
                   <option value="">Not assigned</option>
                   @foreach($staffOptions as $staff)
@@ -98,19 +107,22 @@
               </form>
             </td>
             <td style="white-space:nowrap">
-              <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.show', ['school' => $school->slug, 'studentId' => $review->student_id, 'termId' => $term->id]) }}" target="_blank" rel="noopener">View</a>
+              <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.show', ['school' => $school->slug, 'studentId' => $review->student_id, 'termId' => $term->id, 'report_type' => $reportType]) }}" target="_blank" rel="noopener">View</a>
               <form method="POST" action="{{ route('school.report-cards.approve', ['school' => $school->slug, 'studentId' => $review->student_id]) }}" style="display:inline">
                 @csrf
+                <input type="hidden" name="report_type" value="{{ $reportType }}" />
                 <button class="btn btn-ghost btn-sm" type="submit">Approve</button>
               </form>
               <form method="POST" action="{{ route('school.report-cards.send-back', ['school' => $school->slug, 'studentId' => $review->student_id]) }}" style="display:inline" class="rc-reject-form">
                 @csrf
+                <input type="hidden" name="report_type" value="{{ $reportType }}" />
                 <input type="hidden" name="assigned_to_staff_id" value="{{ $review->assigned_to_staff_id }}" />
                 <input type="hidden" name="notes" value="" />
                 <button class="btn btn-ghost btn-sm rc-reject-btn" type="button" data-staff="{{ $review->assigned_to_staff_id }}">Reject</button>
               </form>
               <form method="POST" action="{{ route('school.report-cards.nudge', ['school' => $school->slug, 'studentId' => $review->student_id]) }}" style="display:inline">
                 @csrf
+                <input type="hidden" name="report_type" value="{{ $reportType }}" />
                 <button class="btn btn-ghost btn-sm" type="submit">Nudge</button>
               </form>
             </td>

@@ -20,6 +20,13 @@
         @endforeach
       </select>
     </div>
+    <div class="field" style="margin:0;min-width:12rem">
+      <label for="report_type">Report type</label>
+      <select id="report_type" name="report_type" onchange="this.form.submit()">
+        <option value="{{ \App\Models\Tenant\ReportCardReview::REPORT_TYPE_FULL_TERM }}" @selected($reportType === \App\Models\Tenant\ReportCardReview::REPORT_TYPE_FULL_TERM)>Full Term Report</option>
+        <option value="{{ \App\Models\Tenant\ReportCardReview::REPORT_TYPE_MID_TERM }}" @selected($reportType === \App\Models\Tenant\ReportCardReview::REPORT_TYPE_MID_TERM)>Mid Term Report</option>
+      </select>
+    </div>
   </form>
 </div>
 
@@ -39,18 +46,21 @@
       <form method="POST" action="{{ route('school.report-cards.bulk-release.submit', ['school' => $school->slug]) }}" onsubmit="return confirm('Release every approved report card for {{ $term->name }}?')">
         @csrf
         <input type="hidden" name="term_id" value="{{ $term->id }}" />
+        <input type="hidden" name="report_type" value="{{ $reportType }}" />
         <input type="hidden" name="scope" value="approved" />
         <button class="btn btn-primary btn-sm" type="submit" @disabled($counts['approved'] === 0)>Release approved only ({{ $counts['approved'] }})</button>
       </form>
       <form method="POST" action="{{ route('school.report-cards.bulk-release.submit', ['school' => $school->slug]) }}" onsubmit="return confirm('Release every NOT YET APPROVED report card for {{ $term->name }} too, skipping the review stage entirely for them? This cannot be undone from here.')">
         @csrf
         <input type="hidden" name="term_id" value="{{ $term->id }}" />
+        <input type="hidden" name="report_type" value="{{ $reportType }}" />
         <input type="hidden" name="scope" value="non_approved" />
         <button class="btn btn-ghost btn-sm" type="submit" @disabled($counts['non_approved'] === 0)>Release not yet approved only ({{ $counts['non_approved'] }})</button>
       </form>
       <form method="POST" action="{{ route('school.report-cards.bulk-release.submit', ['school' => $school->slug]) }}" onsubmit="return confirm('Release every generated report card for {{ $term->name }}, approved or not? This cannot be undone from here.')">
         @csrf
         <input type="hidden" name="term_id" value="{{ $term->id }}" />
+        <input type="hidden" name="report_type" value="{{ $reportType }}" />
         <input type="hidden" name="scope" value="all" />
         <button class="btn btn-ghost btn-sm" type="submit" @disabled($counts['approved'] === 0 && $counts['non_approved'] === 0)>Release all generated ({{ $counts['approved'] + $counts['non_approved'] }})</button>
       </form>

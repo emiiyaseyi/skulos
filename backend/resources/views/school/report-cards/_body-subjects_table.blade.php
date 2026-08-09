@@ -9,6 +9,12 @@
 
 @php
   $firstSubject = $data['subjects'][0] ?? null;
+  // Canonical ordered column list for this report type (2026-08-07,
+  // mid-term report cards), replacing the old "peek at the first
+  // subject's own components" derivation, which desynced the header
+  // from a row whenever that one subject happened to be missing a
+  // component's score.
+  $componentColumns = $data['component_columns'] ?? array_keys($firstSubject['components'] ?? []);
   $priorTermNames = $firstSubject ? array_keys($firstSubject['previous_terms']) : [];
   // Set by ReportCardService from Examinations > Term Calculation
   // (user request 2026-07-24): 'average' shows earlier term columns
@@ -24,7 +30,7 @@
     <tr>
       <th>Subject</th>
       @if($template !== 'compact')
-        @foreach(($firstSubject['components'] ?? []) as $componentName => $ignored)
+        @foreach($componentColumns as $componentName)
           <th class="num">{{ $componentName }}</th>
         @endforeach
       @endif
@@ -48,8 +54,8 @@
       <tr>
         <td>{{ $subject['name'] }}</td>
         @if($template !== 'compact')
-          @foreach($subject['components'] as $score)
-            <td class="num">{{ $score }}</td>
+          @foreach($componentColumns as $componentName)
+            <td class="num">{{ $subject['components'][$componentName] ?? 'N/A' }}</td>
           @endforeach
         @endif
         @if($cumulativeMode !== 'off')

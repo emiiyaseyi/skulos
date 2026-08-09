@@ -41,6 +41,17 @@ class ReportCardReview extends Model
 
     public const STATUS_ARCHIVED = 'archived';
 
+    /**
+     * Mid-term report cards (2026-08-07): a school can build a lighter
+     * report from only part of a term's assessment components (by
+     * default CA1+CA2, admin-configured on Assessment Structure)
+     * alongside the existing full-term one, each going through the same
+     * review workflow as an independent row for the same student/term.
+     */
+    public const REPORT_TYPE_MID_TERM = 'mid_term';
+
+    public const REPORT_TYPE_FULL_TERM = 'full_term';
+
     public const PROMOTION_PROMOTE = 'promote';
 
     public const PROMOTION_REPEAT = 'repeat';
@@ -62,7 +73,7 @@ class ReportCardReview extends Model
     protected $connection = 'tenant';
 
     protected $fillable = [
-        'student_id', 'term_id', 'status', 'review_stage', 'assigned_to_staff_id', 'notes',
+        'student_id', 'term_id', 'report_type', 'status', 'review_stage', 'assigned_to_staff_id', 'notes',
         'promotion_recommendation', 'promotion_reason', 'released_at', 'locked_at', 'archived_at',
     ];
 
@@ -97,6 +108,15 @@ class ReportCardReview extends Model
             self::STATUS_LOCKED => 'Locked',
             self::STATUS_ARCHIVED => 'Archived',
             default => ucfirst($status),
+        };
+    }
+
+    public static function reportTypeLabel(string $reportType): string
+    {
+        return match ($reportType) {
+            self::REPORT_TYPE_MID_TERM => 'Mid Term Report',
+            self::REPORT_TYPE_FULL_TERM => 'Full Term Report',
+            default => ucfirst($reportType),
         };
     }
 

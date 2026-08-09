@@ -6,12 +6,16 @@
   <div>
     <h1 class="title">Assessment Structure</h1>
     <p class="subtitle">The Test / Continuous Assessment and Examination components every subject is scored against. Currently sums to {{ rtrim(rtrim(number_format($totalPossible, 2), '0'), '.') }} marks in total.</p>
+    <p class="muted" style="font-size:.82rem;margin-top:.3rem">Mid Term and Full Term Report columns below control which components feed each report card (user directive: CA1+CA2 style components can count toward a lighter Mid Term report while the Exam is Full Term only). For accurate grading, the components ticked for a given report should sum to roughly 100 marks in total.</p>
   </div>
   <div class="stack" style="flex-direction:row;gap:.6rem">
     @if($canManagePermission)
       <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.window-extensions.index', ['school' => $school->slug]) }}">Extension requests @if($pendingExtensionCount)<span class="badge badge-warn">{{ $pendingExtensionCount }}</span>@endif</a>
     @endif
     <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.grading', ['school' => $school->slug]) }}">Grading</a>
+    @if($canManagePermission)
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.workbook', ['school' => $school->slug]) }}">Bulk Score Workbook</a>
+    @endif
     <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.index', ['school' => $school->slug]) }}">Back to Results</a>
   </div>
 </div>
@@ -93,7 +97,7 @@
       <table>
         <thead><tr>
           @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="ca-select-all" aria-label="Select all CA components" /></th>@endif
-          <th>Name</th><th>Out of</th>@if($canManagePermission && $term)<th>Entry window</th>@endif @if($canManage)<th></th>@endif</tr></thead>
+          <th>Name</th><th>Out of</th><th>Mid Term</th><th>Full Term</th>@if($canManagePermission && $term)<th>Entry window</th>@endif @if($canManage)<th></th>@endif</tr></thead>
         <tbody>
           @foreach($caComponents as $component)
             @php $window = $windowsByComponent->get($component->id); @endphp
@@ -101,6 +105,8 @@
               @if($canManage)<td><input type="checkbox" form="bulkCaForm" class="ca-row-check" name="component_ids[]" value="{{ $component->id }}" aria-label="Select {{ $component->name }}" /></td>@endif
               <td><strong>{{ $component->name }}</strong></td>
               <td class="muted">{{ rtrim(rtrim(number_format($component->max_score, 2), '0'), '.') }}</td>
+              <td>@if($component->counts_for_midterm)<span class="badge badge-ok">Yes</span>@else<span class="badge">No</span>@endif</td>
+              <td>@if($component->counts_for_fullterm)<span class="badge badge-ok">Yes</span>@else<span class="badge">No</span>@endif</td>
               @if($canManagePermission && $term)
                 <td class="muted">
                   @if($window && ($window->opens_at || $window->closes_at))
@@ -123,11 +129,15 @@
             </tr>
             @if($canManage)
             <tr id="edit-{{ $component->id }}" class="component-edit-row">
-              <td colspan="5">
-                <form method="POST" action="{{ route('school.examinations.structure.update', ['school' => $school->slug, 'componentId' => $component->id]) }}" style="display:flex;gap:.5rem;padding:.6rem 0">
+              <td colspan="7">
+                <form method="POST" action="{{ route('school.examinations.structure.update', ['school' => $school->slug, 'componentId' => $component->id]) }}" style="display:flex;gap:.5rem;padding:.6rem 0;flex-wrap:wrap;align-items:center">
                   @csrf
-                  <input name="name" value="{{ $component->name }}" required style="flex:1" />
+                  <input name="name" value="{{ $component->name }}" required style="flex:1;min-width:8rem" />
                   <input name="max_score" type="number" step="0.01" min="0.01" value="{{ $component->max_score }}" required style="max-width:8rem" />
+                  <input type="hidden" name="counts_for_midterm" value="0" />
+                  <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_midterm" value="1" @checked($component->counts_for_midterm) /> Mid Term</label>
+                  <input type="hidden" name="counts_for_fullterm" value="0" />
+                  <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_fullterm" value="1" @checked($component->counts_for_fullterm) /> Full Term</label>
                   <button class="btn btn-primary btn-sm" type="submit">Save</button>
                 </form>
               </td>
@@ -185,6 +195,10 @@
         <input type="hidden" name="editing_term_id" value="{{ $editingTermIdValue }}" />
         <input name="name" placeholder="e.g. First CA" required style="flex:1;min-width:9rem" />
         <input name="max_score" type="number" step="0.01" min="0.01" placeholder="Out of" required style="max-width:7rem" />
+        <input type="hidden" name="counts_for_midterm" value="0" />
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_midterm" value="1" /> Mid Term</label>
+        <input type="hidden" name="counts_for_fullterm" value="0" />
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_fullterm" value="1" checked /> Full Term</label>
         <button class="btn btn-primary btn-sm" type="submit">Add</button>
       </form>
     @endif
@@ -202,7 +216,7 @@
       <table>
         <thead><tr>
           @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="exam-select-all" aria-label="Select all exam components" /></th>@endif
-          <th>Name</th><th>Out of</th>@if($canManagePermission && $term)<th>Entry window</th>@endif @if($canManage)<th></th>@endif</tr></thead>
+          <th>Name</th><th>Out of</th><th>Mid Term</th><th>Full Term</th>@if($canManagePermission && $term)<th>Entry window</th>@endif @if($canManage)<th></th>@endif</tr></thead>
         <tbody>
           @foreach($examComponents as $component)
             @php $window = $windowsByComponent->get($component->id); @endphp
@@ -210,6 +224,8 @@
               @if($canManage)<td><input type="checkbox" form="bulkExamForm" class="exam-row-check" name="component_ids[]" value="{{ $component->id }}" aria-label="Select {{ $component->name }}" /></td>@endif
               <td><strong>{{ $component->name }}</strong></td>
               <td class="muted">{{ rtrim(rtrim(number_format($component->max_score, 2), '0'), '.') }}</td>
+              <td>@if($component->counts_for_midterm)<span class="badge badge-ok">Yes</span>@else<span class="badge">No</span>@endif</td>
+              <td>@if($component->counts_for_fullterm)<span class="badge badge-ok">Yes</span>@else<span class="badge">No</span>@endif</td>
               @if($canManagePermission && $term)
                 <td class="muted">
                   @if($window && ($window->opens_at || $window->closes_at))
@@ -232,11 +248,15 @@
             </tr>
             @if($canManage)
             <tr id="edit-{{ $component->id }}" class="component-edit-row">
-              <td colspan="5">
-                <form method="POST" action="{{ route('school.examinations.structure.update', ['school' => $school->slug, 'componentId' => $component->id]) }}" style="display:flex;gap:.5rem;padding:.6rem 0">
+              <td colspan="7">
+                <form method="POST" action="{{ route('school.examinations.structure.update', ['school' => $school->slug, 'componentId' => $component->id]) }}" style="display:flex;gap:.5rem;padding:.6rem 0;flex-wrap:wrap;align-items:center">
                   @csrf
-                  <input name="name" value="{{ $component->name }}" required style="flex:1" />
+                  <input name="name" value="{{ $component->name }}" required style="flex:1;min-width:8rem" />
                   <input name="max_score" type="number" step="0.01" min="0.01" value="{{ $component->max_score }}" required style="max-width:8rem" />
+                  <input type="hidden" name="counts_for_midterm" value="0" />
+                  <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_midterm" value="1" @checked($component->counts_for_midterm) /> Mid Term</label>
+                  <input type="hidden" name="counts_for_fullterm" value="0" />
+                  <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_fullterm" value="1" @checked($component->counts_for_fullterm) /> Full Term</label>
                   <button class="btn btn-primary btn-sm" type="submit">Save</button>
                 </form>
               </td>
@@ -294,6 +314,10 @@
         <input type="hidden" name="editing_term_id" value="{{ $editingTermIdValue }}" />
         <input name="name" placeholder="e.g. Exam" required style="flex:1;min-width:9rem" />
         <input name="max_score" type="number" step="0.01" min="0.01" placeholder="Out of" required style="max-width:7rem" />
+        <input type="hidden" name="counts_for_midterm" value="0" />
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_midterm" value="1" /> Mid Term</label>
+        <input type="hidden" name="counts_for_fullterm" value="0" />
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_fullterm" value="1" checked /> Full Term</label>
         <button class="btn btn-primary btn-sm" type="submit">Add</button>
       </form>
     @endif

@@ -23,6 +23,7 @@
   <div class="stack" style="flex-direction:row;gap:.6rem">
     <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.structure', ['school' => $school->slug]) }}">Assessment structure</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.grading', ['school' => $school->slug]) }}">Grading</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.workbook', ['school' => $school->slug]) }}">Bulk Score Workbook</a>
   </div>
 </div>
 

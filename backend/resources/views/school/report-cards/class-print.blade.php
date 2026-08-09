@@ -129,7 +129,7 @@
   <div class="rc-bar">
     <div>
       <strong>{{ $class->name }}</strong>
-      <span class="muted" style="font-size:.85rem;display:block">{{ $term->name }} &middot; {{ $reportData->count() }} student(s)</span>
+      <span class="muted" style="font-size:.85rem;display:block">{{ $term->name }} &middot; {{ \App\Models\Tenant\ReportCardReview::reportTypeLabel($report_type ?? 'full_term') }} &middot; {{ $reportData->count() }} student(s)</span>
     </div>
     <button class="btn btn-ghost btn-sm" onclick="window.print()" type="button">Print all</button>
   </div>

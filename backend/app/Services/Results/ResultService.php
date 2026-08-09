@@ -21,27 +21,54 @@ class ResultService
     /**
      * Total + grade for one student in one subject and term.
      *
-     * @return array{total: float, grade: ?string, remark: ?string, components: array<string, float>}
+     * $allowedComponentIds scopes both the summed scores and the grade
+     * band lookup to a subset of the term's components (mid-term report
+     * cards, 2026-08-07: by default only CA1+CA2 count toward a
+     * mid-term report, not the full-term's Exam). Since a mid-term
+     * subset rarely sums to 100 (e.g. 10+20=30), the raw total is
+     * normalized to a percentage of that subset's own total-possible
+     * before grade-band lookup, so a perfect score still lands in the
+     * top band instead of a nonsensical low one; 'total' stays the raw,
+     * unnormalized sum for display ("25/30"), 'percentage' carries the
+     * normalized figure the band was actually looked up against. When
+     * $allowedComponentIds is null (every existing caller), behavior is
+     * byte-for-byte identical to before this parameter existed:
+     * 'percentage' equals 'total' (already assumed to be on a 0-100
+     * scale, true for every full-term structure checked in this app).
+     *
+     * @return array{total: float, percentage: float, grade: ?string, remark: ?string, components: array<string, float>}
      */
-    public function subjectResult(int $studentId, int $subjectId, int $termId, ?GradingScale $scale = null): array
+    public function subjectResult(int $studentId, int $subjectId, int $termId, ?GradingScale $scale = null, ?array $allowedComponentIds = null): array
     {
         $scale ??= GradingScale::default();
 
-        $scores = Score::where('student_id', $studentId)
+        $query = Score::where('student_id', $studentId)
             ->where('subject_id', $subjectId)
             ->where('term_id', $termId)
-            ->with('component')
-            ->get();
+            ->with('component');
+
+        if ($allowedComponentIds !== null) {
+            $query->whereIn('assessment_component_id', $allowedComponentIds);
+        }
+
+        $scores = $query->get();
 
         $total = (float) $scores->sum('score');
         $components = $scores->mapWithKeys(
             fn (Score $s) => [$s->component?->name ?? (string) $s->assessment_component_id => (float) $s->score]
         )->toArray();
 
-        $band = $scale?->bandFor($total);
+        $percentage = $total;
+        if ($allowedComponentIds !== null) {
+            $possible = (float) AssessmentComponent::whereIn('id', $allowedComponentIds)->sum('max_score');
+            $percentage = $possible > 0 ? ($total / $possible) * 100 : 0.0;
+        }
+
+        $band = $scale?->bandFor($percentage);
 
         return [
             'total' => $total,
+            'percentage' => $percentage,
             'grade' => $band?->grade,
             'remark' => $band?->remark,
             'components' => $components,

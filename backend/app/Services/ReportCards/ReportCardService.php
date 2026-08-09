@@ -4,7 +4,9 @@ namespace App\Services\ReportCards;
 
 use App\Models\Tenant\Attendance;
 use App\Models\Tenant\BehaviouralTrait;
+use App\Models\Tenant\AssessmentComponent;
 use App\Models\Tenant\GradingScale;
+use App\Models\Tenant\ReportCardReview;
 use App\Models\Tenant\Staff;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\StudentBehaviouralRating;
@@ -34,7 +36,7 @@ class ReportCardService
      * Real report card data for one student, one term, computed from
      * whatever scores/attendance/remarks exist in the tenant database.
      */
-    public function forStudent(Student $student, Term $term, ?GradingScale $scale = null): array
+    public function forStudent(Student $student, Term $term, ?GradingScale $scale = null, string $reportType = ReportCardReview::REPORT_TYPE_FULL_TERM): array
     {
         $classArm = $student->currentClassArm;
         // A class's own grading scale wins over its section's own scale,
@@ -74,18 +76,32 @@ class ReportCardService
             ->pluck('subject_id');
         $subjects = Subject::whereIn('id', $subjectIds)->get()->keyBy('id');
 
+        // Mid-term report cards (2026-08-07): only the components an
+        // admin has opted into this report type count, both for the
+        // scores summed and the grade band lookup (normalized inside
+        // subjectResult() so a subset like CA1+CA2 summing to less than
+        // 100 still grades sanely). component_columns is the canonical
+        // ordered column list for the view, replacing the old "peek at
+        // the first subject's own components" derivation.
+        $reportComponents = AssessmentComponent::forReportType($term, $reportType);
+        $componentIds = $reportComponents->pluck('id')->all();
+        $componentColumns = $reportComponents->pluck('name')->all();
+
         $subjectRows = [];
         foreach ($subjectIds as $subjectId) {
-            $current = $this->results->subjectResult($student->id, $subjectId, $term->id, $scale);
+            $current = $this->results->subjectResult($student->id, $subjectId, $term->id, $scale, $componentIds);
 
             $previousTerms = [];
             $cumulativeAverage = null;
             if ($cumulativeMode !== ReportCardCumulativePolicy::MODE_OFF) {
                 $termTotals = [];
                 foreach ($priorTerms as $t) {
+                    $priorComponentIds = $t->id === $term->id
+                        ? $componentIds
+                        : AssessmentComponent::forReportType($t, $reportType)->pluck('id')->all();
                     $total = $t->id === $term->id
                         ? $current['total']
-                        : $this->results->subjectResult($student->id, $subjectId, $t->id, $scale)['total'];
+                        : $this->results->subjectResult($student->id, $subjectId, $t->id, $scale, $priorComponentIds)['total'];
                     $termTotals[] = $total;
                     if ($t->id !== $term->id) {
                         $previousTerms[$t->name] = $total;
@@ -189,6 +205,8 @@ class ReportCardService
                 'photo_url' => $student->passport_path ? Storage::url($student->passport_path) : null,
             ],
             'term' => ['name' => $term->name, 'session' => $term->session?->name],
+            'report_type' => $reportType,
+            'component_columns' => $componentColumns,
             'cumulative_mode' => $cumulativeMode,
             'subjects' => $subjectRows,
             'subject_comments' => $subjectComments,
@@ -273,6 +291,8 @@ class ReportCardService
                 'class_teacher' => 'Mrs. F. Adigun', 'photo_url' => null,
             ],
             'term' => ['name' => 'Third Term', 'session' => '2025/2026'],
+            'report_type' => ReportCardReview::REPORT_TYPE_FULL_TERM,
+            'component_columns' => ['First CA', 'Second CA', 'Exam'],
             'cumulative_mode' => ReportCardCumulativePolicy::MODE_AVERAGE,
             'subjects' => [
                 ['name' => 'Mathematics', 'components' => ['First CA' => 18, 'Second CA' => 17, 'Exam' => 50], 'total' => 85, 'grade' => 'A', 'remark' => 'Distinction', 'position' => 1, 'class_average' => 68.4, 'highest' => 92, 'lowest' => 31, 'previous_terms' => ['First Term' => 78.0, 'Second Term' => 81.0], 'cumulative_average' => 81.33],

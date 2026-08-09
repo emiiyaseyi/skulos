@@ -20,6 +20,13 @@
         @endforeach
       </select>
     </div>
+    <div class="field" style="margin:0;min-width:12rem">
+      <label for="report_type">Report type</label>
+      <select id="report_type" name="report_type" onchange="this.form.submit()">
+        <option value="{{ \App\Models\Tenant\ReportCardReview::REPORT_TYPE_FULL_TERM }}" @selected($reportType === \App\Models\Tenant\ReportCardReview::REPORT_TYPE_FULL_TERM)>Full Term Report</option>
+        <option value="{{ \App\Models\Tenant\ReportCardReview::REPORT_TYPE_MID_TERM }}" @selected($reportType === \App\Models\Tenant\ReportCardReview::REPORT_TYPE_MID_TERM)>Mid Term Report</option>
+      </select>
+    </div>
   </form>
 </div>
 
@@ -29,7 +36,7 @@
   @elseif($classes->isEmpty())
     <p class="muted">No class has any students yet.</p>
   @else
-    <p class="muted" style="margin-bottom:.8rem">{{ $term->session?->name }} {{ $term->name }}. A class already fully generated is skipped, this only ever fills in what is missing.</p>
+    <p class="muted" style="margin-bottom:.8rem">{{ $term->session?->name }} {{ $term->name }}, {{ \App\Models\Tenant\ReportCardReview::reportTypeLabel($reportType) }}. A class already fully generated is skipped, this only ever fills in what is missing.</p>
     <div style="overflow-x:auto">
     <table>
       <thead><tr><th>Section</th><th>Class</th><th>Students</th><th>Already generated</th></tr></thead>
@@ -49,6 +56,7 @@
     <form method="POST" action="{{ route('school.report-cards.bulk-generate.submit', ['school' => $school->slug]) }}" style="margin-top:1rem" onsubmit="return confirm('Generate every missing report card across all classes for {{ $term->session?->name }} {{ $term->name }}? This sends them straight to the review queue.')">
       @csrf
       <input type="hidden" name="term_id" value="{{ $term->id }}" />
+      <input type="hidden" name="report_type" value="{{ $reportType }}" />
       <button class="btn btn-primary" type="submit">Generate all classes</button>
     </form>
   @endif

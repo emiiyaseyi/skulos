@@ -124,6 +124,8 @@ class AssessmentController extends Controller
             'term_id' => $editingTermId,
             'name' => $data['name'],
             'type' => $data['type'],
+            'counts_for_midterm' => $request->boolean('counts_for_midterm'),
+            'counts_for_fullterm' => $request->boolean('counts_for_fullterm'),
             'max_score' => $data['max_score'],
             'sequence' => (int) AssessmentComponent::where('term_id', $editingTermId)->max('sequence') + 1,
         ]);
@@ -154,6 +156,8 @@ class AssessmentController extends Controller
                 'term_id' => $data['term_id'],
                 'name' => $universal->name,
                 'type' => $universal->type,
+                'counts_for_midterm' => $universal->counts_for_midterm,
+                'counts_for_fullterm' => $universal->counts_for_fullterm,
                 'max_score' => $universal->max_score,
                 'sequence' => $universal->sequence,
             ]);
@@ -192,6 +196,9 @@ class AssessmentController extends Controller
             'name' => ['required', 'string', 'max:100', Rule::unique('tenant.assessment_components', 'name')->where('term_id', $component->term_id)->ignore($component->id)],
             'max_score' => ['required', 'numeric', 'min:0.01', 'max:1000'],
         ]);
+
+        $data['counts_for_midterm'] = $request->boolean('counts_for_midterm');
+        $data['counts_for_fullterm'] = $request->boolean('counts_for_fullterm');
 
         $component->update($data);
 

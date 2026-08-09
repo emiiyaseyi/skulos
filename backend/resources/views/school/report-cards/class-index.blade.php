@@ -8,13 +8,21 @@
     <p class="subtitle">{{ $class->section?->name }} &middot; {{ $term->name ?? 'Current term' }}</p>
   </div>
   <div class="stack" style="flex-direction:row;gap:.6rem">
+    <form method="GET" action="{{ route('school.report-cards.class-index', ['school' => $school->slug, 'classId' => $class->id]) }}">
+      <input type="hidden" name="term_id" value="{{ $term->id }}" />
+      <select name="report_type" onchange="this.form.requestSubmit()">
+        <option value="{{ \App\Models\Tenant\ReportCardReview::REPORT_TYPE_FULL_TERM }}" @selected($reportType === \App\Models\Tenant\ReportCardReview::REPORT_TYPE_FULL_TERM)>Full Term Report</option>
+        <option value="{{ \App\Models\Tenant\ReportCardReview::REPORT_TYPE_MID_TERM }}" @selected($reportType === \App\Models\Tenant\ReportCardReview::REPORT_TYPE_MID_TERM)>Mid Term Report</option>
+      </select>
+    </form>
     <form method="POST" action="{{ route('school.report-cards.class.generate', ['school' => $school->slug, 'classId' => $class->id]) }}">
       @csrf
       <input type="hidden" name="term_id" value="{{ $term->id }}" />
+      <input type="hidden" name="report_type" value="{{ $reportType }}" />
       <button class="btn btn-primary btn-sm" type="submit">Generate all</button>
     </form>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.class.entry', ['school' => $school->slug, 'classId' => $class->id, 'term_id' => $term->id]) }}">Class teacher entry</a>
-    <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.class.print', ['school' => $school->slug, 'classId' => $class->id, 'term_id' => $term->id]) }}" target="_blank">Print all (PDF)</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.class.print', ['school' => $school->slug, 'classId' => $class->id, 'term_id' => $term->id, 'report_type' => $reportType]) }}" target="_blank">Print all (PDF)</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.reports.students.index', ['school' => $school->slug]) }}">Broadsheet (Excel)</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.index', ['school' => $school->slug, 'term_id' => $term->id]) }}">Back to Report Cards</a>
   </div>
@@ -27,6 +35,7 @@
     @if($canAssign)
       <form id="bulkReviewForm" method="POST" action="{{ route('school.report-cards.class.bulk-assign', ['school' => $school->slug, 'classId' => $class->id]) }}">
         <input type="hidden" name="term_id" value="{{ $term->id }}" />
+        <input type="hidden" name="report_type" value="{{ $reportType }}" />
       </form>
     @endif
     <div style="overflow-x:auto">
@@ -71,6 +80,7 @@
                 <form method="POST" action="{{ route('school.report-cards.promotion', ['school' => $school->slug, 'studentId' => $student->id]) }}">
                   @csrf
                   <input type="hidden" name="term_id" value="{{ $term->id }}" />
+                  <input type="hidden" name="report_type" value="{{ $reportType }}" />
                   <select name="promotion_recommendation" onchange="this.form.submit()">
                     <option value="">Not set</option>
                     <option value="{{ \App\Models\Tenant\ReportCardReview::PROMOTION_PROMOTE }}" @selected($review->promotion_recommendation === \App\Models\Tenant\ReportCardReview::PROMOTION_PROMOTE)>Promote</option>
@@ -87,6 +97,7 @@
                 <form method="POST" action="{{ route('school.report-cards.assign', ['school' => $school->slug, 'studentId' => $student->id]) }}">
                   @csrf
                   <input type="hidden" name="term_id" value="{{ $term->id }}" />
+                  <input type="hidden" name="report_type" value="{{ $reportType }}" />
                   <select name="assigned_to_staff_id" onchange="this.form.submit()">
                     <option value="">Not assigned</option>
                     @foreach($staffOptions as $staff)
@@ -103,19 +114,22 @@
                 <form method="POST" action="{{ route('school.report-cards.generate', ['school' => $school->slug, 'studentId' => $student->id]) }}" style="display:inline">
                   @csrf
                   <input type="hidden" name="term_id" value="{{ $term->id }}" />
+                  <input type="hidden" name="report_type" value="{{ $reportType }}" />
                   <button class="btn btn-ghost btn-sm" type="submit">Generate</button>
                 </form>
               @else
-                <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.show', ['school' => $school->slug, 'studentId' => $student->id, 'termId' => $term->id]) }}" target="_blank" rel="noopener">View</a>
+                <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.show', ['school' => $school->slug, 'studentId' => $student->id, 'termId' => $term->id, 'report_type' => $reportType]) }}" target="_blank" rel="noopener">View</a>
                 @if($canAssign)
                   <form method="POST" action="{{ route('school.report-cards.approve', ['school' => $school->slug, 'studentId' => $student->id]) }}" style="display:inline">
                     @csrf
                     <input type="hidden" name="term_id" value="{{ $term->id }}" />
+                    <input type="hidden" name="report_type" value="{{ $reportType }}" />
                     <button class="btn btn-ghost btn-sm" type="submit">Approve</button>
                   </form>
                   <form method="POST" action="{{ route('school.report-cards.send-back', ['school' => $school->slug, 'studentId' => $student->id]) }}" style="display:inline" class="rc-send-back-form">
                     @csrf
                     <input type="hidden" name="term_id" value="{{ $term->id }}" />
+                    <input type="hidden" name="report_type" value="{{ $reportType }}" />
                     <input type="hidden" name="assigned_to_staff_id" value="{{ $review->assigned_to_staff_id }}" />
                     <input type="hidden" name="notes" value="" />
                     <button class="btn btn-ghost btn-sm rc-send-back-btn" type="button" data-staff="{{ $review->assigned_to_staff_id }}">Send back</button>
@@ -125,6 +139,7 @@
                   <form method="POST" action="{{ route('school.report-cards.release', ['school' => $school->slug, 'studentId' => $student->id]) }}" style="display:inline">
                     @csrf
                     <input type="hidden" name="term_id" value="{{ $term->id }}" />
+                    <input type="hidden" name="report_type" value="{{ $reportType }}" />
                     <button class="btn btn-primary btn-sm" type="submit">Release</button>
                   </form>
                 @endif
@@ -132,6 +147,7 @@
                   <form method="POST" action="{{ route('school.report-cards.lock', ['school' => $school->slug, 'studentId' => $student->id]) }}" style="display:inline">
                     @csrf
                     <input type="hidden" name="term_id" value="{{ $term->id }}" />
+                    <input type="hidden" name="report_type" value="{{ $reportType }}" />
                     <button class="btn btn-ghost btn-sm" type="submit">Lock</button>
                   </form>
                 @endif
@@ -139,6 +155,7 @@
                   <form method="POST" action="{{ route('school.report-cards.archive', ['school' => $school->slug, 'studentId' => $student->id]) }}" style="display:inline">
                     @csrf
                     <input type="hidden" name="term_id" value="{{ $term->id }}" />
+                    <input type="hidden" name="report_type" value="{{ $reportType }}" />
                     <button class="btn btn-ghost btn-sm" type="submit">Archive</button>
                   </form>
                 @endif
