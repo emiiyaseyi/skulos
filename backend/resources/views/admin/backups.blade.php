@@ -33,7 +33,15 @@
           <td class="muted" style="text-transform:capitalize" data-label="Type">{{ $backup?->type ?? 'N/A' }}</td>
           <td data-label="Status">
             @if($school->backup_frequency === 'none')
-              <span class="badge">No schedule</span>
+              {{-- badge-warn (UX audit finding, 2026-08-10): the bare
+                   .badge class has no background color of its own, so
+                   this rendered as plain bold text next to real colored
+                   pills ("Up to date") elsewhere on the same page —
+                   easy to miss even though it is arguably the most
+                   actionable status here, the same thing the dashboard's
+                   own "schools have never been backed up" alert already
+                   flags in amber. --}}
+              <span class="badge badge-warn">No schedule</span>
             @elseif($isOverdue)
               <span class="badge badge-warn">Overdue</span>
             @else

@@ -2,12 +2,40 @@
 @section('title', 'My Application')
 @section('bare', true)
 
+{{--
+  School branding header (UX audit finding, 2026-08-10): this screen had
+  no header, logo, or nav chrome at all — a bare "Welcome" heading
+  floating on a plain background, unlike every other applicant-facing
+  screen in this same flow (login, apply, the landing page), which
+  already got the school's logo added on 2026-08-06. Likely a real
+  applicant's first genuine interaction with the platform after
+  applying, so it is the one screen that most needs to look like it
+  belongs to the school, not the one place that doesn't. Same .adm-logo
+  treatment those other screens already use, not a new pattern.
+--}}
+@push('head')
+<style>
+  .adm-logo{width:56px;height:56px;border-radius:14px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:800;font-size:1.4rem;overflow:hidden;flex:none}
+  .adm-logo img{width:100%;height:100%;object-fit:contain}
+</style>
+@endpush
+
 @section('content')
 <div style="max-width:40rem;margin:2.5rem auto;padding:0 1.25rem">
   <div class="page-head">
-    <div>
-      <h1 class="title">Welcome, {{ $applicant->name }}</h1>
-      <p class="subtitle">Your application to {{ $school->name }} is in progress.</p>
+    <div style="display:flex;align-items:center;gap:.9rem">
+      @php($logo = $school?->branding()['logo'] ?? null)
+      <div class="adm-logo">
+        @if($logo)
+          <img src="{{ \Illuminate\Support\Facades\Storage::url($logo) }}" alt="{{ $school->name }} logo" />
+        @else
+          {{ strtoupper(substr($school->name ?? 'S', 0, 1)) }}
+        @endif
+      </div>
+      <div>
+        <h1 class="title">Welcome, {{ $applicant->name }}</h1>
+        <p class="subtitle">Your application to {{ $school->name }} is in progress.</p>
+      </div>
     </div>
     <form method="POST" action="{{ route('school.admissions.logout', ['school' => $school->slug]) }}">
       @csrf

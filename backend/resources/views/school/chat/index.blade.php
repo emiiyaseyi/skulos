@@ -53,7 +53,15 @@
 
 <div class="card">
   @if($threads->isEmpty())
-    <p class="muted">No conversations yet{{ count($starters) ? '' : ", start one from a student's page" }}.</p>
+    {{-- UX audit finding (2026-08-10): this used to just say "start one
+         from a student's page" with no way to actually get there from
+         this screen — a real dead end for a viewer whose $starters came
+         back empty (no assigned class teacher to message yet, teacher
+         messaging turned off, etc.), not just a wording nitpick. --}}
+    <p class="muted">No conversations yet.</p>
+    @if(! count($starters))
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.students', ['school' => $school->slug]) }}">Go to Students</a>
+    @endif
   @else
     <div class="stack" style="gap:0">
       @foreach($threads as $row)

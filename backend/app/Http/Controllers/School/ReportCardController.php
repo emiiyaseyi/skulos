@@ -521,10 +521,26 @@ class ReportCardController extends Controller
         $termId = $request->integer('term_id') ?: null;
         $term = ($termId ? Term::find($termId) : null) ?? Term::current()->first();
 
+        // "My classes" shortcut (UX audit finding, 2026-08-10): a class
+        // or subject teacher used to see the same full school-wide
+        // browse list (every section, every class, ~30 rows on a real
+        // school) as an admin, with nothing surfacing their own class
+        // first — real daily friction on mobile, a long scroll before
+        // reaching anything relevant to their actual job. Admin/wildcard
+        // roles get null from classArmIds() (unscoped) and never see
+        // this section at all, the full browse list stays their only
+        // and correct view.
+        $scopedArmIds = app(TeacherScope::class)->classArmIds(Auth::user(), $school);
+        $myClasses = $scopedArmIds !== null
+            ? ClassArm::with(['schoolClass.section', 'arm'])->whereIn('id', $scopedArmIds)->get()
+                ->sortBy(fn ($arm) => $arm->orderKey())->values()
+            : null;
+
         return view('school.report-cards.index', [
             'school' => $school,
             'accent' => $school->branding()['color'],
             'sections' => Section::with(['classes' => fn ($q) => $q->orderBy('sequence'), 'classes.arms.arm'])->orderBy('sequence')->get(),
+            'myClasses' => $myClasses,
             'canAssign' => app(Rbac::class)->check(Auth::user(), $school, 'report_cards.assign_review'),
             // "Results" and "Report Cards" merged into one nav line (user
             // directive 2026-07-15), so the results/score entry screen

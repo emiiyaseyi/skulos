@@ -5,11 +5,19 @@
 <style>
   /* figure cards, 4 across */
   .figs{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;margin-bottom:1.1rem}
-  .fig{position:relative}
+  {{-- min-width:0 (UX audit finding, 2026-08-10): a grid item's default
+       min-width is its content's own unbroken min-content size, not 0 —
+       for a stat whose value is text rather than a short number (a
+       student's own class name, e.g. "Creche/Reception"), that let the
+       text overflow its card at desktop's 4-column width instead of
+       wrapping, clipping both ends ("Reche/Receptio"). Mobile's single
+       column happened to be wide enough not to trigger it, which is why
+       it only ever showed up on desktop. --}}
+  .fig{position:relative;min-width:0}
   .fig-link{position:absolute;inset:0;z-index:1;border-radius:inherit}
   .fig:has(.fig-link):hover{box-shadow:0 2px 10px -2px color-mix(in srgb,var(--fc,var(--accent)) 45%,transparent)}
   {{-- Same "big stat number" size as the shared .stat card (layouts/app.blade.php), not a third invented size, per the 2026-07-28 text consistency audit. --}}
-  .fig b{font-size:1.6rem;font-weight:800;font-variant-numeric:tabular-nums;display:block;line-height:1.1;color:var(--ink)}
+  .fig b{font-size:1.6rem;font-weight:800;font-variant-numeric:tabular-nums;display:block;line-height:1.1;color:var(--ink);overflow-wrap:anywhere}
   .fig span{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
   .fig .fic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;flex-shrink:0}
   .fig .fic svg{width:22px;height:22px}

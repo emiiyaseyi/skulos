@@ -10,8 +10,20 @@
 </div>
 
 <div class="card" style="margin-bottom:1.25rem">
-  <h3>Create a school</h3>
-  <p style="margin-bottom:1.1rem">A new school gets its own database, calendar defaults, subdomain, and an administrator who signs in to finish setup.</p>
+  {{-- Collapsed by default (UX audit finding, 2026-08-10): this form used
+       to render permanently open above the school list, the far more
+       common thing to actually look at — on mobile a user had to scroll
+       past the whole create-form, including the admin-login sub-section,
+       before reaching a single existing school. A plain <details> toggle
+       matches the same pattern already used elsewhere in this app
+       (Billing's marketing feature checklist, Assessment Structure's
+       per-term editing) rather than inventing a new interaction. --}}
+  <details @if($errors->any()) open @endif>
+    <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:.6rem">
+      <h3 style="margin:0">Create a school</h3>
+      <span class="btn btn-ghost btn-sm" style="pointer-events:none">+ Add school</span>
+    </summary>
+  <p style="margin:.8rem 0 1.1rem">A new school gets its own database, calendar defaults, subdomain, and an administrator who signs in to finish setup.</p>
   <form method="POST" action="{{ route('admin.schools.store') }}" style="max-width:40rem">
     @csrf
     <div class="field">
@@ -56,6 +68,7 @@
     </div>
     <button class="btn btn-primary" type="submit">Create school and admin</button>
   </form>
+  </details>
 </div>
 
 <div class="card">
@@ -82,7 +95,7 @@
           <td data-label="Status">
             <span class="badge {{ $s->status === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucfirst($s->status) }}</span>
           </td>
-          <td style="text-align:right;white-space:nowrap">
+          <td style="text-align:right">
             <button type="button" class="btn btn-ghost btn-sm school-view-btn" data-overview="{{ route('admin.schools.overview', $s) }}" data-name="{{ $s->name }}">View</button>
             <a class="btn btn-primary btn-sm" href="{{ route('admin.schools.show', $s) }}">Manage</a>
             @if($s->status === 'active')
@@ -92,7 +105,14 @@
             @else
               <form method="POST" action="{{ route('admin.schools.activate', $s) }}" style="display:inline">@csrf<button class="btn btn-primary btn-sm">Resume</button></form>
             @endif
-            <form method="POST" action="{{ route('admin.schools.destroy', $s) }}" style="display:inline" onsubmit="return confirm('Remove {{ $s->name }}? Its data is retained and it can be restored.')">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm" style="color:var(--bad)">Delete</button></form>
+            {{-- Visually separated from the safe actions above (UX audit
+                 finding, 2026-08-10): Delete used to sit directly beside
+                 Resume/Manage with identical button styling, a real
+                 mis-tap risk for an irreversible action on a stacked
+                 mobile card where everything wraps onto its own line
+                 anyway. A left border + extra spacing reads as "these
+                 are not the same kind of action" without a bigger redesign. --}}
+            <form method="POST" action="{{ route('admin.schools.destroy', $s) }}" style="display:inline-block;margin-left:.6rem;padding-left:.6rem;border-left:1px solid var(--line)" onsubmit="return confirm('Remove {{ $s->name }}? Its data is retained and it can be restored.')">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm" style="color:var(--bad)">Delete</button></form>
           </td>
         </tr>
       @endforeach

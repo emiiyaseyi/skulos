@@ -2959,7 +2959,12 @@ return [
             'communication.*', 'analytics.*',
         ]],
         'registrar' => ['name' => 'Registrar', 'grants' => [
-            'students.*', 'parents.*', 'academics.view', 'analytics.view',
+            // admissions.* added 2026-08-10 (UX audit finding): a role
+            // literally described as "You manage student admissions,
+            // records, and enrollment" had zero admissions.* grant at
+            // all, a real gap not a deliberate scoping choice — every
+            // other role's grants line up with its own description.
+            'students.*', 'parents.*', 'academics.view', 'analytics.view', 'admissions.*',
         ]],
         'examination-officer' => ['name' => 'Examination Officer', 'grants' => [
             'examinations.*', 'report_cards.*', 'students.view', 'academics.view', 'analytics.view',

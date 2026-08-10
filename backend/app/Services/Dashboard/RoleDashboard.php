@@ -1013,7 +1013,13 @@ class RoleDashboard
                 $feesDue > 0
                     ? ['n' => '₦'.number_format($feesDue, 2), 'l' => $multiChild ? 'Fees Due (all children)' : 'Fees Due', 'ic' => 'billing', 'c' => '#E14F63', 'pct' => '70%', 'popup' => 'fees-due-popup']
                     : ['n' => 'Payment Completed', 'l' => $multiChild ? 'Fees, all children' : 'Fees', 'ic' => 'approve', 'c' => '#12A97B', 'pct' => '10%', 'popup' => $feePerChild->isNotEmpty() ? 'fees-due-popup' : null],
-                ['n' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : 'N/A', 'l' => $multiChild ? 'Attendance This Term (avg)' : 'Attendance This Term', 'ic' => 'attendance', 'c' => '#12A97B', 'pct' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : '0%', 'popup' => $attendancePerChild->isNotEmpty() ? 'attendance-term-popup' : null],
+                // 'No data yet' instead of a bare 'N/A' (UX audit finding,
+                // 2026-08-10): a plain "N/A" next to three populated
+                // numeric tiles read as broken/unfinished rather than as
+                // "nothing has been recorded for this child yet", which
+                // is the actual, normal reason (a new student before
+                // attendance has been taken this term).
+                ['n' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : 'No data yet', 'l' => $multiChild ? 'Attendance This Term (avg)' : 'Attendance This Term', 'ic' => 'attendance', 'c' => '#12A97B', 'pct' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : '0%', 'popup' => $attendancePerChild->isNotEmpty() ? 'attendance-term-popup' : null],
                 ['n' => number_format($reportsReleased), 'l' => 'Report Cards Released', 'ic' => 'results', 'c' => '#6D4FE0', 'pct' => $reportsReleased > 0 ? '70%' : '10%'],
             ],
             'panel' => [

@@ -327,8 +327,25 @@
 --}}
 @if($canManage)
 <div class="card">
+  <div class="row-between" style="margin-bottom:.8rem;flex-wrap:wrap;gap:.6rem">
+    <h3 style="margin:0">Fee items</h3>
+    <form method="GET" action="{{ route('school.finance.fee-items.index', ['school' => $school->slug]) }}">
+      @if($scheduleTerm)<input type="hidden" name="term_id" value="{{ $scheduleTerm->id }}" />@endif
+      @if($sectionId)<input type="hidden" name="section_id" value="{{ $sectionId }}" />@endif
+      <div class="field" style="margin:0;min-width:12rem">
+        <label for="items_term">Showing items for</label>
+        <select id="items_term" name="items_term" onchange="this.form.submit()">
+          <option value="current" @selected($itemsTermParam === 'current')>Current term{{ $itemsTerm ? " ({$itemsTerm->name})" : '' }}</option>
+          @foreach($terms as $term)
+            <option value="{{ $term->id }}" @selected($itemsTermParam == $term->id)>{{ $term->name }} ({{ $term->session?->name }})</option>
+          @endforeach
+          <option value="all" @selected($itemsTermParam === 'all')>All terms</option>
+        </select>
+      </div>
+    </form>
+  </div>
   @if($feeItems->isEmpty())
-    <p class="muted">No fee items yet.</p>
+    <p class="muted">No fee items {{ $itemsTermParam === 'all' ? 'yet' : 'for this term' }}.</p>
   @else
     @if($canManage)
       <form id="bulkFeeItemsForm" method="POST" action="{{ route('school.finance.fee-items.bulk-action', ['school' => $school->slug]) }}"></form>

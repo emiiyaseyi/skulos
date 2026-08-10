@@ -38,6 +38,26 @@
   <div class="card" style="margin-bottom:1.1rem"><p class="muted">No session or term set up yet. Set one under Settings &gt; Sessions &amp; Terms first.</p></div>
 @endif
 
+{{--
+  "My classes" shortcut (UX audit finding, 2026-08-10): a class/subject
+  teacher used to see the exact same full school-wide browse list below
+  as an admin, nothing surfacing their own class first — real daily
+  friction, worse on mobile, scrolling through every section before
+  reaching anything relevant to their actual job. $myClasses is null
+  for an unscoped (admin-tier) viewer, who never sees this card; the
+  full browse list below stays their only and correct view either way.
+--}}
+@if($myClasses !== null && $myClasses->isNotEmpty())
+  <div class="card" style="margin-bottom:1.1rem">
+    <h3 style="margin-bottom:.7rem">My classes</h3>
+    <div class="stack" style="flex-direction:row;flex-wrap:wrap;gap:.6rem">
+      @foreach($myClasses as $arm)
+        <a class="btn btn-primary btn-sm" href="{{ route('school.report-cards.class-index', ['school' => $school->slug, 'classId' => $arm->schoolClass?->id, 'term_id' => $selectedTerm?->id]) }}">{{ $arm->label() }}</a>
+      @endforeach
+    </div>
+  </div>
+@endif
+
 @if($sections->isEmpty())
   <div class="card"><p class="muted">No classes yet. Set up your class structure under Classes &amp; Subjects first.</p></div>
 @else

@@ -286,16 +286,17 @@
     @break
 
   @case('admin_overview')
-    <div class="card rp-card">
-      <h3 style="margin-bottom:.6rem">Quick actions</h3>
-      <div style="display:flex;gap:.6rem;flex-wrap:wrap">
-        <a class="btn btn-primary btn-sm" href="{{ route('school.students.create', ['school' => $school->slug]) }}">Add student</a>
-        <a class="btn btn-ghost btn-sm" href="{{ route('school.students.import', ['school' => $school->slug]) }}">Bulk import students</a>
-        <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.index', ['school' => $school->slug]) }}">Report cards</a>
-        <a class="btn btn-ghost btn-sm" href="{{ route('school.examinations.index', ['school' => $school->slug]) }}">Results</a>
-      </div>
-    </div>
-
+    {{-- UX audit finding (2026-08-10): this panel's own "Quick actions"
+         card rendered a second, older, un-permission-gated set of
+         buttons directly beneath dashboard.blade.php's own newer, richer
+         "Quick actions" card (added 2026-07-13, every button individually
+         permission-checked) for the exact same wildcard-tier roles —
+         two panels with the same heading, stacked, reads as a duplicated
+         component rather than a deliberate two-tier design. Removed here
+         rather than from dashboard.blade.php since that one is the more
+         complete, better-gated of the two (staff/students/report
+         cards/results/announcements/events vs. just students/report
+         cards/results here, with no permission checks at all). --}}
     <div class="grid cols-2" style="margin-bottom:1.1rem">
       <div class="card rp-card" style="margin-bottom:0">
         <h3 style="margin-bottom:.6rem">Today's birthdays</h3>

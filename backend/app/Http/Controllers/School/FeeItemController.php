@@ -69,7 +69,23 @@ class FeeItemController extends Controller
         $sections = Section::orderBy('sequence')->get();
         $sectionId = $request->integer('section_id') ?: null;
 
-        $feeItems = FeeItem::with(['term', 'schoolClasses'])->orderByDesc('created_at')->get();
+        // Fee Items management list, scoped by term (UX audit finding
+        // 2026-08-10): this used to load every fee item ever created
+        // across every term unfiltered, no pagination, right below a
+        // "Viewing term" selector that looked like it should scope the
+        // whole page but only ever drove the schedule matrix above it —
+        // on a school with several terms of history this produced an
+        // unbounded, unusable page (tens of thousands of pixels tall on
+        // mobile). Defaults to the same term already selected for the
+        // schedule matrix; an explicit itemsTerm=all still shows every
+        // item across every term, for a bursar who genuinely needs that.
+        $itemsTermParam = $request->input('items_term', 'current');
+        $itemsTerm = $itemsTermParam === 'all'
+            ? null
+            : ($itemsTermParam === 'current' ? ($scheduleTerm ?? Term::current()->first()) : Term::find($itemsTermParam));
+        $feeItems = FeeItem::with(['term', 'schoolClasses'])
+            ->when($itemsTerm, fn ($q) => $q->where('term_id', $itemsTerm->id))
+            ->orderByDesc('created_at')->get();
         $schoolClasses = SchoolClass::active()->with('section')->orderBy('sequence')->get()
             ->sortBy(fn (SchoolClass $c) => sprintf('%05d-%05d', $c->section?->sequence ?? 0, $c->sequence ?? 0))->values();
 
@@ -94,6 +110,8 @@ class FeeItemController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'feeItems' => $feeItems,
+            'itemsTerm' => $itemsTerm,
+            'itemsTermParam' => $itemsTermParam,
             'terms' => $terms,
             'upcomingTerm' => $upcomingTerm,
             'schoolClasses' => $schoolClasses,

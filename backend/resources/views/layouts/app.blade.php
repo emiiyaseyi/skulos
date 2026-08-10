@@ -438,7 +438,19 @@ tr:last-child td{border-bottom:none}
 @media(max-width:480px){
   .appbar{gap:.2rem;padding:.6rem .5rem}
   .appbar-spacer{display:none}
-  .appbar-search{width:3.2rem !important;padding:.45rem .3rem}
+  {{-- UX audit finding (2026-08-10): at this width the input is
+       genuinely too narrow to show real placeholder text ("Search
+       students, staff, parents") — it was rendering a single clipped
+       character ("S"), which reads as a broken layout rather than the
+       deliberate "small tap target that still opens real search"
+       design this breakpoint intends (see the comment above). Blanking
+       the placeholder and drawing a plain magnifying-glass icon in its
+       place makes the same small box read as an intentional search
+       icon instead of clipped text; the input itself is unchanged,
+       still tappable and still opens the real search page. --}}
+  .appbar-search{width:3.2rem !important;padding:.45rem .3rem;color:transparent;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23888%22 stroke-width=%222%22%3E%3Ccircle cx=%2211%22 cy=%2211%22 r=%228%22/%3E%3Cpath d=%22m21 21-4.35-4.35%22/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:center;background-size:1rem}
+  .appbar-search::placeholder{color:transparent}
+  .appbar-search:focus{color:var(--ink);background-image:none}
   .appbar .iconbtn{width:1.8rem;height:1.8rem;border-radius:7px}
   .appbar .iconbtn svg{width:13px;height:13px}
   .appbar h2{font-size:.85rem}
@@ -493,7 +505,16 @@ tr:last-child td{border-bottom:none}
   .table-stack thead{display:none}
   .table-stack tr{border:1px solid var(--line);border-radius:12px;padding:.8rem;margin-bottom:.8rem}
   .table-stack tr:last-child{margin-bottom:0}
-  .table-stack td{border-bottom:none;padding:.35rem 0;display:flex;align-items:center;justify-content:flex-end;gap:.6rem;text-align:right}
+  {{-- flex-wrap (2026-08-10, UX audit finding): a stacked cell holding
+       several inline action buttons/forms (Admissions' pipeline board,
+       up to 5 at once) is still a flex row by default, and flex items
+       don't wrap onto a new line unless told to, so a cell with more
+       buttons than fit the viewport silently overflowed and got cut off
+       at the screen edge instead of stacking. Every other table-stack
+       screen has few enough action buttons per row that this never
+       showed up, but the rule is safest applied globally rather than
+       chased per screen. --}}
+  .table-stack td{border-bottom:none;padding:.35rem 0;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:.6rem;text-align:right}
   .table-stack td[data-label]::before{content:attr(data-label);font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim);font-weight:800;text-align:left;margin-right:auto}
   .table-stack td:not([data-label]){justify-content:flex-start}
   .table-stack td select, .table-stack td input, .table-stack td textarea{max-width:11rem}

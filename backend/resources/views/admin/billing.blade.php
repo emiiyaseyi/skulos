@@ -192,8 +192,22 @@
 </div>
 
 <style>
-  .plan-edit-row{display:none}
-  .plan-edit-row.show{display:table-row}
+  {{--
+    UX audit finding (2026-08-10): this table also has class="table-stack"
+    (app.blade.php's mobile table-to-cards rule), and .table-stack tr{
+    display:block} is TWO class selectors, a higher specificity than the
+    single-class .plan-edit-row{display:none} below — on mobile that rule
+    silently won regardless of source order, so every plan's edit form
+    (RBAC module checklist included) rendered permanently expanded for
+    all four plans stacked one after another, producing a page roughly
+    9x taller than desktop. Re-declared as a compound selector so it
+    wins on its own specificity rather than depending on which stylesheet
+    happens to load last; "show" now targets both the plain-table
+    (table-row) and stacked-mobile (block) cases explicitly.
+  --}}
+  tr.plan-edit-row{display:none}
+  tr.plan-edit-row.show{display:table-row}
+  .table-stack tr.plan-edit-row.show{display:block}
   .module-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.4rem .8rem}
   .module-check{display:flex;align-items:center;gap:.4rem;font-size:.82rem;font-weight:500}
   .module-check input{width:auto}

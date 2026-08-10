@@ -45,7 +45,19 @@
               <strong>{{ $applicant->name }}</strong>
               <div class="muted">{{ $applicant->admission_number }} &middot; {{ $applicant->phone }}</div>
               @if($applicant->recoverablePassword())
-                <div class="muted" style="font-size:.78rem">Password: <span style="font-variant-numeric:tabular-nums">{{ $applicant->recoverablePassword() }}</span></div>
+                {{-- Collapsed by default (2026-08-10, UX audit finding): this
+                     used to print the applicant's live login password in
+                     plain text on every row, permanently visible to anyone
+                     with this screen open, screen-sharing, or screenshotting
+                     it for any other reason, not shown once and then hidden.
+                     A native <details> toggle keeps the "staff can help an
+                     applicant who lost their password" capability
+                     (Applicant::recoverablePassword() itself, unchanged)
+                     while requiring a deliberate click to actually reveal it. --}}
+                <details class="muted" style="font-size:.78rem">
+                  <summary style="cursor:pointer;display:inline">Show password</summary>
+                  <span style="font-variant-numeric:tabular-nums">{{ $applicant->recoverablePassword() }}</span>
+                </details>
               @endif
             </td>
             <td class="muted" data-label="Class">{{ $applicant->schoolClass?->name ?? 'Not set' }}</td>
@@ -71,7 +83,7 @@
                 <span class="badge {{ $applicant->decision_status === 'rejected' ? 'badge-bad' : 'badge-ok' }}">{{ ucfirst($applicant->decision_status) }}</span>
               @endif
             </td>
-            <td style="white-space:nowrap">
+            <td>
               @if($tab === 'in_progress')
                 @if(! $applicant->isFinalStage())
                   <form method="POST" action="{{ route('school.admissions.pipeline.advance', ['school' => $school->slug, 'applicantId' => $applicant->id]) }}" style="display:inline">

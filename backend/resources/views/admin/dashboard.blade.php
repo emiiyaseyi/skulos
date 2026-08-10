@@ -29,9 +29,15 @@
   .pd-alert{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;
     background:color-mix(in srgb,var(--warn) 14%,var(--panel));border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);
     border-radius:var(--radius);padding:1rem 1.3rem;margin-bottom:1.25rem}
-  .pd-bars{display:flex;align-items:flex-end;gap:.8rem;height:140px;margin-bottom:.5rem}
+  {{-- Baseline (UX audit finding, 2026-08-10): a month with a real
+       0-school count still drew a real bar (min-height:3px below), it
+       was just thin enough against the plain background to read as "the
+       chart failed to draw" rather than "this month was genuinely flat."
+       A visible baseline rule anchors every bar to a real floor so a
+       flat month looks like an accurate zero, not a rendering gap. --}}
+  .pd-bars{display:flex;align-items:flex-end;gap:.8rem;height:140px;margin-bottom:.5rem;border-bottom:1px solid var(--line)}
   .pd-bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:.4rem}
-  .pd-bar .col{width:100%;background:color-mix(in srgb,var(--accent) 70%,transparent);border-radius:6px 6px 0 0;min-height:3px}
+  .pd-bar .col{width:100%;background:color-mix(in srgb,var(--accent) 70%,transparent);border-radius:6px 6px 0 0;min-height:4px}
   .pd-bar span{font-size:.72rem;color:var(--mut-dim)}
 </style>
 @endpush

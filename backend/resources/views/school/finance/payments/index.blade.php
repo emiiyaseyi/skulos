@@ -57,74 +57,16 @@
 @endif
 
 {{--
-  Class-level payment status (user request 2026-07-25: "under payments,
-  show a data table of all the classes in the school, number of student
-  per class, number that has paid full fees, number that has paid
-  partial payments, a trigger [to nudge] parent to those who are yet to
-  pay at all, or have partial payment left"). Scoped to $activeTerm; a
-  class with no fee items configured for that term is left out
-  entirely, there is nothing to be "owing" against.
+  Ordering (UX audit finding, 2026-08-10): the payment verification
+  queue right below — a bursar's actual real, recurring daily task —
+  used to render AFTER a 22-row (one per class) fee-status breakdown,
+  pushing "Verify selected"/"Reject selected" to the very bottom of a
+  long page, worse on mobile where the breakdown alone became 22
+  stacked cards before the queue even started. The class breakdown is
+  genuinely useful (a real "who still owes" reference), just not the
+  first thing to act on, so it now renders after the queue instead of
+  before it; nothing about either section's own content changed.
 --}}
-@if(! $isFamily && count($classStatus))
-  <div class="card" style="margin-bottom:1.1rem">
-    <h3 style="margin-bottom:.6rem">{{ $activeTerm?->name }} fee status by class</h3>
-    <div style="overflow-x:auto">
-    <table class="table-stack">
-      <thead><tr><th>Class</th><th>Students</th><th>Paid in full</th><th>Partial</th><th>Not paid</th><th></th></tr></thead>
-      <tbody>
-        @foreach($classStatus as $row)
-          <tr>
-            <td data-label="Class"><a href="{{ route('school.finance.payments.class-detail', ['school' => $school->slug, 'classArmId' => $row['arm']->id, 'term_id' => $activeTerm?->id]) }}"><strong>{{ $row['label'] }}</strong></a></td>
-            <td class="muted" data-label="Students">{{ $row['studentCount'] }}</td>
-            <td data-label="Paid in full"><span class="badge badge-ok">{{ $row['fullyPaid'] }}</span></td>
-            <td data-label="Partial"><span class="badge badge-warn">{{ $row['partial'] }}</span></td>
-            <td data-label="Not paid"><span class="badge badge-bad">{{ $row['unpaid'] }}</span></td>
-            <td style="white-space:nowrap">
-              <a class="btn btn-ghost btn-sm" href="{{ route('school.finance.payments.class-detail', ['school' => $school->slug, 'classArmId' => $row['arm']->id, 'term_id' => $activeTerm?->id]) }}">View</a>
-              @if($canVerify && ($row['partial'] + $row['unpaid']) > 0)
-                <form method="POST" action="{{ route('school.finance.payments.nudge', ['school' => $school->slug]) }}" style="display:inline">
-                  @csrf
-                  <input type="hidden" name="class_arm_id" value="{{ $row['arm']->id }}" />
-                  <input type="hidden" name="term_id" value="{{ $activeTerm?->id }}" />
-                  <button class="btn btn-ghost btn-sm" type="submit">Nudge parents</button>
-                </form>
-              @endif
-            </td>
-          </tr>
-        @endforeach
-      </tbody>
-    </table>
-    </div>
-  </div>
-@endif
-
-{{--
-  Payment countdown/reminder popup settings (user request 2026-07-25:
-  "let the admin configure a payment countdown date to parents... 15
-  days (as set by the admin) it shows daily on the parent login as pop
-  up reminder to pay"). Left blank, no popup ever shows to any parent.
---}}
-@if($canVerify)
-  <div class="card" style="margin-bottom:1.1rem;max-width:30rem">
-    <h3 style="margin-bottom:.4rem">Payment reminder</h3>
-    <p class="muted" style="margin-bottom:.8rem">A parent who still owes fees sees a daily reminder pop up, starting this many days before the due date. It keeps showing, as overdue, for as long as a balance remains past that date.</p>
-    <form method="POST" action="{{ route('school.finance.payments.due-date', ['school' => $school->slug]) }}" class="grid cols-2" style="gap:1rem">
-      @csrf
-      <div class="field" style="margin:0">
-        <label for="payment_due_date">Due date</label>
-        <input id="payment_due_date" name="payment_due_date" type="date" value="{{ $paymentDueDate }}" />
-      </div>
-      <div class="field" style="margin:0">
-        <label for="payment_reminder_days">Remind starting this many days before</label>
-        <input id="payment_reminder_days" name="payment_reminder_days" type="number" min="1" max="90" required value="{{ $paymentReminderDays }}" />
-      </div>
-      <div style="grid-column:1/-1">
-        <button class="btn btn-primary btn-sm" type="submit">Save</button>
-      </div>
-    </form>
-  </div>
-@endif
-
 <div class="card" style="margin-bottom:1.1rem">
   <form method="GET" style="max-width:16rem">
     @if($activeTerm && request()->query('term_id'))<input type="hidden" name="term_id" value="{{ $activeTerm->id }}" />@endif
@@ -140,7 +82,7 @@
   </form>
 </div>
 
-<div class="card">
+<div class="card" style="margin-bottom:1.1rem">
   @if($payments->isEmpty())
     <p class="muted">No payments{{ $status ? ' with this status' : '' }} yet.</p>
   @else
@@ -199,4 +141,73 @@
     @endif
   @endif
 </div>
+
+{{--
+  Class-level payment status (user request 2026-07-25: "under payments,
+  show a data table of all the classes in the school, number of student
+  per class, number that has paid full fees, number that has paid
+  partial payments, a trigger [to nudge] parent to those who are yet to
+  pay at all, or have partial payment left"). Scoped to $activeTerm; a
+  class with no fee items configured for that term is left out
+  entirely, there is nothing to be "owing" against.
+--}}
+@if(! $isFamily && count($classStatus))
+  <div class="card" style="margin-bottom:1.1rem;margin-top:1.1rem">
+    <h3 style="margin-bottom:.6rem">{{ $activeTerm?->name }} fee status by class</h3>
+    <div style="overflow-x:auto">
+    <table class="table-stack">
+      <thead><tr><th>Class</th><th>Students</th><th>Paid in full</th><th>Partial</th><th>Not paid</th><th></th></tr></thead>
+      <tbody>
+        @foreach($classStatus as $row)
+          <tr>
+            <td data-label="Class"><a href="{{ route('school.finance.payments.class-detail', ['school' => $school->slug, 'classArmId' => $row['arm']->id, 'term_id' => $activeTerm?->id]) }}"><strong>{{ $row['label'] }}</strong></a></td>
+            <td class="muted" data-label="Students">{{ $row['studentCount'] }}</td>
+            <td data-label="Paid in full"><span class="badge badge-ok">{{ $row['fullyPaid'] }}</span></td>
+            <td data-label="Partial"><span class="badge badge-warn">{{ $row['partial'] }}</span></td>
+            <td data-label="Not paid"><span class="badge badge-bad">{{ $row['unpaid'] }}</span></td>
+            <td>
+              <a class="btn btn-ghost btn-sm" href="{{ route('school.finance.payments.class-detail', ['school' => $school->slug, 'classArmId' => $row['arm']->id, 'term_id' => $activeTerm?->id]) }}">View</a>
+              @if($canVerify && ($row['partial'] + $row['unpaid']) > 0)
+                <form method="POST" action="{{ route('school.finance.payments.nudge', ['school' => $school->slug]) }}" style="display:inline">
+                  @csrf
+                  <input type="hidden" name="class_arm_id" value="{{ $row['arm']->id }}" />
+                  <input type="hidden" name="term_id" value="{{ $activeTerm?->id }}" />
+                  <button class="btn btn-ghost btn-sm" type="submit">Nudge parents</button>
+                </form>
+              @endif
+            </td>
+          </tr>
+        @endforeach
+      </tbody>
+    </table>
+    </div>
+  </div>
+@endif
+
+{{--
+  Payment countdown/reminder popup settings (user request 2026-07-25:
+  "let the admin configure a payment countdown date to parents... 15
+  days (as set by the admin) it shows daily on the parent login as pop
+  up reminder to pay"). Left blank, no popup ever shows to any parent.
+--}}
+@if($canVerify)
+  <div class="card" style="max-width:30rem">
+    <h3 style="margin-bottom:.4rem">Payment reminder</h3>
+    <p class="muted" style="margin-bottom:.8rem">A parent who still owes fees sees a daily reminder pop up, starting this many days before the due date. It keeps showing, as overdue, for as long as a balance remains past that date.</p>
+    <form method="POST" action="{{ route('school.finance.payments.due-date', ['school' => $school->slug]) }}" class="grid cols-2" style="gap:1rem">
+      @csrf
+      <div class="field" style="margin:0">
+        <label for="payment_due_date">Due date</label>
+        <input id="payment_due_date" name="payment_due_date" type="date" value="{{ $paymentDueDate }}" />
+      </div>
+      <div class="field" style="margin:0">
+        <label for="payment_reminder_days">Remind starting this many days before</label>
+        <input id="payment_reminder_days" name="payment_reminder_days" type="number" min="1" max="90" required value="{{ $paymentReminderDays }}" />
+      </div>
+      <div style="grid-column:1/-1">
+        <button class="btn btn-primary btn-sm" type="submit">Save</button>
+      </div>
+    </form>
+  </div>
+@endif
 @endsection
