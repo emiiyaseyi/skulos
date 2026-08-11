@@ -111,14 +111,25 @@ class RoleDashboard
             : collect();
         $students = Student::active()->with('currentClassArm.schoolClass')->get();
         [$boys, $girls] = $this->genderCounts($students);
-        $newThisTerm = $term ? Student::active()->where('created_at', '>=', $term->created_at)->count() : 0;
+        // Real admissions applicants, not enrolled students (feedback
+        // 2026-08-07, see the 'New Registrations' figure below for the
+        // full explanation).
+        $newApplicants = \App\Models\Tenant\Applicant::count();
         $unassigned = Student::active()->whereNull('current_class_arm_id')->count();
         $uniqueGuardians = StudentGuardian::get(['email', 'phone', 'name'])
             ->map(fn ($g) => $g->email ?: ($g->phone ?: $g->name))
             ->unique()
             ->count();
-        $studentRate = $this->attendanceRate(Attendance::PERSON_STUDENT);
-        $staffRate = $this->attendanceRate(Attendance::PERSON_STAFF);
+        // Term average, not "the single most recent marked date" (feedback
+        // 2026-08-07: "why is it showing N/A for both student and staff
+        // attendance when we said it should use the average attendance
+        // in the term" — attendanceRate() only ever looks at the latest
+        // date within the last 7 days, returning null the moment nobody
+        // has marked attendance that recently, e.g. over a weekend or
+        // holiday, even with plenty of real attendance data for the term
+        // overall).
+        $studentRate = $this->schoolWideTermAttendanceRate(Attendance::PERSON_STUDENT, $term);
+        $staffRate = $this->schoolWideTermAttendanceRate(Attendance::PERSON_STAFF, $term);
         // School Health Score (Dashboard Design Cross-Check, 2026-07-13:
         // "Would need most of the above to compute honestly") reuses the
         // exact same score HealthService already computes for the
@@ -159,8 +170,10 @@ class RoleDashboard
                 // beside "Staff Attendance" here and the bare label read as
                 // ambiguous about which one it was.
                 ['n' => $studentRate !== null ? "{$studentRate}%" : 'N/A', 'l' => 'Student Attendance Rate', 'ic' => 'students', 'c' => '#12A97B', 'href' => $href('school.attendance.dashboard')],
-                ['n' => $staffRate !== null ? "{$staffRate}%" : 'N/A', 'l' => 'Staff Attendance', 'ic' => 'staff', 'c' => '#12A97B', 'href' => $href('school.attendance.staff')],
-                ['n' => number_format($newThisTerm), 'l' => 'New Registrations', 'ic' => 'students', 'c' => '#E5901C', 'href' => $href('school.students')],
+                // 'Staff Attendance Rate', matching the student figure's own label (feedback 2026-08-07: "add RATE to staff attendance so its same as the student attendance rate").
+                ['n' => $staffRate !== null ? "{$staffRate}%" : 'N/A', 'l' => 'Staff Attendance Rate', 'ic' => 'staff', 'c' => '#12A97B', 'href' => $href('school.attendance.staff')],
+                // New Registrations now counts real admissions applicants, not enrolled students (feedback 2026-08-07: "why is it showing 320 new registrations? It should pick its data from the admission portal in terms of how many people has applied there" — $newThisTerm used to count Student rows created since the term began, an enrollment figure, not an applications-received one).
+                ['n' => number_format($newApplicants), 'l' => 'New Registrations', 'ic' => 'students', 'c' => '#E5901C', 'href' => $href('school.admissions.pipeline')],
                 // Replaces "Awaiting Class" (user report 2026-07-16: "WHAT
                 // IS THE MEANING OF AWAITING CLASS, CHANGE THE DATA
                 // THERE" — a niche admin metric, students registered but
@@ -238,6 +251,37 @@ class RoleDashboard
         }
 
         $counts = Attendance::where('person_type', $personType)->forDate($date)
+            ->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+
+        $marked = $counts->sum();
+        if ($marked === 0) {
+            return null;
+        }
+
+        return round((($counts['present'] ?? 0) / $marked) * 100, 1);
+    }
+
+    /**
+     * School-wide attendance rate averaged across the WHOLE current
+     * term, not just the single most recent marked date (feedback
+     * 2026-08-07: "why is it showing N/A for both student and staff
+     * attendance when we said it should use the average attendance in
+     * the term" — attendanceRate() above only ever looks at the latest
+     * date within the last 7 days, returning null the moment nobody has
+     * marked attendance that recently, e.g. over a weekend or holiday,
+     * even with plenty of real attendance data for the term overall).
+     * Same shape as termAttendanceRates() above, generalized to the
+     * whole school rather than a specific set of class arms, and to
+     * either person type (students or staff) rather than students only.
+     */
+    protected function schoolWideTermAttendanceRate(string $personType, ?Term $term): ?float
+    {
+        if (! $term || ! $term->starts_on || ! $term->ends_on) {
+            return null;
+        }
+
+        $counts = Attendance::where('person_type', $personType)
+            ->whereBetween('date', [$term->starts_on->toDateString(), $term->ends_on->toDateString()])
             ->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
 
         $marked = $counts->sum();
@@ -445,9 +489,11 @@ class RoleDashboard
     protected function schoolAdministrator(): array
     {
         $term = Term::current()->first();
-        $newThisTerm = $term && $term->created_at
-            ? Student::active()->where('created_at', '>=', $term->created_at)->count()
-            : 0;
+        // Real admissions applicants, not enrolled students (feedback
+        // 2026-08-07, same fix as admin() above: "why is it showing 320
+        // new registrations? It should pick its data from the admission
+        // portal in terms of how many people has applied there").
+        $newApplicants = \App\Models\Tenant\Applicant::count();
         $unassigned = Student::active()->whereNull('current_class_arm_id')->count();
         $studentRate = $this->attendanceRate(Attendance::PERSON_STUDENT);
         $staffRate = $this->attendanceRate(Attendance::PERSON_STAFF);
@@ -464,8 +510,9 @@ class RoleDashboard
                 ['n' => number_format($uniqueGuardians), 'l' => 'Parents', 'ic' => 'students', 'c' => '#6D4FE0', 'pct' => '60%'],
                 ['n' => number_format(Subject::count()), 'l' => 'Subjects', 'ic' => 'academics', 'c' => '#0EA5A0', 'pct' => '70%'],
                 ['n' => $studentRate !== null ? "{$studentRate}%" : 'N/A', 'l' => 'Attendance Today', 'ic' => 'students', 'c' => '#12A97B', 'pct' => $studentRate !== null ? "{$studentRate}%" : '0%'],
-                ['n' => $staffRate !== null ? "{$staffRate}%" : 'N/A', 'l' => 'Staff Attendance', 'ic' => 'staff', 'c' => '#12A97B', 'pct' => $staffRate !== null ? "{$staffRate}%" : '0%'],
-                ['n' => number_format($newThisTerm), 'l' => 'New Registrations', 'ic' => 'students', 'c' => '#E5901C', 'pct' => '50%'],
+                // 'Staff Attendance Today', matching the student figure's own "Today" framing (feedback 2026-08-07: "add RATE to staff attendance so its same as the student attendance rate" — applied here as label parity, this card's own day-of semantics kept as designed per this method's docblock).
+                ['n' => $staffRate !== null ? "{$staffRate}%" : 'N/A', 'l' => 'Staff Attendance Today', 'ic' => 'staff', 'c' => '#12A97B', 'pct' => $staffRate !== null ? "{$staffRate}%" : '0%'],
+                ['n' => number_format($newApplicants), 'l' => 'New Registrations', 'ic' => 'students', 'c' => '#E5901C', 'pct' => '50%'],
                 ['n' => number_format($unassigned), 'l' => 'Awaiting Class', 'ic' => 'students', 'c' => '#E14F63', 'pct' => '40%'],
             ],
             'panel' => ['type' => 'registrar_overview', 'unassigned' => $unassigned],

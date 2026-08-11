@@ -158,39 +158,41 @@
   Quick actions (Dashboard Design Cross-Check, 2026-07-13: "Add Staff /
   Register Student / Publish Results / Assign Class, Partial or Blocked,
   real screens, just not linked as a one-click action from this
-  dashboard"). Shown only for the admin-tier and registrar roles those
-  cross-check rows named, each button only if the viewer actually holds
-  the permission it needs, same as every other permission gated link in
-  the product. "Assign Class" has no standalone screen (done from a
-  student's own edit page today), so it links to Students, the real entry
-  point, rather than inventing a screen that does not exist.
+  dashboard"; broadened 2026-08-07 per direct feedback: "the quick
+  actions buttons here are too small, let's add more and it should be
+  related to what the user role have access to in their menus"). No
+  longer restricted to the admin/school_admin/registrar role kinds —
+  every viewer sees whichever of the catalog below they actually hold
+  the permission for, the same "role relevant, not role hardcoded"
+  principle every other permission gated link in the product already
+  follows; the card itself only renders if at least one button
+  qualifies, so a role with none of these (e.g. a plain student) never
+  sees an empty shell.
 --}}
 @php
   $qaRbac = app(\App\Services\Rbac\Rbac::class);
-  $showQuickActions = in_array($role['kind'] ?? '', ['admin', 'school_admin', 'registrar'], true);
+  $qaUser = auth()->user();
+  $qaCan = fn (string $perm) => $qaRbac->check($qaUser, $school, $perm);
+  $quickActions = array_filter([
+      $qaCan('staff.create') ? ['label' => 'Add staff', 'href' => route('school.staff.create', ['school' => $school->slug]), 'primary' => true] : null,
+      $qaCan('students.create') ? ['label' => 'Register student', 'href' => route('school.students.create', ['school' => $school->slug])] : null,
+      $qaCan('students.update') ? ['label' => 'Assign class', 'href' => route('school.students', ['school' => $school->slug])] : null,
+      $qaCan('attendance.create') ? ['label' => 'Take attendance', 'href' => route('school.attendance.index', ['school' => $school->slug])] : null,
+      $qaCan('examinations.create') ? ['label' => 'Enter results', 'href' => route('school.examinations.index', ['school' => $school->slug])] : null,
+      ($qaCan('report_cards.assign_review') || $qaCan('report_cards.release')) ? ['label' => 'Publish results', 'href' => route('school.report-cards.pending-review', ['school' => $school->slug])] : null,
+      $qaCan('finance.update') ? ['label' => 'Verify payments', 'href' => route('school.finance.payments.index', ['school' => $school->slug])] : null,
+      $qaCan('admissions.decide') ? ['label' => 'Review applicants', 'href' => route('school.admissions.pipeline', ['school' => $school->slug])] : null,
+      $qaCan('communication.broadcast') ? ['label' => 'Send announcement', 'href' => route('school.announcements.create', ['school' => $school->slug])] : null,
+      $qaCan('calendar.create') ? ['label' => 'Create event', 'href' => route('school.calendar.create', ['school' => $school->slug])] : null,
+  ]);
 @endphp
-@if($showQuickActions)
+@if(count($quickActions))
   <div class="card" style="margin-bottom:1.1rem">
     <h3 style="margin-bottom:.6rem">Quick actions</h3>
-    <div style="display:flex;gap:.6rem;flex-wrap:wrap">
-      @if($qaRbac->check(auth()->user(), $school, 'staff.create'))
-        <a class="btn btn-primary btn-sm" href="{{ route('school.staff.create', ['school' => $school->slug]) }}">Add staff</a>
-      @endif
-      @if($qaRbac->check(auth()->user(), $school, 'students.create'))
-        <a class="btn btn-ghost btn-sm" href="{{ route('school.students.create', ['school' => $school->slug]) }}">Register student</a>
-      @endif
-      @if($qaRbac->check(auth()->user(), $school, 'students.update'))
-        <a class="btn btn-ghost btn-sm" href="{{ route('school.students', ['school' => $school->slug]) }}">Assign class</a>
-      @endif
-      @if($qaRbac->check(auth()->user(), $school, 'report_cards.assign_review') || $qaRbac->check(auth()->user(), $school, 'report_cards.release'))
-        <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.pending-review', ['school' => $school->slug]) }}">Publish results</a>
-      @endif
-      @if($qaRbac->check(auth()->user(), $school, 'communication.broadcast'))
-        <a class="btn btn-ghost btn-sm" href="{{ route('school.announcements.create', ['school' => $school->slug]) }}">Send announcement</a>
-      @endif
-      @if($qaRbac->check(auth()->user(), $school, 'calendar.create'))
-        <a class="btn btn-ghost btn-sm" href="{{ route('school.calendar.create', ['school' => $school->slug]) }}">Create event</a>
-      @endif
+    <div style="display:flex;gap:.7rem;flex-wrap:wrap">
+      @foreach($quickActions as $qa)
+        <a class="btn {{ !empty($qa['primary']) ? 'btn-primary' : 'btn-ghost' }}" style="padding:.7rem 1.2rem;font-size:.88rem" href="{{ $qa['href'] }}">{{ $qa['label'] }}</a>
+      @endforeach
     </div>
   </div>
 @endif

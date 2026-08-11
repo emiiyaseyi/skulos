@@ -134,7 +134,7 @@ a{color:inherit;text-decoration:none}
 .side-brand{display:flex;align-items:center;gap:.6rem;padding:1.15rem 1.3rem;font-weight:800;font-size:1.3rem;letter-spacing:-.01em}
 .side-brand em{font-style:normal;color:var(--accent)}
 .side-school{display:flex;align-items:center;gap:.6rem;padding:.4rem 1rem 1rem}
-.side-badge{width:34px;height:34px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:800;flex-shrink:0}
+.side-badge{width:38px;height:38px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:800;flex-shrink:0;overflow:hidden}
 .side-school b{font-size:.9rem;display:block;line-height:1.2}
 .side-school span{font-size:.72rem;color:var(--side-mut)}
 .side-search{position:relative;margin:.1rem 1rem .7rem}
@@ -613,7 +613,24 @@ tr:last-child td{border-bottom:none}
             <svg class="chev-toggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
           </button>
         @endif
-        <span class="side-badge">{{ strtoupper(substr($school->name,0,1)) }}</span>
+        {{-- Real uploaded logo, not just an initial letter (feedback
+             2026-08-07: "the school logo and name is too small" — the
+             real gap turned out to be that this badge never showed the
+             school's own uploaded logo at all, only ever a generic
+             first-letter avatar, same as the sidebar header everywhere
+             else in this app already does for report cards/admissions
+             forms). Falls back to the letter avatar exactly as before
+             when a school genuinely has no logo uploaded yet. Sized up
+             slightly (34px to 38px) alongside this fix, per the same
+             feedback. --}}
+        @php($sideLogo = $school->branding()['logo'] ?? null)
+        <span class="side-badge">
+          @if($sideLogo)
+            <img src="{{ \Illuminate\Support\Facades\Storage::url($sideLogo) }}" alt="{{ $school->name }} logo" style="width:100%;height:100%;object-fit:contain;border-radius:inherit" />
+          @else
+            {{ strtoupper(substr($school->name,0,1)) }}
+          @endif
+        </span>
         <div><b>{{ \Illuminate\Support\Str::limit($school->name, 20) }}</b><span>{{ $school->slug }}.{{ config('app.domain') }}</span></div>
       </div>
     @endisset

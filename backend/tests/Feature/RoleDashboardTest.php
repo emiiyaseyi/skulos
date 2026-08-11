@@ -463,6 +463,12 @@ class RoleDashboardTest extends TestCase
         Carbon::setTestNow(Carbon::parse('2026-07-13 09:00:00'));
         [$school, $admin] = $this->schoolWithMember('school-owner', 'rdattend');
         app(TenantManager::class)->use($school);
+        // A current term spanning "today" (2026-08-07 fix: the dashboard's
+        // attendance figure now averages across the whole term, not just
+        // the most recent marked day, so it needs a real term with real
+        // start/end dates to compute against).
+        $academicSession = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026', 'starts_on' => '2026-06-01', 'ends_on' => '2026-09-01', 'is_current' => true]);
+        \App\Models\Tenant\Term::create(['academic_session_id' => $academicSession->id, 'name' => 'Term 1', 'sequence' => 1, 'starts_on' => '2026-06-01', 'ends_on' => '2026-09-01', 'is_current' => true]);
         $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
         $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
         $arm = ClassArm::create(['school_class_id' => $class->id]);
@@ -486,38 +492,45 @@ class RoleDashboardTest extends TestCase
     /**
      * User report 2026-07-16, screenshot of a real school's dashboard:
      * "FIX THE Attendance Rate AND Staff Attendance SHOWING n/A - ADD THE
-     * DATA IF NEEDED". A bare "N/A" the moment nobody has opened the
-     * register yet today gives strictly less information than the real
-     * rate from the last day it actually was marked, so the figure now
-     * falls back up to 7 days back.
+     * DATA IF NEEDED". Originally fixed by falling back to the most
+     * recent marked day within 7 days; superseded 2026-08-07 by a
+     * stronger direct request ("why is it showing N/A... we said it
+     * should use the average attendance in the term") — a "most recent
+     * single day" figure could itself still read N/A across a weekend or
+     * holiday even with real attendance data for the term overall, so
+     * this now averages every marked day across the whole current term
+     * instead of looking for one single recent date.
      */
-    public function test_attendance_rate_falls_back_to_the_most_recent_marked_day_when_today_has_nothing(): void
+    public function test_attendance_rate_averages_every_marked_day_across_the_whole_term(): void
     {
         [$school, $admin] = $this->schoolWithMember('school-owner', 'rdattendfallback');
         app(TenantManager::class)->use($school);
+        $academicSession = \App\Models\Tenant\AcademicSession::create(['name' => '2025/2026', 'starts_on' => now()->subMonth(), 'ends_on' => now()->addMonths(3), 'is_current' => true]);
+        $term = \App\Models\Tenant\Term::create(['academic_session_id' => $academicSession->id, 'name' => 'Term 1', 'sequence' => 1, 'starts_on' => now()->subMonth(), 'ends_on' => now()->addMonths(3), 'is_current' => true]);
         $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
         $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
         $arm = ClassArm::create(['school_class_id' => $class->id]);
         $a = Student::create(['admission_number' => 'FB1', 'first_name' => 'A', 'last_name' => 'One', 'current_class_arm_id' => $arm->id]);
-        // A few days ago, nothing marked today or yesterday. A fixed
-        // subDays(3) intermittently landed on a Saturday or Sunday
-        // depending on which day the suite happened to run on, and
-        // AttendanceService::markClass() refuses to mark a weekend (a
-        // real, correct guard, not a bug) — nudge back onto the nearest
-        // weekday so this test is not flaky by the calendar.
+        $b = Student::create(['admission_number' => 'FB2', 'first_name' => 'B', 'last_name' => 'Two', 'current_class_arm_id' => $arm->id]);
+        // A few days ago, nothing marked today. A fixed subDays(3)
+        // intermittently landed on a Saturday or Sunday depending on
+        // which day the suite happened to run on, and AttendanceService::
+        // markClass() refuses to mark a weekend (a real, correct guard,
+        // not a bug) — nudge back onto the nearest weekday so this test
+        // is not flaky by the calendar.
         $markDate = now()->subDays(3);
         if ($markDate->isWeekend()) {
             $markDate = $markDate->subDays(2);
         }
         app(\App\Services\Attendance\AttendanceService::class)->markClass($arm->id, $markDate, [
-            $a->id => 'present',
+            $a->id => 'present', $b->id => 'absent',
         ]);
         app(TenantManager::class)->forget();
 
         $data = app(RoleDashboard::class)->build($admin, $school);
         $labels = collect($data['figs'])->pluck('n', 'l');
 
-        $this->assertSame('100%', $labels['Student Attendance Rate'], 'a 3 day old real mark must still surface, not read as N/A');
+        $this->assertSame('50%', $labels['Student Attendance Rate'], 'a real mark within the current term must still surface as its own term average, not N/A');
     }
 
     public function test_attendance_rate_is_na_when_nothing_was_ever_marked_at_all(): void
