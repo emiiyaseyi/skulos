@@ -287,6 +287,77 @@ class StudentProfileChangeTest extends TestCase
         $this->assertSame('Obi', $student->fresh()->last_name);
     }
 
+    public function test_admin_index_shows_requests_still_pending_with_the_class_teacher_too(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'pctest10b');
+        app(TenantManager::class)->use($school);
+        [$student, $parentUser] = $this->studentWithClassTeacherAndParent($school);
+        $this->actingAs($parentUser)->post("http://{$school->slug}.localhost/students/{$student->id}/request-changes", ['first_name' => 'Ada', 'last_name' => 'Chukwu']);
+        app(TenantManager::class)->forget();
+
+        // Previously invisible here: adminIndex() only ever queried
+        // STATUS_PENDING_ADMIN, so a request still sitting with the
+        // class teacher (as this one is, no approve/reject yet) never
+        // showed up on the admin's own review screen at all.
+        $this->actingAs($admin)->get("http://{$school->slug}.localhost/students/change-requests/admin")
+            ->assertOk()
+            ->assertSee('Ada')
+            ->assertSee('Awaiting class teacher');
+    }
+
+    public function test_admin_can_nudge_a_class_teacher_stage_request(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'pctest10c');
+        app(TenantManager::class)->use($school);
+        [$student, $parentUser, $teacherUser] = $this->studentWithClassTeacherAndParent($school);
+        $this->actingAs($parentUser)->post("http://{$school->slug}.localhost/students/{$student->id}/request-changes", ['first_name' => 'Ada', 'last_name' => 'Chukwu']);
+        $request = StudentProfileChangeRequest::first();
+        app(TenantManager::class)->forget();
+
+        $before = Notification::where('user_id', $teacherUser->id)->count();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/change-requests/{$request->id}/admin/nudge-class-teacher")
+            ->assertRedirect();
+
+        $this->assertSame($before + 1, Notification::where('user_id', $teacherUser->id)->count());
+    }
+
+    public function test_admin_can_override_approve_a_class_teacher_stage_request_directly(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'pctest10d');
+        app(TenantManager::class)->use($school);
+        [$student, $parentUser] = $this->studentWithClassTeacherAndParent($school);
+        $this->actingAs($parentUser)->post("http://{$school->slug}.localhost/students/{$student->id}/request-changes", ['first_name' => 'Ada', 'last_name' => 'Chukwu']);
+        $request = StudentProfileChangeRequest::first();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/change-requests/{$request->id}/admin/override-approve")
+            ->assertRedirect();
+
+        $this->assertSame(StudentProfileChangeRequest::STATUS_APPROVED, $request->fresh()->status);
+        $this->assertSame('Chukwu', $student->fresh()->last_name, 'skipped straight past the class teacher stage');
+
+        $notified = Notification::where('user_id', $parentUser->id)->where('category', 'student_profile_change_approved')->exists();
+        $this->assertTrue($notified);
+    }
+
+    public function test_admin_can_override_reject_a_class_teacher_stage_request_and_nothing_is_applied(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'pctest10e');
+        app(TenantManager::class)->use($school);
+        [$student, $parentUser] = $this->studentWithClassTeacherAndParent($school);
+        $this->actingAs($parentUser)->post("http://{$school->slug}.localhost/students/{$student->id}/request-changes", ['first_name' => 'Ada', 'last_name' => 'Chukwu']);
+        $request = StudentProfileChangeRequest::first();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/change-requests/{$request->id}/admin/override-reject", [
+            'notes' => 'Not needed, spoke to the parent directly.',
+        ])->assertRedirect();
+
+        $this->assertSame(StudentProfileChangeRequest::STATUS_REJECTED_BY_ADMIN, $request->fresh()->status);
+        $this->assertSame('Obi', $student->fresh()->last_name);
+    }
+
     public function test_a_non_admin_tier_staff_member_cannot_reach_the_admin_queue(): void
     {
         [$school] = $this->schoolWithMember('school-owner', 'pctest12');

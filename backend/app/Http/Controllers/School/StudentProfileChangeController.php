@@ -329,7 +329,23 @@ class StudentProfileChangeController extends Controller
         return back()->with('status', "{$count} change request(s) rejected.");
     }
 
-    /** Every request awaiting final admin approval. */
+    /**
+     * Every request awaiting a decision, at EITHER stage, not just the
+     * final admin stage (user report 2026-08-07: "why is the admin not
+     * seeing all profile change requests as I know some parents has sent
+     * a request for changes, admin should see all here, nudge the
+     * teacher delaying it, or override and review and approve"). This
+     * screen used to only ever query STATUS_PENDING_ADMIN, so a request
+     * still sitting with the class teacher was completely invisible here
+     * — the admin had no way to know it existed, let alone nudge or
+     * override it, even though they hold students.manage_settings and
+     * could already act on a pending_admin one. Now shows both stages in
+     * two clearly labeled sections, with a stage-appropriate action set
+     * on each: the class-teacher stage gets Nudge (reuses the same
+     * notifyClassTeacher() a fresh submission already sends) and
+     * Override (admin decides directly, skipping the class teacher
+     * entirely); the admin stage keeps its existing Approve/Reject.
+     */
     public function adminIndex(Request $request): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'students.manage_settings');
@@ -340,11 +356,85 @@ class StudentProfileChangeController extends Controller
             ->latest()
             ->get();
 
+        $pendingClassTeacher = StudentProfileChangeRequest::where('status', StudentProfileChangeRequest::STATUS_PENDING_CLASS_TEACHER)
+            ->with('student', 'submittedBy', 'classTeacherStaff')
+            ->latest()
+            ->get();
+
+        // A quick "analysis of all such requests" (user's own wording)
+        // right on this screen, not just buried in the Approvals history
+        // log — how many are stuck at each stage right now, and the
+        // all-time approve/reject split.
+        $stats = [
+            'pending_class_teacher' => $pendingClassTeacher->count(),
+            'pending_admin' => $requests->count(),
+            'approved_total' => StudentProfileChangeRequest::where('status', StudentProfileChangeRequest::STATUS_APPROVED)->count(),
+            'rejected_total' => StudentProfileChangeRequest::whereIn('status', [
+                StudentProfileChangeRequest::STATUS_REJECTED_BY_CLASS_TEACHER,
+                StudentProfileChangeRequest::STATUS_REJECTED_BY_ADMIN,
+            ])->count(),
+        ];
+
         return view('school.students.profile-change.admin-index', [
             'school' => $school,
             'accent' => $school->branding()['color'],
             'requests' => $requests,
+            'pendingClassTeacher' => $pendingClassTeacher,
+            'stats' => $stats,
         ]);
+    }
+
+    /** Admin nudges the class teacher currently sitting on a request, without waiting for the Approvals oversight screen's own nudge. */
+    public function adminNudgeClassTeacher(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.manage_settings');
+        $school = $this->school($request);
+        $changeRequest = StudentProfileChangeRequest::where('status', StudentProfileChangeRequest::STATUS_PENDING_CLASS_TEACHER)
+            ->with('student')->findOrFail($request->route('requestId'));
+
+        $this->notifyClassTeacher($school, $changeRequest, $changeRequest->student);
+
+        return back()->with('status', 'Reminder sent to the class teacher.');
+    }
+
+    /** Admin decides a class-teacher-stage request directly, skipping the class teacher entirely. */
+    public function adminOverrideApprove(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.manage_settings');
+        $changeRequest = StudentProfileChangeRequest::where('status', StudentProfileChangeRequest::STATUS_PENDING_CLASS_TEACHER)
+            ->with('student')->findOrFail($request->route('requestId'));
+
+        $changeRequest->student->update($changeRequest->requested);
+        $changeRequest->update([
+            'status' => StudentProfileChangeRequest::STATUS_APPROVED,
+            'class_teacher_notes' => 'Skipped: approved directly by the school admin.',
+            'admin_decided_by_user_id' => Auth::id(),
+            'admin_decided_at' => now(),
+        ]);
+
+        $this->notifyApplicant($changeRequest, 'student_profile_change_approved', 'Your requested change was approved', "The change you requested for {$changeRequest->student->fullName()} has been approved and is now live.");
+
+        return back()->with('status', "{$changeRequest->student->fullName()}'s profile has been updated (admin override).");
+    }
+
+    public function adminOverrideReject(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.manage_settings');
+        $changeRequest = StudentProfileChangeRequest::where('status', StudentProfileChangeRequest::STATUS_PENDING_CLASS_TEACHER)
+            ->with('student')->findOrFail($request->route('requestId'));
+
+        $data = $request->validate(['notes' => ['required', 'string', 'max:500']]);
+
+        $changeRequest->update([
+            'status' => StudentProfileChangeRequest::STATUS_REJECTED_BY_ADMIN,
+            'admin_decided_by_user_id' => Auth::id(),
+            'admin_decided_at' => now(),
+            'admin_notes' => $data['notes'],
+        ]);
+
+        $this->notifyApplicant($changeRequest, 'student_profile_change_rejected', 'Your requested change was rejected', "The change you requested for {$changeRequest->student->fullName()} was not approved: {$data['notes']}");
+
+        return back()->with('status', 'The change request has been rejected (admin override).');
     }
 
     public function adminApprove(Request $request): \Illuminate\Http\RedirectResponse

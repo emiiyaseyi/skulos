@@ -434,6 +434,13 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/{requestId}/admin/reject', [$changes, 'adminReject'])->name('admin.reject');
             Route::post('/admin/bulk-approve', [$changes, 'adminBulkApprove'])->name('admin.bulk-approve');
             Route::post('/admin/bulk-reject', [$changes, 'adminBulkReject'])->name('admin.bulk-reject');
+            // Admin acting on a request still sitting with the class
+            // teacher (item 11, feedback 2026-08-07): a nudge without
+            // waiting for it to reach the admin stage, or a direct
+            // override decision that skips the class teacher entirely.
+            Route::post('/{requestId}/admin/nudge-class-teacher', [$changes, 'adminNudgeClassTeacher'])->name('admin.nudge-class-teacher');
+            Route::post('/{requestId}/admin/override-approve', [$changes, 'adminOverrideApprove'])->name('admin.override-approve');
+            Route::post('/{requestId}/admin/override-reject', [$changes, 'adminOverrideReject'])->name('admin.override-reject');
         });
         // A single admin oversight screen across every "someone is
         // waiting on a decision" flow (user request 2026-07-27).
