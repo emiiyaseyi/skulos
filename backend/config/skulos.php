@@ -2803,7 +2803,14 @@ return [
         // teacher — an admin opts a subject teacher in from Role
         // Management, the same generic mechanism already used for
         // report_cards.bulk_generate_all above.
-        'examinations' => ['approve_results', 'publish_results', 'view_broadsheet'],
+        // promote_students (2026-08-11, feedback list 8/7/2026 item 9):
+        // a real, admin-triggered "move a class up" action is a bigger,
+        // riskier action than everyday score entry or even the settings
+        // above, same reasoning report_cards.bulk_generate_all already
+        // documents for its own institution-wide action — its own
+        // permission an admin can extend to another role via Roles &
+        // Permissions, not bundled in by default.
+        'examinations' => ['approve_results', 'publish_results', 'view_broadsheet', 'promote_students'],
         'communication' => ['broadcast'],
         'school_info' => ['manage_settings'],
         'students' => ['manage_settings'],

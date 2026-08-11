@@ -877,6 +877,17 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/grading/classes/{classId}', [$grading, 'assignClass'])->name('grading.classes.assign');
         });
 
+        // Admin-triggered student promotion (feedback list 8/7/2026, item
+        // 9), a real screen distinct from the automatic promotion
+        // PromotionService::promote() already runs at end-of-session.
+        Route::prefix('examinations/promote-students')->name('school.promotions.')->group(function () {
+            $promotions = \App\Http\Controllers\School\PromotionController::class;
+            Route::get('/', [$promotions, 'create'])->name('create');
+            Route::post('/', [$promotions, 'store'])->name('store');
+            Route::get('/runs', [$promotions, 'index'])->name('index');
+            Route::get('/runs/{runId}', [$promotions, 'show'])->name('show');
+        });
+
         // Foundation Finance slice (2026-07-17): Bank Transfer Payment
         // Option, Payment Evidence Upload, Payment Verification, Basic
         // Fee Records.

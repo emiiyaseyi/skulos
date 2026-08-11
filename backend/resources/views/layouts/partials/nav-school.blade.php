@@ -761,6 +761,19 @@
     $academicSubgroups['Examinations']['bulk_release'] = $link('school.report-cards.bulk-release', 'Bulk Release Report Cards', 'approve');
   }
 
+  // Promote Students (feedback list 8/7/2026, item 9: "there's no sub
+  // menu under examination where the admin can go to and promote all
+  // learners to the next class"), its own new permission since moving
+  // an entire class up is a bigger, riskier institution-wide action
+  // than everyday score entry, same tier reasoning as bulk_generate_all
+  // above. Not gated by any plan feature, same "core functionality"
+  // treatment as the rest of this group.
+  if (! $isRestrictedNav && $navRbac->check($navUser, $school, 'examinations.promote_students')
+      && ! isset($renderedRoutes['school.promotions.create'])) {
+    $renderedRoutes['school.promotions.create'] = true;
+    $academicSubgroups['Examinations']['promote_students'] = $link('school.promotions.create', 'Promote Students', 'trend');
+  }
+
   // "Report settings" (template and field choices for the report card
   // look) is not gated by any plan feature (user decision 2026-07-11:
   // every plan should be able to reach it), so unlike everything else in
@@ -994,7 +1007,7 @@
   // scoped to Settings specifically), pushed into the otherwise-flat
   // Academic group rather than making the whole group nested.
   $examEntries = [];
-  foreach (['enter_scores', 'term_broadsheets', 'grading', 'narrative_evaluation', 'report_card_calculation', 'bulk_generate', 'bulk_release'] as $examKey) {
+  foreach (['enter_scores', 'term_broadsheets', 'grading', 'narrative_evaluation', 'report_card_calculation', 'bulk_generate', 'bulk_release', 'promote_students'] as $examKey) {
     if (isset($academicSubgroups['Examinations'][$examKey])) {
       $examEntries[] = $academicSubgroups['Examinations'][$examKey];
     }
