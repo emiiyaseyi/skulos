@@ -2,9 +2,24 @@
 @section('title', 'Application Status — '.($school->name ?? 'SKULOS'))
 @section('bare', true)
 
+@push('head')
+<style>
+  .adm-logo{width:64px;height:64px;border-radius:16px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:800;font-size:1.6rem;margin:0 auto 1.1rem;overflow:hidden}
+  .adm-logo img{width:100%;height:100%;object-fit:contain}
+</style>
+@endpush
+
 @section('content')
 <div style="max-width:30rem;margin:2.5rem auto;padding:0 1.25rem">
   <div class="card" style="text-align:center;margin-bottom:1.25rem">
+    @php($logo = $school->branding()['logo'] ?? null)
+    <div class="adm-logo">
+      @if($logo)
+        <img src="{{ \Illuminate\Support\Facades\Storage::url($logo) }}" alt="{{ $school->name }} logo" />
+      @else
+        {{ strtoupper(substr($school->name ?? 'S', 0, 1)) }}
+      @endif
+    </div>
     <h1 class="title" style="margin-bottom:.6rem">Application Received</h1>
     <p class="subtitle" style="margin-bottom:1.2rem">Thank you, {{ $applicant->name }}. Your application reference is:</p>
     <p style="font-size:1.6rem;font-weight:800;letter-spacing:.02em;margin-bottom:{{ $applicant->recoverablePassword() ? '.4rem' : '1.2rem' }}">{{ $applicant->admission_number }}</p>

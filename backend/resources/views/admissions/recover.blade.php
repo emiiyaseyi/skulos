@@ -2,10 +2,25 @@
 @section('title', 'Recover Your Application — '.($school->name ?? 'SKULOS'))
 @section('bare', true)
 
+@push('head')
+<style>
+  .adm-logo{width:64px;height:64px;border-radius:16px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:800;font-size:1.6rem;margin:0 auto 1.1rem;overflow:hidden}
+  .adm-logo img{width:100%;height:100%;object-fit:contain}
+</style>
+@endpush
+
 @section('content')
 <div style="max-width:30rem;margin:2.5rem auto;padding:0 1.25rem">
-  <div class="page-head">
+  <div class="page-head" style="justify-content:center;text-align:center">
     <div>
+      @php($logo = $school->branding()['logo'] ?? null)
+      <div class="adm-logo">
+        @if($logo)
+          <img src="{{ \Illuminate\Support\Facades\Storage::url($logo) }}" alt="{{ $school->name }} logo" />
+        @else
+          {{ strtoupper(substr($school->name ?? 'S', 0, 1)) }}
+        @endif
+      </div>
       <h1 class="title">Forgot Your Reference or Password?</h1>
       <p class="subtitle">Answer a few questions about the applicant to look it up.</p>
     </div>
