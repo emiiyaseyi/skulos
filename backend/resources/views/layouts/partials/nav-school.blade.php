@@ -329,12 +329,20 @@
     // that same board rather than a dead/impossible direct link, the
     // same "point at where the real thing actually lives" reasoning as
     // the original Fee Review repoint, just at a truer destination now.
-    // 'online_document_upload' stays unmapped (renders as "Soon") until
-    // document upload/approval (Phase 1f) is actually built.
+    // 'online_document_upload' repointed 2026-08-07 (feedback: "this
+    // ought to have been built so that the admin can review documents
+    // uploaded"): document upload/approval (Phase 1f) was actually
+    // built and shipped back on 2026-07-31, this catalog key was simply
+    // never repointed off "Soon" once it landed, the exact same shape
+    // of gap 'applicant_tracking'/'admission_letters' above already hit
+    // and were fixed for. Points at the real admin review queue
+    // (AdmissionDocumentReviewController), reachable today only via a
+    // "Document review" button on the Applicants board.
     'online_admissions' => ['school.admissions.settings.edit', 'Admissions Settings', 'settings'],
     'admission_workflow' => ['school.admissions.form-builder.index', 'Admission Form Builder', 'builder'],
     'applicant_tracking' => ['school.admissions.pipeline', 'Applicants', 'students'],
     'admission_letters' => ['school.admissions.pipeline', 'Admission Letters', 'billing'],
+    'online_document_upload' => ['school.admissions.document-review.index', 'Document Review', 'approve'],
   ];
 
   // The report card browse/review page lives under Academic in the plan
@@ -848,32 +856,19 @@
       // too, so both stay real, just two entry points into one screen.
       $link('school.calendar.index', 'Academic Calendar', 'calendar'),
     ]);
-    /*
-     * All three of these are one real shared screen ("Student, Parent &
-     * Staff Field Settings"), the same "shared real screen, distinct
-     * labels" pattern Campuses/Health already use above, never three
-     * separate pages. User report 2026-07-22: "staff and parent field
-     * setting keeps going back to student field settings", because the
-     * destination always looked and read like it was ONLY about
-     * students regardless of which of the three labels was clicked. The
-     * page itself is now titled to cover all three and the Parent/Staff
-     * links jump straight to the shared identifier section by anchor
-     * (via $linkWithAnchor, a thin wrapper around $link()), so landing
-     * there no longer reads as a wrong destination.
-     */
-    $linkWithAnchor = function ($routeName, $anchor, $label, $icon) use ($link, $slug) {
-      $entry = $link($routeName, $label, $icon);
-      if ($slug && \Illuminate\Support\Facades\Route::has($routeName)) {
-        $plainUrl = route($routeName, ['school' => $slug]);
-        $entry['html'] = str_replace('href="'.$plainUrl.'"', 'href="'.$plainUrl.'#'.$anchor.'"', $entry['html']);
-      }
-
-      return $entry;
-    };
+    // Collapsed from three separate nav lines (Student Fields/Parent
+    // Settings/Staff Settings) down to one (feedback 2026-08-07: "all
+    // these fields should be merged into one menu 'Fields' since they
+    // have the same content") — those three were always the exact same
+    // real screen under different anchors, per this block's own comment
+    // above; showing three clickable rows for one destination was
+    // exactly what kept reading as "going back to student field
+    // settings" even after the anchor fix, not actually resolved by it.
+    // Custom Fields is a genuinely separate real screen (its own EAV
+    // system for admin-invented fields, not the standard set this one
+    // toggles), kept as its own adjacent line rather than folded in.
     $settingsSubgroups['Users'] = array_merge($settingsSubgroups['Users'], [
-      $linkWithAnchor('school.students.settings.edit', 'student-fields', 'Student Fields', 'field'),
-      $linkWithAnchor('school.students.settings.edit', 'identifier-settings', 'Parent Settings', 'field'),
-      $linkWithAnchor('school.students.settings.edit', 'identifier-settings', 'Staff Settings', 'field'),
+      $link('school.students.settings.edit', 'Fields', 'field'),
       $link('school.settings.custom-fields.index', 'Custom Fields', 'field'),
     ]);
     // Previously only reachable from a small link tucked in the account

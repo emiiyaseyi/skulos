@@ -60,20 +60,30 @@ class PlanFeatureNavTest extends TestCase
 
     /**
      * User report 2026-07-22: "staff and parent field setting keeps
-     * going back to student field settings." All three nav labels
-     * genuinely share one real screen; Parent/Staff Settings must land
-     * on that screen's identifier section by anchor, not just its top.
+     * going back to student field settings" — originally fixed by
+     * having Parent/Staff Settings jump to the shared screen's
+     * identifier section by anchor, keeping all three as separate nav
+     * lines. Superseded 2026-08-07 by a stronger direct request ("all
+     * these fields should be merged into one menu 'Fields' since they
+     * have the same content"): three clickable rows landing on the same
+     * one real screen kept reading as "keeps going back to student
+     * field settings" even with the anchor fix, so they are now one
+     * single nav line instead of three.
      */
-    public function test_parent_and_staff_settings_nav_links_jump_to_the_identifier_section(): void
+    public function test_student_parent_and_staff_field_settings_are_one_nav_line_not_three(): void
     {
         [$school, $user] = $this->schoolOnPlan([], 'plananchor');
 
         $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard");
         $html = $response->getContent();
 
-        $target = route('school.students.settings.edit', ['school' => $school->slug]).'#identifier-settings';
+        $target = route('school.students.settings.edit', ['school' => $school->slug]);
         $this->assertStringContainsString('href="'.$target.'"', $html);
-        $response->assertSee('Parent Settings')->assertSee('Staff Settings')->assertSee('Student Fields');
+        $this->assertStringContainsString('>Fields<', $html, 'the merged single nav line should read exactly "Fields"');
+        $response->assertDontSee('Parent Settings')->assertDontSee('Staff Settings');
+        // Custom Fields is a genuinely separate real screen, kept as its
+        // own adjacent nav line rather than folded into the one above.
+        $response->assertSee('Custom Fields');
     }
 
     /** User report 2026-07-22: "storage and health should be merge as one menu since its same data there." */
@@ -843,15 +853,14 @@ class PlanFeatureNavTest extends TestCase
             // pipeline board, once real offer letter generation actually
             // landed (nav-school.blade.php's own comment on this key).
             ->assertSee('Admission Letters')
-            // The module-toggle fallback only ever rescues a feature key
-            // with a REAL screen built (the four above); it must not
-            // resurrect every other marketing catalog key in the same
-            // category as a phantom "Soon" entry too — "Soon" is reserved
-            // for a feature the school's actual PLAN claims but has no
-            // screen yet, and a bare module toggle makes no such claim
-            // (this is the exact regression an earlier version of this
-            // fix introduced, caught by the "no Soon items" assertion on
-            // the finance-plan test above).
-            ->assertDontSee('Online Document Upload');
+            // 'online_document_upload' repointed 2026-08-07, to the real
+            // admin document review queue, once discovered (via direct
+            // feedback) that Phase 1f had actually shipped back on
+            // 2026-07-31 but this catalog key was simply never repointed
+            // off "Soon" — the exact same shape of gap as the other three
+            // keys above, now closed the same way. Rendered label is
+            // "Document Review" (the $link tuple's own label), not the
+            // raw catalog key text "Online Document Upload".
+            ->assertSee('Document Review');
     }
 }
