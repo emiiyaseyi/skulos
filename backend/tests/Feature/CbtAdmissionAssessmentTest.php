@@ -125,7 +125,8 @@ class CbtAdmissionAssessmentTest extends TestCase
         $this->actingAs($applicant, 'applicant')
             ->get(route('school.admissions.assessment.result', ['school' => $school->slug, 'sessionId' => $session->id]))
             ->assertOk()
-            ->assertSee('You passed')
+            ->assertSee('Nice work, Ada Obi!')
+            ->assertSee('Passed')
             ->assertSee('You have successfully moved to the next stage of the application process.');
 
         app(TenantManager::class)->use($school);
@@ -175,7 +176,7 @@ class CbtAdmissionAssessmentTest extends TestCase
 
         $this->actingAs($applicant, 'applicant')
             ->get(route('school.admissions.assessment.result', ['school' => $school->slug, 'sessionId' => $session->id]))
-            ->assertOk()->assertSee('You did not pass');
+            ->assertOk()->assertSee('Not yet passed');
 
         app(TenantManager::class)->use($school);
         $this->assertSame($stageBefore, $applicant->fresh()->pipeline_stage, 'a failed attempt must not advance the pipeline');
@@ -204,5 +205,96 @@ class CbtAdmissionAssessmentTest extends TestCase
         $this->actingAs($intruder, 'applicant')
             ->get(route('school.admissions.assessment.session', ['school' => $school->slug, 'sessionId' => $session->id]))
             ->assertForbidden();
+    }
+
+    public function test_the_result_screen_shows_a_real_percentage_and_the_applicants_name(): void
+    {
+        [$school, $applicant, $assessment, $question] = $this->scenario('adm5');
+        $this->actingAs($applicant, 'applicant')
+            ->post(route('school.admissions.assessment.start', ['school' => $school->slug, 'assessmentId' => $assessment->id]));
+
+        app(TenantManager::class)->use($school);
+        $session = CbtSession::where('takeable_type', Applicant::class)->where('takeable_id', $applicant->id)->first();
+        $correctAnswerId = $this->answerIdFor($question, '4');
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($applicant, 'applicant')->postJson(
+            route('school.admissions.assessment.answer', ['school' => $school->slug, 'sessionId' => $session->id]),
+            ['question_id' => $question->id, 'answer' => (string) $correctAnswerId]
+        );
+        $this->actingAs($applicant, 'applicant')->post(route('school.admissions.assessment.submit', ['school' => $school->slug, 'sessionId' => $session->id]));
+
+        $this->actingAs($applicant, 'applicant')
+            ->get(route('school.admissions.assessment.result', ['school' => $school->slug, 'sessionId' => $session->id]))
+            ->assertOk()
+            ->assertSee('100%')
+            ->assertSee('Ada Obi');
+    }
+
+    public function test_an_assessment_with_no_pass_mark_shows_no_pass_fail_tile(): void
+    {
+        [$school, $applicant, $assessment, $question] = $this->scenario('adm6', [], ['pass_mark' => null]);
+        $this->actingAs($applicant, 'applicant')
+            ->post(route('school.admissions.assessment.start', ['school' => $school->slug, 'assessmentId' => $assessment->id]));
+
+        app(TenantManager::class)->use($school);
+        $session = CbtSession::where('takeable_type', Applicant::class)->where('takeable_id', $applicant->id)->first();
+        $correctAnswerId = $this->answerIdFor($question, '4');
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($applicant, 'applicant')->postJson(
+            route('school.admissions.assessment.answer', ['school' => $school->slug, 'sessionId' => $session->id]),
+            ['question_id' => $question->id, 'answer' => (string) $correctAnswerId]
+        );
+        $this->actingAs($applicant, 'applicant')->post(route('school.admissions.assessment.submit', ['school' => $school->slug, 'sessionId' => $session->id]));
+
+        $this->actingAs($applicant, 'applicant')
+            ->get(route('school.admissions.assessment.result', ['school' => $school->slug, 'sessionId' => $session->id]))
+            ->assertOk()
+            ->assertSee('100%')
+            ->assertDontSee('Passed')
+            ->assertDontSee('Not yet passed');
+    }
+
+    public function test_a_written_answer_still_pending_review_shows_the_awaiting_grading_state(): void
+    {
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'adm7']));
+        $this->rbac->setModuleState($school, 'assessment_hub', Module::STATE_ENABLED);
+        $this->rbac->setModuleState($school, 'admissions', Module::STATE_ENABLED);
+
+        app(TenantManager::class)->use($school);
+        $academicSession = AcademicSession::create(['name' => '2026/2027', 'is_current' => true]);
+        $applicant = Applicant::forceCreate([
+            'name' => 'Tunde Bello', 'phone' => '08099998888', 'admission_number' => 'APP/0009',
+            'session_id' => $academicSession->id, 'account_status' => Applicant::STATUS_ACTIVE, 'expires_at' => now()->addDays(30),
+        ]);
+        CbtSecurityProfile::ensureSeeded();
+        $basic = CbtSecurityProfile::where('name', 'Basic')->first();
+        $question = $this->makeEssayQuestion('Describe your favourite subject.');
+        $assessment = CbtAssessment::create([
+            'title' => 'Essay Assessment', 'duration_minutes' => 60,
+            'security_profile_id' => $basic->id, 'audience' => CbtAssessment::AUDIENCE_APPLICANT,
+        ]);
+        \App\Models\Tenant\CbtAssessmentQuestion::create(['assessment_id' => $assessment->id, 'question_id' => $question->id, 'sequence' => 0]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($applicant, 'applicant')
+            ->post(route('school.admissions.assessment.start', ['school' => $school->slug, 'assessmentId' => $assessment->id]));
+
+        app(TenantManager::class)->use($school);
+        $session = CbtSession::where('takeable_type', Applicant::class)->where('takeable_id', $applicant->id)->first();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($applicant, 'applicant')->postJson(
+            route('school.admissions.assessment.answer', ['school' => $school->slug, 'sessionId' => $session->id]),
+            ['question_id' => $question->id, 'answer' => 'My favourite subject is Mathematics.']
+        );
+        $this->actingAs($applicant, 'applicant')->post(route('school.admissions.assessment.submit', ['school' => $school->slug, 'sessionId' => $session->id]));
+
+        $this->actingAs($applicant, 'applicant')
+            ->get(route('school.admissions.assessment.result', ['school' => $school->slug, 'sessionId' => $session->id]))
+            ->assertOk()
+            ->assertSee('still being reviewed')
+            ->assertDontSee('Passed');
     }
 }
