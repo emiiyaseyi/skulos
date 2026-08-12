@@ -266,7 +266,41 @@ class AdmissionAssessmentController extends Controller
             'session' => $session,
             'resultsVisible' => $resultsVisible,
             'passed' => $passed,
+            'subjectScores' => $this->subjectScores($session->takeable_id, $availability),
         ]);
+    }
+
+    /**
+     * Every subject-specific admission assessment this applicant has
+     * attempted, each subject's own score alongside the one this result
+     * page is for (user request 2026-08-12: "let's have the scores of
+     * each subject the candidate took for each subject uploaded and
+     * attempted"). An admission assessment often has its own
+     * `subject_id` (Mathematics, English, etc.) — the applicant sits
+     * one per subject via available(), so a single result page is not
+     * the whole picture. Each row respects that assessment's own result
+     * release policy, same as the single-session view above; a subject
+     * whose result is not yet visible shows as "not yet released"
+     * rather than leaking a hidden score.
+     *
+     * @return array<int, array{subject: string, session: CbtSession, visible: bool}>
+     */
+    protected function subjectScores(int $applicantId, AssessmentAvailabilityService $availability): array
+    {
+        $sessions = CbtSession::with('assessment.subject')
+            ->where('takeable_type', Applicant::class)->where('takeable_id', $applicantId)
+            ->whereHas('assessment', fn ($q) => $q->where('audience', CbtAssessment::AUDIENCE_APPLICANT))
+            ->get();
+
+        return $sessions->map(function (CbtSession $s) use ($availability) {
+            $visible = $s->status === CbtSession::STATUS_GRADED && $availability->resultsVisible($s->assessment, $s);
+
+            return [
+                'subject' => $s->assessment->subject?->name ?? $s->assessment->title,
+                'session' => $s,
+                'visible' => $visible,
+            ];
+        })->sortBy('subject')->values()->all();
     }
 
     /**

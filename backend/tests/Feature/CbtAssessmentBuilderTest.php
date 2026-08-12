@@ -83,6 +83,49 @@ class CbtAssessmentBuilderTest extends TestCase
             ->assertForbidden();
     }
 
+    /**
+     * User request 2026-08-12: "show the admission assessment pass mark
+     * (70%) by default, the school admin can change it if they want."
+     * The create form has no pass_mark field of its own (set on the
+     * edit screen after creation), so the store() action itself applies
+     * the default the moment audience=applicant is chosen.
+     */
+    public function test_a_new_applicant_audience_assessment_defaults_its_pass_mark_to_70(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'cpbpm1');
+        app(TenantManager::class)->use($school);
+        CbtSecurityProfile::ensureSeeded();
+        $basic = CbtSecurityProfile::where('name', 'Basic')->first();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post(route('school.cbt.assessments.store', ['school' => $school->slug]), [
+            'title' => 'Admission Assessment', 'duration_minutes' => 30, 'security_profile_id' => $basic->id, 'audience' => 'applicant',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $assessment = CbtAssessment::first();
+        $this->assertEquals(70, (float) $assessment->pass_mark);
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_a_new_student_audience_assessment_has_no_default_pass_mark(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'cpbpm2');
+        app(TenantManager::class)->use($school);
+        CbtSecurityProfile::ensureSeeded();
+        $basic = CbtSecurityProfile::where('name', 'Basic')->first();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post(route('school.cbt.assessments.store', ['school' => $school->slug]), [
+            'title' => 'Term Test', 'duration_minutes' => 30, 'security_profile_id' => $basic->id, 'audience' => 'student',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $assessment = CbtAssessment::first();
+        $this->assertNull($assessment->pass_mark, 'the 70% default is only for applicant-audience assessments');
+        app(TenantManager::class)->forget();
+    }
+
     public function test_owner_can_build_an_assessment_and_reorder_its_questions(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'cpbtwo');

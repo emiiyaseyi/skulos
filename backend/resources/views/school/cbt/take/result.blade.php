@@ -57,17 +57,54 @@
   <div class="grid {{ $passed !== null ? 'cols-2' : '' }}" style="gap:.8rem;margin-bottom:1.1rem;{{ $passed === null ? 'max-width:20rem' : '' }}">
     <div class="card stat-card">
       <span class="stat-ic">@include('layouts.partials.icon', ['name' => 'stats'])</span>
-      <span class="stat"><b>{{ $percent }}%</b><span>{{ $session->total_score }} / {{ $session->max_score }} points</span></span>
+      <span class="stat"><b>{{ $percent }}%</b><span>Total score: {{ $session->total_score }} / {{ $session->max_score }}</span></span>
     </div>
     @if($passed !== null)
       <div class="card stat-card">
         <span class="stat-ic" style="background:color-mix(in srgb,{{ $passed ? 'var(--ok)' : 'var(--bad)' }} 15%,transparent);color:{{ $passed ? 'var(--ok)' : 'var(--bad)' }}">
           @include('layouts.partials.icon', ['name' => $passed ? 'approve' : 'warning'])
         </span>
-        <span class="stat"><b style="font-size:1.1rem">{{ $passed ? 'Passed' : 'Not yet passed' }}</b><span>Against this assessment's pass mark</span></span>
+        <span class="stat"><b style="font-size:1.1rem">{{ $passed ? 'Passed' : 'Not yet passed' }}</b><span style="text-transform:none;font-size:.78rem">{{ $session->assessment->pass_mark !== null ? 'Pass mark: '.rtrim(rtrim(number_format((float) $session->assessment->pass_mark, 1), '0'), '.').'%' : '' }}</span></span>
       </div>
     @endif
   </div>
+
+  @if($isAdmissions && count($subjectScores))
+    <div class="card" style="margin-bottom:1rem">
+      <h3 style="margin-bottom:.6rem">Scores by subject</h3>
+      <div style="overflow-x:auto">
+      <table class="table-stack">
+        <thead><tr><th>Subject</th><th>Score</th><th>Status</th></tr></thead>
+        <tbody>
+          @foreach($subjectScores as $row)
+            @php($s = $row['session'])
+            <tr>
+              <td data-label="Subject">{{ $row['subject'] }}</td>
+              <td data-label="Score">
+                @if($row['visible'])
+                  {{ $s->total_score }} / {{ $s->max_score }}
+                @else
+                  <span class="muted">Not yet available</span>
+                @endif
+              </td>
+              <td data-label="Status">
+                @if($s->status === 'graded' && $row['visible'])
+                  <span class="badge badge-ok">Graded</span>
+                @elseif($s->status === 'graded')
+                  <span class="badge badge-ok">Graded, awaiting release</span>
+                @elseif($s->status === 'in_progress')
+                  <span class="badge badge-warn">In progress</span>
+                @else
+                  <span class="badge badge-warn">Awaiting grading</span>
+                @endif
+              </td>
+            </tr>
+          @endforeach
+        </tbody>
+      </table>
+      </div>
+    </div>
+  @endif
 
   @if($passed !== null)
     {{-- The admin's own configured wording for a pass/fail crossing —

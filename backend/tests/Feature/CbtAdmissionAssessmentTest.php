@@ -207,6 +207,90 @@ class CbtAdmissionAssessmentTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_the_result_screen_shows_the_configured_pass_mark(): void
+    {
+        [$school, $applicant, $assessment, $question] = $this->scenario('adm8', [], ['pass_mark' => 70]);
+        $this->actingAs($applicant, 'applicant')
+            ->post(route('school.admissions.assessment.start', ['school' => $school->slug, 'assessmentId' => $assessment->id]));
+
+        app(TenantManager::class)->use($school);
+        $session = CbtSession::where('takeable_type', Applicant::class)->where('takeable_id', $applicant->id)->first();
+        $wrongAnswerId = $this->answerIdFor($question, '3');
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($applicant, 'applicant')->postJson(
+            route('school.admissions.assessment.answer', ['school' => $school->slug, 'sessionId' => $session->id]),
+            ['question_id' => $question->id, 'answer' => (string) $wrongAnswerId]
+        );
+        $this->actingAs($applicant, 'applicant')->post(route('school.admissions.assessment.submit', ['school' => $school->slug, 'sessionId' => $session->id]));
+
+        $this->actingAs($applicant, 'applicant')
+            ->get(route('school.admissions.assessment.result', ['school' => $school->slug, 'sessionId' => $session->id]))
+            ->assertOk()
+            ->assertSee('Pass mark: 70%');
+    }
+
+    public function test_the_result_screen_lists_every_subject_the_applicant_has_attempted(): void
+    {
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'adm9']));
+        $this->rbac->setModuleState($school, 'assessment_hub', Module::STATE_ENABLED);
+        $this->rbac->setModuleState($school, 'admissions', Module::STATE_ENABLED);
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Secondary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS1', 'sequence' => 1]);
+        $academicSession = AcademicSession::create(['name' => '2026/2027', 'is_current' => true]);
+        $applicant = Applicant::forceCreate([
+            'name' => 'Ngozi Ade', 'phone' => '08022223333', 'admission_number' => 'APP/0010',
+            'session_id' => $academicSession->id, 'school_class_id' => $class->id,
+            'account_status' => Applicant::STATUS_ACTIVE, 'expires_at' => now()->addDays(30),
+        ]);
+        CbtSecurityProfile::ensureSeeded();
+        $basic = CbtSecurityProfile::where('name', 'Basic')->first();
+        $maths = \App\Models\Tenant\Subject::create(['name' => 'Mathematics']);
+        $english = \App\Models\Tenant\Subject::create(['name' => 'English']);
+
+        $mathsQuestion = $this->makeChoiceQuestion('2 + 2?', ['3', '4'], ['4']);
+        $mathsAssessment = CbtAssessment::create([
+            'title' => 'Mathematics Admission Assessment', 'duration_minutes' => 60, 'subject_id' => $maths->id,
+            'security_profile_id' => $basic->id, 'audience' => CbtAssessment::AUDIENCE_APPLICANT, 'pass_mark' => 70,
+        ]);
+        \App\Models\Tenant\CbtAssessmentQuestion::create(['assessment_id' => $mathsAssessment->id, 'question_id' => $mathsQuestion->id, 'sequence' => 0]);
+
+        $englishQuestion = $this->makeChoiceQuestion('Opposite of hot?', ['cold', 'warm'], ['cold']);
+        $englishAssessment = CbtAssessment::create([
+            'title' => 'English Admission Assessment', 'duration_minutes' => 60, 'subject_id' => $english->id,
+            'security_profile_id' => $basic->id, 'audience' => CbtAssessment::AUDIENCE_APPLICANT, 'pass_mark' => 70,
+        ]);
+        \App\Models\Tenant\CbtAssessmentQuestion::create(['assessment_id' => $englishAssessment->id, 'question_id' => $englishQuestion->id, 'sequence' => 0]);
+        app(TenantManager::class)->forget();
+
+        // Take and submit both.
+        foreach ([[$mathsAssessment, $mathsQuestion, '4'], [$englishAssessment, $englishQuestion, 'cold']] as [$a, $q, $answer]) {
+            $this->actingAs($applicant, 'applicant')->post(route('school.admissions.assessment.start', ['school' => $school->slug, 'assessmentId' => $a->id]));
+            app(TenantManager::class)->use($school);
+            $session = CbtSession::where('takeable_type', Applicant::class)->where('takeable_id', $applicant->id)->where('assessment_id', $a->id)->first();
+            $answerId = $this->answerIdFor($q, $answer);
+            app(TenantManager::class)->forget();
+            $this->actingAs($applicant, 'applicant')->postJson(
+                route('school.admissions.assessment.answer', ['school' => $school->slug, 'sessionId' => $session->id]),
+                ['question_id' => $q->id, 'answer' => (string) $answerId]
+            );
+            $this->actingAs($applicant, 'applicant')->post(route('school.admissions.assessment.submit', ['school' => $school->slug, 'sessionId' => $session->id]));
+        }
+
+        app(TenantManager::class)->use($school);
+        $mathsSession = CbtSession::where('assessment_id', $mathsAssessment->id)->first();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($applicant, 'applicant')
+            ->get(route('school.admissions.assessment.result', ['school' => $school->slug, 'sessionId' => $mathsSession->id]))
+            ->assertOk()
+            ->assertSee('Scores by subject')
+            ->assertSee('Mathematics')
+            ->assertSee('English');
+    }
+
     public function test_the_result_screen_shows_a_real_percentage_and_the_applicants_name(): void
     {
         [$school, $applicant, $assessment, $question] = $this->scenario('adm5');

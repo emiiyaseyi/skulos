@@ -7,7 +7,7 @@
 @endif
 
 @section('content')
-<div class="page-head">
+<div class="page-head" @if(($portal ?? 'school') === 'admissions') style="justify-content:center;text-align:center" @endif>
   <div>
     <h1 class="title">Assessments</h1>
     <p class="subtitle">Timed assessments assigned to you.</p>

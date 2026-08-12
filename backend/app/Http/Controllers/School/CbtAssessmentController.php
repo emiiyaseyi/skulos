@@ -137,6 +137,16 @@ class CbtAssessmentController extends Controller
         $school = $this->school($request);
 
         $data = $this->validatedAssessment($request);
+        // Admission assessments default to a 70% pass mark (user
+        // request 2026-08-12: "show the admission assessment pass mark
+        // (70%) by default, the school admin can change it if they
+        // want") — the create form itself has no pass_mark field yet
+        // (that's set on the edit screen below), so this is the one
+        // place a sensible starting value can be applied instead of
+        // leaving it null until an admin remembers to set one.
+        if ($data['audience'] === CbtAssessment::AUDIENCE_APPLICANT && ! isset($data['pass_mark'])) {
+            $data['pass_mark'] = 70;
+        }
         $assessment = CbtAssessment::create($data);
         // Not part of $data: created_by_staff_id is deliberately absent
         // from $fillable (never settable via mass assignment, i.e.
