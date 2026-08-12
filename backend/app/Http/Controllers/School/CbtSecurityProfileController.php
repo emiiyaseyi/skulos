@@ -51,7 +51,34 @@ class CbtSecurityProfileController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'profiles' => CbtSecurityProfile::orderBy('id')->get(),
+            'eventTypeLabels' => [
+                'tab_switch' => 'Switching tabs',
+                'fullscreen_exit' => 'Leaving fullscreen',
+                'copy_attempt' => 'Copying text',
+                'paste_attempt' => 'Pasting text',
+                'right_click' => 'Right-clicking',
+                'window_blur' => 'Clicking outside the window',
+                'face_not_detected' => 'Face not detected',
+                'face_mismatch' => 'Face does not match',
+                'object_detected' => 'Phone/second person detected',
+                'noise_threshold' => 'Excess background noise',
+            ],
         ]);
+    }
+
+    /**
+     * The event types a profile's own risk weights cover — the same
+     * set RiskScoringService actually calls recordEvent() with, kept in
+     * one place so the form/validation/view never drift from it.
+     *
+     * @return array<int, string>
+     */
+    public static function eventTypes(): array
+    {
+        return [
+            'tab_switch', 'fullscreen_exit', 'copy_attempt', 'paste_attempt', 'right_click',
+            'window_blur', 'face_not_detected', 'face_mismatch', 'object_detected', 'noise_threshold',
+        ];
     }
 
     public function update(Request $request): \Illuminate\Http\RedirectResponse
@@ -67,11 +94,37 @@ class CbtSecurityProfileController extends Controller
             'tab_switch_limit' => ['nullable', 'integer', 'min:1'],
             'require_camera_check' => ['sometimes', 'boolean'],
             'require_object_detection' => ['sometimes', 'boolean'],
+            // The 6 identity/wizard flags a 2026-08-01 migration added to
+            // the model/DB but this form never actually exposed (a real
+            // bug, found investigating item 18) — now genuinely editable.
+            'require_audio_check' => ['sometimes', 'boolean'],
+            'require_photo_id' => ['sometimes', 'boolean'],
+            'require_face_match' => ['sometimes', 'boolean'],
+            'require_screen_share' => ['sometimes', 'boolean'],
+            'require_environment_scan' => ['sometimes', 'boolean'],
+            'snapshot_interval_seconds' => ['nullable', 'integer', 'min:1'],
+            // Real per-profile risk governance (item 18, in line with
+            // the LearnGuard reference plugin's own settings catalog).
+            'event_scores' => ['required', 'array'],
+            'event_scores.*' => ['required', 'integer', 'min:0'],
+            'risk_medium_threshold' => ['required', 'integer', 'min:0'],
+            'risk_high_threshold' => ['required', 'integer', 'min:0'],
+            'autosuspend_score' => ['nullable', 'integer', 'min:0'],
+            'break_min_minutes' => ['nullable', 'integer', 'min:0'],
+            'break_max_minutes' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        foreach (['require_fullscreen', 'block_copy_paste', 'block_right_click', 'require_camera_check', 'require_object_detection'] as $flag) {
+        foreach ([
+            'require_fullscreen', 'block_copy_paste', 'block_right_click', 'require_camera_check', 'require_object_detection',
+            'require_audio_check', 'require_photo_id', 'require_face_match', 'require_screen_share', 'require_environment_scan',
+        ] as $flag) {
             $data[$flag] = $request->boolean($flag);
         }
+
+        // Only the recognized event types are kept, regardless of what
+        // a crafted request might add — the form only ever renders
+        // eventTypes() as inputs, this just guards the write side too.
+        $data['event_scores'] = array_intersect_key($data['event_scores'], array_flip(self::eventTypes()));
 
         $profile->update($data);
 

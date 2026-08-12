@@ -22,6 +22,8 @@ class CbtSecurityProfile extends Model
         'tab_switch_action', 'tab_switch_limit', 'require_camera_check', 'require_object_detection',
         'require_audio_check', 'require_photo_id', 'require_face_match', 'require_screen_share',
         'require_environment_scan', 'snapshot_interval_seconds',
+        'event_scores', 'risk_medium_threshold', 'risk_high_threshold', 'autosuspend_score',
+        'break_min_minutes', 'break_max_minutes',
     ];
 
     protected function casts(): array
@@ -39,6 +41,12 @@ class CbtSecurityProfile extends Model
             'require_screen_share' => 'boolean',
             'require_environment_scan' => 'boolean',
             'snapshot_interval_seconds' => 'integer',
+            'event_scores' => 'array',
+            'risk_medium_threshold' => 'integer',
+            'risk_high_threshold' => 'integer',
+            'autosuspend_score' => 'integer',
+            'break_min_minutes' => 'integer',
+            'break_max_minutes' => 'integer',
         ];
     }
 

@@ -20,9 +20,24 @@ class BreakRequestService
         $session->forceFill(['break_requested' => true, 'break_reason' => $reason])->save();
     }
 
+    /**
+     * $minutes is the staff-supplied duration, clamped into the
+     * session's own security profile break_min_minutes/break_max_minutes
+     * when the profile sets them (item 18, 2026-08-12) — null on either
+     * side (every tier except Maximum by default) leaves that side
+     * unclamped, matching today's fully ad hoc behavior exactly.
+     */
     public function approve(CbtSession $session, int $minutes): void
     {
         abort_unless($session->break_requested, 422, 'No break is pending for this attempt.');
+
+        $profile = $session->assessment?->securityProfile;
+        if ($profile?->break_min_minutes !== null) {
+            $minutes = max($minutes, $profile->break_min_minutes);
+        }
+        if ($profile?->break_max_minutes !== null) {
+            $minutes = min($minutes, $profile->break_max_minutes);
+        }
 
         $session->forceFill([
             'break_requested' => false,

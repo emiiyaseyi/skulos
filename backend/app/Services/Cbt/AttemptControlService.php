@@ -17,7 +17,13 @@ use App\Models\Tenant\CbtSession;
  */
 class AttemptControlService
 {
-    public function suspend(CbtSession $session, int $byUserId, ?string $reason = null): void
+    /**
+     * $byUserId is nullable to support a system-triggered auto-suspend
+     * (RiskScoringService, when a session's own security profile has an
+     * autosuspend_score and the session's risk crosses it) — a staff
+     * member never actually made the call in that case.
+     */
+    public function suspend(CbtSession $session, ?int $byUserId, ?string $reason = null): void
     {
         abort_unless($session->status === CbtSession::STATUS_IN_PROGRESS, 422, 'Only an attempt in progress can be suspended.');
 

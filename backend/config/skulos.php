@@ -2575,17 +2575,42 @@ return [
     | flags on; those flags do nothing until Phase 2e (AI proctoring)
     | actually reads them.
     */
-    'default_cbt_security_profiles' => [
-        ['name' => 'Basic', 'require_fullscreen' => false, 'block_copy_paste' => false, 'block_right_click' => false, 'tab_switch_action' => 'none', 'tab_switch_limit' => null, 'require_camera_check' => false, 'require_object_detection' => false, 'require_audio_check' => false, 'require_photo_id' => false, 'require_face_match' => false, 'require_screen_share' => false, 'require_environment_scan' => false, 'snapshot_interval_seconds' => null],
-        ['name' => 'Medium', 'require_fullscreen' => false, 'block_copy_paste' => true, 'block_right_click' => true, 'tab_switch_action' => 'warn', 'tab_switch_limit' => null, 'require_camera_check' => false, 'require_object_detection' => false, 'require_audio_check' => false, 'require_photo_id' => false, 'require_face_match' => false, 'require_screen_share' => false, 'require_environment_scan' => false, 'snapshot_interval_seconds' => null],
-        ['name' => 'High', 'require_fullscreen' => true, 'block_copy_paste' => true, 'block_right_click' => true, 'tab_switch_action' => 'lock', 'tab_switch_limit' => 3, 'require_camera_check' => false, 'require_object_detection' => false, 'require_audio_check' => false, 'require_photo_id' => false, 'require_face_match' => false, 'require_screen_share' => false, 'require_environment_scan' => false, 'snapshot_interval_seconds' => null],
-        // Maximum is the only tier requiring the full identity/environment
-        // wizard steps (photo ID, face match, audio, screen share, a 360
-        // environment scan) as well as periodic in-exam AI checks
-        // (Phase 2e/2g, snapshot_interval_seconds) — matches "Maximum is
-        // the only camera tier" already locked in by CbtPaperBuilderTest.
-        ['name' => 'Maximum', 'require_fullscreen' => true, 'block_copy_paste' => true, 'block_right_click' => true, 'tab_switch_action' => 'lock', 'tab_switch_limit' => 1, 'require_camera_check' => true, 'require_object_detection' => true, 'require_audio_check' => true, 'require_photo_id' => true, 'require_face_match' => true, 'require_screen_share' => true, 'require_environment_scan' => true, 'snapshot_interval_seconds' => 15],
-    ],
+    // event_scores/risk_medium_threshold/risk_high_threshold (2026-08-12,
+    // feedback list 8/7/2026 item 18, in line with the LearnGuard
+    // reference plugin's own per-profile risk weights/thresholds): every
+    // tier starts from the same values 'cbt_security_event_scores'/
+    // 'cbt_risk_thresholds' below already used globally, a school can
+    // diverge per-tier later from the real Security Profiles screen.
+    // autosuspend_score/break_max_minutes are real NEW capabilities
+    // (LearnGuard's own real defaults, 80/10) given only to Maximum,
+    // matching this block's existing "only Maximum enables the strict
+    // stuff" pattern for the camera/identity flags below.
+    'default_cbt_security_profiles' => (function () {
+        // Same 10 event-type weights every profile starts from — see
+        // 'cbt_security_event_scores' further below, the values a school
+        // can then diverge per-tier from the real Security Profiles
+        // screen once seeded into a real row.
+        $defaultEventScores = [
+            'tab_switch' => 10, 'fullscreen_exit' => 15, 'copy_attempt' => 5, 'paste_attempt' => 5,
+            'right_click' => 2, 'window_blur' => 5, 'face_not_detected' => 8, 'face_mismatch' => 20,
+            'object_detected' => 25, 'noise_threshold' => 5,
+        ];
+
+        return [
+            ['name' => 'Basic', 'require_fullscreen' => false, 'block_copy_paste' => false, 'block_right_click' => false, 'tab_switch_action' => 'none', 'tab_switch_limit' => null, 'require_camera_check' => false, 'require_object_detection' => false, 'require_audio_check' => false, 'require_photo_id' => false, 'require_face_match' => false, 'require_screen_share' => false, 'require_environment_scan' => false, 'snapshot_interval_seconds' => null, 'event_scores' => $defaultEventScores, 'risk_medium_threshold' => 30, 'risk_high_threshold' => 60, 'autosuspend_score' => null, 'break_min_minutes' => null, 'break_max_minutes' => null],
+            ['name' => 'Medium', 'require_fullscreen' => false, 'block_copy_paste' => true, 'block_right_click' => true, 'tab_switch_action' => 'warn', 'tab_switch_limit' => null, 'require_camera_check' => false, 'require_object_detection' => false, 'require_audio_check' => false, 'require_photo_id' => false, 'require_face_match' => false, 'require_screen_share' => false, 'require_environment_scan' => false, 'snapshot_interval_seconds' => null, 'event_scores' => $defaultEventScores, 'risk_medium_threshold' => 30, 'risk_high_threshold' => 60, 'autosuspend_score' => null, 'break_min_minutes' => null, 'break_max_minutes' => null],
+            ['name' => 'High', 'require_fullscreen' => true, 'block_copy_paste' => true, 'block_right_click' => true, 'tab_switch_action' => 'lock', 'tab_switch_limit' => 3, 'require_camera_check' => false, 'require_object_detection' => false, 'require_audio_check' => false, 'require_photo_id' => false, 'require_face_match' => false, 'require_screen_share' => false, 'require_environment_scan' => false, 'snapshot_interval_seconds' => null, 'event_scores' => $defaultEventScores, 'risk_medium_threshold' => 30, 'risk_high_threshold' => 60, 'autosuspend_score' => null, 'break_min_minutes' => null, 'break_max_minutes' => null],
+            // Maximum is the only tier requiring the full identity/environment
+            // wizard steps (photo ID, face match, audio, screen share, a 360
+            // environment scan) as well as periodic in-exam AI checks
+            // (Phase 2e/2g, snapshot_interval_seconds) — matches "Maximum is
+            // the only camera tier" already locked in by CbtPaperBuilderTest.
+            // autosuspend_score/break_max_minutes are LearnGuard's own real
+            // defaults (80/10), given only to Maximum, matching this
+            // block's "only Maximum enables the strict stuff" pattern.
+            ['name' => 'Maximum', 'require_fullscreen' => true, 'block_copy_paste' => true, 'block_right_click' => true, 'tab_switch_action' => 'lock', 'tab_switch_limit' => 1, 'require_camera_check' => true, 'require_object_detection' => true, 'require_audio_check' => true, 'require_photo_id' => true, 'require_face_match' => true, 'require_screen_share' => true, 'require_environment_scan' => true, 'snapshot_interval_seconds' => 15, 'event_scores' => $defaultEventScores, 'risk_medium_threshold' => 30, 'risk_high_threshold' => 60, 'autosuspend_score' => 80, 'break_min_minutes' => null, 'break_max_minutes' => 10],
+        ];
+    })(),
 
     /*
     | SKULOS Assessment Hub, Phase 2d: the pre-exam wizard's fixed step
@@ -2617,9 +2642,14 @@ return [
     | SKULOS Assessment Hub, Phase 2c: how much each proctoring signal
     | adds to a session's risk_score, and the score thresholds that flip
     | risk_level. Matches the reference (Learn-Proctor-Secure-Browser)
-    | repo's own medium=30/high=60 reference lines. Not admin-editable
-    | yet — a real future ask if a school wants to tune sensitivity, not
-    | built this pass.
+    | repo's own medium=30/high=60 reference lines. As of 2026-08-12
+    | (feedback list 8/7/2026 item 18) these are real, per-profile,
+    | admin-editable columns on CbtSecurityProfile (event_scores/
+    | risk_medium_threshold/risk_high_threshold) — RiskScoringService now
+    | reads a session's own profile first. This block is now only the
+    | seed source for a brand new profile's own event_scores (see
+    | 'default_cbt_security_profiles' above) and a defensive fallback for
+    | the rare case a session's assessment has no profile at all.
     */
     'cbt_security_event_scores' => [
         'tab_switch' => 10,
