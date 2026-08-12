@@ -50,6 +50,7 @@ class MaintenanceController extends Controller
             'storage' => $storage->breakdown($school),
             'health' => $health->check($school),
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'school_info.manage_settings'),
+            'latestBackup' => \App\Models\Backup::where('school_id', $school->id)->orderByDesc('id')->first(),
         ]);
     }
 

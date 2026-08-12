@@ -57,6 +57,7 @@ Route::domain($appDomain)->group(function () {
         Route::post('/audit-log/verify', [\App\Http\Controllers\Admin\AuditLogController::class, 'verify'])->name('audit-log.verify');
         Route::get('/modules', [\App\Http\Controllers\Admin\ModuleAdminController::class, 'index'])->name('modules.index');
         Route::get('/backups', [\App\Http\Controllers\Admin\BackupAdminController::class, 'index'])->name('backups.index');
+        Route::get('/storage', [\App\Http\Controllers\Admin\StorageAdminController::class, 'index'])->name('storage.index');
         Route::prefix('platform-backups')->name('platform-backups.')->group(function () {
             $platformBackups = \App\Http\Controllers\Admin\PlatformBackupController::class;
             Route::get('/', [$platformBackups, 'index'])->name('index');

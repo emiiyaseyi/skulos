@@ -56,32 +56,78 @@
   @endif
 </div>
 
-<div class="grid cols-2" style="align-items:start;margin-bottom:1.1rem">
-  <div class="card">
-    <h3 style="margin-bottom:.7rem">Storage</h3>
-    <p class="muted" style="margin-bottom:.2rem">Database size</p>
+@php($totalBytes = max(1, $storage['total_bytes']))
+<div class="grid cols-3" style="align-items:stretch;margin-bottom:1.1rem">
+  <div class="card" style="text-align:center;padding:1rem">
+    <p class="muted" style="margin-bottom:.2rem">Total storage used</p>
     {{-- Same "big stat number" size as .stat b (this page always renders inside .school-theme), 2026-07-28 text consistency audit. --}}
-    <div style="font-size:1.9rem;font-weight:800;margin-bottom:.4rem">{{ \App\Services\Maintenance\StorageService::humanBytes($storage['database_bytes']) }}</div>
+    <div style="font-size:1.9rem;font-weight:800">{{ \App\Services\Maintenance\StorageService::humanBytes($storage['total_bytes']) }}</div>
     @if($storage['limit_mb'])
-      @php($usedMb = $storage['database_bytes'] ? $storage['database_bytes'] / 1048576 : 0)
+      @php($usedMb = $storage['total_bytes'] / 1048576)
       @php($pct = min(100, round($usedMb / $storage['limit_mb'] * 100)))
       <div class="storage-bar"><span style="width:{{ $pct }}%"></span></div>
-      <p class="muted">{{ $pct }}% of {{ number_format($storage['limit_mb']) }} MB plan allowance.</p>
-    @else
-      <p class="muted">Your plan has no storage limit set.</p>
+      <p class="muted" style="font-size:.82rem">{{ $pct }}% of {{ number_format($storage['limit_mb']) }} MB plan allowance</p>
     @endif
-
-    <p class="muted" style="margin:1rem 0 .2rem">Backups</p>
-    <div>{{ $storage['backups_count'] }} backup(s), {{ \App\Services\Maintenance\StorageService::humanBytes($storage['backups_bytes']) }}</div>
   </div>
+  <div class="card" style="text-align:center;padding:1rem">
+    <p class="muted" style="margin-bottom:.2rem">Database</p>
+    <div style="font-size:1.9rem;font-weight:800">{{ \App\Services\Maintenance\StorageService::humanBytes($storage['database_bytes']) }}</div>
+    <p class="muted" style="font-size:.82rem">Records: students, scores, attendance, everything</p>
+  </div>
+  <div class="card" style="text-align:center;padding:1rem">
+    <p class="muted" style="margin-bottom:.2rem">Uploaded files</p>
+    <div style="font-size:1.9rem;font-weight:800">{{ \App\Services\Maintenance\StorageService::humanBytes($storage['files_bytes']) }}</div>
+    <p class="muted" style="font-size:.82rem">Photos, documents, evidence uploads</p>
+  </div>
+</div>
 
+<div class="grid cols-2" style="align-items:start;margin-bottom:1.1rem">
   <div class="card">
-    <h3 style="margin-bottom:.7rem">What's using it</h3>
+    <h3 style="margin-bottom:.4rem">What's using the file storage</h3>
+    <p class="muted" style="font-size:.85rem;margin-bottom:.8rem">Real sizes measured from the files on disk, largest first.</p>
     <ul class="storage-groups">
-      @foreach($storage['groups'] as $group)
-        <li><span>{{ $group['label'] }}</span><span class="muted">{{ number_format($group['count']) }} record(s)</span></li>
+      @foreach($storage['files'] as $cat)
+        <li style="display:block">
+          <div style="display:flex;justify-content:space-between;gap:.6rem">
+            <span>{{ $cat['label'] }}</span>
+            <span class="muted" style="white-space:nowrap">{{ \App\Services\Maintenance\StorageService::humanBytes($cat['bytes']) }} &middot; {{ number_format($cat['count']) }} file(s)</span>
+          </div>
+          <div class="storage-bar" style="margin:.35rem 0 0"><span style="width:{{ $storage['files_bytes'] > 0 ? max(1, round($cat['bytes'] / max(1, $storage['files_bytes']) * 100)) : 0 }}%"></span></div>
+        </li>
       @endforeach
     </ul>
+    <p class="muted" style="font-size:.8rem;margin-top:.8rem;margin-bottom:0">
+      Every uploaded image is automatically compressed to WebP at upload time, and report cards are
+      generated fresh each time they are viewed rather than stored, so they use no storage at all.
+    </p>
+  </div>
+
+  <div>
+    <div class="card" style="margin-bottom:1.1rem">
+      <h3 style="margin-bottom:.7rem">What's in the database</h3>
+      <ul class="storage-groups">
+        @foreach($storage['groups'] as $group)
+          <li><span>{{ $group['label'] }}</span><span class="muted">{{ number_format($group['count']) }} record(s)</span></li>
+        @endforeach
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:.7rem">Backups</h3>
+      <p style="margin-bottom:.6rem">{{ $storage['backups_count'] }} backup(s) kept, {{ \App\Services\Maintenance\StorageService::humanBytes($storage['backups_bytes']) }}</p>
+      @if($canManage)
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+          <form method="POST" action="{{ route('school.backups.store', ['school' => $school->slug]) }}">
+            @csrf
+            <button class="btn btn-primary btn-sm" type="submit">Back up now</button>
+          </form>
+          @if($latestBackup)
+            <a class="btn btn-ghost btn-sm" href="{{ route('school.backups.download', ['school' => $school->slug, 'backupId' => $latestBackup->id]) }}">Download latest ({{ $latestBackup->created_at->diffForHumans() }})</a>
+          @endif
+          <a class="btn btn-ghost btn-sm" href="{{ route('school.backups.index', ['school' => $school->slug]) }}">All backups</a>
+        </div>
+      @endif
+    </div>
   </div>
 </div>
 

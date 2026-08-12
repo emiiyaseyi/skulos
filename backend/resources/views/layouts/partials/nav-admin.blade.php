@@ -23,6 +23,7 @@
 {!! $item('admin.schools.archive-list', 'Archive', 'archive') !!}
 {!! $item('admin.modules.index', 'Modules', 'settings') !!}
 {!! $item('admin.backups.index', 'Backups', 'retention') !!}
+{!! $item('admin.storage.index', 'Storage', 'inventory') !!}
 {!! $item('admin.platform-backups.index', 'Platform Backups', 'backup') !!}
 {!! $item('admin.broadcast.create', 'Broadcast', 'chat') !!}
 {!! $item('admin.audit-log.index', 'Audit Log', 'search') !!}

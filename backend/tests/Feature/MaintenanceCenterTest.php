@@ -146,4 +146,66 @@ class MaintenanceCenterTest extends TestCase
         $this->actingAs($teacher)->post("http://{$school->slug}.localhost/maintenance/optimize")
             ->assertForbidden();
     }
+
+    public function test_the_file_category_breakdown_measures_real_bytes_on_disk(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'mainteight');
+
+        \Illuminate\Support\Facades\Storage::disk('public')->put("students/{$school->id}/test-photo.webp", str_repeat('x', 2048));
+
+        try {
+            $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/maintenance");
+
+            $response->assertOk()
+                ->assertSee('Student profile photos')
+                ->assertSee('2 KB')
+                ->assertSee('Total storage used');
+
+            app(TenantManager::class)->use($school);
+            $categories = app(\App\Services\Maintenance\StorageService::class)->fileCategories($school);
+            app(TenantManager::class)->forget();
+            $photos = collect($categories)->firstWhere('label', 'Student profile photos');
+            $this->assertSame(2048, $photos['bytes']);
+            $this->assertSame(1, $photos['count']);
+        } finally {
+            \Illuminate\Support\Facades\Storage::disk('public')->deleteDirectory("students/{$school->id}");
+        }
+    }
+
+    public function test_the_screen_offers_back_up_now_and_download_latest_actions(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'maintnine');
+
+        // No backup yet: the create button shows, the download link cannot.
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/maintenance")
+            ->assertOk()
+            ->assertSee('Back up now')
+            ->assertDontSee('Download latest');
+
+        app(\App\Services\Tenancy\BackupService::class)->create($school, Backup::TYPE_MANUAL, $owner);
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/maintenance")
+            ->assertOk()
+            ->assertSee('Download latest');
+    }
+
+    public function test_platform_admin_storage_matrix_shows_every_school_with_real_totals(): void
+    {
+        $admin = User::factory()->create();
+        $admin->forceFill(['is_super_admin' => true])->save();
+        [$school] = $this->schoolWithMember('school-owner', 'maintten');
+
+        $this->actingAs($admin)->get(route('admin.storage.index'))
+            ->assertOk()
+            ->assertSee($school->name)
+            ->assertSee('Total across all schools')
+            ->assertSee('Uploaded files');
+    }
+
+    public function test_a_non_platform_admin_cannot_reach_the_storage_matrix(): void
+    {
+        [, $owner] = $this->schoolWithMember('school-owner', 'mainteleven');
+
+        $this->actingAs($owner)->get(route('admin.storage.index'))->assertNotFound();
+    }
 }
