@@ -69,35 +69,17 @@
     @endif
   </div>
 
-  @if($isAdmissions && count($subjectScores))
+  @if(count($scoreBreakdown))
     <div class="card" style="margin-bottom:1rem">
       <h3 style="margin-bottom:.6rem">Scores by subject</h3>
       <div style="overflow-x:auto">
       <table class="table-stack">
-        <thead><tr><th>Subject</th><th>Score</th><th>Status</th></tr></thead>
+        <thead><tr><th>Subject</th><th>Score</th></tr></thead>
         <tbody>
-          @foreach($subjectScores as $row)
-            @php($s = $row['session'])
+          @foreach($scoreBreakdown as $row)
             <tr>
-              <td data-label="Subject">{{ $row['subject'] }}</td>
-              <td data-label="Score">
-                @if($row['visible'])
-                  {{ $s->total_score }} / {{ $s->max_score }}
-                @else
-                  <span class="muted">Not yet available</span>
-                @endif
-              </td>
-              <td data-label="Status">
-                @if($s->status === 'graded' && $row['visible'])
-                  <span class="badge badge-ok">Graded</span>
-                @elseif($s->status === 'graded')
-                  <span class="badge badge-ok">Graded, awaiting release</span>
-                @elseif($s->status === 'in_progress')
-                  <span class="badge badge-warn">In progress</span>
-                @else
-                  <span class="badge badge-warn">Awaiting grading</span>
-                @endif
-              </td>
+              <td data-label="Subject">{{ $row['label'] }}</td>
+              <td data-label="Score">{{ $row['earned'] }} / {{ $row['max'] }}</td>
             </tr>
           @endforeach
         </tbody>

@@ -110,6 +110,54 @@ class CbtSession extends Model
         return $this->hasMany(CbtIncident::class, 'session_id')->orderByDesc('id');
     }
 
+    /**
+     * This attempt's score broken down by question bank (pool) —
+     * "the assessment was made of many questions banks... score in
+     * Mathematics, English Language etc" (user request 2026-08-12).
+     * An assessment with more than one CbtQuestionPool (each pool is a
+     * real, separately labelled "question bank" in the builder UI, see
+     * cbt/assessments/edit.blade.php's own "Question banks (pools)"
+     * section) draws a distinct set of questions per pool for this
+     * session (CbtSessionQuestion.pool_id) — this groups this session's
+     * own questions by that pool and sums each group's earned vs
+     * possible points. Fixed, non-pool questions (CbtSessionQuestion.
+     * pool_id null) are bucketed as "General questions". Returns []
+     * for a single-bank (or no-bank) assessment, where a breakdown adds
+     * nothing over the single overall score already shown.
+     *
+     * @return array<int, array{label: string, earned: float, max: float}>
+     */
+    public function scoreBreakdown(): array
+    {
+        $sessionQuestions = CbtSessionQuestion::where('session_id', $this->id)
+            ->with('pool.category')
+            ->get();
+
+        if ($sessionQuestions->pluck('pool_id')->unique()->count() < 2) {
+            return [];
+        }
+
+        $earnedByQuestion = CbtResponse::where('session_id', $this->id)
+            ->pluck('score_awarded', 'question_id');
+
+        return $sessionQuestions->groupBy('pool_id')
+            ->map(function ($questions) use ($earnedByQuestion) {
+                $pool = $questions->first()->pool;
+                $label = $pool
+                    ? ($pool->label ?: ($pool->category?->name ?? 'Question bank'))
+                    : 'General questions';
+
+                return [
+                    'label' => $label,
+                    'earned' => (float) $questions->sum(fn (CbtSessionQuestion $q) => (float) ($earnedByQuestion[$q->question_id] ?? 0)),
+                    'max' => (float) $questions->sum('points'),
+                ];
+            })
+            ->sortBy('label')
+            ->values()
+            ->all();
+    }
+
     public function isExpired(): bool
     {
         return $this->ends_at->isPast();

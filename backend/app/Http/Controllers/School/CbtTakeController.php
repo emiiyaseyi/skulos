@@ -284,7 +284,7 @@ class CbtTakeController extends Controller
             'session' => $session,
             'resultsVisible' => $resultsVisible,
             'passed' => $passed,
-            'subjectScores' => [],
+            'scoreBreakdown' => $resultsVisible ? $session->scoreBreakdown() : [],
         ]);
     }
 }

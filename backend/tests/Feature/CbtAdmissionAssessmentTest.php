@@ -230,65 +230,101 @@ class CbtAdmissionAssessmentTest extends TestCase
             ->assertSee('Pass mark: 70%');
     }
 
-    public function test_the_result_screen_lists_every_subject_the_applicant_has_attempted(): void
+    /**
+     * User correction 2026-08-12, after seeing the first (wrong)
+     * implementation live: "this is not the full breakdown, check the
+     * question bank again, the assessment was made of many questions
+     * banks which is why i need to see here score in Mathematic,
+     * English Language etc" — a single admission assessment is built
+     * from MULTIPLE question banks (CbtQuestionPool, each pool a
+     * separately labelled section drawing from its own category), not
+     * from multiple separate CbtAssessment rows. The breakdown must be
+     * within one session's own pools, not across sibling assessments.
+     */
+    public function test_the_result_screen_breaks_the_score_down_by_question_bank(): void
     {
-        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'adm9']));
-        $this->rbac->setModuleState($school, 'assessment_hub', Module::STATE_ENABLED);
-        $this->rbac->setModuleState($school, 'admissions', Module::STATE_ENABLED);
+        [$school, $applicant, $assessment] = $this->scenario('adm9', [], ['pass_mark' => null]);
 
         app(TenantManager::class)->use($school);
-        $section = Section::create(['name' => 'Secondary', 'sequence' => 1]);
-        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS1', 'sequence' => 1]);
-        $academicSession = AcademicSession::create(['name' => '2026/2027', 'is_current' => true]);
-        $applicant = Applicant::forceCreate([
-            'name' => 'Ngozi Ade', 'phone' => '08022223333', 'admission_number' => 'APP/0010',
-            'session_id' => $academicSession->id, 'school_class_id' => $class->id,
-            'account_status' => Applicant::STATUS_ACTIVE, 'expires_at' => now()->addDays(30),
+        // scenario() already attached one fixed question worth 1 mark
+        // (general questions, no pool) — add two real question banks on
+        // top of it, one per subject, 10 marks each.
+        $maths = \App\Models\Tenant\CbtQuestionCategory::create(['name' => 'Mathematics']);
+        $mathsQuestion = $this->makeTrueFalseQuestion('2 + 2 = 4', true)->fresh();
+        $mathsQuestion->update(['category_id' => $maths->id]);
+        \App\Models\Tenant\CbtQuestionPool::create([
+            'assessment_id' => $assessment->id, 'category_id' => $maths->id,
+            'draw_count' => 1, 'points_each' => 10, 'label' => 'Mathematics',
         ]);
-        CbtSecurityProfile::ensureSeeded();
-        $basic = CbtSecurityProfile::where('name', 'Basic')->first();
-        $maths = \App\Models\Tenant\Subject::create(['name' => 'Mathematics']);
-        $english = \App\Models\Tenant\Subject::create(['name' => 'English']);
 
-        $mathsQuestion = $this->makeChoiceQuestion('2 + 2?', ['3', '4'], ['4']);
-        $mathsAssessment = CbtAssessment::create([
-            'title' => 'Mathematics Admission Assessment', 'duration_minutes' => 60, 'subject_id' => $maths->id,
-            'security_profile_id' => $basic->id, 'audience' => CbtAssessment::AUDIENCE_APPLICANT, 'pass_mark' => 70,
+        $english = \App\Models\Tenant\CbtQuestionCategory::create(['name' => 'English Language']);
+        $englishQuestion = $this->makeTrueFalseQuestion('The sky is blue', true)->fresh();
+        $englishQuestion->update(['category_id' => $english->id]);
+        \App\Models\Tenant\CbtQuestionPool::create([
+            'assessment_id' => $assessment->id, 'category_id' => $english->id,
+            'draw_count' => 1, 'points_each' => 10, 'label' => 'English Language',
         ]);
-        \App\Models\Tenant\CbtAssessmentQuestion::create(['assessment_id' => $mathsAssessment->id, 'question_id' => $mathsQuestion->id, 'sequence' => 0]);
-
-        $englishQuestion = $this->makeChoiceQuestion('Opposite of hot?', ['cold', 'warm'], ['cold']);
-        $englishAssessment = CbtAssessment::create([
-            'title' => 'English Admission Assessment', 'duration_minutes' => 60, 'subject_id' => $english->id,
-            'security_profile_id' => $basic->id, 'audience' => CbtAssessment::AUDIENCE_APPLICANT, 'pass_mark' => 70,
-        ]);
-        \App\Models\Tenant\CbtAssessmentQuestion::create(['assessment_id' => $englishAssessment->id, 'question_id' => $englishQuestion->id, 'sequence' => 0]);
-        app(TenantManager::class)->forget();
-
-        // Take and submit both.
-        foreach ([[$mathsAssessment, $mathsQuestion, '4'], [$englishAssessment, $englishQuestion, 'cold']] as [$a, $q, $answer]) {
-            $this->actingAs($applicant, 'applicant')->post(route('school.admissions.assessment.start', ['school' => $school->slug, 'assessmentId' => $a->id]));
-            app(TenantManager::class)->use($school);
-            $session = CbtSession::where('takeable_type', Applicant::class)->where('takeable_id', $applicant->id)->where('assessment_id', $a->id)->first();
-            $answerId = $this->answerIdFor($q, $answer);
-            app(TenantManager::class)->forget();
-            $this->actingAs($applicant, 'applicant')->postJson(
-                route('school.admissions.assessment.answer', ['school' => $school->slug, 'sessionId' => $session->id]),
-                ['question_id' => $q->id, 'answer' => (string) $answerId]
-            );
-            $this->actingAs($applicant, 'applicant')->post(route('school.admissions.assessment.submit', ['school' => $school->slug, 'sessionId' => $session->id]));
-        }
-
-        app(TenantManager::class)->use($school);
-        $mathsSession = CbtSession::where('assessment_id', $mathsAssessment->id)->first();
         app(TenantManager::class)->forget();
 
         $this->actingAs($applicant, 'applicant')
-            ->get(route('school.admissions.assessment.result', ['school' => $school->slug, 'sessionId' => $mathsSession->id]))
+            ->post(route('school.admissions.assessment.start', ['school' => $school->slug, 'assessmentId' => $assessment->id]));
+
+        app(TenantManager::class)->use($school);
+        $session = CbtSession::where('takeable_type', Applicant::class)->where('takeable_id', $applicant->id)->first();
+        $given = \App\Models\Tenant\CbtSessionQuestion::with('question.answers')->where('session_id', $session->id)->get();
+        app(TenantManager::class)->forget();
+
+        // Answer the Mathematics-bank question correctly, leave the
+        // English-bank question and the general question unanswered.
+        $mathsGiven = $given->first(fn ($sq) => $sq->question->prompt === '2 + 2 = 4');
+        $trueId = $mathsGiven->question->answers->firstWhere('answer_text', 'True')->id;
+        $this->actingAs($applicant, 'applicant')->postJson(
+            route('school.admissions.assessment.answer', ['school' => $school->slug, 'sessionId' => $session->id]),
+            ['question_id' => $mathsGiven->question_id, 'answer' => (string) $trueId]
+        );
+        $this->actingAs($applicant, 'applicant')->post(route('school.admissions.assessment.submit', ['school' => $school->slug, 'sessionId' => $session->id]));
+
+        $this->actingAs($applicant, 'applicant')
+            ->get(route('school.admissions.assessment.result', ['school' => $school->slug, 'sessionId' => $session->id]))
             ->assertOk()
             ->assertSee('Scores by subject')
             ->assertSee('Mathematics')
-            ->assertSee('English');
+            ->assertSee('English Language')
+            ->assertSee('General questions');
+
+        app(TenantManager::class)->use($school);
+        $breakdown = collect($session->fresh()->scoreBreakdown())->keyBy('label');
+        app(TenantManager::class)->forget();
+
+        $this->assertEquals(10.0, $breakdown['Mathematics']['earned']);
+        $this->assertEquals(10.0, $breakdown['Mathematics']['max']);
+        $this->assertEquals(0.0, $breakdown['English Language']['earned']);
+        $this->assertEquals(10.0, $breakdown['English Language']['max']);
+        $this->assertEquals(0.0, $breakdown['General questions']['earned']);
+        $this->assertEquals(1.0, $breakdown['General questions']['max']);
+    }
+
+    public function test_a_single_bank_assessment_shows_no_breakdown_table(): void
+    {
+        [$school, $applicant, $assessment, $question] = $this->scenario('adm10');
+        $this->actingAs($applicant, 'applicant')
+            ->post(route('school.admissions.assessment.start', ['school' => $school->slug, 'assessmentId' => $assessment->id]));
+
+        app(TenantManager::class)->use($school);
+        $session = CbtSession::where('takeable_type', Applicant::class)->where('takeable_id', $applicant->id)->first();
+        $correctAnswerId = $this->answerIdFor($question, '4');
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($applicant, 'applicant')->postJson(
+            route('school.admissions.assessment.answer', ['school' => $school->slug, 'sessionId' => $session->id]),
+            ['question_id' => $question->id, 'answer' => (string) $correctAnswerId]
+        );
+        $this->actingAs($applicant, 'applicant')->post(route('school.admissions.assessment.submit', ['school' => $school->slug, 'sessionId' => $session->id]));
+
+        $this->actingAs($applicant, 'applicant')
+            ->get(route('school.admissions.assessment.result', ['school' => $school->slug, 'sessionId' => $session->id]))
+            ->assertOk()
+            ->assertDontSee('Scores by subject');
     }
 
     public function test_the_result_screen_shows_a_real_percentage_and_the_applicants_name(): void
