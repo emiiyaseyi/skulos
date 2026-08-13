@@ -87,22 +87,47 @@ class User extends Authenticatable
     }
 
     /**
+     * Instance-level memoization for roleIn()/isMemberOf() (2026-08-13,
+     * a real performance finding: nav-school.blade.php alone calls
+     * Rbac::check() 16+ times per page render, each one re-querying
+     * this same user's role/membership from scratch — measured at 153
+     * real SQL queries for those 16 checks, ~10 queries each, almost
+     * entirely this kind of repeated lookup). Keyed by school id, not
+     * object identity, so it works even if callers pass different
+     * School instances for the same real school. Instance-level (not
+     * static) — safe across requests/tests since Auth::user() returns
+     * the same cached User instance throughout one request, and each
+     * new request/test gets a fresh instance with an empty cache.
+     */
+    protected array $roleInCache = [];
+
+    protected array $isMemberOfCache = [];
+
+    /**
      * The user's role within one school (null if not a member).
      */
     public function roleIn(School $school): ?Role
     {
-        $membership = $this->schools()
-            ->where('schools.id', $school->id)
-            ->first()?->pivot;
+        if (! array_key_exists($school->id, $this->roleInCache)) {
+            $membership = $this->schools()
+                ->where('schools.id', $school->id)
+                ->first()?->pivot;
 
-        return $membership?->role_id ? Role::find($membership->role_id) : null;
+            $this->roleInCache[$school->id] = $membership?->role_id ? Role::find($membership->role_id) : null;
+        }
+
+        return $this->roleInCache[$school->id];
     }
 
     public function isMemberOf(School $school): bool
     {
-        return $this->schools()
-            ->where('schools.id', $school->id)
-            ->wherePivot('status', 'active')
-            ->exists();
+        if (! array_key_exists($school->id, $this->isMemberOfCache)) {
+            $this->isMemberOfCache[$school->id] = $this->schools()
+                ->where('schools.id', $school->id)
+                ->wherePivot('status', 'active')
+                ->exists();
+        }
+
+        return $this->isMemberOfCache[$school->id];
     }
 }

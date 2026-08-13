@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\TrialRequest;
 use App\Services\Mail\MailSettingsService;
+use App\Services\Rbac\Rbac;
 use App\Services\Tenancy\TenantManager;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Event;
@@ -19,6 +20,20 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(TenantManager::class);
+
+        // 2026-08-13, a real performance finding: Rbac::check() is
+        // called dozens of times per page (nav-school.blade.php alone,
+        // 16+ times) from many different call sites, each resolving its
+        // own app(Rbac::class)/constructor-injected instance. Binding it
+        // as a singleton means every one of those calls shares the same
+        // instance within a request, so Rbac's own internal memoization
+        // (permission/module/module_states/override lookups) actually
+        // has something to hit — measured at 153 real SQL queries for
+        // 16 nav permission checks before this fix. Safe the same way
+        // TenantManager already is: Laravel boots a fresh container (and
+        // so a fresh Rbac instance) per request/test, never reused
+        // across requests the way a static property would be.
+        $this->app->singleton(Rbac::class);
     }
 
     /**

@@ -143,6 +143,13 @@ class TenantManager
                 'database' => config('tenancy.sqlite_path').DIRECTORY_SEPARATOR.$school->database.'.sqlite',
                 'prefix' => '',
                 'foreign_key_constraints' => true,
+                // Same WAL + NORMAL pairing as the platform connection's
+                // own config('database.connections.sqlite') — see that
+                // config entry's docblock for why. A real local-dev
+                // performance finding, not a production concern (this
+                // branch never runs against MySQL).
+                'journal_mode' => env('DB_SQLITE_JOURNAL_MODE', 'wal'),
+                'synchronous' => env('DB_SQLITE_SYNCHRONOUS', 'normal'),
             ];
         } else {
             $config = array_merge(config('database.connections.mysql'), [

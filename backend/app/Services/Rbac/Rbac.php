@@ -20,6 +20,38 @@ use Illuminate\Support\Facades\DB;
 class Rbac
 {
     /**
+     * Instance-level memoization (2026-08-13, a real performance finding
+     * while investigating slow page loads: nav-school.blade.php alone
+     * calls check() 16+ times per render, and check() itself does 2-3
+     * fresh queries every single call even for values that never change
+     * within one request — Permission-by-code, the user_permissions
+     * override row, and the module/module_states lookups moduleState()
+     * repeats per code even though many codes share one module.
+     * Measured at 153 real SQL queries for those 16 checks before this
+     * fix. Rbac is bound as a singleton in AppServiceProvider so every
+     * app(Rbac::class)/constructor-injected Rbac call within one request
+     * shares this same cache — safe because Laravel boots a fresh
+     * container (and so a fresh Rbac instance) per request/test, never
+     * reused across requests the way a static property would be.
+     */
+    protected array $permissionCache = [];
+
+    protected array $moduleCache = [];
+
+    protected array $moduleStatesCache = [];
+
+    protected array $overrideCache = [];
+
+    protected function permissionByCode(string $code): ?Permission
+    {
+        if (! array_key_exists($code, $this->permissionCache)) {
+            $this->permissionCache[$code] = Permission::where('code', $code)->first();
+        }
+
+        return $this->permissionCache[$code];
+    }
+
+    /**
      * Can this user perform {code} (e.g. "students.bulk") in this school?
      */
     public function check(User $user, School $school, string $code): bool
@@ -32,17 +64,21 @@ class Rbac
             return false;
         }
 
-        $permission = Permission::where('code', $code)->first();
+        $permission = $this->permissionByCode($code);
         if (! $permission) {
             return false; // unknown code is never grantable
         }
 
         // Per-user override: deny always wins, allow grants beyond the role.
-        $override = DB::table('user_permissions')
-            ->where('school_id', $school->id)
-            ->where('user_id', $user->id)
-            ->where('permission_id', $permission->id)
-            ->value('mode');
+        $overrideKey = "{$school->id}:{$user->id}:{$permission->id}";
+        if (! array_key_exists($overrideKey, $this->overrideCache)) {
+            $this->overrideCache[$overrideKey] = DB::table('user_permissions')
+                ->where('school_id', $school->id)
+                ->where('user_id', $user->id)
+                ->where('permission_id', $permission->id)
+                ->value('mode');
+        }
+        $override = $this->overrideCache[$overrideKey];
 
         if ($override === 'deny') {
             return false;
@@ -87,16 +123,23 @@ class Rbac
      */
     public function moduleState(School $school, string $moduleCode, ?User $user = null): string
     {
-        $module = Module::where('code', $moduleCode)->first();
+        if (! array_key_exists($moduleCode, $this->moduleCache)) {
+            $this->moduleCache[$moduleCode] = Module::where('code', $moduleCode)->first();
+        }
+        $module = $this->moduleCache[$moduleCode];
         if (! $module) {
             return Module::STATE_DISABLED; // unknown module: never on
         }
 
-        $states = DB::table('module_states')
-            ->where('school_id', $school->id)
-            ->where('module_id', $module->id)
-            ->get()
-            ->keyBy(fn ($row) => $row->scope_type.':'.($row->scope_id ?? ''));
+        $statesKey = "{$school->id}:{$module->id}";
+        if (! array_key_exists($statesKey, $this->moduleStatesCache)) {
+            $this->moduleStatesCache[$statesKey] = DB::table('module_states')
+                ->where('school_id', $school->id)
+                ->where('module_id', $module->id)
+                ->get()
+                ->keyBy(fn ($row) => $row->scope_type.':'.($row->scope_id ?? ''));
+        }
+        $states = $this->moduleStatesCache[$statesKey];
 
         if ($user) {
             if ($hit = $states->get('user:'.$user->id)) {
@@ -142,6 +185,14 @@ class Rbac
      */
     public function setModuleState(School $school, string $moduleCode, string $state, string $scopeType = 'school', ?int $scopeId = null): void
     {
+        // Clears the WHOLE cache, not just this one module's key: a
+        // school-scope write can change the effective state for every
+        // module-state lookup already cached under a stale reading
+        // (2026-08-13, caught by a real test failure — Rbac is now a
+        // singleton, so a controller action that changes a module's
+        // state and then immediately re-checks permissions in the same
+        // request/test method would otherwise see the pre-change value).
+        $this->moduleStatesCache = [];
         $module = Module::where('code', $moduleCode)->firstOrFail();
 
         if (! in_array($state, [Module::STATE_ENABLED, Module::STATE_DISABLED, Module::STATE_HIDDEN, Module::STATE_READONLY], true)) {
@@ -179,6 +230,11 @@ class Rbac
             throw new \InvalidArgumentException("Invalid override mode [{$mode}].");
         }
 
+        // Same reasoning as setModuleState() above — clears the whole
+        // cache rather than trying to compute the one affected key,
+        // since this write invalidates check()'s own overrideCache for
+        // this user/school regardless of which permission changed.
+        $this->overrideCache = [];
         $permission = Permission::where('code', $code)->firstOrFail();
 
         DB::table('user_permissions')->updateOrInsert(
@@ -215,6 +271,9 @@ class Rbac
     /** Removes every override (allow or deny) this user has for one module in this school, reverting to their role's default. */
     public function revokeModuleOverride(School $school, User $user, string $moduleCode): void
     {
+        // Bypasses overridePermission() (a raw delete, not an
+        // updateOrInsert per code), so it needs its own cache clear too.
+        $this->overrideCache = [];
         DB::table('user_permissions')
             ->where('school_id', $school->id)
             ->where('user_id', $user->id)

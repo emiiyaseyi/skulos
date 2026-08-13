@@ -38,8 +38,22 @@ return [
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
             'busy_timeout' => null,
-            'journal_mode' => null,
-            'synchronous' => null,
+            // WAL + NORMAL (2026-08-13, real local-dev performance
+            // finding): SQLite's own defaults are 'delete' journal mode
+            // (every write transaction creates/deletes a rollback
+            // journal file, real extra disk I/O per write) and 'FULL'
+            // synchronous (an fsync on every single commit). WAL lets
+            // readers and writers run concurrently without blocking each
+            // other and skips the journal file churn; NORMAL still fsyncs
+            // at checkpoints, just not every commit — the standard
+            // recommended pairing for a web app, not a durability
+            // trade-off that matters here since this is SQLite standing
+            // in for MySQL locally (production uses real MySQL, where
+            // neither pragma applies at all). Only affects the platform
+            // connection here; the same pair is set for each tenant's own
+            // SQLite file in TenantManager::configureConnection().
+            'journal_mode' => env('DB_SQLITE_JOURNAL_MODE', 'wal'),
+            'synchronous' => env('DB_SQLITE_SYNCHRONOUS', 'normal'),
         ],
 
         'mysql' => [
