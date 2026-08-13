@@ -41,7 +41,7 @@
   @elseif($preview->isEmpty())
     <p class="muted">No class has any active students yet.</p>
   @else
-    <p class="muted" style="margin-bottom:.8rem">Preview at the current {{ $threshold }}% threshold, before anything actually moves.</p>
+    <p class="muted" style="margin-bottom:.8rem">Preview at the current {{ $threshold }}% threshold, before anything actually moves. Click a "would repeat" or "no results" count to see who.</p>
     <div style="overflow-x:auto">
     <table class="table-stack">
       <thead><tr><th>Class</th><th>Students</th><th>Would promote</th><th>Would repeat</th><th>No results</th></tr></thead>
@@ -51,13 +51,50 @@
             <td data-label="Class"><strong>{{ $row['label'] }}</strong></td>
             <td data-label="Students">{{ $row['student_count'] }}</td>
             <td data-label="Would promote" class="muted">{{ $row['would_promote'] }}</td>
-            <td data-label="Would repeat" class="muted">{{ $row['would_repeat'] }}</td>
-            <td data-label="No results" class="muted">{{ $row['no_results'] }}</td>
+            <td data-label="Would repeat" class="muted">
+              @if($row['would_repeat'] > 0)
+                <button type="button" class="link-btn" data-open-popup="repeatPopup{{ $row['class_arm_id'] }}">{{ $row['would_repeat'] }}</button>
+              @else
+                0
+              @endif
+            </td>
+            <td data-label="No results" class="muted">
+              @if($row['no_results'] > 0)
+                <button type="button" class="link-btn" data-open-popup="noResultsPopup{{ $row['class_arm_id'] }}">{{ $row['no_results'] }}</button>
+              @else
+                0
+              @endif
+            </td>
           </tr>
         @endforeach
       </tbody>
     </table>
     </div>
+
+    @foreach($preview as $row)
+      @if($row['would_repeat'] > 0)
+        @include('school.widgets._stat-popup', ['id' => 'repeatPopup'.$row['class_arm_id'], 'title' => $row['label'].' would repeat', 'rows' => $row['repeat_students']->map(fn ($s) => ['name' => $s['name'], 'value' => $s['value'], 'ok' => false])])
+      @endif
+      @if($row['no_results'] > 0)
+        @include('school.widgets._stat-popup', ['id' => 'noResultsPopup'.$row['class_arm_id'], 'title' => $row['label'].' no results', 'rows' => $row['no_result_students']->map(fn ($s) => ['name' => $s['name'], 'value' => $s['value'], 'ok' => false])])
+      @endif
+    @endforeach
+
+    <style>.link-btn{background:none;border:none;padding:0;font:inherit;color:var(--accent-text);cursor:pointer;text-decoration:underline}</style>
+    <script>
+      (function(){
+        document.querySelectorAll('[data-open-popup]').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            document.getElementById(btn.dataset.openPopup)?.classList.add('show');
+          });
+        });
+        document.querySelectorAll('[data-close-popup]').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            document.getElementById(btn.dataset.closePopup)?.classList.remove('show');
+          });
+        });
+      })();
+    </script>
 
     <form method="POST" action="{{ route('school.promotions.store', ['school' => $school->slug]) }}" style="margin-top:1rem"
       onsubmit="return confirm('Promote every eligible student across all classes based on {{ $term->session?->name }} {{ $term->name }} at a {{ $threshold }}% threshold? This moves real students to their next class right away.')">

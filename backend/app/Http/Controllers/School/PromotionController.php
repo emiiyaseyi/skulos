@@ -71,25 +71,33 @@ class PromotionController extends Controller
                 $averages = collect($results->classBroadsheet($classArm->id, $term->id))->keyBy('student_id');
 
                 $wouldPromote = 0;
-                $wouldRepeat = 0;
-                $noResults = 0;
+                $repeatStudents = collect();
+                $noResultStudents = collect();
                 foreach ($roster as $student) {
                     $row = $averages->get($student->id);
                     if (! $row) {
-                        $noResults++;
+                        $noResultStudents->push(['name' => $student->fullName(), 'value' => 'No results']);
                     } elseif ($row['average'] < $threshold) {
-                        $wouldRepeat++;
+                        $repeatStudents->push(['name' => $student->fullName(), 'value' => $row['average'].'%']);
                     } else {
                         $wouldPromote++;
                     }
                 }
 
+                // Drill-down popups (user request 2026-08-13: "let me
+                // click on the ones that have those who would repeat and
+                // those with no results and the students there will pop
+                // out for the admin to see") — a stable id per class arm
+                // so the view can key its two popups without recomputing.
                 $preview->push([
+                    'class_arm_id' => $classArm->id,
                     'label' => $classArm->label(),
                     'student_count' => $roster->count(),
                     'would_promote' => $wouldPromote,
-                    'would_repeat' => $wouldRepeat,
-                    'no_results' => $noResults,
+                    'would_repeat' => $repeatStudents->count(),
+                    'no_results' => $noResultStudents->count(),
+                    'repeat_students' => $repeatStudents->sortBy('name')->values(),
+                    'no_result_students' => $noResultStudents->sortBy('name')->values(),
                 ]);
             }
         }
