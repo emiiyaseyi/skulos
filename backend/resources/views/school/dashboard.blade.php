@@ -187,11 +187,17 @@
   ]);
 @endphp
 @if(count($quickActions))
+  <style>
+    .qa-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.7rem}
+    .qa-grid a{padding:.7rem .9rem;font-size:.88rem;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    @media(max-width:900px){.qa-grid{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:560px){.qa-grid{grid-template-columns:repeat(2,1fr)}}
+  </style>
   <div class="card" style="margin-bottom:1.1rem">
     <h3 style="margin-bottom:.6rem">Quick actions</h3>
-    <div style="display:flex;gap:.7rem;flex-wrap:wrap">
+    <div class="qa-grid">
       @foreach($quickActions as $qa)
-        <a class="btn {{ !empty($qa['primary']) ? 'btn-primary' : 'btn-ghost' }}" style="padding:.7rem 1.2rem;font-size:.88rem" href="{{ $qa['href'] }}">{{ $qa['label'] }}</a>
+        <a class="btn {{ !empty($qa['primary']) ? 'btn-primary' : 'btn-ghost' }}" href="{{ $qa['href'] }}">{{ $qa['label'] }}</a>
       @endforeach
     </div>
   </div>
