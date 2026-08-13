@@ -2,7 +2,21 @@
 
 This file exists so any future Claude session (or a different agent entirely) can pick up this project cold and have full context. Read this first, then [DEVELOPMENT_TRACKER.md](./DEVELOPMENT_TRACKER.md) for the complete build backlog and live status.
 
-### Live queue (2026-08-12, latest) — FEEDBACK LIST.docx "8/7/2026" batch: essentially closed, one item deliberately parked
+### Live queue (2026-08-13, latest) — RBAC N+1 fix + SQLite WAL tuning: real page-load performance, committed and pushed (`c777b8b`)
+
+User reported "the platform is loading very slow even on my local server... I want every page and request load very fast." Root-caused via real `DB::listen()` query counting (not guesswork): `Rbac::check()` — called 16+ times per page by `nav-school.blade.php` alone — re-queried permissions/role/module state from scratch on every single call, and `Rbac` was never bound as a singleton, so even instance-level caching would never have been shared across the many `app(Rbac::class)` call sites in one request. Measured **153 real SQL queries for those 16 checks** before the fix.
+
+**Fixed**: instance-level memoization added to `Rbac` (permission-by-code, `Module` lookups, `module_states` rows, per-user `user_permissions` overrides) plus matching caches on `User::roleIn()`/`isMemberOf()`; `Rbac::class` now bound as a singleton in `AppServiceProvider` so every call site within one request shares the same cache. Chose instance-level caching over static properties specifically because static properties persist across PHPUnit test methods within one process (a real staleness risk); a singleton is safe here because this project confirmed (in an earlier hosting-provider conversation this session) it targets vanilla PHP-FPM/cPanel, not Octane — a fresh container boots per real request and per test, so nothing leaks across requests. Write-side methods (`setModuleState()`, `overridePermission()`, `revokeModuleOverride()`) clear the relevant cache, caught as a real necessity by 4 genuine test failures (stale-cache reads within one HTTP-action-then-recheck test method) before being added — not guessed in advance.
+
+**Also fixed**: local SQLite's `journal_mode`/`synchronous` pragmas, `delete`/`FULL` (SQLite's slow defaults, a rollback-journal file created/deleted per write plus an fsync on every commit) switched to `wal`/`normal` (the standard web-app pairing) on both the platform connection (`config/database.php`) and every tenant connection (`TenantManager::configureConnection()`). Confirmed via `vendor/laravel/framework` source inspection that these are real, supported Laravel `SQLiteConnector` config keys, not invented. Production is unaffected (runs on real MySQL, where neither pragma applies).
+
+**QA**: a real git-stash A/B test (revert just these 5 files to HEAD, re-run, restore via `git apply` of a saved patch) confirmed a full, clean, unfiltered `php artisan test` run shows the **exact same 3 failures with or without this change** — 2 are the long-documented "Assignments has no real module gate" bug (`CbtNavTest`, `FinanceTest`, referenced repeatedly elsewhere in this file), and 1 (`AcademicsScreenTest::test_the_class_detail_page_no_longer_shows_a_student_roster`, a stray "Students" string leaking onto the class detail page) was newly discovered by this run but independently confirmed pre-existing and unrelated via the same stash A/B, not a regression from the caching change — worth a dedicated follow-up look, not chased down in this pass. **1475/1478 passing either way.** Live-verified: real login as `ebele.etim@yahoo.com` on greenfield, real dashboard page loads at ~1.5s warm; a real tinker `DB::listen()` count against greenfield confirmed repeated identical permission codes now cost zero additional queries (cache hit), where every one used to be a fresh round trip.
+
+A parallel `/security-review` pass (Anthropic's built-in slash command) was run against this session's own feature commits (`eefd549^..5a3c853` — the branch already matched `origin/main` so the auto-diff was empty, substituted the session's own commit range) — **no high-confidence findings**, nothing to report.
+
+---
+
+### Live queue (2026-08-12, superseded by the entry above) — FEEDBACK LIST.docx "8/7/2026" batch: essentially closed, one item deliberately parked
 
 All items are done except item 8, which the user explicitly said to park ("wait") after being asked which of two readings was correct — do not guess at it, wait for their say-so.
 
