@@ -242,13 +242,24 @@
 
   <form method="POST" action="{{ route('school.report-cards.layout.custom-blocks.store', ['school' => $school->slug]) }}" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end">
     @csrf
-    <div class="field" style="margin:0;min-width:12rem">
-      <label for="newBlockLabel">Label</label>
-      <input id="newBlockLabel" name="label" placeholder="e.g. School Address" required maxlength="80" />
-    </div>
-    <div class="field" style="margin:0;flex:1;min-width:16rem">
-      <label for="newBlockContent">Text</label>
-      <textarea id="newBlockContent" name="content" rows="2" placeholder="e.g. 12 Freedom Way, Lekki, Lagos" required maxlength="2000"></textarea>
+    {{-- The Label and Text fields are wrapped in their own inner flex
+         row, aligned to flex-start (their own tops, i.e. their labels),
+         rather than sharing the outer row's flex-end — a taller
+         textarea sibling next to a plain input under a shared
+         align-items:flex-end pushes the SHORTER field's whole block
+         upward to match the textarea's bottom, visibly misaligning the
+         two labels (user report 2026-08-13, with a screenshot). The
+         outer row still bottom-aligns the Add block button against the
+         group's own (now correctly-aligned) height. --}}
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-start;flex:1;min-width:20rem">
+      <div class="field" style="margin:0;min-width:12rem">
+        <label for="newBlockLabel">Label</label>
+        <input id="newBlockLabel" name="label" placeholder="e.g. School Address" required maxlength="80" />
+      </div>
+      <div class="field" style="margin:0;flex:1;min-width:16rem">
+        <label for="newBlockContent">Text</label>
+        <textarea id="newBlockContent" name="content" rows="2" placeholder="e.g. 12 Freedom Way, Lekki, Lagos" required maxlength="2000"></textarea>
+      </div>
     </div>
     <button class="btn btn-primary btn-sm" type="submit">Add block</button>
   </form>
