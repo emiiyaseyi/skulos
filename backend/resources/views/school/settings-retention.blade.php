@@ -33,4 +33,36 @@
     });
   </script>
 </div>
+
+<div class="card" style="max-width:32rem;margin-top:1.1rem">
+  <h3 style="margin-bottom:.3rem">Backup retention</h3>
+  <p class="muted" style="font-size:.85rem;margin-bottom:1rem">How many backups (and how recent) are kept before old ones are automatically pruned. A backup is only deleted once it fails both rules below.</p>
+  @php($hasOwnBackup = ! empty($backupSettings))
+  <form method="POST" action="{{ route('school.settings.retention.update-backups', ['school' => $school->slug]) }}">
+    @csrf
+    <label style="font-weight:500;display:flex;gap:.5rem;align-items:center;margin-bottom:1rem">
+      <input type="checkbox" name="use_own_backup" value="1" id="useOwnBackup" @checked($hasOwnBackup) /> Set our own backup retention for this school
+    </label>
+    <div id="ownBackupFields" style="{{ $hasOwnBackup ? '' : 'display:none' }}">
+      <div class="field">
+        <label for="keep_count">Always keep the most recent (backups)</label>
+        <input id="keep_count" name="keep_count" type="number" min="1" max="365" value="{{ $backupSettings['keep_count'] ?? 10 }}" />
+      </div>
+      <div class="field">
+        <label for="keep_days">Always keep backups newer than (days)</label>
+        <input id="keep_days" name="keep_days" type="number" min="1" max="3650" value="{{ $backupSettings['keep_days'] ?? 90 }}" />
+      </div>
+      <label style="display:flex;align-items:center;gap:.4rem;margin-bottom:.6rem">
+        <input type="checkbox" name="prune_manual" value="1" @checked($backupSettings['prune_manual'] ?? false) /> Also prune backups I triggered manually
+        <span class="hint" style="margin:0">(off by default, so a backup you deliberately took is never auto-deleted)</span>
+      </label>
+    </div>
+    <button class="btn btn-primary btn-sm" type="submit">Save</button>
+  </form>
+  <script>
+    document.getElementById('useOwnBackup')?.addEventListener('change', function(){
+      document.getElementById('ownBackupFields').style.display = this.checked ? '' : 'none';
+    });
+  </script>
+</div>
 @endsection

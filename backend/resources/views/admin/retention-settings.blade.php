@@ -23,4 +23,25 @@
     <button class="btn btn-primary btn-sm" type="submit">Save</button>
   </form>
 </div>
+
+<div class="card" style="max-width:32rem;margin-top:1.1rem">
+  <h3 style="margin-bottom:.3rem">Backup retention</h3>
+  <p class="muted" style="margin-bottom:1.2rem">The platform wide default for how many backups (and how recent) are kept before old ones are automatically pruned, per school and for the platform's own backups alike. A school can set its own under its Settings. A backup is only deleted once it fails both rules below. Same weekly job as above.</p>
+  <form method="POST" action="{{ route('admin.settings.retention.update-backups') }}">
+    @csrf
+    <div class="field">
+      <label for="keep_count">Always keep the most recent (backups)</label>
+      <input id="keep_count" name="keep_count" type="number" min="1" max="365" value="{{ $backupSettings['keep_count'] ?? 10 }}" required />
+    </div>
+    <div class="field">
+      <label for="keep_days">Always keep backups newer than (days)</label>
+      <input id="keep_days" name="keep_days" type="number" min="1" max="3650" value="{{ $backupSettings['keep_days'] ?? 90 }}" required />
+    </div>
+    <label style="display:flex;align-items:center;gap:.4rem;margin-bottom:.6rem">
+      <input type="checkbox" name="prune_manual" value="1" @checked($backupSettings['prune_manual'] ?? false) /> Also prune backups triggered manually
+      <span class="hint" style="margin:0">(off by default, so a deliberately-taken backup is never auto-deleted)</span>
+    </label>
+    <button class="btn btn-primary btn-sm" type="submit">Save</button>
+  </form>
+</div>
 @endsection

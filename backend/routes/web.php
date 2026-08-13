@@ -57,6 +57,7 @@ Route::domain($appDomain)->group(function () {
         Route::post('/audit-log/verify', [\App\Http\Controllers\Admin\AuditLogController::class, 'verify'])->name('audit-log.verify');
         Route::get('/modules', [\App\Http\Controllers\Admin\ModuleAdminController::class, 'index'])->name('modules.index');
         Route::get('/backups', [\App\Http\Controllers\Admin\BackupAdminController::class, 'index'])->name('backups.index');
+        Route::post('/backups/prune-all', [\App\Http\Controllers\Admin\BackupAdminController::class, 'pruneAll'])->name('backups.prune-all');
         Route::get('/storage', [\App\Http\Controllers\Admin\StorageAdminController::class, 'index'])->name('storage.index');
         Route::prefix('platform-backups')->name('platform-backups.')->group(function () {
             $platformBackups = \App\Http\Controllers\Admin\PlatformBackupController::class;
@@ -136,6 +137,7 @@ Route::domain($appDomain)->group(function () {
             $retention = \App\Http\Controllers\Admin\RetentionController::class;
             Route::get('/', [$retention, 'edit'])->name('edit');
             Route::post('/', [$retention, 'update'])->name('update');
+            Route::post('/backups', [$retention, 'updateBackups'])->name('update-backups');
         });
         Route::prefix('settings/support-contact')->name('settings.support-contact.')->group(function () {
             $supportContact = \App\Http\Controllers\Admin\SupportContactController::class;
@@ -1225,6 +1227,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/', [$maintenance, 'index'])->name('index');
             Route::post('/optimize', [$maintenance, 'optimizeNow'])->name('optimize');
             Route::post('/retention', [$maintenance, 'runRetentionNow'])->name('retention');
+            Route::post('/prune-backups', [$maintenance, 'pruneBackupsNow'])->name('prune-backups');
         });
 
         // Mail settings (optional per-school SMTP override).
@@ -1254,6 +1257,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             $retention = \App\Http\Controllers\School\RetentionController::class;
             Route::get('/', [$retention, 'edit'])->name('edit');
             Route::post('/', [$retention, 'update'])->name('update');
+            Route::post('/backups', [$retention, 'updateBackups'])->name('update-backups');
         });
 
         // Admin-defined fields, assignable to Student/Staff/Guardian forms

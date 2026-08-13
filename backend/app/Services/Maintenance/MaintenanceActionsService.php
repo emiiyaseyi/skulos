@@ -2,11 +2,13 @@
 
 namespace App\Services\Maintenance;
 
+use App\Models\Backup;
 use App\Models\School;
 use App\Models\Tenant\CommunicationLog;
 use App\Models\Tenant\Notification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -65,6 +67,42 @@ class MaintenanceActionsService
             ->delete();
 
         return ['notifications' => $notifDeleted, 'communication_logs' => $commsDeleted];
+    }
+
+    /**
+     * Prunes $school's own backups past BackupRetentionService's
+     * effective() window (2026-08-12) — a backup is deleted only once
+     * it fails BOTH keep_count and keep_days, matching the "keep if
+     * either rule says keep" choice. When prune_manual is false (the
+     * default), a manually-triggered backup is left out of the query
+     * entirely rather than merely favoured, so it truly never gets
+     * caught by keep_count pushing it out either.
+     *
+     * @return array{deleted: int, freed_bytes: int}
+     */
+    public function pruneBackups(School $school, BackupRetentionService $retention): array
+    {
+        $settings = $retention->effective();
+
+        $query = Backup::where('school_id', $school->id);
+        if (! $settings['prune_manual']) {
+            $query->where('type', Backup::TYPE_SCHEDULED);
+        }
+
+        $candidates = $query->orderByDesc('created_at')->get();
+        $toDelete = $candidates->slice($settings['keep_count'])
+            ->filter(fn (Backup $b) => $b->created_at->lt(now()->subDays($settings['keep_days'])));
+
+        $freedBytes = 0;
+        foreach ($toDelete as $backup) {
+            if ($backup->exists()) {
+                Storage::disk($backup->disk)->delete($backup->file_path);
+            }
+            $freedBytes += (int) $backup->size_bytes;
+            $backup->delete();
+        }
+
+        return ['deleted' => $toDelete->count(), 'freed_bytes' => $freedBytes];
     }
 
     /** Platform wide, not scoped to one school (a login session is not scoped to one school). */

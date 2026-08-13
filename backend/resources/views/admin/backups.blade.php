@@ -4,6 +4,19 @@
 @section('crumb', 'Every school\'s last backup, at a glance')
 
 @section('content')
+<div class="card" style="margin-bottom:1.1rem">
+  <div class="row-between" style="flex-wrap:wrap;gap:.6rem">
+    <p class="muted" style="margin:0">Old backups are pruned automatically every week, per school and platform-wide, per each level's own retention setting.</p>
+    <div style="display:flex;gap:.6rem">
+      <form method="POST" action="{{ route('admin.backups.prune-all') }}">
+        @csrf
+        <button class="btn btn-ghost btn-sm" type="submit">Prune old backups now</button>
+      </form>
+      <a class="btn btn-ghost btn-sm" href="{{ route('admin.settings.retention.edit') }}">Retention settings</a>
+    </div>
+  </div>
+</div>
+
 <div class="card">
   <p class="muted" style="margin-bottom:1rem">Backing up, changing a schedule, downloading, and restoring a specific backup all still happen from that school's own detail page; this is the consolidated view so you can spot who is overdue without opening each one.</p>
   @if($schools->isEmpty())

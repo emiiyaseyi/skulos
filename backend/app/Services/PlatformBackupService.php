@@ -55,6 +55,38 @@ class PlatformBackupService
         $backup->delete();
     }
 
+    /**
+     * Prunes the platform's own backups past BackupRetentionService's
+     * platform-wide window (2026-08-12) — the same "kept if either rule
+     * says keep, deleted only once both fail" logic
+     * MaintenanceActionsService::pruneBackups() applies per school, just
+     * against the platform default only (no per-school override makes
+     * sense here, these backups belong to no single school).
+     *
+     * @return array{deleted: int, freed_bytes: int}
+     */
+    public function prune(\App\Services\Maintenance\BackupRetentionService $retention): array
+    {
+        $settings = $retention->effectiveForPlatform();
+
+        $query = PlatformBackup::query();
+        if (! $settings['prune_manual']) {
+            $query->where('type', PlatformBackup::TYPE_SCHEDULED);
+        }
+
+        $candidates = $query->orderByDesc('created_at')->get();
+        $toDelete = $candidates->slice($settings['keep_count'])
+            ->filter(fn (PlatformBackup $b) => $b->created_at->lt(now()->subDays($settings['keep_days'])));
+
+        $freedBytes = 0;
+        foreach ($toDelete as $backup) {
+            $freedBytes += (int) $backup->size_bytes;
+            $this->delete($backup);
+        }
+
+        return ['deleted' => $toDelete->count(), 'freed_bytes' => $freedBytes];
+    }
+
     protected function dumpMysql(string $relativePath): void
     {
         $conn = config('database.connections.mysql');

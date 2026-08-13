@@ -1261,6 +1261,25 @@ return [
     ],
 
     /*
+    | Backup retention (2026-08-12, "the single highest-value addition":
+    | unlike everything else above, backups were never pruned at all —
+    | every backup, per school and the platform's own, accumulated
+    | forever until an admin manually deleted one). A backup is kept if
+    | it satisfies EITHER rule (the more forgiving of the two, per
+    | direct user choice): among the most recent keep_count backups, OR
+    | newer than keep_days. Only deleted once it fails BOTH. Whether a
+    | manually-triggered backup is exempt from this or pruned the same
+    | as a scheduled one is itself admin-editable (prune_manual), not a
+    | hardcoded choice either way, per direct user instruction ("make it
+    | both, admin can decide").
+    */
+    'backup_retention' => [
+        'keep_count' => env('BACKUP_RETENTION_KEEP_COUNT', 10),
+        'keep_days' => env('BACKUP_RETENTION_KEEP_DAYS', 90),
+        'prune_manual' => env('BACKUP_RETENTION_PRUNE_MANUAL', false),
+    ],
+
+    /*
     | Audit log durable export (2026-07-20 audit log hardening): the
     | archive-not-delete strategy the comment above pointed at. Batches of
     | new audit_logs rows are periodically written as append-only, never

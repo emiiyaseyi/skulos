@@ -4,6 +4,7 @@ namespace App\Http\Controllers\School;
 
 use App\Http\Controllers\Controller;
 use App\Models\School;
+use App\Services\Maintenance\BackupRetentionService;
 use App\Services\Maintenance\HealthService;
 use App\Services\Maintenance\MaintenanceActionsService;
 use App\Services\Maintenance\RetentionService;
@@ -74,5 +75,17 @@ class MaintenanceController extends Controller
         $result = $actions->purgeRetention($school, $retention);
 
         return back()->with('status', "Cleanup complete: purged {$result['notifications']} read notification(s), {$result['communication_logs']} communication log(s) past their retention window.");
+    }
+
+    public function pruneBackupsNow(Request $request, MaintenanceActionsService $actions, BackupRetentionService $backupRetention): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'school_info.manage_settings');
+        $school = $this->school($request);
+
+        $result = $actions->pruneBackups($school, $backupRetention);
+
+        return back()->with('status', $result['deleted']
+            ? "Pruned {$result['deleted']} old backup(s), freeing ".\App\Services\Maintenance\StorageService::humanBytes($result['freed_bytes']).'.'
+            : 'No backups were old enough to prune.');
     }
 }

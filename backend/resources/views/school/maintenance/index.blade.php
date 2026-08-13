@@ -144,6 +144,10 @@
       @csrf
       <button class="btn btn-ghost btn-sm" type="submit">Run retention cleanup now</button>
     </form>
+    <form method="POST" action="{{ route('school.maintenance.prune-backups', ['school' => $school->slug]) }}">
+      @csrf
+      <button class="btn btn-ghost btn-sm" type="submit">Prune old backups now</button>
+    </form>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.settings.retention.edit', ['school' => $school->slug]) }}">Retention settings</a>
   </div>
 </div>

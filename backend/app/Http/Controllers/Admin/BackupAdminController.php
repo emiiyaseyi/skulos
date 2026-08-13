@@ -5,7 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Backup;
 use App\Models\School;
+use App\Services\Maintenance\BackupRetentionService;
+use App\Services\Maintenance\MaintenanceActionsService;
+use App\Services\PlatformBackupService;
 use App\Services\Tenancy\BackupService;
+use App\Services\Tenancy\TenantManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -87,5 +91,40 @@ class BackupAdminController extends Controller
         }
 
         return back()->with('status', "{$school->name} restored from the backup taken on ".$backup->created_at->toDayDateTimeString().'.');
+    }
+
+    /**
+     * On-demand version of the weekly skulos:retention-cleanup job's own
+     * backup pruning (2026-08-12) — every provisioned school plus the
+     * platform's own backups, in one click, for an admin who wants to
+     * check disk usage right now rather than wait for the next scheduled
+     * run. Wraps each school in TenantManager::use()/forget() so a
+     * school's own backup-retention override (set from its own Settings)
+     * is actually respected here, not just the platform default.
+     */
+    public function pruneAll(MaintenanceActionsService $actions, BackupRetentionService $backupRetention, PlatformBackupService $platformBackups, TenantManager $tenants): \Illuminate\Http\RedirectResponse
+    {
+        $deleted = 0;
+        $freedBytes = 0;
+
+        foreach (School::whereNotNull('database')->whereNotNull('provisioned_at')->get() as $school) {
+            try {
+                $tenants->use($school);
+            } catch (\Throwable) {
+                continue;
+            }
+            $result = $actions->pruneBackups($school, $backupRetention);
+            $tenants->forget();
+            $deleted += $result['deleted'];
+            $freedBytes += $result['freed_bytes'];
+        }
+
+        $platformResult = $platformBackups->prune($backupRetention);
+        $deleted += $platformResult['deleted'];
+        $freedBytes += $platformResult['freed_bytes'];
+
+        return back()->with('status', $deleted
+            ? "Pruned {$deleted} old backup(s) across every school and the platform, freeing ".\App\Services\Maintenance\StorageService::humanBytes($freedBytes).'.'
+            : 'No backups were old enough to prune.');
     }
 }

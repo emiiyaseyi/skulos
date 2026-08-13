@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\Maintenance\BackupRetentionService;
 use App\Services\Maintenance\RetentionService;
 use Illuminate\Http\Request;
 
@@ -13,9 +14,12 @@ use Illuminate\Http\Request;
  */
 class RetentionController extends Controller
 {
-    public function edit(RetentionService $retention): \Illuminate\View\View
+    public function edit(RetentionService $retention, BackupRetentionService $backupRetention): \Illuminate\View\View
     {
-        return view('admin.retention-settings', ['settings' => $retention->platformSettings()]);
+        return view('admin.retention-settings', [
+            'settings' => $retention->platformSettings(),
+            'backupSettings' => $backupRetention->platformSettings(),
+        ]);
     }
 
     public function update(Request $request, RetentionService $retention): \Illuminate\Http\RedirectResponse
@@ -29,5 +33,20 @@ class RetentionController extends Controller
         $retention->savePlatformSettings($data);
 
         return back()->with('status', 'Platform retention settings saved.');
+    }
+
+    /** A separate save action, its own Setting key, same reasoning as School\RetentionController::updateBackups(). */
+    public function updateBackups(Request $request, BackupRetentionService $backupRetention): \Illuminate\Http\RedirectResponse
+    {
+        $data = $request->validate([
+            'keep_count' => ['required', 'integer', 'min:1', 'max:365'],
+            'keep_days' => ['required', 'integer', 'min:1', 'max:3650'],
+            'prune_manual' => ['sometimes', 'boolean'],
+        ]);
+        $data['prune_manual'] = $request->boolean('prune_manual');
+
+        $backupRetention->savePlatformSettings($data);
+
+        return back()->with('status', 'Platform backup retention settings saved.');
     }
 }

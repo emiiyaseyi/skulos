@@ -3,16 +3,21 @@
 namespace App\Console\Commands;
 
 use App\Models\School;
+use App\Services\Maintenance\BackupRetentionService;
 use App\Services\Maintenance\MaintenanceActionsService;
 use App\Services\Maintenance\RetentionService;
+use App\Services\PlatformBackupService;
 use App\Services\Tenancy\TenantManager;
 use Illuminate\Console\Command;
 
 /**
  * Purges what the Dbase recommendation calls "anything that grows
  * unbounded": read notifications, communication (SMS/email/WhatsApp) logs,
- * and expired platform login sessions, each past its configured retention
- * window (RetentionService, admin editable, platform then school
+ * expired platform login sessions, and (2026-08-12) backups past their
+ * own retention window — the single item on this list that had NO
+ * pruning at all before, per school and the platform's own alike, each
+ * past its configured retention window (RetentionService/
+ * BackupRetentionService, admin editable, platform then school
  * precedence). Registered weekly in routes/console.php. The actual work
  * lives in MaintenanceActionsService, shared with the Maintenance
  * Center's "Run retention cleanup now" button.
@@ -29,11 +34,16 @@ class RetentionCleanup extends Command
 
     protected $description = 'Purge old notifications, communication logs, and expired sessions past their retention window';
 
-    public function handle(RetentionService $retention, MaintenanceActionsService $actions, TenantManager $tenants): int
+    public function handle(RetentionService $retention, MaintenanceActionsService $actions, TenantManager $tenants, BackupRetentionService $backupRetention, PlatformBackupService $platformBackups): int
     {
         $sessionsPurged = $actions->purgeExpiredSessions($retention);
         if ($sessionsPurged) {
             $this->info("Purged {$sessionsPurged} expired session(s).");
+        }
+
+        $platformPrune = $platformBackups->prune($backupRetention);
+        if ($platformPrune['deleted']) {
+            $this->info("Platform backups: pruned {$platformPrune['deleted']} backup(s).");
         }
 
         // Failed Logins (2026-07-15): a fixed 90 day window, platform
@@ -56,10 +66,14 @@ class RetentionCleanup extends Command
             }
 
             $result = $actions->purgeRetention($school, $retention);
+            $backupResult = $actions->pruneBackups($school, $backupRetention);
             $tenants->forget();
 
             if ($result['notifications'] || $result['communication_logs']) {
                 $this->info("{$school->slug}: purged {$result['notifications']} read notification(s), {$result['communication_logs']} communication log(s).");
+            }
+            if ($backupResult['deleted']) {
+                $this->info("{$school->slug}: pruned {$backupResult['deleted']} backup(s).");
             }
         }
 

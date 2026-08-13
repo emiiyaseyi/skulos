@@ -4,6 +4,7 @@ namespace App\Http\Controllers\School;
 
 use App\Http\Controllers\Controller;
 use App\Models\School;
+use App\Services\Maintenance\BackupRetentionService;
 use App\Services\Maintenance\RetentionService;
 use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
@@ -29,7 +30,7 @@ class RetentionController extends Controller
         );
     }
 
-    public function edit(Request $request, RetentionService $retention): \Illuminate\View\View
+    public function edit(Request $request, RetentionService $retention, BackupRetentionService $backupRetention): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'school_info.view');
         $school = $this->school($request);
@@ -38,6 +39,7 @@ class RetentionController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'settings' => $retention->schoolSettings(),
+            'backupSettings' => $backupRetention->schoolSettings(),
         ]);
     }
 
@@ -60,5 +62,35 @@ class RetentionController extends Controller
         $retention->saveSchoolSettings($data);
 
         return back()->with('status', 'Retention settings saved.');
+    }
+
+    /**
+     * A separate toggle/save action from update() above — backup
+     * retention (2026-08-12) is a genuinely distinct concern from
+     * notification/log retention, kept in its own Setting key
+     * (BackupRetentionService::KEY) so turning one on/off never
+     * disturbs the other.
+     */
+    public function updateBackups(Request $request, BackupRetentionService $backupRetention): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'school_info.manage_settings');
+
+        $useOwn = $request->boolean('use_own_backup');
+        if (! $useOwn) {
+            $backupRetention->saveSchoolSettings([]);
+
+            return back()->with('status', 'Now using the platform default backup retention.');
+        }
+
+        $data = $request->validate([
+            'keep_count' => ['required', 'integer', 'min:1', 'max:365'],
+            'keep_days' => ['required', 'integer', 'min:1', 'max:3650'],
+            'prune_manual' => ['sometimes', 'boolean'],
+        ]);
+        $data['prune_manual'] = $request->boolean('prune_manual');
+
+        $backupRetention->saveSchoolSettings($data);
+
+        return back()->with('status', 'Backup retention settings saved.');
     }
 }
