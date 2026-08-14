@@ -15,7 +15,7 @@
     <td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background-color:#FFFFFF;border-radius:14px;overflow:hidden;border:1px solid #E2E6ED;">
         <tr>
-          <td style="background-color:#0B1420;padding:24px 32px;">
+          <td align="center" style="background-color:#0B1420;padding:24px 32px;text-align:center;">
             <span style="font-family:Arial,Helvetica,sans-serif;font-weight:bold;font-size:20px;color:#FFFFFF;letter-spacing:-0.3px;">SK<span style="color:#E8A33D;">U</span>LOS</span>
           </td>
         </tr>
