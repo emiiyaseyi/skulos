@@ -37,7 +37,7 @@ Route::domain($appDomain)->group(function () {
         return response(File::get($path))->header('Content-Type', 'text/html; charset=UTF-8');
     };
 
-    foreach (['about.html', 'pricing.html', 'contact.html', 'faq.html', 'trial.html', 'privacy.html', 'terms.html'] as $marketingFile) {
+    foreach (['index.html', 'about.html', 'pricing.html', 'contact.html', 'faq.html', 'trial.html', 'privacy.html', 'terms.html'] as $marketingFile) {
         Route::get('/'.$marketingFile, fn () => $marketingPage($marketingFile));
     }
 

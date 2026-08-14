@@ -192,7 +192,7 @@ h1,h2,h3{
 }
 .nav.is-scrolled .nav-row{ padding-block:.6rem; }
 .nav.is-scrolled .brand{ font-size:1.3rem; }
-.brand{
+.brand{ text-decoration:none;
   font-family:var(--font-display);
   font-weight:700;
   font-size:1.5rem;
