@@ -98,6 +98,23 @@ class MailSettingsTest extends TestCase
         app(TenantManager::class)->forget();
     }
 
+    public function test_the_admin_facing_tls_ssl_encryption_choice_maps_to_a_real_mailer_scheme(): void
+    {
+        $admin = $this->superAdmin();
+
+        $this->actingAs($admin)->post(route('admin.settings.mail.update'), [
+            'host' => 'smtp.tls.test', 'encryption' => 'tls',
+        ]);
+        app(MailSettingsService::class)->applyPlatformDefaults();
+        $this->assertSame('smtp', config('mail.mailers.smtp.scheme'));
+
+        $this->actingAs($admin)->post(route('admin.settings.mail.update'), [
+            'host' => 'smtp.ssl.test', 'encryption' => 'ssl',
+        ]);
+        app(MailSettingsService::class)->applyPlatformDefaults();
+        $this->assertSame('smtps', config('mail.mailers.smtp.scheme'));
+    }
+
     public function test_send_test_email_works(): void
     {
         Mail::fake();

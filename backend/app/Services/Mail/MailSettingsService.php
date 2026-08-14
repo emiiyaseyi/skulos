@@ -75,7 +75,19 @@ class MailSettingsService
             Config::set('mail.mailers.smtp.port', $settings['port'] ?? 587);
             Config::set('mail.mailers.smtp.username', $settings['username'] ?? null);
             Config::set('mail.mailers.smtp.password', $settings['password'] ?? null);
-            Config::set('mail.mailers.smtp.scheme', $settings['encryption'] ?? null);
+            // The admin-facing "Encryption" field uses the classic
+            // tls/ssl/none terminology every hosting provider documents
+            // (matching cPanel's own Email Deliverability screen), but
+            // Symfony Mailer's SMTP transport (what Laravel 12 actually
+            // uses) expects a connection "scheme" of only "smtp"
+            // (opportunistic/explicit TLS, i.e. STARTTLS, port 587 —
+            // what "tls" traditionally means) or "smtps" (implicit TLS
+            // from connection start, port 465 — what "ssl" traditionally
+            // means). Passing "tls" through as a literal scheme value
+            // throws "The 'tls' scheme is not supported" — found live
+            // 2026-08-14 setting up a real cPanel webmail account as
+            // SMTP.
+            Config::set('mail.mailers.smtp.scheme', ($settings['encryption'] ?? 'tls') === 'ssl' ? 'smtps' : 'smtp');
             Config::set('mail.default', 'smtp');
         }
         if (! empty($settings['from_address'])) {
