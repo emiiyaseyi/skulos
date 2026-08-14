@@ -950,11 +950,11 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
  <!-- CONTACT GRID -->
  <section class="wrap">
  <div class="contact-grid">
- <!-- NOTE: no backend exists yet, so this form submits via a mailto: action,
-           which opens the visitor's own email client with the message pre-filled.
-           Once the admin CMS ships (tracker section 13), swap this for a real form
-           handler that lands in an inbox/ticket queue directly. -->
- <form class="contact-form" action="mailto:info@skulosapp.com" method="get" enctype="text/plain">
+ <form class="contact-form" id="contactForm" action="/api/contact" method="post">
+ <div class="field" style="position:absolute;left:-9999px" aria-hidden="true">
+ <label for="cf-website">Leave this field blank</label>
+ <input id="cf-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+ </div>
  <div class="field">
  <label for="cf-name">Your name</label>
  <input id="cf-name" name="name" type="text" placeholder="Full name" required />
@@ -972,8 +972,23 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
  <textarea id="cf-message" name="message" placeholder="Tell us about your school and what you're looking for"></textarea>
  </div>
  <button type="submit" class="btn btn-gold btn-lg">Send Message</button>
- <p class="form-note">This opens your email app with the message ready to send, we're not yet routing this straight to an inbox, so nothing is sent until you do.</p>
+ <p class="form-note" id="contactFormNote">We'll get your message straight away and follow up by email.</p>
  </form>
+ <script>
+ (function(){
+   var params = new URLSearchParams(window.location.search);
+   var note = document.getElementById('contactFormNote');
+   var form = document.getElementById('contactForm');
+   if (params.get('sent') === '1') {
+     form.style.display = 'none';
+     note.parentNode.insertBefore(document.createElement('div'), note).outerHTML =
+       '<p style="font-weight:700;color:var(--gold)">Thanks, your message is on its way. We will follow up by email shortly.</p>';
+   } else if (params.get('error') === '1') {
+     note.textContent = 'Please wait a few minutes before sending another message.';
+     note.style.color = 'var(--coral-a, #F97066)';
+   }
+ })();
+ </script>
 
  <div class="contact-side">
  <div class="contact-card">

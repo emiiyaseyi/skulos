@@ -37,3 +37,15 @@ Route::post('/license/latest-release', [\App\Http\Controllers\ReleaseDownloadCon
 Route::post('/license/download', [\App\Http\Controllers\ReleaseDownloadController::class, 'download'])
     ->middleware('throttle:30,1')
     ->name('license.download');
+
+/*
+|--------------------------------------------------------------------------
+| Marketing site contact form
+|--------------------------------------------------------------------------
+| Same reasoning as the license routes above: contact.html is a plain
+| static page with no Blade templating to embed a CSRF token into, so
+| this lives here (stateless, no CSRF) rather than in routes/web.php.
+*/
+Route::post('/contact', [\App\Http\Controllers\ContactFormController::class, 'store'])
+    ->middleware('throttle:10,1')
+    ->name('contact.store');

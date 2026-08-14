@@ -17,6 +17,7 @@
     <div class="auth-logo" style="margin-inline:auto">S</div>
     <h1>Thank you</h1>
     <p>Your trial request has been received. Our team reviews every request and will email you with your setup status, a demo, and training for your staff.</p>
+    <a href="/" class="btn btn-primary" style="margin-top:1.4rem">Back to homepage</a>
   </div>
 </div>
 @endsection
