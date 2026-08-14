@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\SsoController;
 use App\Http\Controllers\GeoController;
 use App\Http\Controllers\School\SchoolPortalController;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
 
 $appDomain = config('app.domain', 'localhost');
@@ -20,14 +21,34 @@ $appDomain = config('app.domain', 'localhost');
 */
 
 Route::domain($appDomain)->group(function () {
-    Route::get('/', function () {
-        if (! Auth::check()) {
-            return redirect('/login');
+    // Marketing site (2026-08-14): the real production domain is
+    // confirmed and the platform itself only ever claims /login,
+    // /admin/*, /trial, and the password-reset paths on this bare
+    // domain — so the marketing pages (repo-root /site, still the same
+    // static HTML MarketingPageController edits) fill in everything
+    // else, served directly by this app rather than needing a separate
+    // static host/subdomain. Internal links between marketing pages use
+    // the literal ".html" filenames (see site/index.html), so routes
+    // are registered at those exact paths rather than "clean" URLs.
+    $marketingPage = function (string $file) {
+        $path = base_path('../site/'.$file);
+        abort_unless(File::exists($path), 404);
+
+        return response(File::get($path))->header('Content-Type', 'text/html; charset=UTF-8');
+    };
+
+    foreach (['about.html', 'pricing.html', 'contact.html', 'faq.html', 'trial.html', 'privacy.html', 'terms.html'] as $marketingFile) {
+        Route::get('/'.$marketingFile, fn () => $marketingPage($marketingFile));
+    }
+
+    Route::get('/', function () use ($marketingPage) {
+        if (Auth::check()) {
+            return Auth::user()->is_super_admin
+                ? redirect()->route('admin.dashboard')
+                : redirect('/login');
         }
 
-        return Auth::user()->is_super_admin
-            ? redirect()->route('admin.dashboard')
-            : redirect('/login');
+        return $marketingPage('index.html');
     });
 
     Route::middleware('guest')->group(function () {
