@@ -9,7 +9,7 @@
   var CONTACT = {
     whatsapp: '2348023373302',        // digits only, for wa.me
     whatsappLabel: '+234 802 337 3302',
-    email: 'info@skulos.app',
+    email: 'info@skulosapp.com',
     contactUrl: 'contact.html'
   };
 

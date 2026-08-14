@@ -54,8 +54,8 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
-    // Base domain that school subdomains hang off (e.g. skulos.app so a
-    // school is greenfield.skulos.app). Locally "localhost"; {slug}.localhost
+    // Base domain that school subdomains hang off (e.g. skulosapp.com so a
+    // school is greenfield.skulosapp.com). Locally "localhost"; {slug}.localhost
     // resolves to 127.0.0.1 in Chromium browsers.
     'domain' => env('APP_DOMAIN', 'localhost'),
 

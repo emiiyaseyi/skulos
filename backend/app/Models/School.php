@@ -161,7 +161,7 @@ class School extends Model
     }
 
     /**
-     * The school's own subdomain URL, e.g. https://greenfield.skulos.app
+     * The school's own subdomain URL, e.g. https://greenfield.skulosapp.com
      * (or http://greenfield.localhost:8000 in local dev).
      */
     public function portalUrl(string $path = ''): string

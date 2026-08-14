@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('schools', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('slug')->unique(); // subdomain: {slug}.skulos.app
+            $table->string('slug')->unique(); // subdomain: {slug}.skulosapp.com
             $table->string('motto')->nullable();
             $table->string('email')->nullable();
             $table->string('phone')->nullable();

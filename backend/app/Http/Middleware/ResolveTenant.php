@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * Resolution order:
  *  1. X-School header (API clients / the future Next.js frontend)
- *  2. Subdomain ({slug}.skulos.app or any host with 3+ labels)
+ *  2. Subdomain ({slug}.skulosapp.com or any host with 3+ labels)
  */
 class ResolveTenant
 {
@@ -79,7 +79,7 @@ class ResolveTenant
     {
         $labels = explode('.', $host);
 
-        // "greenfield.skulos.app" => "greenfield"; bare domains and
+        // "greenfield.skulosapp.com" => "greenfield"; bare domains and
         // localhost have no subdomain to extract.
         if (count($labels) < 3) {
             return null;

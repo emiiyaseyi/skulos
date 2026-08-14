@@ -826,7 +826,7 @@ return [
     | (still env overridable) only until they do.
     */
     'support' => [
-        'email' => env('SKULOS_SUPPORT_EMAIL', 'info@skulos.app'),
+        'email' => env('SKULOS_SUPPORT_EMAIL', 'info@skulosapp.com'),
         'phone' => env('SKULOS_SUPPORT_PHONE', '+234 802 337 3302'),
     ],
 
@@ -2946,14 +2946,14 @@ return [
     */
     'self_hosted' => env('SKULOS_SELF_HOSTED', false),
     'self_hosted_license' => [
-        'endpoint' => env('SKULOS_LICENSE_ENDPOINT', 'https://skulos.app/api/license/verify'),
+        'endpoint' => env('SKULOS_LICENSE_ENDPOINT', 'https://skulosapp.com/api/license/verify'),
         // Release management (2026-08-07): the sibling endpoints
         // ReleaseDownloadController exposes, each independently
         // env-overridable rather than derived by string-manipulating
         // 'endpoint' above, so customizing one alone never silently
         // breaks the others.
-        'latest_release_endpoint' => env('SKULOS_LICENSE_LATEST_RELEASE_ENDPOINT', 'https://skulos.app/api/license/latest-release'),
-        'download_endpoint' => env('SKULOS_LICENSE_DOWNLOAD_ENDPOINT', 'https://skulos.app/api/license/download'),
+        'latest_release_endpoint' => env('SKULOS_LICENSE_LATEST_RELEASE_ENDPOINT', 'https://skulosapp.com/api/license/latest-release'),
+        'download_endpoint' => env('SKULOS_LICENSE_DOWNLOAD_ENDPOINT', 'https://skulosapp.com/api/license/download'),
         'grace_days' => (int) env('SKULOS_LICENSE_GRACE_DAYS', 14),
     ],
 
