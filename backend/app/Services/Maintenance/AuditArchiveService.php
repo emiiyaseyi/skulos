@@ -47,7 +47,7 @@ class AuditArchiveService
         Storage::disk('local')->makeDirectory(dirname($path));
 
         $handle = fopen($absolute, 'w');
-        fputcsv($handle, ['id', 'occurred_at', 'user_id', 'action', 'auditable_type', 'auditable_id', 'ip_address', 'changes']);
+        fputcsv($handle, ['id', 'occurred_at', 'user_id', 'action', 'auditable_type', 'auditable_id', 'ip_address', 'url', 'old_values', 'new_values']);
 
         $rows = 0;
         DB::connection('tenant')->table('audit_logs')
@@ -63,10 +63,12 @@ class AuditArchiveService
                         $row->auditable_type ?? '',
                         $row->auditable_id ?? '',
                         $row->ip_address ?? '',
-                        // Already JSON in the column; kept as-is so the
-                        // CSV stays a faithful copy rather than a lossy
-                        // summary of what actually changed.
-                        is_string($row->changes ?? null) ? $row->changes : json_encode($row->changes ?? null),
+                        $row->url ?? '',
+                        // Already JSON in these columns; kept verbatim so
+                        // the CSV stays a faithful copy rather than a
+                        // lossy summary of what actually changed.
+                        $row->old_values ?? '',
+                        $row->new_values ?? '',
                     ]);
                     $rows++;
                 }

@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\School;
 
 use App\Http\Controllers\Controller;
+use App\Models\School;
+use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -23,6 +26,24 @@ use Illuminate\Support\Facades\Storage;
  */
 class AuditTrailController extends Controller
 {
+    // Same two helpers every other School\* controller defines for
+    // itself (see MaintenanceController): the school is resolved by
+    // ResolveTenant middleware onto the request, and permissions go
+    // through Rbac rather than a policy.
+    protected function school(Request $request): School
+    {
+        return $request->attributes->get('school');
+    }
+
+    protected function authorizeAction(Request $request, string $permission): void
+    {
+        abort_unless(
+            app(Rbac::class)->check(Auth::user(), $this->school($request), $permission),
+            403,
+            'You do not have permission for this.'
+        );
+    }
+
     public function index(Request $request): \Illuminate\View\View
     {
         $school = $this->school($request);
