@@ -21,3 +21,17 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Marketing pages linked/copied into public/ by skulos:link-marketing.
+# The canonical copies live in /site; these are generated per deploy so
+# Apache can serve them without booting the framework.
+/public/index.html
+/public/about.html
+/public/pricing.html
+/public/contact.html
+/public/faq.html
+/public/trial.html
+/public/privacy.html
+/public/terms.html
+/public/sitemap.xml
+/public/assets

@@ -5,6 +5,13 @@
 
     RewriteEngine On
 
+    # index.html first (2026-08-15): with the marketing pages linked into
+    # public/ by skulos:link-marketing, the homepage is served straight
+    # off disk instead of booting the framework to read a static file.
+    # index.php stays the fallback, so nothing changes on an install
+    # where those links were never created.
+    DirectoryIndex index.html index.php
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
