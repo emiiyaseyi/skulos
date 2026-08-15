@@ -931,6 +931,12 @@
     ]);
     $settingsSubgroups['Security'] = array_merge($settingsSubgroups['Security'], [
       $link('school.settings.idle-timeout.edit', 'Idle Timeout', 'clock'),
+      // A school's own audit trail (2026-08-15): who signed in, who
+      // changed what, when. Under Security rather than System since it
+      // is what an admin reaches for when investigating access, and it
+      // sits behind the same school_info.manage_settings tier as the
+      // rest of this block.
+      $link('school.audit.index', 'Audit Trail', 'shield'),
     ]);
     $settingsSubgroups['System'] = array_merge($settingsSubgroups['System'], [
       $link('school.backups.index', 'Backups', 'backup'),
