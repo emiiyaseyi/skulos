@@ -40,6 +40,14 @@ class TenantManager
             if (! file_exists($path)) {
                 touch($path);
             }
+        } elseif (config('tenancy.cpanel.enabled')) {
+            // Shared cPanel hosting: the app's own MySQL user typically
+            // cannot be granted global CREATE DATABASE privilege (see
+            // CpanelDatabaseProvisioner's own docblock), so the database
+            // is created through cPanel's UAPI instead of raw SQL.
+            $provisioner = app(CpanelDatabaseProvisioner::class);
+            $provisioner->createDatabase($database);
+            $provisioner->grantPrivileges($database, config('tenancy.cpanel.db_user'));
         } else {
             // MySQL: create the schema itself. Name is derived from the slug
             // (sanitized to [a-z0-9_]) — never from raw user input.
