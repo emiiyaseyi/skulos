@@ -41,6 +41,24 @@ Route::domain($appDomain)->group(function () {
         Route::get('/'.$marketingFile, fn () => $marketingPage($marketingFile));
     }
 
+    // Served through the app for the same reason the pages above are:
+    // the document root is backend/public, so /site is not otherwise
+    // web reachable. Both need their own content type — a sitemap
+    // served as text/html is ignored by crawlers (2026-08-15, SEO pass).
+    Route::get('/sitemap.xml', function () {
+        $path = base_path('../site/sitemap.xml');
+        abort_unless(File::exists($path), 404);
+
+        return response(File::get($path))->header('Content-Type', 'application/xml');
+    });
+
+    Route::get('/robots.txt', function () {
+        $path = base_path('../site/robots.txt');
+        abort_unless(File::exists($path), 404);
+
+        return response(File::get($path))->header('Content-Type', 'text/plain');
+    });
+
     Route::get('/', function () use ($marketingPage) {
         if (Auth::check()) {
             return Auth::user()->is_super_admin

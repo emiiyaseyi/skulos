@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# The application itself is private, per-school data behind a login.
+# Keeping crawlers out of it protects school data and stops thin,
+# login-gated pages diluting the marketing site's own ranking.
+Disallow: /login
+Disallow: /admin
+Disallow: /dashboard
+
+Sitemap: https://skulosapp.com/sitemap.xml
