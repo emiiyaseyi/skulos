@@ -29,7 +29,17 @@ class StorageService
         'Staff' => ['staff'],
         'Academics' => ['academic_sessions', 'terms', 'sections', 'school_classes', 'class_arms', 'arms', 'subjects', 'class_subject', 'teaching_assignments', 'houses'],
         'Results' => ['scores', 'assessment_components', 'grading_scales', 'grading_bands', 'report_card_reviews', 'report_card_feedbacks'],
-        'Communication' => ['notifications', 'communication_logs', 'announcements', 'calendar_events'],
+        // Attendance and the per-student report card content tables were
+        // missing entirely until 2026-08-15, which mattered once a school
+        // held real history: on greenfield they are ~140k rows the
+        // breakdown simply never mentioned, so the listed groups could
+        // not account for the database size the same screen reported.
+        'Attendance' => ['attendance'],
+        'Report card content' => ['subject_remarks', 'student_term_remarks', 'student_behavioural_ratings', 'behavioural_traits'],
+        'Communication' => ['notifications', 'communication_logs', 'announcements', 'calendar_events', 'chat_threads', 'chat_messages'],
+        'Finance' => ['payments', 'fee_items', 'fee_item_school_class', 'bank_accounts'],
+        'Admissions' => ['applicants', 'admission_payments', 'admission_documents', 'admission_form_values', 'admission_windows'],
+        'Assessments (CBT)' => ['cbt_questions', 'cbt_question_answers', 'cbt_sessions', 'cbt_responses', 'cbt_session_questions', 'cbt_assessments'],
         'Audit trail' => ['audit_logs'],
     ];
 
@@ -159,22 +169,90 @@ class StorageService
         return null;
     }
 
-    /** @return list<array{label: string, count: int}> */
+    /**
+     * Real per-group size on disk alongside the row count (2026-08-15,
+     * user report looking at a school holding 235MB of database: the
+     * screen showed which groups held the most RECORDS but never which
+     * held the most SPACE, so "what is actually using this" was
+     * unanswerable from it — the audit trail alone turned out to be the
+     * overwhelming majority).
+     *
+     * 'bytes' is null on SQLite (local dev), where the whole database is
+     * one file and per-table sizes need SQLite's optional dbstat module;
+     * the view falls back to showing counts alone there rather than
+     * inventing a number.
+     *
+     * @return list<array{label: string, count: int, bytes: ?int}>
+     */
     protected function tableGroupCounts(): array
     {
+        $sizes = $this->tableSizes();
         $groups = [];
+        $accountedTables = [];
 
         foreach (self::TABLE_GROUPS as $label => $tables) {
             $count = 0;
+            $bytes = null;
             foreach ($tables as $table) {
-                if (Schema::connection('tenant')->hasTable($table)) {
-                    $count += DB::connection('tenant')->table($table)->count();
+                if (! Schema::connection('tenant')->hasTable($table)) {
+                    continue;
+                }
+                $accountedTables[] = $table;
+                $count += DB::connection('tenant')->table($table)->count();
+                if (isset($sizes[$table])) {
+                    $bytes = ($bytes ?? 0) + $sizes[$table];
                 }
             }
-            $groups[] = ['label' => $label, 'count' => $count];
+            $groups[] = ['label' => $label, 'count' => $count, 'bytes' => $bytes];
         }
 
+        // Catch-all so the listed groups genuinely reconcile to the
+        // database total shown at the top of the same screen. Without
+        // it, every table nobody thought to add to a group above is
+        // silently invisible, which is exactly how a large table can
+        // grow unnoticed.
+        if ($sizes !== []) {
+            $otherBytes = 0;
+            foreach ($sizes as $table => $tableBytes) {
+                if (! in_array($table, $accountedTables, true)) {
+                    $otherBytes += $tableBytes;
+                }
+            }
+            if ($otherBytes > 0) {
+                $groups[] = ['label' => 'Everything else', 'count' => 0, 'bytes' => $otherBytes];
+            }
+        }
+
+        // Largest first, so the answer to "what is using the space" is
+        // the first row rather than something to hunt for.
+        usort($groups, fn ($a, $b) => ($b['bytes'] ?? 0) <=> ($a['bytes'] ?? 0));
+
         return $groups;
+    }
+
+    /**
+     * Real bytes per table, table name => bytes. Empty when the driver
+     * cannot report it (SQLite), which callers treat as "unknown" rather
+     * than zero.
+     *
+     * @return array<string, int>
+     */
+    protected function tableSizes(): array
+    {
+        if (DB::connection('tenant')->getDriverName() !== 'mysql') {
+            return [];
+        }
+
+        $rows = DB::connection('tenant')->select(
+            'select table_name as name, (data_length + index_length) as bytes from information_schema.tables where table_schema = database()'
+        );
+
+        $sizes = [];
+        foreach ($rows as $row) {
+            $sizes[$row->name] = (int) $row->bytes;
+        }
+
+        return $sizes;
     }
 
     public static function humanBytes(?int $bytes): string

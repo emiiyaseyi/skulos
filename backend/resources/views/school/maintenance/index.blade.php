@@ -107,7 +107,16 @@
       <h3 style="margin-bottom:.7rem">What's in the database</h3>
       <ul class="storage-groups">
         @foreach($storage['groups'] as $group)
-          <li><span>{{ $group['label'] }}</span><span class="muted">{{ number_format($group['count']) }} record(s)</span></li>
+          <li>
+            <span>{{ $group['label'] }}</span>
+            <span class="muted">
+              @if($group['bytes'] !== null)
+                {{ \App\Services\Maintenance\StorageService::humanBytes($group['bytes']) }}@if($group['count'] > 0) &middot; {{ number_format($group['count']) }} record(s)@endif
+              @else
+                {{ number_format($group['count']) }} record(s)
+              @endif
+            </span>
+          </li>
         @endforeach
       </ul>
     </div>
