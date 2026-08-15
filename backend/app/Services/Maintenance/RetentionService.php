@@ -45,6 +45,7 @@ class RetentionService
             'notifications_days' => (int) config('skulos.retention.notifications_days', 90),
             'communication_logs_days' => (int) config('skulos.retention.communication_logs_days', 180),
             'sessions_days' => (int) config('skulos.retention.sessions_days', 30),
+            'audit_logs_days' => (int) config('skulos.retention.audit_logs_days', 30),
         ];
 
         $platform = $this->platformSettings();

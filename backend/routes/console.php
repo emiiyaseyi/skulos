@@ -87,3 +87,11 @@ Schedule::command('cbt:auto-submit-expired-sessions')->everyMinute()->withoutOve
 // alerts. Both loop every provisioned school in addition to the platform.
 Schedule::command('audit-logs:export')->hourly()->withoutOverlapping();
 Schedule::command('audit-logs:verify')->dailyAt('05:00')->withoutOverlapping();
+
+// Monthly on the 1st, deliberately AFTER the hourly export has had all
+// month to ship rows to durable storage: archives last month to a CSV
+// the school can download, mails it, then prunes rows that are both
+// past the retention window and already exported (2026-08-15 — audit
+// logs had no pruning at all and reached 170MB on one real school).
+// 04:30 keeps it clear of the 04:00 calendar seed on the same day.
+Schedule::command('audit-logs:archive-and-prune')->monthlyOn(1, '04:30')->withoutOverlapping();

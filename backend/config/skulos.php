@@ -1258,6 +1258,45 @@ return [
         'notifications_days' => env('RETENTION_NOTIFICATIONS_DAYS', 90),
         'communication_logs_days' => env('RETENTION_COMMUNICATION_LOGS_DAYS', 180),
         'sessions_days' => env('RETENTION_SESSIONS_DAYS', 30),
+        // Audit logs (2026-08-15). The "archive-not-delete" strategy the
+        // comment above called for now exists, so these CAN finally be
+        // pruned: AuditLogsExport already ships every row to durable
+        // NDJSON hourly and records a watermark, and the monthly
+        // archive mail sends the school its own CSV copy. Nothing is
+        // ever deleted unless it is already past BOTH gates (exported,
+        // and older than this window), so the trail is never silently
+        // lost. Admin editable 7-30 days; a busy school picks a shorter
+        // window, a quiet one keeps a month.
+        'audit_logs_days' => env('RETENTION_AUDIT_LOGS_DAYS', 30),
+    ],
+
+    /*
+    | Monthly audit trail archive mail. attachment_max_mb is capped by
+    | what a RECIPIENT will accept, not what this server will send
+    | (Gmail 25MB, Outlook 20MB), so anything larger is linked rather
+    | than attached — a school with a heavy month still gets its data
+    | instead of a silently bounced mail.
+    */
+    'audit_archive' => [
+        // attach_csv defaults FALSE on purpose: the monthly mail sends a
+        // download link behind the school's own login instead. The data
+        // is never at risk either way (it is already on the server, both
+        // as the hourly NDJSON export and as the archived CSV the link
+        // points at), but a link is revocable, access controlled and
+        // itself auditable, where an emailed attachment is permanent,
+        // forwardable and sits on mail servers nobody here controls --
+        // and an audit trail names who viewed which child's record,
+        // exactly the kind of personal data NDPR/GDPR expects not to be
+        // mailed around in the clear. A school that deliberately wants
+        // attachments can turn this on and owns that decision.
+        'attach_csv' => env('AUDIT_ARCHIVE_ATTACH_CSV', false),
+        // Capped by what a RECIPIENT accepts (Gmail 25MB, Outlook 20MB),
+        // not by what this server will send. Anything larger is linked
+        // even when attach_csv is on, so a heavy month still gets
+        // delivered instead of silently bouncing.
+        'attachment_max_mb' => env('AUDIT_ARCHIVE_ATTACHMENT_MAX_MB', 15),
+        'min_days' => 7,
+        'max_days' => 30,
     ],
 
     /*

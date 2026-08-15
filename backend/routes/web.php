@@ -1233,6 +1233,14 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::get('/reports/subject-insights', [\App\Http\Controllers\School\SubjectInsightsController::class, 'index'])
             ->name('school.reports.subject-insights.index');
 
+        // A school's own audit trail (2026-08-15): who signed in, who
+        // touched what, when. Previously only the platform admin had an
+        // audit screen at all.
+        Route::get('/audit-trail', [\App\Http\Controllers\School\AuditTrailController::class, 'index'])
+            ->name('school.audit.index');
+        Route::get('/audit-trail/archive/{period}', [\App\Http\Controllers\School\AuditTrailController::class, 'download'])
+            ->name('school.audit.download');
+
         // Backup and restore.
         Route::prefix('backups')->name('school.backups.')->group(function () {
             $backups = \App\Http\Controllers\School\BackupController::class;
