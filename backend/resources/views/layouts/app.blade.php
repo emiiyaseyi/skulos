@@ -247,6 +247,9 @@ a{color:inherit;text-decoration:none}
 .notif-bell-panel .notif{padding:.55rem 0}
 .menu-toggle{display:none}
 .content{padding:1.9rem 1.6rem 3rem}
+.portal-legal{margin-top:auto;padding:1rem 1.6rem 1.6rem;display:flex;flex-wrap:wrap;gap:1rem;align-items:center;font-size:.78rem;color:var(--mut)}
+.portal-legal a{color:var(--mut);text-decoration:none}
+.portal-legal a:hover{color:var(--ink);text-decoration:underline}
 
 /* ---- primitives ---- */
 .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap}
@@ -750,6 +753,17 @@ tr:last-child td{border-bottom:none}
       @endif
       @yield('content')
     </div>
+    {{-- Legal links inside the portal too (2026-08-15): these only
+         existed on the marketing site, so a signed-in parent, teacher or
+         admin had no route to the privacy policy or terms governing the
+         data they are looking at. Absolute to the base domain on purpose
+         — the portal runs on {slug}.APP_DOMAIN, the legal pages are
+         served from the bare domain. --}}
+    <footer class="portal-legal">
+      <span>&copy; {{ date('Y') }} SKULOS</span>
+      <a href="{{ 'https://'.config('app.domain').'/privacy.html' }}" target="_blank" rel="noopener">Privacy Policy</a>
+      <a href="{{ 'https://'.config('app.domain').'/terms.html' }}" target="_blank" rel="noopener">Terms and Conditions</a>
+    </footer>
   </div>
 </div>
 
