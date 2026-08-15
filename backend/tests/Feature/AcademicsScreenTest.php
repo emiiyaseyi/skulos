@@ -823,8 +823,21 @@ class AcademicsScreenTest extends TestCase
 
         $this->actingAs($admin)->get("http://{$school->slug}.localhost/academics/classes/{$classId}")
             ->assertOk()
+            // The student's own name is the real check this test's
+            // docblock describes, and the class detail view genuinely
+            // no longer renders a roster.
             ->assertDontSee('Chika Nwosu')
-            ->assertDontSee('Students');
+            ->assertDontSee('A2');
+        // Deliberately NOT assertDontSee('Students') (2026-08-15): that
+        // assertion was asserting the SIDEBAR away, not the roster.
+        // "Students" is a legitimate nav label
+        // (config('skulos.school_nav_catalog') -> 'school.students' =>
+        // ['label' => 'Students', 'permission' => 'students.view']), so
+        // any role holding students.view renders that word in the page
+        // chrome on every screen including this one. It passed only
+        // while this role/module combination happened not to surface
+        // that entry, and started failing the moment it did -- a false
+        // failure about navigation, never about a student roster.
     }
 
     public function test_assigning_a_class_teacher_updates_the_arm(): void
