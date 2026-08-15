@@ -5,12 +5,15 @@
 
     RewriteEngine On
 
-    # index.html first (2026-08-15): with the marketing pages linked into
-    # public/ by skulos:link-marketing, the homepage is served straight
-    # off disk instead of booting the framework to read a static file.
-    # index.php stays the fallback, so nothing changes on an install
-    # where those links were never created.
-    DirectoryIndex index.html index.php
+    # index.php only, never index.html (2026-08-15, reverted same day
+    # after a real outage): this document root is shared by the bare
+    # domain AND every school subdomain, so serving a static index.html
+    # for "/" hijacked every school's own portal — greenfield's login
+    # page became the marketing homepage. "/" must stay dynamic so
+    # Laravel can route it by hostname. Marketing pages reached by an
+    # explicit path (/pricing.html etc.) are still served statically by
+    # the rule below, since those paths are unambiguous on any host.
+    DirectoryIndex index.php
 
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .

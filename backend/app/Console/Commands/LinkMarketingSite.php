@@ -27,9 +27,20 @@ class LinkMarketingSite extends Command
 
     protected $description = 'Symlink the static marketing pages into public/ so they are served without booting the app';
 
-    /** Assets are linked separately as a directory; sitemap/robots must be real files for crawlers. */
+    /**
+     * index.html is deliberately NOT in this list (2026-08-15, caught in
+     * production): every school subdomain shares this one document root,
+     * so a static index.html at the root is served for "/" on EVERY
+     * host — greenfield.skulosapp.com stopped showing its own login and
+     * showed the marketing homepage instead. "/" has to stay dynamic so
+     * Laravel can route it by hostname; only pages reached by an
+     * explicit path are safe to serve statically.
+     *
+     * Assets are linked separately as a directory; sitemap/robots must
+     * be real files for crawlers.
+     */
     protected const FILES = [
-        'index.html', 'about.html', 'pricing.html', 'contact.html',
+        'about.html', 'pricing.html', 'contact.html',
         'faq.html', 'trial.html', 'privacy.html', 'terms.html',
         'sitemap.xml', 'robots.txt',
     ];
