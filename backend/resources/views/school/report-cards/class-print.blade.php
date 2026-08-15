@@ -55,7 +55,9 @@
   .rc-photo-placeholder{display:grid;place-items:center;background:#f3f4f6;color:#888;font-weight:800;font-size:1.15rem}
   .rc-head-custom{display:flex;flex-direction:column;align-items:center;gap:.25rem}
   .rc-head-custom .rc-logo{margin-bottom:0}
-  .rc-eval .rc-head{display:flex;align-items:center;gap:.8rem;text-align:left;border-bottom:2px solid var(--accent);padding-bottom:.6rem}
+  /* Kept in sync with render.blade.php's own copy of this rule -- see
+     its comment there for why this is centered (2026-08-15). */
+  .rc-eval .rc-head{display:flex;align-items:center;gap:.8rem;text-align:center;border-bottom:2px solid var(--accent);padding-bottom:.6rem}
   .rc-eval .rc-head .rc-logo{margin:0;flex:none}
   .rc-eval .rc-head-text{flex:1}
   .rc-eval .rc-head h1{font-size:1.9rem}

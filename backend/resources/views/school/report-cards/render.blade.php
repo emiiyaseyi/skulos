@@ -85,7 +85,13 @@
   .rc-head-custom{display:flex;flex-direction:column;align-items:center;gap:.25rem}
   .rc-head-custom .rc-logo{margin-bottom:0}
   /* evaluation / narrative (Templates 5 and 6) */
-  .rc-eval .rc-head{display:flex;align-items:center;gap:.8rem;text-align:left;border-bottom:2px solid var(--accent);padding-bottom:.6rem}
+  /* text-align:center, matching every other template's own header
+     (2026-08-15, live report from greenfield: a Nursery class, which
+     uses this narrative template, rendered its school name/contact
+     block left aligned while every other class rendered centered).
+     The base .rc-head rule already centers; this template was the one
+     outlier explicitly overriding it back to left. */
+  .rc-eval .rc-head{display:flex;align-items:center;gap:.8rem;text-align:center;border-bottom:2px solid var(--accent);padding-bottom:.6rem}
   .rc-eval .rc-head .rc-logo{margin:0;flex:none}
   .rc-eval .rc-head-text{flex:1}
   .rc-eval .rc-head h1{font-size:1.9rem}

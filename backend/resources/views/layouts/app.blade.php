@@ -129,8 +129,16 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);line-height:1
 a{color:inherit;text-decoration:none}
 
 /* ---- app shell ---- */
-.shell{display:grid;grid-template-columns:264px 1fr;min-height:100vh}
-.side{background:var(--side);color:var(--side-ink);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+/* The duplicated 100vh/100dvh pairs below are a deliberate fallback,
+   not a mistake: 100dvh (the "dynamic" viewport unit) tracks the space
+   a mobile browser actually leaves visible as its URL bar and toolbar
+   collapse on scroll, where 100vh on iOS Safari always reports the
+   LARGER chrome-less height. A browser that does not understand dvh
+   simply ignores the second declaration and keeps the vh value.
+   (2026-08-15, live report of unexpected blank space at the bottom of
+   pages on a real iPhone.) */
+.shell{display:grid;grid-template-columns:264px 1fr;min-height:100vh;min-height:100dvh}
+.side{background:var(--side);color:var(--side-ink);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;height:100dvh;overflow-y:auto}
 .side-brand{display:flex;align-items:center;gap:.6rem;padding:1.15rem 1.3rem;font-weight:800;font-size:1.3rem;letter-spacing:-.01em}
 .side-brand em{font-style:normal;color:var(--accent)}
 .side-school{display:flex;align-items:center;gap:.6rem;padding:.4rem 1rem 1rem}
@@ -413,13 +421,25 @@ tr:last-child td{border-bottom:none}
 .notif > .badge{flex-shrink:0;margin-left:auto}
 
 /* ---- auth/bare pages ---- */
-.auth-shell{min-height:100vh;display:grid;place-items:center;padding:2rem 1.25rem}
+.auth-shell{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:2rem 1.25rem}
 .auth-card{width:100%;max-width:26rem;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:2rem;box-shadow:var(--shadow)}
 .auth-logo{width:56px;height:56px;border-radius:14px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:800;font-size:1.4rem;margin-bottom:1rem}
 .brand{font-weight:800;font-size:1.35rem;letter-spacing:-.01em}.brand em{font-style:normal;color:var(--accent-text)}
 
 @media(max-width:1000px){
-  .shell{grid-template-columns:1fr}
+  /* display:block, not a 1-column grid (2026-08-15): below this width
+     .side is position:fixed, so .main is the only in-flow child and
+     there is nothing left for the grid to lay out. Keeping the shell a
+     grid here meant relying on every engine removing that fixed child
+     from the grid flow identically; WebKit has historically been the
+     shakiest about out-of-flow grid children, and a stray implicit row
+     sized off .side's own 100vh height is exactly the shape of the
+     "large blank space below the content" reported on a real iPhone
+     but not reproducible in headless Chromium at the same viewport
+     (measured there: page height matched content plus only the
+     intended 88px bottom padding). A plain block layout removes that
+     whole class of risk rather than depending on the edge case. */
+  .shell{display:block}
   .side{position:fixed;left:0;top:0;width:264px;z-index:60;transform:translateX(-100%);transition:transform .25s ease}
   .side.open{transform:none}
   .menu-toggle{display:inline-grid}
