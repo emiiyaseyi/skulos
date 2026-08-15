@@ -96,7 +96,7 @@
   @else
     @php $hasPending = $payments->contains('status', 'pending'); @endphp
     @if($hasPending)
-      <form id="bulkPaymentsForm" method="POST" action="{{ route('admin.subscriptions.payments.bulk-action') }}"></form>
+      <form id="bulkPaymentsForm" method="POST" action="{{ route('admin.subscriptions.payments.bulk-action') }}">@csrf</form>
     @endif
     <div style="overflow-x:auto">
     <table class="table-stack">

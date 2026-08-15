@@ -77,7 +77,7 @@
   @if($schools->isEmpty())
     <p class="muted">No schools yet. Create your first one to test the platform.</p>
   @else
-    <form id="bulkSchoolsForm" method="POST" action="{{ route('admin.schools.bulk-action') }}"></form>
+    <form id="bulkSchoolsForm" method="POST" action="{{ route('admin.schools.bulk-action') }}">@csrf</form>
     <div style="overflow-x:auto">
     <table class="table-stack">
       <thead><tr>

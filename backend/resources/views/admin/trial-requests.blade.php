@@ -18,7 +18,7 @@
   @php $anyPending = $trials->contains('status', 'pending'); @endphp
 
   @if($anyPending)
-    <form id="bulkTrialsForm" method="POST" action="{{ route('admin.trial-requests.bulk-reject') }}"></form>
+    <form id="bulkTrialsForm" method="POST" action="{{ route('admin.trial-requests.bulk-reject') }}">@csrf</form>
     <div class="card" style="margin-bottom:1.1rem">
       <div class="row-between" style="margin-bottom:.3rem;flex-wrap:wrap;gap:.6rem">
         <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem"><input type="checkbox" id="trial-select-all" /> Select all pending</label>

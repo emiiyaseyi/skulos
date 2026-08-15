@@ -126,7 +126,7 @@
   @if($schools->isEmpty())
     <p class="muted">No schools yet.</p>
   @else
-    <form id="bulkPriceForm" method="POST" action="{{ route('admin.billing.schools.price.bulk') }}"></form>
+    <form id="bulkPriceForm" method="POST" action="{{ route('admin.billing.schools.price.bulk') }}">@csrf</form>
     <div style="overflow-x:auto">
     <table class="table-stack">
       <thead><tr>

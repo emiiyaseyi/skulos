@@ -13,7 +13,7 @@
   @if($schools->isEmpty())
     <p class="muted">Nothing in the archive.</p>
   @else
-    <form id="bulkRestoreForm" method="POST" action="{{ route('admin.schools.archive.bulk-restore') }}"></form>
+    <form id="bulkRestoreForm" method="POST" action="{{ route('admin.schools.archive.bulk-restore') }}">@csrf</form>
     <div style="overflow-x:auto">
     <table class="table-stack">
       <thead><tr>

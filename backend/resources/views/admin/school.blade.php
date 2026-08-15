@@ -40,7 +40,7 @@
   @if($admins->isEmpty())
     <p class="muted">No administrator on record. Add one below.</p>
   @else
-    <form id="bulkAdminsForm" method="POST" action="{{ route('admin.schools.admins.bulk-action', $school) }}"></form>
+    <form id="bulkAdminsForm" method="POST" action="{{ route('admin.schools.admins.bulk-action', $school) }}">@csrf</form>
     <div style="overflow-x:auto">
     <table>
       <thead><tr>
