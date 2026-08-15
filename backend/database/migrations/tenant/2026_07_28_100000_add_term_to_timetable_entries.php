@@ -25,22 +25,49 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Split into separate Schema::table() calls, each its own ALTER
+        // TABLE statement, run in a strict order: MySQL/InnoDB requires
+        // an index covering class_arm_id to exist at all times to
+        // support its foreign key. The old unique index
+        // (class_arm_id, day_of_week, timetable_period_id) is that
+        // index, so it can only be dropped once the new composite
+        // unique (which also starts with class_arm_id) already exists
+        // to take over — doing this in one combined statement, or
+        // dropping the old index first, fails on real MySQL with
+        // "needed in a foreign key constraint" (found live 2026-08-15,
+        // invisible in local dev since SQLite does not enforce this the
+        // same way).
         Schema::table('timetable_entries', function (Blueprint $table) {
-            $table->dropUnique('timetable_entry_class_slot_unique');
             // nullOnDelete, not cascade: a deleted term should fall the
             // slot back to the universal entry, never silently destroy
             // real class/subject/staff assignment data along with it.
             $table->foreignId('term_id')->nullable()->after('class_arm_id')->constrained()->nullOnDelete();
+        });
+
+        Schema::table('timetable_entries', function (Blueprint $table) {
             $table->unique(['class_arm_id', 'day_of_week', 'timetable_period_id', 'term_id'], 'timetable_entry_class_slot_term_unique');
+        });
+
+        Schema::table('timetable_entries', function (Blueprint $table) {
+            $table->dropUnique('timetable_entry_class_slot_unique');
         });
     }
 
     public function down(): void
     {
+        // Same reordering, mirrored: the old unique index must exist
+        // again before the new one (currently the only index covering
+        // class_arm_id) is dropped.
+        Schema::table('timetable_entries', function (Blueprint $table) {
+            $table->unique(['class_arm_id', 'day_of_week', 'timetable_period_id'], 'timetable_entry_class_slot_unique');
+        });
+
         Schema::table('timetable_entries', function (Blueprint $table) {
             $table->dropUnique('timetable_entry_class_slot_term_unique');
+        });
+
+        Schema::table('timetable_entries', function (Blueprint $table) {
             $table->dropConstrainedForeignId('term_id');
-            $table->unique(['class_arm_id', 'day_of_week', 'timetable_period_id'], 'timetable_entry_class_slot_unique');
         });
     }
 };
