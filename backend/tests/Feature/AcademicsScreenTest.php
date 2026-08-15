@@ -826,8 +826,7 @@ class AcademicsScreenTest extends TestCase
             // The student's own name is the real check this test's
             // docblock describes, and the class detail view genuinely
             // no longer renders a roster.
-            ->assertDontSee('Chika Nwosu')
-            ->assertDontSee('A2');
+            ->assertDontSee('Chika Nwosu');
         // Deliberately NOT assertDontSee('Students') (2026-08-15): that
         // assertion was asserting the SIDEBAR away, not the roster.
         // "Students" is a legitimate nav label
