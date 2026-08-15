@@ -413,7 +413,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
     Route::get('/impersonate/consume/{user}', [SchoolAdminController::class, 'consumeImpersonation'])
         ->middleware('signed')->name('school.impersonate.consume');
 
-    Route::middleware(['auth', 'school_member', 'require_password_change'])->group(function () {
+    Route::middleware(['auth', 'school_member', 'require_password_change', 'block_demo_mutations'])->group(function () {
         Route::get('/dashboard', [SchoolPortalController::class, 'dashboard'])->name('school.dashboard');
         Route::post('/session/end-impersonation', [SchoolAdminController::class, 'endImpersonation'])->name('session.end-impersonation');
 

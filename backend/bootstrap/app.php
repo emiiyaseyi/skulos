@@ -23,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'school_member' => \App\Http\Middleware\EnsureSchoolMember::class,
             'require_password_change' => \App\Http\Middleware\RequirePasswordChange::class,
             'applicant_active' => \App\Http\Middleware\EnsureApplicantActive::class,
+            'block_demo_mutations' => \App\Http\Middleware\BlockDemoAccountMutations::class,
         ]);
 
         // Domain aware guest redirect (found live 2026-07-21: a session
