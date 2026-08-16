@@ -114,47 +114,84 @@
 
   @elseif($step['key'] === 'houses')
     <h3 style="margin-bottom:.3rem">Houses</h3>
-    @if($step['done'])
+    @if($step['skipped'])
+      <p class="muted" style="margin-bottom:.7rem">You skipped this step. Nothing about houses is set up.</p>
+      @include('school.partials.setup-unskip', ['step' => 'houses'])
+    @elseif($step['done'])
       <p class="muted" style="margin-bottom:0">{{ $houseCount }} house(s) set up. Assign students or add more under Houses.</p>
     @else
-      <p class="muted" style="margin-bottom:.7rem">Most schools run 4 houses. Load the defaults, or add your own under Houses afterwards.</p>
+      <p class="muted" style="margin-bottom:.7rem">Tick the ones your school uses, or type your own. You can change any of this later under Houses.</p>
       @if($canManageStudentSettings)
-        <form method="POST" action="{{ route('school.houses.apply-defaults', ['school' => $school->slug]) }}">
-          @csrf
-          <button class="btn btn-primary btn-sm" type="submit">Load default houses</button>
-        </form>
+        @include('school.partials.setup-group-picker', [
+          'kind' => 'houses',
+          'options' => $defaultHouses,
+          'label' => 'house',
+        ])
       @endif
     @endif
 
   @elseif($step['key'] === 'clubs')
     <h3 style="margin-bottom:.3rem">Clubs</h3>
-    @if($step['done'])
+    @if($step['skipped'])
+      <p class="muted" style="margin-bottom:.7rem">You skipped this step. Clubs stay switched off.</p>
+      @include('school.partials.setup-unskip', ['step' => 'clubs'])
+    @elseif($step['done'])
       <p class="muted" style="margin-bottom:0">Clubs are set up. Assign students, staff and parents under Clubs.</p>
     @else
       <p class="muted" style="margin-bottom:.7rem">
-        Optional. If your school runs clubs, load the standard list to start with and adjust it
-        afterwards under Clubs. If not, skip this step and nothing about clubs appears anywhere.
+        Optional. Tick the clubs your school runs, or type your own. If you do not run clubs, skip
+        this step and nothing about clubs appears anywhere.
       </p>
       @if($canManageStudentSettings)
-        <form method="POST" action="{{ route('school.clubs.apply-defaults', ['school' => $school->slug]) }}">
-          @csrf
-          <button class="btn btn-primary btn-sm" type="submit">Load the standard clubs</button>
-        </form>
+        @include('school.partials.setup-group-picker', [
+          'kind' => 'clubs',
+          'options' => $defaultClubs,
+          'label' => 'club',
+        ])
       @endif
     @endif
 
   @elseif($step['key'] === 'assessment')
     <h3 style="margin-bottom:.3rem">Assessment structure</h3>
-    @if($step['done'])
+    @if($step['skipped'])
+      <p class="muted" style="margin-bottom:.7rem">You skipped this step. Set it up later under Results &gt; Assessment Structure.</p>
+      @include('school.partials.setup-unskip', ['step' => 'assessment'])
+    @elseif($step['done'])
       <p class="muted" style="margin-bottom:0">Set up. Fine tune components under Results &gt; Assessment Structure.</p>
     @else
-      <p class="muted" style="margin-bottom:.7rem">Two Continuous Assessments (20 marks each) plus one Exam (60 marks), the common Nigerian school split. Adjust anything afterwards.</p>
+      <p class="muted" style="margin-bottom:.7rem">
+        The common split is two Continuous Assessments of 20 marks plus an Exam of 60. Change any
+        name or mark below, or clear a row you do not need. They must total 100 or less.
+      </p>
       @if($canApproveResults)
-        <form method="POST" action="{{ route('school.examinations.structure.apply-defaults', ['school' => $school->slug]) }}">
+        <form method="POST" action="{{ route('school.setup.assessment', ['school' => $school->slug]) }}">
           @csrf
-          <button class="btn btn-primary btn-sm" type="submit">Load default structure</button>
+          <table class="table-stack" style="margin-bottom:.8rem">
+            <thead><tr><th>Component</th><th>Type</th><th>Max score</th></tr></thead>
+            <tbody>
+              @foreach(array_pad($defaultComponents, 5, ['name' => '', 'type' => 'ca', 'max_score' => '']) as $i => $component)
+                <tr>
+                  <td data-label="Component">
+                    <input name="components[{{ $i }}][name]" value="{{ $component['name'] }}" maxlength="60" placeholder="e.g. First CA" />
+                  </td>
+                  <td data-label="Type">
+                    <select name="components[{{ $i }}][type]">
+                      <option value="ca" @selected(($component['type'] ?? 'ca') === 'ca')>Continuous assessment</option>
+                      <option value="exam" @selected(($component['type'] ?? '') === 'exam')>Exam</option>
+                    </select>
+                  </td>
+                  <td data-label="Max score">
+                    <input name="components[{{ $i }}][max_score]" type="number" min="1" max="100" step="1"
+                           value="{{ $component['max_score'] }}" style="max-width:7rem" />
+                  </td>
+                </tr>
+              @endforeach
+            </tbody>
+          </table>
+          <button class="btn btn-primary btn-sm" type="submit">Save structure</button>
         </form>
       @endif
+      @include('school.partials.setup-skip', ['step' => 'assessment'])
     @endif
 
   @elseif($step['key'] === 'students')

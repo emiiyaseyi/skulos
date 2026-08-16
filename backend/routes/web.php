@@ -825,6 +825,9 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         });
 
         Route::get('/setup', [\App\Http\Controllers\School\SetupController::class, 'index'])->name('school.setup');
+        Route::post('/setup/skip', [\App\Http\Controllers\School\SetupController::class, 'skipStep'])->name('school.setup.skip');
+        Route::post('/setup/groups', [\App\Http\Controllers\School\SetupController::class, 'createGroups'])->name('school.setup.groups');
+        Route::post('/setup/assessment', [\App\Http\Controllers\School\SetupController::class, 'createAssessment'])->name('school.setup.assessment');
         Route::post('/notifications/{id}/read', [SchoolPortalController::class, 'markNotificationRead'])->name('school.notifications.read');
         Route::prefix('notifications')->name('school.notifications.')->group(function () {
             $notifications = \App\Http\Controllers\School\NotificationController::class;

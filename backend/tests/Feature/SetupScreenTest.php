@@ -85,6 +85,65 @@ class SetupScreenTest extends TestCase
             ->assertSee('min-width:0', false);
     }
 
+    public function test_a_school_can_create_its_own_house_names_instead_of_the_suggested_ones(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('setupown');
+
+        $this->actingAs($owner)->post(route('school.setup.groups', ['school' => $school->slug]), [
+            'kind' => 'houses',
+            'selected' => ['Red House'],
+            'custom' => ['Falcon House', '', 'Eagle House'],
+        ])->assertRedirect();
+
+        app(\App\Services\Tenancy\TenantManager::class)->use($school);
+        $names = \App\Models\Tenant\House::pluck('name')->all();
+        // Ticked suggestions and typed names both land, blanks ignored.
+        $this->assertContains('Red House', $names);
+        $this->assertContains('Falcon House', $names);
+        $this->assertContains('Eagle House', $names);
+        $this->assertCount(3, $names);
+        app(\App\Services\Tenancy\TenantManager::class)->forget();
+    }
+
+    public function test_a_step_can_be_skipped_and_then_restored(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('setupskip');
+
+        $this->actingAs($owner)->post(route('school.setup.skip', ['school' => $school->slug]), ['step' => 'clubs'])
+            ->assertRedirect();
+
+        app(\App\Services\Tenancy\TenantManager::class)->use($school);
+        $this->assertContains('clubs', \App\Http\Controllers\School\SetupController::skippedSteps());
+        app(\App\Services\Tenancy\TenantManager::class)->forget();
+
+        // Pressing it again restores the step: skipping is never a
+        // one-way door.
+        $this->actingAs($owner)->post(route('school.setup.skip', ['school' => $school->slug]), ['step' => 'clubs']);
+
+        app(\App\Services\Tenancy\TenantManager::class)->use($school);
+        $this->assertNotContains('clubs', \App\Http\Controllers\School\SetupController::skippedSteps());
+        app(\App\Services\Tenancy\TenantManager::class)->forget();
+    }
+
+    public function test_an_assessment_structure_over_100_marks_is_refused(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('setupmarks');
+
+        // Saving this would silently break every percentage and grade
+        // band the school ever computes, so it has to fail loudly.
+        $this->actingAs($owner)->post(route('school.setup.assessment', ['school' => $school->slug]), [
+            'components' => [
+                ['name' => 'CA1', 'type' => 'ca', 'max_score' => 50],
+                ['name' => 'CA2', 'type' => 'ca', 'max_score' => 50],
+                ['name' => 'Exam', 'type' => 'exam', 'max_score' => 60],
+            ],
+        ])->assertSessionHas('error');
+
+        app(\App\Services\Tenancy\TenantManager::class)->use($school);
+        $this->assertSame(0, \App\Models\Tenant\AssessmentComponent::count());
+        app(\App\Services\Tenancy\TenantManager::class)->forget();
+    }
+
     public function test_a_non_member_cannot_reach_another_schools_setup(): void
     {
         [$school] = $this->schoolWithOwner('setupowned');
