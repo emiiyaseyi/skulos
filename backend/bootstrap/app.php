@@ -17,6 +17,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Baseline security headers on every response, web and api
+        // alike (2026-08-15): a live check of production found none of
+        // them set. See the middleware's own docblock for why a full
+        // Content-Security-Policy is deliberately not part of this.
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+
         $middleware->alias([
             'tenant' => \App\Http\Middleware\ResolveTenant::class,
             'super_admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
