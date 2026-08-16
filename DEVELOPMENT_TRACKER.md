@@ -3292,11 +3292,21 @@ Distinct from the product itself: the public-facing marketing site (landing page
 ### SKULOS ADVANCE — launch blocking (everything in Foundation, plus)
 
 **Admissions** (this is the whole Admissions module deferred at section 5b — now required for Advance)
-- [ ] Online Admissions — NOT BUILT
-- [ ] Admission Workflow — NOT BUILT
-- [ ] Applicant Tracking — NOT BUILT
-- [ ] Admission Letters — NOT BUILT
-- [ ] Online Document Upload — NOT BUILT
+
+> Corrected 2026-08-15: every line below was still marked NOT BUILT long
+> after the whole module actually shipped (Phase 1a-1g, 2026-07-31), which
+> made this checklist actively misleading to anyone reading it as the
+> launch gate. Real state confirmed against the code, not memory: the
+> public apply flow, applicant auth, fee review, form builder, document
+> review, the pipeline board, admission letters and automated enrollment
+> all exist and are live. Treat CLAUDE.md and this file's own Build Log
+> as authoritative over any stale checkbox here.
+
+- [x] Online Admissions — **BUILT 2026-07-31** (public apply flow, applicant accounts, admission windows)
+- [x] Admission Workflow — **BUILT 2026-07-31** (fully custom, reorderable pipeline stages per school)
+- [x] Applicant Tracking — **BUILT 2026-07-31** (pipeline board with per-stage tabs, nudge/reminders)
+- [x] Admission Letters — **BUILT 2026-07-31**, content made admin-editable 2026-08-06 (`AdmissionLetterContentService`)
+- [x] Online Document Upload — **BUILT 2026-07-31** (`admission_documents` + the Document Review queue)
 
 **Academics**
 - [x] Timetable Management — BUILT 2026-07-19 (un-deferred by direct user request the same session it was reconfirmed deferred), see Build Log
@@ -3308,7 +3318,7 @@ Distinct from the product itself: the public-facing marketing site (landing page
 
 **Communication**
 - [x] In-App Notifications — BUILT
-- [ ] Email Notifications — PARTIAL: SMTP/mail infrastructure is built and used for password resets and trial status, but not wired to Announcements
+- [x] Email Notifications — **BUILT**. Corrected 2026-08-15: this still read "not wired to Announcements" long after that shipped. Announcements and platform broadcasts both send real email, queued per recipient (`SendAnnouncementEmailJob`/`SendPlatformBroadcastEmailJob`, 2026-07-30) rather than inline, drained by the existing `schedule:run` cron. Admin-configurable SMTP (platform default plus a per-school override) is live and verified sending from real cPanel webmail 2026-08-15.
 - [x] Parent Broadcast — BUILT (Messages, `MessageController`, messaging increment 1-4, 2026-07-15)
 - [x] Communication History — BUILT 2026-07-16 (`AnnouncementController::history()`, unified ledger across Announcements/Messages)
 
