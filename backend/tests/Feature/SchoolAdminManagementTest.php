@@ -292,7 +292,7 @@ class SchoolAdminManagementTest extends TestCase
         $platformAdmin = $this->superAdmin();
 
         $start = $this->actingAs($platformAdmin)
-            ->post(route('admin.schools.admins.impersonate', ['school' => $school->id, 'user' => $owner->id]));
+            ->post(route('admin.schools.admins.impersonate', ['school' => $school->id, 'user' => $owner->id]), ['reason' => 'Investigating a reported issue']);
 
         $start->assertRedirect();
         $handoffUrl = $start->headers->get('Location');
@@ -321,7 +321,7 @@ class SchoolAdminManagementTest extends TestCase
         $platformAdmin = $this->superAdmin();
 
         $start = $this->actingAs($platformAdmin)
-            ->post(route('admin.schools.admins.impersonate', ['school' => $school->id, 'user' => $owner->id]));
+            ->post(route('admin.schools.admins.impersonate', ['school' => $school->id, 'user' => $owner->id]), ['reason' => 'Investigating a reported issue']);
         $this->get($start->headers->get('Location'));
 
         $end = $this->post("http://{$school->slug}.localhost/session/end-impersonation");
@@ -337,7 +337,7 @@ class SchoolAdminManagementTest extends TestCase
         $platformAdmin = $this->superAdmin();
 
         $start = $this->actingAs($platformAdmin)
-            ->post(route('admin.schools.admins.impersonate', ['school' => $school->id, 'user' => $owner->id]));
+            ->post(route('admin.schools.admins.impersonate', ['school' => $school->id, 'user' => $owner->id]), ['reason' => 'Investigating a reported issue']);
         $handoffUrl = $start->headers->get('Location');
 
         // Tampering with the target user id must invalidate the signature.
@@ -375,6 +375,40 @@ class SchoolAdminManagementTest extends TestCase
         // slug: an admin has to be able to simply try again.
         $this->assertDatabaseMissing('schools', ['slug' => 'doomed']);
         $this->assertNull(School::withTrashed()->where('slug', 'doomed')->first());
+    }
+
+    public function test_signing_in_as_a_user_requires_a_stated_reason(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('impreason');
+
+        // Without a reason the handoff must not be minted at all:
+        // this grants sight of real children's records.
+        $this->actingAs($this->superAdmin())
+            ->post(route('admin.schools.admins.impersonate', ['school' => $school->id, 'user' => $owner->id]))
+            ->assertSessionHasErrors('reason');
+    }
+
+    public function test_the_school_can_see_in_its_own_audit_trail_that_someone_signed_in_as_its_staff(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('impschoollog');
+
+        $start = $this->actingAs($this->superAdmin())
+            ->post(route('admin.schools.admins.impersonate', ['school' => $school->id, 'user' => $owner->id]),
+                ['reason' => 'Checking a reported report card fault']);
+
+        $this->get($start->headers->get('Location'));
+
+        // The platform's own log was always written. The school's was
+        // not, because the audit recorder follows the SUBJECT's
+        // connection and a User lives in the platform database -- so
+        // the school could not see that anyone had been in as its
+        // staff, which is exactly who needs to know.
+        app(TenantManager::class)->use($school);
+        $entry = \App\Models\AuditLog::on('tenant')
+            ->where('action', 'support.impersonate.start')->latest('id')->first();
+        $this->assertNotNull($entry, "The school's own audit trail has no record of the sign in.");
+        $this->assertStringContainsString('Checking a reported report card fault', json_encode($entry->new_values));
+        app(TenantManager::class)->forget();
     }
 
     public function test_only_platform_super_admin_can_manage_school_administrators(): void

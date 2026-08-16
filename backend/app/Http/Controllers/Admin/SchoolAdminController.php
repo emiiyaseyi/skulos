@@ -607,12 +607,30 @@ class SchoolAdminController extends Controller
     {
         abort_unless($school->users()->whereKey($user->id)->wherePivot('status', 'active')->exists(), 404);
 
+        // A stated reason is now required (2026-08-16, direct
+        // instruction). Signing into a school as one of its own staff
+        // gives sight of real children's records; "who did it and when"
+        // was already recorded, but not why, which is the part a school
+        // would actually want to see.
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'min:5', 'max:200'],
+        ], [
+            'reason.required' => 'Give a reason before signing in as this user.',
+            'reason.min' => 'Give a little more detail than that.',
+        ]);
+
         $admin = Auth::user();
 
+        // The reason travels inside the signed URL rather than the
+        // session: the session cookie belongs to the platform domain and
+        // does not exist on the school's subdomain, which is the whole
+        // reason this handoff exists. Carrying it in the signature makes
+        // it tamper-proof -- an altered reason invalidates the link.
         $signedUrl = URL::temporarySignedRoute('school.impersonate.consume', now()->addMinutes(2), [
             'school' => $school->slug,
             'user' => $user->id,
             'impersonator' => $admin->id,
+            'reason' => $data['reason'],
         ]);
 
         return redirect($signedUrl);
@@ -647,11 +665,23 @@ class SchoolAdminController extends Controller
         $request->session()->regenerate();
         $request->session()->put('impersonator_id', $impersonator->id);
 
-        $recorder->record('support.impersonate.start', $user, new: [
+        $reason = (string) $request->query('reason', '');
+        $entry = [
             'impersonator_id' => $impersonator->id,
             'impersonator_email' => $impersonator->email,
             'school_id' => $school->id,
-        ]);
+            'reason' => $reason,
+        ];
+
+        // Recorded in BOTH logs on purpose. record() defaults to the
+        // subject's own connection, and User lives in the platform
+        // database, so this only ever reached the platform's audit log
+        // -- the school itself could not see that anyone had signed in
+        // as one of its staff, which is precisely who needs to know.
+        $recorder->record('support.impersonate.start', $user, new: $entry);
+        $recorder->record('support.impersonate.start', null, new: $entry, connection: 'tenant');
+
+        $request->session()->put('impersonation_reason', $reason);
 
         return redirect()->route('school.dashboard', ['school' => $school->slug])
             ->with('status', "You are now viewing {$school->name} as {$user->name} for support. End this from the banner at the top when you are done.");

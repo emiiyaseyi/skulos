@@ -80,10 +80,23 @@
                   <button class="btn btn-ghost btn-sm" type="submit">{{ $admin->pivot->status === 'active' ? 'Revoke access' : 'Restore access' }}</button>
                 </form>
                 @if($admin->pivot->status === 'active')
-                  <form method="POST" action="{{ route('admin.schools.admins.impersonate', ['school' => $school->id, 'user' => $admin->id]) }}">
-                    @csrf
-                    <button class="btn btn-ghost btn-sm" type="submit">View as this admin</button>
-                  </form>
+                  {{-- A reason is required before signing in as someone
+                       (2026-08-16): this shows real children's records,
+                       and the school's own audit trail now records why,
+                       not just that it happened. --}}
+                  <details>
+                    <summary class="btn btn-ghost btn-sm" style="display:inline-block;cursor:pointer">View as this admin</summary>
+                    <form method="POST" action="{{ route('admin.schools.admins.impersonate', ['school' => $school->id, 'user' => $admin->id]) }}" style="margin-top:.5rem;min-width:18rem">
+                      @csrf
+                      <div class="field">
+                        <label for="reason_{{ $admin->id }}">Reason for access</label>
+                        <input id="reason_{{ $admin->id }}" name="reason" required minlength="5" maxlength="200"
+                               placeholder="e.g. Investigating a reported report card error" />
+                        <div class="hint">Recorded in this school's own audit trail, visible to them.</div>
+                      </div>
+                      <button class="btn btn-primary btn-sm" type="submit">Sign in as {{ $admin->name }}</button>
+                    </form>
+                  </details>
                 @endif
               </div>
             </td>
