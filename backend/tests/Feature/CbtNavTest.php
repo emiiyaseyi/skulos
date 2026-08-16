@@ -118,6 +118,22 @@ class CbtNavTest extends TestCase
         $school->users()->attach($owner->id, ['role_id' => $ownerRole->id, 'status' => 'active']);
 
         $response = $this->actingAs($owner)->get(route('school.dashboard', ['school' => $school->slug]));
-        $response->assertOk()->assertDontSee('Learning Management');
+
+        // Every Assessment Hub entry is gone, which is what disabling
+        // the module has to mean. The "Learning Management" heading
+        // itself is deliberately NOT asserted absent any more: since
+        // the 2026-08-05 directive moved Assignments into this group,
+        // and 'assignments' is a core module every school has, the
+        // group legitimately renders for a school with the Assessment
+        // Hub switched off. Asserting on the heading was really
+        // asserting "this group contains only Assessment Hub", which
+        // stopped being true — it is the expectation that went stale,
+        // not the gating, and this test failing for that reason is the
+        // long-standing failure referenced throughout CLAUDE.md.
+        $response->assertOk()
+            ->assertDontSee('Question Bank')
+            ->assertDontSee('Take Assessments')
+            ->assertDontSee('Proctor / Invigilator View')
+            ->assertDontSee('Incidents');
     }
 }

@@ -125,13 +125,19 @@ class FinanceTest extends TestCase
         app(TenantManager::class)->forget();
 
         $bursarResponse = $this->actingAs($bursar)->get("http://{$school->slug}.localhost/finance/fee-items?term_id={$term->id}");
-        $bursarResponse->assertOk()->assertSee('Installments')->assertSee('Manage');
+        // The per-row action button, matched as the exact rendered
+        // element rather than the bare word "Manage": that word is a
+        // substring of the "Learning Management" nav group, so a plain
+        // assertDontSee('Manage') below silently failed for a reason
+        // that had nothing to do with Finance at all (the long-standing
+        // failure referenced throughout CLAUDE.md).
+        $bursarResponse->assertOk()->assertSee('Installments')->assertSee('>Manage</a>', false);
 
         $parentResponse = $this->actingAs($parent)->get("http://{$school->slug}.localhost/finance/fee-items?term_id={$term->id}");
         $parentResponse->assertOk()
             ->assertSee($term->name.' fee schedule', false)
             ->assertDontSee('Installments')
-            ->assertDontSee('Manage');
+            ->assertDontSee('>Manage</a>', false);
     }
 
     public function test_a_role_without_finance_permission_cannot_manage_fee_records(): void
