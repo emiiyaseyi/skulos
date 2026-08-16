@@ -122,7 +122,10 @@ class MailTemplateController extends Controller
 
         Mail::to(Auth::user()->email)->send(new TemplatePreviewMail(
             MailTemplate::substitute($data['subject'], $samples),
-            nl2br(MailTemplate::substitute($data['body'], $samples)),
+            // Rendered through the exact same path as a real send, so a
+            // test preview never looks different from what a school
+            // actually receives (headings and bullet lists included).
+            MailTemplate::renderBody(MailTemplate::substitute($data['body'], $samples)),
         ));
 
         return back()->with('status', 'Test email sent to '.Auth::user()->email.' using sample values.');

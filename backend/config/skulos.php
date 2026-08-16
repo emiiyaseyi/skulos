@@ -850,17 +850,94 @@ return [
             'description' => "Sent when a school's trial request is approved, with demo access and the setup checklist.",
             'placeholders' => ['school_name', 'contact_name', 'portal_url', 'login_email', 'temporary_password', 'demo_url'],
             'seed_subject' => 'SKULOS Trial Access and Setup Requirements',
+            // The FULL letter, matching resources/views/emails/trial-approved.blade.php
+            // line for line (2026-08-16: the seed shipped as an
+            // abbreviated summary at first, which meant an admin editing
+            // this template was editing a shorter letter than the one
+            // schools actually receive). "## " is a heading, "- " is a
+            // bullet list item -- see MailTemplate::renderBody().
             'seed_body' => "Dear {school_name},
 
 Thank you for your interest in SKULOS.
 
 We are pleased to approve your school for the SKULOS trial. The trial will give your team the opportunity to explore the platform, test the different workflows, and provide feedback that will help us tailor the solution to your school's needs.
 
+## Demo Access
 Demo School: {demo_url}
 
 You may explore the different user roles and workflows available on the platform.
 
-We can also schedule a session to present SKULOS to your team. Please reply with a preferred date and time, the full address of the school if the session is to hold on site, roughly how many people will attend, and whether you would prefer to meet in person or online.
+## Information to Prepare for Your School Setup
+To make the setup process smooth and allow us to configure SKULOS around your school's structure, kindly have the following information ready:
+
+## School Information
+- School name and logo
+- School motto or slogan
+- Full school address
+- Official email address
+- Phone numbers
+- School website, if applicable
+
+## Academic Structure
+- Academic sections operated by the school
+- Classes and arms
+- Subjects offered under each class
+- School calendar and important dates
+- School houses and clubs, where applicable
+
+## Student Information
+- Student admission or serial number
+- Firstname
+- Lastname
+- Gender
+- Date of birth
+- Class and arm
+- Session of admission
+- Parent or guardian details
+- House
+- Other relevant student information maintained by the school
+
+## Staff Information
+- Staff ID
+- Firstname
+- Lastname
+- Gender
+- Role or position
+- Subjects taught
+- Classes assigned
+- Class teacher or subject teacher
+- Email
+- Phone number
+
+## Assessment and Results
+- Current assessment structure
+- Continuous Assessment format
+- Examination structure
+- Grading system
+- Report card or sample result template
+- Existing teacher or class teacher comment formats, if available
+
+## Parents and Communication
+- Parent or guardian contact information
+- Preferred communication channels
+- Any specific communication or approval workflows
+
+## Other Information
+- Admission requirements and process
+- Fee structure, if you would like to test the finance module
+- Timetable structure
+- School policies or workflows you would like SKULOS to accommodate
+
+You do not need to prepare everything before the trial begins. We can work through the requirements together and prioritise the information needed for the initial setup.
+
+We can also schedule a session to present SKULOS to your team, walk through the major features, answer your questions, and discuss how the platform can be configured to suit your school's operations.
+
+## Scheduling Your Demo
+To arrange the session, please reply with:
+- A preferred date and time, and an alternative if possible
+- The full address of the school, if the session is to hold on site
+- Roughly how many people will attend, and their roles
+- Whether you would prefer to meet in person or online
 
 We look forward to working with you and receiving your feedback during the trial.
 
@@ -872,15 +949,85 @@ SKUL Operating System",
             'description' => 'Sent when the platform owner creates a school directly, rather than approving a trial.',
             'placeholders' => ['school_name', 'portal_url', 'login_email', 'temporary_password', 'plan_name', 'demo_url'],
             'seed_subject' => 'Welcome to SKULOS: Your School Access and Setup',
+            // Reuses the same full onboarding letter TrialRequestStatusMail
+            // sends (2026-08-16, same reason: an admin editing this one
+            // was seeing a much shorter letter than schools actually get),
+            // with only the opening line and the plan line differing --
+            // this school did not ask for a trial, someone set it up
+            // for them.
             'seed_body' => "Dear {school_name},
 
 Your school has been set up on SKULOS and is ready to use.
 
 Your plan: {plan_name}
 
+## Demo Access
 Demo School: {demo_url}
 
-You can sign in at {portal_url} using {login_email} and the temporary password below. You will be asked to change it the first time you sign in.
+You may explore the different user roles and workflows available on the platform.
+
+## Information to Prepare for Your School Setup
+To make the setup process smooth and allow us to configure SKULOS around your school's structure, kindly have the following information ready:
+
+## School Information
+- School name and logo
+- School motto or slogan
+- Full school address
+- Official email address
+- Phone numbers
+- School website, if applicable
+
+## Academic Structure
+- Academic sections operated by the school
+- Classes and arms
+- Subjects offered under each class
+- School calendar and important dates
+- School houses and clubs, where applicable
+
+## Student Information
+- Student admission or serial number
+- Firstname
+- Lastname
+- Gender
+- Date of birth
+- Class and arm
+- Session of admission
+- Parent or guardian details
+- House
+- Other relevant student information maintained by the school
+
+## Staff Information
+- Staff ID
+- Firstname
+- Lastname
+- Gender
+- Role or position
+- Subjects taught
+- Classes assigned
+- Class teacher or subject teacher
+- Email
+- Phone number
+
+## Assessment and Results
+- Current assessment structure
+- Continuous Assessment format
+- Examination structure
+- Grading system
+- Report card or sample result template
+- Existing teacher or class teacher comment formats, if available
+
+## Parents and Communication
+- Parent or guardian contact information
+- Preferred communication channels
+- Any specific communication or approval workflows
+
+## Other Information
+- Admission requirements and process
+- Fee structure, if you would like to test the finance module
+- Timetable structure
+- School policies or workflows you would like SKULOS to accommodate
+
+You do not need to prepare everything before the trial begins. We can work through the requirements together and prioritise the information needed for the initial setup.
 
 Kind regards,
 SKUL Operating System",

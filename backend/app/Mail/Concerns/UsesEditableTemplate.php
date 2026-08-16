@@ -57,18 +57,12 @@ trait UsesEditableTemplate
     /** The edited prose as HTML, or the Mailable's own if none is saved. */
     protected function templateBody(string $default): string
     {
-        $body = $this->template()['body'] ?? null;
-
-        return $body === null ? $default : '<div style="line-height:22px;">'.$body.'</div>';
+        return $this->template()['body'] ?? $default;
     }
 
     /** The same prose as plain text, for the text half of the message. */
     protected function templateText(string $default): string
     {
-        $body = $this->template()['body'] ?? null;
-
-        return $body === null
-            ? $default
-            : trim(html_entity_decode(strip_tags(str_replace(['<br />', '<br>', '<br/>'], "\n", $body)), ENT_QUOTES));
+        return $this->template()['text'] ?? $default;
     }
 }

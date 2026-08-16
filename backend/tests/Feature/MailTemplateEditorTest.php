@@ -177,4 +177,65 @@ class MailTemplateEditorTest extends TestCase
             ->assertSee('Thank you for your interest in SKULOS')
             ->assertSee('{school_name}');
     }
+
+    public function test_the_trial_letter_seed_matches_the_full_real_letter_not_a_summary(): void
+    {
+        // Direct report (2026-08-16): the editor showed "an abbreviated
+        // version" of the trial and welcome letters. The real letter has
+        // seven "## " sections of setup information; a seed missing them
+        // would silently let an edit ship a shorter letter than before.
+        foreach (['TrialRequestStatusMail', 'SchoolWelcomeMail'] as $key) {
+            $seed = config("skulos.mail_templates.{$key}.seed_body");
+
+            foreach ([
+                'School Information', 'Academic Structure', 'Student Information',
+                'Staff Information', 'Assessment and Results', 'Parents and Communication',
+                'Other Information',
+            ] as $section) {
+                $this->assertStringContainsString("## {$section}", $seed, "{$key} is missing the {$section} section.");
+            }
+        }
+    }
+
+    public function test_headings_and_bullet_lists_render_as_real_html_not_literal_text(): void
+    {
+        $rendered = MailTemplate::renderBody("Dear Ada,\n\n## School Information\n- Logo\n- Address\n\nThanks.");
+
+        $this->assertStringContainsString('<p style="margin:22px 0 8px;font-size:15px;font-weight:bold;color:#0B1420;">School Information</p>', $rendered);
+        $this->assertStringContainsString('<ul style="margin:0 0 14px;padding-left:20px;"><li style="margin:0 0 4px;line-height:20px;">Logo</li><li style="margin:0 0 4px;line-height:20px;">Address</li></ul>', $rendered);
+        $this->assertStringContainsString('<p style="margin:0 0 14px;line-height:22px;">Dear Ada,</p>', $rendered);
+        // The markup itself is never left visible in the output.
+        $this->assertStringNotContainsString('## ', $rendered);
+        $this->assertStringNotContainsString('- Logo', $rendered);
+    }
+
+    public function test_heading_and_list_text_is_escaped_not_executed(): void
+    {
+        $rendered = MailTemplate::renderBody('## <script>alert(1)</script>');
+
+        $this->assertStringNotContainsString('<script>alert(1)</script>', $rendered);
+        $this->assertStringContainsString('&lt;script&gt;', $rendered);
+    }
+
+    public function test_the_test_send_preview_renders_the_same_markup_as_a_real_send(): void
+    {
+        $admin = $this->admin();
+
+        MailTemplate::create([
+            'key' => 'PasswordResetByAdminMail',
+            'subject' => 'Reset',
+            'body' => "Hello {name},\n\n## Next steps\n- Sign in\n- Change your password",
+        ]);
+
+        \Illuminate\Support\Facades\Mail::fake();
+
+        $this->actingAs($admin)->post('/admin/settings/mail-templates/PasswordResetByAdminMail/test', [
+            'subject' => 'Reset',
+            'body' => "Hello {name},\n\n## Next steps\n- Sign in\n- Change your password",
+        ])->assertRedirect();
+
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\TemplatePreviewMail::class, function ($mail) {
+            return str_contains($mail->renderedBody, '<li style="margin:0 0 4px;line-height:20px;">Sign in</li>');
+        });
+    }
 }
