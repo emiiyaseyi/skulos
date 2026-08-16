@@ -27,6 +27,7 @@
 {!! $item('admin.platform-backups.index', 'Platform Backups', 'backup') !!}
 {!! $item('admin.broadcast.create', 'Broadcast', 'chat') !!}
 {!! $item('admin.audit-log.index', 'Audit Log', 'search') !!}
+{!! $item('admin.mail-log.index', 'Sent Mail', 'mail') !!}
 {!! $item('admin.team.index', 'Platform Team', 'roles') !!}
 {!! $item('admin.marketing-pages.index', 'Marketing Pages', 'pages') !!}
 {!! $item('admin.knowledge-base.index', 'Knowledge Base', 'support') !!}

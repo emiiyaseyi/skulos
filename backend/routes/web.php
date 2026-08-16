@@ -93,6 +93,7 @@ Route::domain($appDomain)->group(function () {
         Route::get('/broadcast', [\App\Http\Controllers\Admin\BroadcastController::class, 'create'])->name('broadcast.create');
         Route::post('/broadcast', [\App\Http\Controllers\Admin\BroadcastController::class, 'send'])->name('broadcast.send');
         Route::get('/audit-log', [\App\Http\Controllers\Admin\AuditLogController::class, 'index'])->name('audit-log.index');
+        Route::get('/mail-log', [\App\Http\Controllers\Admin\MailLogController::class, 'index'])->name('mail-log.index');
         Route::post('/audit-log/verify', [\App\Http\Controllers\Admin\AuditLogController::class, 'verify'])->name('audit-log.verify');
         Route::get('/modules', [\App\Http\Controllers\Admin\ModuleAdminController::class, 'index'])->name('modules.index');
         Route::get('/backups', [\App\Http\Controllers\Admin\BackupAdminController::class, 'index'])->name('backups.index');
@@ -1258,6 +1259,11 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             ->name('school.audit.index');
         Route::get('/audit-trail/archive/{period}', [\App\Http\Controllers\School\AuditTrailController::class, 'download'])
             ->name('school.audit.download');
+
+        // A school's own outgoing email record, the school-scoped
+        // counterpart of the platform's Sent Mail screen.
+        Route::get('/mail-log', [\App\Http\Controllers\School\MailLogController::class, 'index'])
+            ->name('school.mail-log.index');
 
         // Backup and restore.
         Route::prefix('backups')->name('school.backups.')->group(function () {

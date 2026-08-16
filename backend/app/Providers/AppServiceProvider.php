@@ -57,6 +57,13 @@ class AppServiceProvider extends ServiceProvider
             $event->extendSocialite('microsoft', \SocialiteProviders\Microsoft\Provider::class);
         });
 
+        // Record every outgoing email (2026-08-16). Hooked to the
+        // framework's own mail events rather than to each Mailable, so
+        // any email added later is logged automatically instead of
+        // depending on someone remembering to add a line for it.
+        Event::listen(\Illuminate\Mail\Events\MessageSending::class, [\App\Listeners\RecordSentMail::class, 'sending']);
+        Event::listen(\Illuminate\Mail\Events\MessageSent::class, [\App\Listeners\RecordSentMail::class, 'sent']);
+
         // A new trial request is easy to miss otherwise (user request
         // 2026-07-09: an approved lead went unnoticed) — badge the nav.
         View::composer('layouts.partials.nav-admin', function ($view) {

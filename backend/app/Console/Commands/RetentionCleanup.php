@@ -55,6 +55,21 @@ class RetentionCleanup extends Command
             $this->info("Purged {$failedLoginsPurged} failed login record(s) older than 90 days.");
         }
 
+        // Sent Mail log (2026-08-16): one row per outgoing email, so it
+        // grows with every notification the platform ever sends. Same
+        // fixed platform-level window as failed logins above, since
+        // this table has no tenant connection to carry a per-school
+        // setting. Only delivered rows are aged out this aggressively;
+        // failures are kept longer because they are the ones someone
+        // actually goes looking for.
+        $mailPurged = \App\Models\MailLog::where('status', \App\Models\MailLog::STATUS_SENT)
+            ->where('created_at', '<', now()->subDays(90))->delete();
+        $mailFailedPurged = \App\Models\MailLog::where('status', '!=', \App\Models\MailLog::STATUS_SENT)
+            ->where('created_at', '<', now()->subDays(365))->delete();
+        if ($mailPurged || $mailFailedPurged) {
+            $this->info("Purged {$mailPurged} delivered and {$mailFailedPurged} failed mail log row(s).");
+        }
+
         $schools = School::whereNotNull('database')->whereNotNull('provisioned_at')->get();
         foreach ($schools as $school) {
             try {

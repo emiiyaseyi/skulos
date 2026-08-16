@@ -937,6 +937,10 @@
       // sits behind the same school_info.manage_settings tier as the
       // rest of this block.
       $link('school.audit.index', 'Audit Trail', 'shield'),
+      // The school's own outgoing email record (2026-08-16): what
+      // SKULOS sent on its behalf and whether it arrived. Sits with
+      // Audit Trail because both answer "what happened, and when".
+      $link('school.mail-log.index', 'Sent Mail', 'mail'),
     ]);
     $settingsSubgroups['System'] = array_merge($settingsSubgroups['System'], [
       $link('school.backups.index', 'Backups', 'backup'),
