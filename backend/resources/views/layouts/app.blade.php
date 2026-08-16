@@ -582,14 +582,32 @@ tr:last-child td{border-bottom:none}
       if(b>max){max=b;deepest=el;}
     });
     var gap=Math.round(d.scrollHeight-max);
+    function bot(sel){
+      var el=document.querySelector(sel);
+      if(!el) return null;
+      return Math.round(el.getBoundingClientRect().bottom+window.scrollY);
+    }
+    // The wrapper chain, outermost to innermost. Whichever pair shows a
+    // big jump is where the empty space is being created: .shell taller
+    // than .content means the shell adds it, .content taller than its
+    // own last child means padding or a stray child does.
+    var shellB=bot('.shell'), mainB=bot('.main'), contentB=bot('.content');
+    var lastKid=null, cEl=document.querySelector('.content');
+    if(cEl){
+      var kids=Array.prototype.filter.call(cEl.children,function(k){
+        var ks=getComputedStyle(k);
+        return ks.display!=='none'&&ks.position!=='fixed';
+      });
+      if(kids.length) lastKid=Math.round(kids[kids.length-1].getBoundingClientRect().bottom+window.scrollY);
+    }
     out.push('innerHeight: <b>'+window.innerHeight+'</b>');
-    out.push('visualViewport: <b>'+(window.visualViewport?Math.round(window.visualViewport.height):'n/a')+'</b>');
     out.push('scrollHeight: <b>'+d.scrollHeight+'</b>');
-    out.push('body height: <b>'+Math.round(document.body.getBoundingClientRect().height)+'</b>');
-    out.push('last content bottom: <b>'+Math.round(max)+'</b>');
-    out.push('TRAILING BLANK: <b style="color:#E8A33D">'+gap+'px</b>');
-    if(deepest){
-      out.push('deepest: <b>'+deepest.tagName.toLowerCase()+'.'+(deepest.className||'').toString().slice(0,28)+'</b>');
+    out.push('.shell bottom: <b>'+shellB+'</b>');
+    out.push('.main bottom: <b>'+mainB+'</b>');
+    out.push('.content bottom: <b>'+contentB+'</b>');
+    out.push('last card bottom: <b style="color:#E8A33D">'+lastKid+'</b>');
+    if(lastKid!==null){
+      out.push('EMPTY BELOW CONTENT: <b style="color:#E8A33D">'+(d.scrollHeight-lastKid)+'px</b>');
     }
     document.getElementById('vpdebug').innerHTML=out.join('<br>');
   }
