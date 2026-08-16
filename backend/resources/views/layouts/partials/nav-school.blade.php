@@ -1144,14 +1144,18 @@
   .side-subsection{margin-left:.5rem}
   .side-subgroup-btn{width:100%;background:none;border:none;cursor:pointer;display:flex;align-items:center;
     justify-content:space-between;text-align:left;padding:.5rem .65rem;border-radius:8px;
-    color:var(--side-mut);font-weight:600;font-size:.82rem}
+    color:var(--side-mut);font-weight:600;font-size:1rem}
   .side-subgroup-btn:hover{background:var(--side-active);color:var(--side-ink)}
   .side-subgroup-btn .chev{width:11px;height:11px;flex-shrink:0;transition:transform .15s ease}
   .side-subgroup-btn[aria-expanded="true"] .chev{transform:rotate(90deg)}
   .side-subsubmenu{display:grid;grid-template-rows:0fr;transition:grid-template-rows .18s ease}
   .side-subsubmenu.open{grid-template-rows:1fr}
   .side-subsubmenu>div{overflow:hidden}
-  .side-subsubmenu .side-link{padding-left:1.1rem;font-size:.85rem}
+  {{-- Same size as every other menu level (2026-08-16): the
+       indent alone is enough to show this is a child level, and a
+       smaller font made Examinations and its items visibly the odd
+       one out. --}}
+  .side-subsubmenu .side-link{padding-left:1.1rem}
   /* Collapsed sidebar (icon rail): the top-level accordion already forces
      every .side-submenu open and hides its own .side-group-btn (see
      app.blade.php's .shell.collapsed rules); the nested level needs the

@@ -244,7 +244,7 @@ return [
             'financial_analytics' => 'Financial Analytics',
             'custom_kpis' => 'Custom KPIs',
         ]],
-        'support' => ['label' => 'Support', 'features' => [
+    'support' => ['label' => 'Support', 'features' => [
             'knowledge_base' => 'Knowledge Base',
             'staff_onboarding_training' => 'Staff Onboarding & Training',
             'standard_support' => 'Standard Support',
@@ -825,6 +825,26 @@ return [
     | under Admin > Settings > Support Contact, falling back to this array
     | (still env overridable) only until they do.
     */
+    /*
+    | Demo school shown to a school approved for a trial (2026-08-16).
+    | Config rather than baked into the email template so the accounts
+    | can be rotated, or pointed at a different demo school, without a
+    | code change to the mail itself. Passwords here are deliberately
+    | the shared, read-only demo logins -- these accounts cannot save,
+    | edit, or change their own password (BlockDemoAccountMutations),
+    | so they are safe to put in an email.
+    */
+    'demo' => [
+        'url' => env('SKULOS_DEMO_URL', 'https://greenfield.skulosapp.com'),
+        'accounts' => [
+            ['role' => 'School Admin', 'email' => env('SKULOS_DEMO_ADMIN', 'demo.admin@skulosapp.com'), 'password' => env('SKULOS_DEMO_PASSWORD', 'password')],
+            ['role' => 'Class Teacher', 'email' => 'uju.balogun@outlook.com', 'password' => env('SKULOS_DEMO_PASSWORD', 'password')],
+            ['role' => 'Subject Teacher', 'email' => 'chidinma.akintola@yahoo.com', 'password' => env('SKULOS_DEMO_PASSWORD', 'password')],
+            ['role' => 'Parent', 'email' => 'tunde.yusuf@gmail.com', 'password' => env('SKULOS_DEMO_PASSWORD', 'password')],
+            ['role' => 'Student', 'email' => env('SKULOS_DEMO_STUDENT', 'demo.student@skulosapp.com'), 'password' => env('SKULOS_DEMO_PASSWORD', 'password')],
+        ],
+    ],
+
     'support' => [
         'email' => env('SKULOS_SUPPORT_EMAIL', 'info@skulosapp.com'),
         'phone' => env('SKULOS_SUPPORT_PHONE', '+234 802 337 3302'),

@@ -30,7 +30,7 @@ class TrialRequestStatusMail extends Mailable
     public function envelope(): Envelope
     {
         $subject = $this->trial->status === TrialRequest::STATUS_APPROVED
-            ? "Your SKULOS trial for {$this->trial->school_name} is ready"
+            ? 'SKULOS Trial Access and Setup Requirements'
             : "About your SKULOS trial request for {$this->trial->school_name}";
 
         return new Envelope(subject: $subject);
@@ -40,19 +40,50 @@ class TrialRequestStatusMail extends Mailable
     {
         $approved = $this->trial->status === TrialRequest::STATUS_APPROVED;
 
-        $intro = $approved
-            ? "Good news, {$this->trial->contact_name}. Your trial for {$this->trial->school_name} has been approved and is ready to use."
-            : "Hello {$this->trial->contact_name}, thank you for your interest in SKULOS for {$this->trial->school_name}.";
+        if ($approved) {
+            // The full standard onboarding letter (2026-08-16), kept in
+            // its own view because it is long and genuinely structured.
+            // A reviewer's own note, when they leave one, renders ABOVE
+            // it so anything specific to this school reads first without
+            // displacing any of the standard content.
+            $html = $this->trial->review_note
+                ? '<p style="margin:0 0 18px;">'.nl2br(e($this->trial->review_note)).'</p>'
+                : '';
+            $html .= view('emails.trial-approved', [
+                'schoolName' => $this->trial->school_name,
+                'contactName' => $this->trial->contact_name,
+                'demoUrl' => config('skulos.demo.url'),
+                'demoAccounts' => config('skulos.demo.accounts', []),
+            ])->render();
 
-        $note = $this->trial->review_note ?: (
-            $approved
-                ? 'Our team will be in touch shortly with a demo and training for your staff.'
-                : 'We were not able to move forward with this request at this time.'
-        );
+            // A real plain text alternative, not a stripped copy: every
+            // mail here sends both parts, and a message with no usable
+            // text half scores worse with spam filters.
+            $accountLines = collect(config('skulos.demo.accounts', []))
+                ->map(fn ($a) => "{$a['role']}: {$a['email']} | Password: {$a['password']}")
+                ->implode("\n");
 
-        $html = '<p style="margin:0 0 16px;">'.e($intro).'</p>'
-            .'<p style="margin:0 0 16px;">'.nl2br(e($note)).'</p>';
-        $text = "{$intro}\n\n{$note}";
+            $text = ($this->trial->review_note ? $this->trial->review_note."\n\n" : '')
+                ."Dear {$this->trial->school_name},\n\n"
+                ."Thank you for your interest in SKULOS.\n\n"
+                ."We are pleased to approve your school for the SKULOS trial. The trial will give your team the opportunity to explore the platform, test the different workflows, and provide feedback that will help us tailor the solution to your school's needs.\n\n"
+                ."DEMO ACCESS\n"
+                .'Demo School: '.config('skulos.demo.url')."\n\n"
+                ."Test Accounts:\n{$accountLines}\n\n"
+                ."INFORMATION TO PREPARE FOR YOUR SCHOOL SETUP\n"
+                ."School information (name, logo, motto, address, email, phone, website), academic structure (sections, classes and arms, subjects, calendar, houses and clubs), student information, staff information, assessment and results structure, parent and communication preferences, and any admission, fee or timetable details you would like configured.\n\n"
+                ."You do not need to prepare everything before the trial begins. We can work through the requirements together and prioritise what is needed for the initial setup.\n\n"
+                ."We can also schedule a session to present SKULOS to your team, walk through the major features, answer your questions, and discuss how the platform can be configured to suit your school's operations.\n\n"
+                ."We look forward to working with you and receiving your feedback during the trial.\n\n"
+                ."Kind regards,\nSKUL Operating System";
+        } else {
+            $intro = "Hello {$this->trial->contact_name}, thank you for your interest in SKULOS for {$this->trial->school_name}.";
+            $note = $this->trial->review_note ?: 'We were not able to move forward with this request at this time.';
+
+            $html = '<p style="margin:0 0 16px;">'.e($intro).'</p>'
+                .'<p style="margin:0 0 16px;">'.nl2br(e($note)).'</p>';
+            $text = "{$intro}\n\n{$note}";
+        }
 
         if ($approved && $this->credentials) {
             $html .= '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F7F8FA;border-radius:10px;margin:8px 0 20px;"><tr><td style="padding:18px 20px;">'
