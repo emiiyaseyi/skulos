@@ -399,16 +399,26 @@ class StudentController extends Controller
         $school = $this->school($request);
 
         $request->validate([
-            'file' => ['required', 'file', 'mimes:csv,txt', 'max:5120'],
+            // xlsx accepted alongside csv (2026-08-16): the blank sheet
+            // this app hands out is now a real workbook, because a
+            // school has to PICK its class from a dropdown of its own
+            // classes and plain CSV cannot carry a validation list.
+            // Refusing the very file we just gave them would be absurd.
+            'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:5120'],
             'mode' => ['required', 'in:strict,partial'],
         ]);
 
-        $csv = file_get_contents($request->file('file')->getRealPath());
+        $upload = $request->file('file');
+        $isSpreadsheet = in_array(mb_strtolower($upload->getClientOriginalExtension()), ['xlsx', 'xls'], true);
 
         try {
-            $rows = app(CsvReader::class)->rows($csv);
+            $rows = $isSpreadsheet
+                ? $this->rowsFromSpreadsheet($upload->getRealPath())
+                : app(CsvReader::class)->rows(file_get_contents($upload->getRealPath()));
         } catch (\InvalidArgumentException $e) {
             return back()->with('error', $e->getMessage());
+        } catch (\Throwable $e) {
+            return back()->with('error', 'That file could not be read. Download a fresh sheet and fill that in.');
         }
 
         $result = (new StudentImporter)->import($rows, $request->input('mode'));
@@ -1225,5 +1235,48 @@ class StudentController extends Controller
         }
 
         return back()->with('status', 'Student field settings updated.');
+    }
+
+    /**
+     * Reads an uploaded workbook into the same shape CsvReader produces,
+     * so the importer itself needs no knowledge of the file format.
+     * Header labels are mapped back to their column keys because the
+     * sheet shows a person "Admission Number", not "admission_number".
+     */
+    protected function rowsFromSpreadsheet(string $path): array
+    {
+        $sheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($path)->getSheet(0);
+        $grid = $sheet->toArray(null, true, true, false);
+
+        if (count($grid) < 2) {
+            throw new \InvalidArgumentException('That sheet has no rows to import.');
+        }
+
+        $labels = (new StudentImporter)->columns();
+        $keyByLabel = [];
+        foreach ($labels as $key => $label) {
+            $keyByLabel[mb_strtolower($label)] = $key;
+            $keyByLabel[mb_strtolower($key)] = $key;
+        }
+
+        $header = array_map(fn ($h) => $keyByLabel[mb_strtolower(trim((string) $h))] ?? trim((string) $h), array_shift($grid));
+
+        $rows = [];
+        foreach ($grid as $line) {
+            $row = [];
+            foreach ($header as $i => $key) {
+                if ($key === '') {
+                    continue;
+                }
+                $value = $line[$i] ?? null;
+                $row[$key] = is_string($value) ? trim($value) : $value;
+            }
+            // Skip the blank starter row the template ships with.
+            if (collect($row)->filter(fn ($v) => filled($v))->isNotEmpty()) {
+                $rows[] = $row;
+            }
+        }
+
+        return $rows;
     }
 }

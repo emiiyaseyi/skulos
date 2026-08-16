@@ -148,24 +148,34 @@ class SetupScreenTest extends TestCase
     {
         [$school, $owner] = $this->schoolWithOwner('setupsheet');
 
-        // Ask for one optional column only. The import cannot identify
-        // or create a student without admission number and both name
-        // fields, so those must appear regardless of what was ticked --
-        // otherwise the sheet is filled in and only fails on upload.
+        // Ask for one optional column only. The import cannot place a
+        // student without admission number, both names and a class, so
+        // those must appear regardless of what was ticked -- otherwise
+        // the sheet gets filled in and only fails on upload.
         $response = $this->actingAs($owner)->get(
             route('school.setup.student-template', ['school' => $school->slug]).'?columns[]=address'
         );
 
         $response->assertOk();
-        $header = strtok($response->getContent(), "
-");
+        $path = tempnam(sys_get_temp_dir(), 'sheet').'.xlsx';
+        file_put_contents($path, $response->getContent());
 
-        $this->assertStringContainsString('Admission Number', $header);
-        $this->assertStringContainsString('First Name', $header);
-        $this->assertStringContainsString('Last Name', $header);
-        $this->assertStringContainsString('Address', $header);
+        $book = \PhpOffice\PhpSpreadsheet\IOFactory::load($path);
+        $header = $book->getSheet(0)->toArray(null, true, true, false)[0];
+
+        $this->assertContains('Admission Number', $header);
+        $this->assertContains('First Name', $header);
+        $this->assertContains('Last Name', $header);
+        $this->assertContains('Class', $header);
+        $this->assertContains('Address', $header);
         // Not ticked, so genuinely absent: the point is a shorter sheet.
-        $this->assertStringNotContainsString('State of Origin', $header);
+        $this->assertNotContains('State of Origin', $header);
+
+        // The class column has to be pickable, which is the whole
+        // reason this is a workbook and not a CSV.
+        $this->assertNotNull($book->getSheetByName('Classes'), 'No class list sheet for the dropdown to read.');
+
+        @unlink($path);
     }
 
     public function test_a_non_member_cannot_reach_another_schools_setup(): void

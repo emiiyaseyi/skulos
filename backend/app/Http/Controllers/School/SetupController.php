@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\School;
 use App\Models\Tenant\AcademicSession;
 use App\Models\Tenant\AssessmentComponent;
+use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\Club;
 use App\Models\Tenant\House;
 use App\Models\Tenant\Section;
@@ -300,18 +301,58 @@ class SetupController extends Controller
             ->filter(fn ($key) => in_array($key, $mandatory, true) || $chosen->contains($key))
             ->values();
 
-        $out = fopen('php://temp', 'r+');
-        fputcsv($out, $headers->map(fn ($key) => $all[$key])->all());
-        // One blank row so the sheet opens with somewhere obvious to
-        // start typing rather than a lone header line.
-        fputcsv($out, array_fill(0, $headers->count(), ''));
-        rewind($out);
-        $csv = (string) stream_get_contents($out);
-        fclose($out);
+        // A real workbook rather than a CSV, because the class column
+        // has to be PICKED from this school's own classes and plain CSV
+        // cannot carry a validation list. The import accepts both, so
+        // nothing is lost for a school that prefers to work in CSV.
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Students');
+        $sheet->fromArray($headers->map(fn ($key) => $all[$key])->all(), null, 'A1');
+        $sheet->getStyle('A1:'.\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($headers->count()).'1')
+            ->getFont()->setBold(true);
 
-        return response($csv, 200, [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="student-import-'.$school->slug.'.csv"',
+        $classes = ClassArm::with('schoolClass.section', 'arm')->get()
+            ->sortBy(fn ($a) => [$a->schoolClass?->section?->sequence, $a->schoolClass?->sequence, $a->name])
+            ->map(fn ($a) => $a->label())->values();
+
+        $lookup = $spreadsheet->createSheet();
+        $lookup->setTitle('Classes');
+        foreach ($classes as $i => $label) {
+            $lookup->setCellValue('A'.($i + 1), $label);
+        }
+
+        $classColumnIndex = $headers->search('class');
+        if ($classColumnIndex !== false && $classes->isNotEmpty()) {
+            $column = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($classColumnIndex + 1);
+            // Applied down a generous range so the dropdown is already
+            // there however many students they paste in.
+            for ($row = 2; $row <= 500; $row++) {
+                $validation = $sheet->getCell($column.$row)->getDataValidation();
+                $validation->setType(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::TYPE_LIST);
+                $validation->setErrorStyle(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::STYLE_STOP);
+                $validation->setAllowBlank(false);
+                $validation->setShowDropDown(true);
+                $validation->setShowErrorMessage(true);
+                $validation->setErrorTitle('Not one of your classes');
+                $validation->setError('Pick a class from the list.');
+                $validation->setFormula1('Classes!$A$1:$A$'.$classes->count());
+            }
+        }
+
+        foreach (range(1, max(1, $headers->count())) as $i) {
+            $sheet->getColumnDimension(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i))->setAutoSize(true);
+        }
+        $spreadsheet->setActiveSheetIndex(0);
+
+        $writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
+        ob_start();
+        $writer->save('php://output');
+        $contents = (string) ob_get_clean();
+
+        return response($contents, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="student-import-'.$school->slug.'.xlsx"',
         ]);
     }
 
@@ -319,7 +360,11 @@ class SetupController extends Controller
     public static function mandatoryStudentColumns(): array
     {
         return array_values(array_unique(array_merge(
-            ['admission_number', 'first_name', 'last_name'],
+            // Class is mandatory too (2026-08-16, direct instruction):
+            // a student with no class cannot be placed on a roster,
+            // marked present, or scored, so importing one without it
+            // just creates a record nobody can use.
+            ['admission_number', 'first_name', 'last_name', 'class'],
             (array) Setting::grab('student_required_fields', []),
         )));
     }
