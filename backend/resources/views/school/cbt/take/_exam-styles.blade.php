@@ -7,6 +7,9 @@
      screens rather than requiring horizontal scrolling or a hidden
      drawer. --}}
 <style>
+  /* See layouts/app.blade.php: the blank area below content on
+     Chrome for iOS was overscroll, not extra page height. */
+  html,body{overscroll-behavior-y:none}
   #lgShell{
     --exam-ink:#1c2430; --exam-muted:#66707d; --exam-line:#e4e8ee; --exam-bg:#f4f6f9;
     --exam-card:#ffffff; --exam-danger:#c0392b; --exam-ok:#1f8a53;

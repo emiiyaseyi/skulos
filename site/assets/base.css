@@ -1,3 +1,8 @@
+/* Stop the browser scrolling past the end of the page: the blank
+   area reported below the last section on Chrome for iOS was
+   overscroll, not extra page height. Needs to be on both html and
+   body since which one is the scroll root varies by browser. */
+html,body{overscroll-behavior-y:none}
 /* SKULOS shared design system. Source of truth for tokens + chrome. */
 :root{
   /* base tokens = light theme values; dark overrides applied below */

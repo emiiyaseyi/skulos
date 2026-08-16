@@ -6,6 +6,9 @@
 <title>{{ $code }} {{ $title ?? 'Something went wrong' }} | SKULOS</title>
 <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}" />
 <style>
+  /* See layouts/app.blade.php: the blank area below content on
+     Chrome for iOS was overscroll, not extra page height. */
+  html,body{overscroll-behavior-y:none}
   /* --accent here is a fixed platform color (#E8A33D, always this exact
      value), not a school's own configurable brand color, this page
      renders pre-auth with no tenant/school context at all. The "text on

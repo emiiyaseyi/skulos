@@ -4,6 +4,9 @@
 
 @push('head')
 <style>
+  /* See layouts/app.blade.php: the blank area below content on
+     Chrome for iOS was overscroll, not extra page height. */
+  html,body{overscroll-behavior-y:none}
   .admissions-login-page{min-height:100vh;min-height:100dvh;min-height:100svh;display:grid;place-items:center;padding:2rem 1.25rem}
   .admissions-login-page .form-card{width:100%;max-width:26rem;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:2.2rem;box-shadow:var(--shadow)}
   .admissions-login-page .lp-head{font-size:1.4rem;font-weight:800;line-height:1.15;letter-spacing:-.01em;text-align:center}

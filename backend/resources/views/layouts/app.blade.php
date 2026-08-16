@@ -320,6 +320,20 @@ input[type="checkbox"],input[type="radio"]{width:1.05rem;height:1.05rem;flex-shr
 .ss-list .ss-empty{padding:.5rem .6rem;font-size:.85rem;color:var(--mut-dim);cursor:default}
 .hint{font-size:.78rem;color:var(--mut-dim);margin-top:.3rem}
 .err{color:var(--bad);font-size:.8rem;margin-top:.3rem}
+/* Stop the browser scrolling past the end of the page (2026-08-15).
+   Reported as a large blank area below the last card on Chrome for
+   iOS while Safari was fine, and every measurement taken on the real
+   device agreed the document was exactly as tall as its content --
+   because the space was never extra page height at all, it was
+   overscroll: the browser allowing a scroll beyond the content and
+   painting background there. Safari and Chrome differ in how far they
+   allow that and whether they spring back, which is exactly why one
+   looked correct and the other did not.
+
+   overscroll-behavior-y:none is the property for this and has to be on
+   BOTH html and body: whichever element is the scrolling root varies by
+   browser, and setting only one leaves the other free to overscroll. */
+html, body{overscroll-behavior-y:none}
 .skip-link{position:absolute;left:-9999px;top:0;z-index:200;background:var(--accent);color:var(--accent-ink);
   padding:.7rem 1.1rem;border-radius:0 0 10px 0;font-weight:700;font-size:.9rem;text-decoration:none}
 .skip-link:focus{left:0}
@@ -549,72 +563,6 @@ tr:last-child td{border-bottom:none}
 @stack('head')
 </head>
 <body>
-{{-- Temporary on-device viewport probe (2026-08-15): append ?vpdebug=1
-     to ANY real page to see, on the phone itself, whether the document
-     is actually taller than its own content and which element reaches
-     furthest down. The standalone test page proved dvh/svh resolve
-     correctly, so any blank space left on a real screen comes from
-     something else, and this measures the real screen rather than a
-     copy of it. Remove once the cause is confirmed. --}}
-@if(request()->has('vpdebug'))
-<div id="vpdebug" style="position:fixed;left:0;right:0;bottom:0;z-index:9999;background:#0B1420;color:#F3F5F8;
-     font:12px/1.5 -apple-system,sans-serif;padding:10px 12px;border-top:2px solid #E8A33D;max-height:45vh;overflow:auto"></div>
-<script>
-(function(){
-  function run(){
-    var d=document.documentElement, out=[], deepest=null, max=0;
-    function insideFixed(el){
-      for(var n=el; n && n!==document.body; n=n.parentElement){
-        if(getComputedStyle(n).position==='fixed') return true;
-      }
-      return false;
-    }
-    document.querySelectorAll('body *').forEach(function(el){
-      if(el.id==='vpdebug'||el.closest('#vpdebug')) return;
-      var cs=getComputedStyle(el);
-      if(cs.display==='none'||cs.visibility==='hidden') return;
-      // Skip anything inside a fixed ancestor, not just fixed elements
-      // themselves: a static child of the fixed sidebar is laid out
-      // against the viewport, so adding scrollY to it produced a
-      // "deepest" value larger than the whole document.
-      if(insideFixed(el)) return;
-      var b=el.getBoundingClientRect().bottom+window.scrollY;
-      if(b>max){max=b;deepest=el;}
-    });
-    var gap=Math.round(d.scrollHeight-max);
-    function bot(sel){
-      var el=document.querySelector(sel);
-      if(!el) return null;
-      return Math.round(el.getBoundingClientRect().bottom+window.scrollY);
-    }
-    // The wrapper chain, outermost to innermost. Whichever pair shows a
-    // big jump is where the empty space is being created: .shell taller
-    // than .content means the shell adds it, .content taller than its
-    // own last child means padding or a stray child does.
-    var shellB=bot('.shell'), mainB=bot('.main'), contentB=bot('.content');
-    var lastKid=null, cEl=document.querySelector('.content');
-    if(cEl){
-      var kids=Array.prototype.filter.call(cEl.children,function(k){
-        var ks=getComputedStyle(k);
-        return ks.display!=='none'&&ks.position!=='fixed';
-      });
-      if(kids.length) lastKid=Math.round(kids[kids.length-1].getBoundingClientRect().bottom+window.scrollY);
-    }
-    out.push('innerHeight: <b>'+window.innerHeight+'</b>');
-    out.push('scrollHeight: <b>'+d.scrollHeight+'</b>');
-    out.push('.shell bottom: <b>'+shellB+'</b>');
-    out.push('.main bottom: <b>'+mainB+'</b>');
-    out.push('.content bottom: <b>'+contentB+'</b>');
-    out.push('last card bottom: <b style="color:#E8A33D">'+lastKid+'</b>');
-    if(lastKid!==null){
-      out.push('EMPTY BELOW CONTENT: <b style="color:#E8A33D">'+(d.scrollHeight-lastKid)+'px</b>');
-    }
-    document.getElementById('vpdebug').innerHTML=out.join('<br>');
-  }
-  run(); window.addEventListener('resize',run); setTimeout(run,800);
-})();
-</script>
-@endif
 @hasSection('bare')
   @yield('content')
 @else
