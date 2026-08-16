@@ -4,13 +4,18 @@
 @push('head')
 <style>
   .setup-rail{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.1rem}
-  .setup-dot{display:inline-flex;align-items:center;gap:.45rem;padding:.4rem .8rem .4rem .4rem;border-radius:999px;background:var(--soft);border:1px solid var(--line);font-size:.8rem;font-weight:600;color:var(--mut);text-decoration:none;line-height:1.1;max-width:100%}
+  .setup-dot{display:inline-flex;align-items:center;gap:.45rem;padding:.4rem .8rem .4rem .4rem;border-radius:999px;background:var(--soft);border:1px solid var(--line);font-size:.8rem;font-weight:600;color:var(--mut);text-decoration:none;line-height:1.1;max-width:100%;overflow:hidden}
   .setup-dot.done{color:var(--ok)}
   .setup-dot.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
   .setup-num{width:1.5rem;height:1.5rem;border-radius:50%;background:var(--line);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;font-size:.72rem;line-height:1}
   .setup-dot.done .setup-num{background:var(--ok);color:#fff}
   .setup-dot.active .setup-num{background:var(--accent-ink);color:var(--accent)}
-  .setup-label{white-space:nowrap}
+  /* min-width:0 is the load-bearing part (2026-08-15): a flex item
+     defaults to min-width:auto, meaning it refuses to shrink below its
+     own content width, so a nowrap step title ignored the pill's
+     max-width and spilled out over the number circle instead of
+     truncating. Reported as the icon and text overlapping. */
+  .setup-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
   .setup-nav{display:flex;justify-content:space-between;margin-top:1.1rem;gap:.6rem;flex-wrap:wrap}
   /* Mobile: the rail's pills can outgrow a narrow phone width with 9
      steps (design system rule: "genuinely usable on a phone, not just
