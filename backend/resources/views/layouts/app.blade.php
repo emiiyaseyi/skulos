@@ -549,6 +549,41 @@ tr:last-child td{border-bottom:none}
 @stack('head')
 </head>
 <body>
+{{-- Temporary on-device viewport probe (2026-08-15): append ?vpdebug=1
+     to ANY real page to see, on the phone itself, whether the document
+     is actually taller than its own content and which element reaches
+     furthest down. The standalone test page proved dvh/svh resolve
+     correctly, so any blank space left on a real screen comes from
+     something else, and this measures the real screen rather than a
+     copy of it. Remove once the cause is confirmed. --}}
+@if(request()->has('vpdebug'))
+<div id="vpdebug" style="position:fixed;left:0;right:0;bottom:0;z-index:9999;background:#0B1420;color:#F3F5F8;
+     font:12px/1.5 -apple-system,sans-serif;padding:10px 12px;border-top:2px solid #E8A33D;max-height:45vh;overflow:auto"></div>
+<script>
+(function(){
+  function run(){
+    var d=document.documentElement, out=[], deepest=null, max=0;
+    document.querySelectorAll('body *').forEach(function(el){
+      if(el.id==='vpdebug'||el.closest('#vpdebug')) return;
+      var cs=getComputedStyle(el);
+      if(cs.position==='fixed'||cs.display==='none'||cs.visibility==='hidden') return;
+      var b=el.getBoundingClientRect().bottom+window.scrollY;
+      if(b>max){max=b;deepest=el;}
+    });
+    var gap=Math.round(d.scrollHeight-max);
+    out.push('innerHeight: <b>'+window.innerHeight+'</b>');
+    out.push('scrollHeight: <b>'+d.scrollHeight+'</b>');
+    out.push('last content bottom: <b>'+Math.round(max)+'</b>');
+    out.push('TRAILING BLANK: <b style="color:#E8A33D">'+gap+'px</b>');
+    if(deepest){
+      out.push('deepest el: <b>'+deepest.tagName.toLowerCase()+'.'+(deepest.className||'').toString().slice(0,30)+'</b>');
+    }
+    document.getElementById('vpdebug').innerHTML=out.join('<br>');
+  }
+  run(); window.addEventListener('resize',run); setTimeout(run,800);
+})();
+</script>
+@endif
 @hasSection('bare')
   @yield('content')
 @else
