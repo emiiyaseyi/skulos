@@ -4,7 +4,7 @@
 
 @push('head')
 <style>
-  .login-page{min-height:100vh;min-height:100dvh}
+  .login-page{min-height:100vh;min-height:100dvh;min-height:100svh}
   .lp-logo{width:64px;height:64px;border-radius:16px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:800;font-size:1.6rem;margin:0 auto 1.1rem;overflow:hidden}
   .lp-logo img{width:100%;height:100%;object-fit:contain}
   .lp-head{font-size:1.55rem;font-weight:800;line-height:1.15;letter-spacing:-.01em;text-align:center}
@@ -20,7 +20,7 @@
   /* centered */
   .lp-centered{display:grid;place-items:center;padding:2rem 1.25rem;position:relative;overflow:hidden}
   /* split */
-  .lp-split{display:grid;grid-template-columns:1.05fr .95fr;min-height:100vh;min-height:100dvh}
+  .lp-split{display:grid;grid-template-columns:1.05fr .95fr;min-height:100vh;min-height:100dvh;min-height:100svh}
   .lp-split.box-left{grid-template-columns:.95fr 1.05fr}
   .lp-split.box-left .lp-brandpanel{order:2}
   .lp-split.box-left .lp-formside{order:1}
@@ -40,11 +40,11 @@
   .lp-formside{display:grid;place-items:center;padding:2.5rem 1.5rem}
   .lp-formside .form-card{border:none;box-shadow:none;background:transparent;padding:0}
   /* cover */
-  .lp-cover{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:2rem 1.25rem;position:relative;overflow:hidden;
+  .lp-cover{min-height:100vh;min-height:100dvh;min-height:100svh;display:grid;place-items:center;padding:2rem 1.25rem;position:relative;overflow:hidden;
     background:radial-gradient(1200px 600px at 50% -10%, color-mix(in srgb, var(--accent) 40%, transparent), transparent),
     linear-gradient(160deg, color-mix(in srgb, var(--accent) 22%, var(--bg)), var(--bg))}
   /* showcase */
-  .lp-showcase{display:grid;grid-template-columns:.95fr 1.05fr;min-height:100vh;min-height:100dvh}
+  .lp-showcase{display:grid;grid-template-columns:.95fr 1.05fr;min-height:100vh;min-height:100dvh;min-height:100svh}
   .lp-showcase.box-left{grid-template-columns:1.05fr .95fr}
   .lp-showcase.box-left .sc-info{order:2;border-right:none;border-left:1px solid var(--line)}
   .lp-showcase.box-left .sc-form{order:1}

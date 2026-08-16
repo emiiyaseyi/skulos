@@ -137,7 +137,7 @@ a{color:inherit;text-decoration:none}
    simply ignores the second declaration and keeps the vh value.
    (2026-08-15, live report of unexpected blank space at the bottom of
    pages on a real iPhone.) */
-.shell{display:grid;grid-template-columns:264px 1fr;min-height:100vh;min-height:100dvh}
+.shell{display:grid;grid-template-columns:264px 1fr;min-height:100vh;min-height:100dvh;min-height:100svh}
 .side{background:var(--side);color:var(--side-ink);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;height:100dvh;overflow-y:auto}
 .side-brand{display:flex;align-items:center;gap:.6rem;padding:1.15rem 1.3rem;font-weight:800;font-size:1.3rem;letter-spacing:-.01em}
 .side-brand em{font-style:normal;color:var(--accent)}
@@ -424,7 +424,7 @@ tr:last-child td{border-bottom:none}
 .notif > .badge{flex-shrink:0;margin-left:auto}
 
 /* ---- auth/bare pages ---- */
-.auth-shell{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:2rem 1.25rem}
+.auth-shell{min-height:100vh;min-height:100dvh;min-height:100svh;display:grid;place-items:center;padding:2rem 1.25rem}
 .auth-card{width:100%;max-width:26rem;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:2rem;box-shadow:var(--shadow)}
 .auth-logo{width:56px;height:56px;border-radius:14px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:800;font-size:1.4rem;margin-bottom:1rem}
 .brand{font-weight:800;font-size:1.35rem;letter-spacing:-.01em}.brand em{font-style:normal;color:var(--accent-text)}

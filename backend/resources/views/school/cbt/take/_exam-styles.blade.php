@@ -10,7 +10,7 @@
   #lgShell{
     --exam-ink:#1c2430; --exam-muted:#66707d; --exam-line:#e4e8ee; --exam-bg:#f4f6f9;
     --exam-card:#ffffff; --exam-danger:#c0392b; --exam-ok:#1f8a53;
-    display:flex; flex-direction:column; min-height:100vh;min-height:100dvh; background:var(--exam-bg); color:var(--exam-ink);
+    display:flex; flex-direction:column; min-height:100vh;min-height:100dvh;min-height:100svh; background:var(--exam-bg); color:var(--exam-ink);
     font-size:calc(1rem * var(--lg-zoom, 1));
   }
   @media (prefers-color-scheme: dark){

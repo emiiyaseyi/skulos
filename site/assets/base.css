@@ -97,8 +97,14 @@ body{
      100vh element is always taller than what is actually visible and
      leaves dead scrollable space below the content. 100dvh is the
      real, current viewport; the 100vh line stays first as the
-     fallback for browsers that do not support dvh. */
-  min-height:100vh;min-height:100dvh;
+     fallback for browsers that do not support dvh. 100svh is last
+     and wins where supported: it is the SMALL viewport, the size with
+     the browser toolbars showing, so the element can never be taller
+     than what is actually on screen. Chrome on iOS needs this
+     specifically -- it has both a top URL bar and a bottom toolbar, so
+     even 100dvh left a strip of dead scrollable space there while
+     Safari was already fine. */
+  min-height:100vh;min-height:100dvh;min-height:100svh;
   overflow-x:hidden;
   line-height:1.5;
   -webkit-font-smoothing:antialiased;
