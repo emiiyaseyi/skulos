@@ -132,7 +132,21 @@ class SchoolAdminController extends Controller
             'phone' => $data['phone'] ?? null,
         ]);
 
-        $tenants->provision($school);
+        // A failed provision used to leave a real school row stuck at
+        // "pending", still holding its slug so the same address could
+        // not be retried, with a half-created database behind it —
+        // found live 2026-08-15 when CREATE DATABASE was denied on
+        // shared hosting. Nothing of the user's exists yet at this
+        // point, so discarding it is safe and lets them simply try
+        // again once the underlying cause is fixed.
+        try {
+            $tenants->provision($school);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Provisioning {$school->slug} failed: ".$e->getMessage());
+            $tenants->discardFailedProvision($school);
+
+            return back()->with('error', "{$data['name']} could not be created: {$e->getMessage()} Nothing was left behind, so you can try again once that is resolved.")->withInput();
+        }
 
         // provision() already marks the school active/reachable at its
         // subdomain the moment it returns. If attaching the owner fails
@@ -218,7 +232,18 @@ class SchoolAdminController extends Controller
         }
 
         $clone = School::create(['name' => $data['name'], 'slug' => $slug, 'email' => $data['admin_email']]);
-        $tenants->provision($clone);
+
+        // Same discard-on-failure as store() above: a clone whose
+        // database never came up has nothing worth keeping, and leaving
+        // the row behind would block reusing the slug on a retry.
+        try {
+            $tenants->provision($clone);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Provisioning clone {$clone->slug} failed: ".$e->getMessage());
+            $tenants->discardFailedProvision($clone);
+
+            return back()->with('error', "{$data['name']} could not be created: {$e->getMessage()} Nothing was left behind, so you can try again once that is resolved.")->withInput();
+        }
 
         // Same partial-failure exposure as store() above (audit finding
         // L-2, 2026-07-17): the clone is already active/reachable the

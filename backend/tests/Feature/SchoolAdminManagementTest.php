@@ -348,6 +348,35 @@ class SchoolAdminManagementTest extends TestCase
         $this->get($handoffUrl)->assertRedirect(route('school.dashboard', ['school' => $school->slug]));
     }
 
+    public function test_a_failed_provision_leaves_no_half_created_school_behind(): void
+    {
+        $admin = $this->superAdmin();
+
+        // Force provisioning to fail the same way it really did on
+        // shared hosting: point the tenant driver at cPanel API mode
+        // with no credentials configured, so createDatabase() throws.
+        config([
+            'tenancy.driver' => 'mysql',
+            'tenancy.cpanel.enabled' => true,
+            'tenancy.cpanel.host' => null,
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('admin.schools.store'), [
+            'name' => 'Doomed Academy',
+            'slug' => 'doomed',
+            'admin_name' => 'Owner',
+            'admin_email' => 'owner@doomed.test',
+            'admin_password' => 'secret-pass-123',
+        ]);
+
+        $response->assertRedirect();
+
+        // The row must be gone entirely, not left pending holding the
+        // slug: an admin has to be able to simply try again.
+        $this->assertDatabaseMissing('schools', ['slug' => 'doomed']);
+        $this->assertNull(School::withTrashed()->where('slug', 'doomed')->first());
+    }
+
     public function test_only_platform_super_admin_can_manage_school_administrators(): void
     {
         [$school, $owner] = $this->schoolWithOwner('notallowed');

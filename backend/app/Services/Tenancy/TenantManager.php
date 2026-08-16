@@ -81,6 +81,50 @@ class TenantManager
     }
 
     /**
+     * Undo a provisioning attempt that failed partway (2026-08-15).
+     * Before this, a school whose database could not be created or
+     * migrated was left as a real row stuck at "pending", holding its
+     * slug so the same address could not be tried again, with a
+     * possibly half-migrated database behind it — an admin had to
+     * notice and delete it by hand (which is exactly what happened live
+     * when CREATE DATABASE was denied on shared hosting).
+     *
+     * Only ever called on a provisioning failure, where the school by
+     * definition has no real data yet, so removing it destroys nothing
+     * a user entered. Cleanup failures are logged and swallowed: the
+     * caller's own error about why provisioning failed is the useful
+     * one, and must not be replaced by a secondary error from tidying
+     * up after it.
+     */
+    public function discardFailedProvision(School $school): void
+    {
+        $database = $school->database;
+
+        try {
+            if ($database) {
+                if ($this->driver() === 'sqlite') {
+                    $path = config('tenancy.sqlite_path').DIRECTORY_SEPARATOR.$database.'.sqlite';
+                    if (file_exists($path)) {
+                        unlink($path);
+                    }
+                } elseif (config('tenancy.cpanel.enabled')) {
+                    app(CpanelDatabaseProvisioner::class)->deleteDatabase($database);
+                } else {
+                    DB::statement(sprintf('DROP DATABASE IF EXISTS `%s`', $database));
+                }
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Could not drop the database for failed provision of [{$school->slug}]: ".$e->getMessage());
+        }
+
+        try {
+            $school->forceDelete();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Could not remove the school row for failed provision of [{$school->slug}]: ".$e->getMessage());
+        }
+    }
+
+    /**
      * Run (or re-run) tenant migrations for one school.
      */
     public function migrate(School $school): void
