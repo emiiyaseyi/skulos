@@ -212,7 +212,13 @@ class SetupController extends Controller
         $data = $request->validate([
             'components' => ['required', 'array', 'min:1'],
             'components.*.name' => ['nullable', 'string', 'max:60'],
-            'components.*.type' => ['nullable', 'in:ca,exam'],
+            // Free text, not a fixed list (2026-08-16): a school that
+            // runs neither "continuous assessment" nor "exam" -- tests,
+            // projects, practicals -- should describe its own. The value
+            // is only used to group components on the CBT linking
+            // screen, never in any result calculation, so a custom one
+            // is safe; it simply sits outside those two groups there.
+            'components.*.type' => ['nullable', 'string', 'max:40'],
             'components.*.max_score' => ['nullable', 'numeric', 'min:1', 'max:100'],
         ]);
 
@@ -239,12 +245,29 @@ class SetupController extends Controller
             }
             AssessmentComponent::create([
                 'name' => $name,
-                'type' => $row['type'] ?? 'ca',
+                // Normalised back to the two known keys when the text
+                // matches one of them, so the standard options keep
+                // grouping correctly instead of becoming near-duplicate
+                // free text ("Exam" vs "exam").
+                'type' => $this->normaliseComponentType($row['type'] ?? null),
                 'max_score' => (float) $row['max_score'],
                 'sequence' => ++$sequence,
             ]);
         }
 
         return back()->with('status', 'Assessment structure saved.');
+    }
+
+    /** Maps the familiar wording back to the stored keys, leaving anything else as typed. */
+    protected function normaliseComponentType(?string $type): string
+    {
+        $value = mb_strtolower(trim((string) $type));
+
+        return match (true) {
+            $value === '' => 'ca',
+            str_contains($value, 'continuous'), $value === 'ca' => 'ca',
+            str_contains($value, 'exam') => 'exam',
+            default => trim((string) $type),
+        };
     }
 }

@@ -362,6 +362,28 @@ body::after{content:'';display:block;height:calc(100lvh - 100svh)}
 .btn-ghost{background:transparent;color:var(--ink);border-color:var(--line)}
 .btn-ghost:hover{background:var(--soft)}
 .btn-sm{padding:.4rem .8rem;font-size:.82rem;border-radius:8px;min-height:2.75rem}
+/* Uniform button footprint and even spacing (2026-08-16, direct
+   report: rows of actions like View / Manage / Visit / Suspend /
+   Archive / Delete rendered at six different widths and wrapped with
+   uneven gaps, because each is a mix of <a>, <button> and an inline
+   <form> separated by raw whitespace in the markup).
+
+   min-width makes a short label ("View") occupy the same footprint as
+   a long one ("Suspend"), so a row of actions reads as one set rather
+   than a ragged line. Icon-only buttons are excluded by name: they are
+   deliberately square, and stretching them would break the appbar. */
+.btn{min-width:6rem}
+.btn-sm{min-width:5.5rem}
+.iconbtn, .appbar .btn, .menu-toggle, .theme-toggle, .btn-icon{min-width:0}
+
+/* The spacing half: an inline <form> wrapping a single button is the
+   usual reason gaps differ across a row, since it introduces its own
+   box and the whitespace between tags collapses differently around it.
+   Normalising both to the same inline-block with one shared margin
+   makes every gap identical no matter which element type it is. */
+td form, td .btn{display:inline-block;vertical-align:middle}
+td form{margin:0}
+td .btn{margin:.18rem}
 .btn-block{width:100%}
 table{width:100%;border-collapse:collapse}
 th,td{text-align:left;padding:.8rem .6rem;border-bottom:1px solid var(--line);font-size:.9rem}

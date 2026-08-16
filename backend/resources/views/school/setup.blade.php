@@ -175,10 +175,13 @@
                     <input name="components[{{ $i }}][name]" value="{{ $component['name'] }}" maxlength="60" placeholder="e.g. First CA" />
                   </td>
                   <td data-label="Type">
-                    <select name="components[{{ $i }}][type]">
-                      <option value="ca" @selected(($component['type'] ?? 'ca') === 'ca')>Continuous assessment</option>
-                      <option value="exam" @selected(($component['type'] ?? '') === 'exam')>Exam</option>
-                    </select>
+                    {{-- A suggestion list, not a fixed dropdown
+                         (2026-08-16): a school running tests, projects
+                         or practicals rather than "continuous
+                         assessment" and "exam" can type its own. --}}
+                    <input name="components[{{ $i }}][type]" list="componentTypes" maxlength="40"
+                           value="{{ ($component['type'] ?? '') === 'exam' ? 'Exam' : (($component['name'] ?? '') ? 'Continuous assessment' : '') }}"
+                           placeholder="Type or pick" />
                   </td>
                   <td data-label="Max score">
                     <input name="components[{{ $i }}][max_score]" type="number" min="1" max="100" step="1"
@@ -188,6 +191,13 @@
               @endforeach
             </tbody>
           </table>
+          <datalist id="componentTypes">
+            <option value="Continuous assessment"></option>
+            <option value="Exam"></option>
+            <option value="Test"></option>
+            <option value="Project"></option>
+            <option value="Practical"></option>
+          </datalist>
           <button class="btn btn-primary btn-sm" type="submit">Save structure</button>
         </form>
       @endif
