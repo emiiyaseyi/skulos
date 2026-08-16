@@ -155,7 +155,7 @@ class SchoolAdminController extends Controller
             'plan_id' => ['nullable', 'exists:plans,id'],
         ]);
 
-        $data['admin_password'] = $data['admin_password'] ?: TemporaryPassword::generate();
+        $data['admin_password'] = $data['admin_password'] ?? TemporaryPassword::generate();
 
         // Always normalized through Str::slug(), even when the admin typed
         // their own value: a raw typed slug only passed alpha_dash
@@ -319,7 +319,7 @@ class SchoolAdminController extends Controller
             'admin_password' => ['nullable', 'string', 'min:8', 'max:100'],
         ]);
 
-        $data['admin_password'] = $data['admin_password'] ?: TemporaryPassword::generate();
+        $data['admin_password'] = $data['admin_password'] ?? TemporaryPassword::generate();
 
         // Always normalized through Str::slug(), even when the admin typed
         // their own value: a raw typed slug only passed alpha_dash

@@ -166,6 +166,14 @@ Route::domain($appDomain)->group(function () {
             Route::post('/', [$mailSettings, 'update'])->name('update');
             Route::post('/test', [$mailSettings, 'sendTest'])->name('test');
         });
+        Route::prefix('settings/mail-templates')->name('mail-templates.')->group(function () {
+            $mailTemplates = \App\Http\Controllers\Admin\MailTemplateController::class;
+            Route::get('/', [$mailTemplates, 'index'])->name('index');
+            Route::get('/{key}', [$mailTemplates, 'edit'])->name('edit');
+            Route::post('/{key}', [$mailTemplates, 'update'])->name('update');
+            Route::post('/{key}/reset', [$mailTemplates, 'reset'])->name('reset');
+            Route::post('/{key}/test', [$mailTemplates, 'test'])->name('test');
+        });
         Route::prefix('settings/landing-pages')->name('settings.landing-pages.')->group(function () {
             $landingPages = \App\Http\Controllers\Admin\LandingPageSettingsController::class;
             Route::get('/', [$landingPages, 'edit'])->name('edit');

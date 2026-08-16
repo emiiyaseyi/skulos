@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Mail\Concerns\UsesEditableTemplate;
 use App\Models\TrialRequest;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
@@ -19,6 +20,7 @@ class TrialRequestStatusMail extends Mailable
 {
     use Queueable;
     use SerializesModels;
+    use UsesEditableTemplate;
 
     /**
      * @param array{portal_url: string, email: string, password: string}|null $credentials
@@ -33,7 +35,11 @@ class TrialRequestStatusMail extends Mailable
             ? 'SKULOS Trial Access and Setup Requirements'
             : "About your SKULOS trial request for {$this->trial->school_name}";
 
-        return new Envelope(subject: $subject);
+        // Only the approval letter is editable; a rejection keeps its
+        // own wording, since it is driven by the reviewer's note.
+        return new Envelope(subject: $this->trial->status === TrialRequest::STATUS_APPROVED
+            ? $this->templateSubject($subject)
+            : $subject);
     }
 
     public function content(): Content
@@ -49,12 +55,23 @@ class TrialRequestStatusMail extends Mailable
             $html = $this->trial->review_note
                 ? '<p style="margin:0 0 18px;">'.nl2br(e($this->trial->review_note)).'</p>'
                 : '';
-            $html .= view('emails.trial-approved', [
+            // An edited template replaces the letter's prose. The demo
+            // account table still renders from config below it either
+            // way, so editing the wording can never drop the accounts a
+            // school needs to actually try the platform.
+            $html .= $this->templateBody(view('emails.trial-approved', [
                 'schoolName' => $this->trial->school_name,
                 'contactName' => $this->trial->contact_name,
                 'demoUrl' => config('skulos.demo.url'),
                 'demoAccounts' => config('skulos.demo.accounts', []),
-            ])->render();
+            ])->render());
+
+            if ($this->template()) {
+                $html .= view('emails.demo-accounts', [
+                    'demoUrl' => config('skulos.demo.url'),
+                    'demoAccounts' => config('skulos.demo.accounts', []),
+                ])->render();
+            }
 
             // A real plain text alternative, not a stripped copy: every
             // mail here sends both parts, and a message with no usable
@@ -78,6 +95,13 @@ class TrialRequestStatusMail extends Mailable
                 ."Please reply with a preferred date and time (and an alternative if possible), the full address of the school if the session is to hold on site, roughly how many people will attend and their roles, and whether you would prefer to meet in person or online.\n\n"
                 ."We look forward to working with you and receiving your feedback during the trial.\n\n"
                 ."Kind regards,\nSKUL Operating System";
+
+            if ($this->template()) {
+                $text = ($this->trial->review_note ? $this->trial->review_note."\n\n" : '')
+                    .$this->templateText('')
+                    ."\n\nDEMO ACCESS\nDemo School: ".config('skulos.demo.url')
+                    ."\n\nTest Accounts:\n{$accountLines}";
+            }
         } else {
             $intro = "Hello {$this->trial->contact_name}, thank you for your interest in SKULOS for {$this->trial->school_name}.";
             $note = $this->trial->review_note ?: 'We were not able to move forward with this request at this time.';
@@ -114,5 +138,17 @@ class TrialRequestStatusMail extends Mailable
             text: 'emails.plain',
             with: ['subject' => $this->envelope()->subject, 'body' => $html, 'text' => $text],
         );
+    }
+
+    protected function templateValues(): array
+    {
+        return [
+            'school_name' => $this->trial->school_name,
+            'contact_name' => $this->trial->contact_name,
+            'portal_url' => $this->credentials['portal_url'] ?? '',
+            'login_email' => $this->credentials['email'] ?? '',
+            'temporary_password' => $this->credentials['password'] ?? '',
+            'demo_url' => (string) config('skulos.demo.url'),
+        ];
     }
 }

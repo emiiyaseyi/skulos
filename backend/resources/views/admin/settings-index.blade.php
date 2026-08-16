@@ -9,6 +9,10 @@
     <h3 style="margin-bottom:.3rem">Mail Settings</h3>
     <p class="muted">The platform-wide SMTP default every school inherits unless it sets its own.</p>
   </a>
+  <a class="card" href="{{ route('admin.mail-templates.index') }}" style="text-decoration:none;color:inherit;display:block">
+    <h3 style="margin-bottom:.3rem">Mail Templates</h3>
+    <p class="muted">The wording of every email SKULOS sends: trial approval, welcome, password resets and more.</p>
+  </a>
   <a class="card" href="{{ route('admin.settings.landing-pages.edit') }}" style="text-decoration:none;color:inherit;display:block">
     <h3 style="margin-bottom:.3rem">Landing Pages</h3>
     <p class="muted">The default welcome/login page look a newly provisioned school starts with.</p>

@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Mail\Concerns\UsesEditableTemplate;
 use App\Models\School;
 use App\Models\Tenant\Applicant;
 use Illuminate\Bus\Queueable;
@@ -23,6 +24,7 @@ class AdmissionCredentialsMail extends Mailable
 {
     use Queueable;
     use SerializesModels;
+    use UsesEditableTemplate;
 
     public function __construct(public Applicant $applicant, public School $school, public string $password)
     {
@@ -30,7 +32,7 @@ class AdmissionCredentialsMail extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: "Your {$this->school->name} application is ready to continue");
+        return new Envelope(subject: $this->templateSubject("Your {$this->school->name} application is ready to continue"));
     }
 
     public function content(): Content
@@ -43,7 +45,7 @@ class AdmissionCredentialsMail extends Mailable
 
         $intro = "Hello {$this->applicant->name}, your application fee for {$this->school->name} has been confirmed. You can now sign in to finish your application.";
 
-        $html = '<p style="margin:0 0 16px;">'.e($intro).'</p>'
+        $html = $this->templateBody('<p style="margin:0 0 16px;">'.e($intro).'</p>')
             .'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F7F8FA;border-radius:10px;margin:8px 0 20px;"><tr><td style="padding:18px 20px;">'
             .'<p style="margin:0 0 10px;font-size:12px;font-weight:bold;letter-spacing:0.4px;text-transform:uppercase;color:#7C8698;">Your sign in details</p>'
             .'<p style="margin:0 0 4px;"><strong>Portal:</strong> <a href="'.e($portalUrl).'" style="color:#0B1420;">'.e($portalUrl).'</a></p>'
@@ -53,12 +55,23 @@ class AdmissionCredentialsMail extends Mailable
             .'<p style="margin:0 0 16px;color:#7C8698;font-size:13px;">'.e($windowNote).'</p>'
             .'<a href="'.e($portalUrl).'" style="display:inline-block;background-color:#E8A33D;color:#241503;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;">Continue your application</a>';
 
-        $text = "{$intro}\n\nYour sign in details\nPortal: {$portalUrl}\nAdmission number or phone: {$identifier}\nPassword: {$this->password}\n\n{$windowNote}";
+        $text = $this->templateText($intro)."\n\nYour sign in details\nPortal: {$portalUrl}\nAdmission number or phone: {$identifier}\nPassword: {$this->password}\n\n{$windowNote}";
 
         return new Content(
             view: 'emails.layout',
             text: 'emails.plain',
             with: ['subject' => $this->envelope()->subject, 'body' => $html, 'text' => $text],
         );
+    }
+
+    protected function templateValues(): array
+    {
+        return [
+            'applicant_name' => $this->applicant->name,
+            'school_name' => $this->school->name,
+            'reference_number' => (string) ($this->applicant->admission_number ?: $this->applicant->phone),
+            'temporary_password' => $this->password,
+            'portal_url' => $this->school->portalUrl('/admissions/login'),
+        ];
     }
 }

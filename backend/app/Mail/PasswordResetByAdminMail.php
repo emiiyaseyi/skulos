@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Mail\Concerns\UsesEditableTemplate;
 use App\Models\School;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
@@ -20,6 +21,7 @@ class PasswordResetByAdminMail extends Mailable
 {
     use Queueable;
     use SerializesModels;
+    use UsesEditableTemplate;
 
     public function __construct(public User $user, public School $school, public string $newPassword)
     {
@@ -27,7 +29,7 @@ class PasswordResetByAdminMail extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: "Your {$this->school->name} password was reset");
+        return new Envelope(subject: $this->templateSubject("Your {$this->school->name} password was reset"));
     }
 
     public function content(): Content
@@ -37,7 +39,7 @@ class PasswordResetByAdminMail extends Mailable
         $intro = "Hello {$this->user->name}, your password for {$this->school->name} on SKULOS was just reset by a platform administrator.";
         $advice = 'If you did not expect this, contact us right away using the details below.';
 
-        $html = '<p style="margin:0 0 16px;">'.e($intro).'</p>'
+        $html = $this->templateBody('<p style="margin:0 0 16px;">'.e($intro).'</p>')
             .'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F7F8FA;border-radius:10px;margin:8px 0 20px;"><tr><td style="padding:18px 20px;">'
             .'<p style="margin:0 0 10px;font-size:12px;font-weight:bold;letter-spacing:0.4px;text-transform:uppercase;color:#7C8698;">Your new sign in details</p>'
             .'<p style="margin:0 0 4px;"><strong>Portal:</strong> <a href="'.e($portalUrl).'" style="color:#0B1420;">'.e($portalUrl).'</a></p>'
@@ -47,12 +49,22 @@ class PasswordResetByAdminMail extends Mailable
             .'<p style="margin:0 0 16px;color:#7C8698;font-size:13px;">'.e($advice).'</p>'
             .'<a href="'.e($portalUrl).'" style="display:inline-block;background-color:#E8A33D;color:#241503;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;">Sign in now</a>';
 
-        $text = "{$intro}\n\nYour new sign in details\nPortal: {$portalUrl}\nEmail: {$this->user->email}\nNew password: {$this->newPassword}\n\n{$advice}";
+        $text = $this->templateText($intro)."\n\nYour new sign in details\nPortal: {$portalUrl}\nEmail: {$this->user->email}\nNew password: {$this->newPassword}\n\n{$advice}";
 
         return new Content(
             view: 'emails.layout',
             text: 'emails.plain',
             with: ['subject' => $this->envelope()->subject, 'body' => $html, 'text' => $text],
         );
+    }
+
+    protected function templateValues(): array
+    {
+        return [
+            'name' => $this->user->name,
+            'school_name' => $this->school->name,
+            'temporary_password' => $this->newPassword,
+            'portal_url' => $this->school->portalUrl('/login'),
+        ];
     }
 }

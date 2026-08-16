@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Mail\Concerns\UsesEditableTemplate;
 use App\Models\School;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
@@ -25,6 +26,7 @@ class SchoolWelcomeMail extends Mailable
 {
     use Queueable;
     use SerializesModels;
+    use UsesEditableTemplate;
 
     /**
      * @param  array{portal_url: string, email: string, password: string}  $credentials
@@ -37,19 +39,29 @@ class SchoolWelcomeMail extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Welcome to SKULOS: Your School Access and Setup');
+        return new Envelope(subject: $this->templateSubject('Welcome to SKULOS: Your School Access and Setup'));
     }
 
     public function content(): Content
     {
-        $html = view('emails.trial-approved', [
+        $html = $this->templateBody(view('emails.trial-approved', [
             'schoolName' => $this->school->name,
             'contactName' => $this->school->name,
             'demoUrl' => config('skulos.demo.url'),
             'demoAccounts' => config('skulos.demo.accounts', []),
             'planName' => $this->planName,
             'intro' => 'Your school has been set up on SKULOS and is ready to use.',
-        ])->render();
+        ])->render());
+
+        // The standard letter carries the demo accounts inline; an
+        // edited one is free prose, so append them separately or a new
+        // school has nothing to sign in to and try.
+        if ($this->template()) {
+            $html .= view('emails.demo-accounts', [
+                'demoUrl' => config('skulos.demo.url'),
+                'demoAccounts' => config('skulos.demo.accounts', []),
+            ])->render();
+        }
 
         $html .= '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F7F8FA;border-radius:10px;margin:8px 0 20px;"><tr><td style="padding:18px 20px;">'
             .'<p style="margin:0 0 10px;font-size:12px;font-weight:bold;letter-spacing:0.4px;text-transform:uppercase;color:#7C8698;">Your sign in details</p>'
@@ -67,7 +79,7 @@ class SchoolWelcomeMail extends Mailable
             ->map(fn ($a) => "{$a['role']}: {$a['email']} | Password: {$a['password']}")
             ->implode("\n");
 
-        $text = "Dear {$this->school->name},\n\n"
+        $text = ($this->template() ? $this->templateText('')."\n\n" : "Dear {$this->school->name},\n\n")
             ."Your school has been set up on SKULOS and is ready to use.\n\n"
             .($this->planName ? "Plan: {$this->planName}\n\n" : '')
             ."DEMO ACCESS\nDemo School: ".config('skulos.demo.url')."\n\nTest Accounts:\n{$accountLines}\n\n"
@@ -81,5 +93,17 @@ class SchoolWelcomeMail extends Mailable
             text: 'emails.plain',
             with: ['subject' => $this->envelope()->subject, 'body' => $html, 'text' => $text],
         );
+    }
+
+    protected function templateValues(): array
+    {
+        return [
+            'school_name' => $this->school->name,
+            'portal_url' => $this->credentials['portal_url'],
+            'login_email' => $this->credentials['email'],
+            'temporary_password' => $this->credentials['password'],
+            'plan_name' => (string) $this->planName,
+            'demo_url' => (string) config('skulos.demo.url'),
+        ];
     }
 }

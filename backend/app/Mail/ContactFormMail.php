@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Mail\Concerns\UsesEditableTemplate;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -19,6 +20,7 @@ class ContactFormMail extends Mailable
 {
     use Queueable;
     use SerializesModels;
+    use UsesEditableTemplate;
 
     public function __construct(
         protected string $senderName,
@@ -30,7 +32,7 @@ class ContactFormMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "New contact form message from {$this->senderName}",
+            subject: $this->templateSubject("New contact form message from {$this->senderName}"),
             replyTo: [$this->senderEmail],
         );
     }
@@ -41,23 +43,33 @@ class ContactFormMail extends Mailable
             ? nl2br(e($this->senderMessage))
             : '<em>No message provided.</em>';
 
-        $body = '<p style="margin:0 0 12px;"><strong>Name:</strong> '.e($this->senderName).'</p>'
+        $body = $this->templateBody('<p style="margin:0 0 12px;"><strong>Name:</strong> '.e($this->senderName).'</p>'
             .'<p style="margin:0 0 12px;"><strong>School:</strong> '.e($this->senderSchool).'</p>'
             .'<p style="margin:0 0 12px;"><strong>Email:</strong> '.e($this->senderEmail).'</p>'
             .'<p style="margin:0 0 4px;"><strong>Message:</strong></p>'
-            .'<p style="margin:0;">'.$messageHtml.'</p>';
+            .'<p style="margin:0;">'.$messageHtml.'</p>');
 
-        $text = "Name: {$this->senderName}\nSchool: {$this->senderSchool}\nEmail: {$this->senderEmail}\n\nMessage:\n"
-            .($this->senderMessage ?: 'No message provided.');
+        $text = $this->templateText("Name: {$this->senderName}\nSchool: {$this->senderSchool}\nEmail: {$this->senderEmail}\n\nMessage:\n"
+            .($this->senderMessage ?: 'No message provided.'));
 
         return new Content(
             view: 'emails.layout',
             text: 'emails.plain',
             with: [
-                'subject' => "New contact form message from {$this->senderName}",
+                'subject' => $this->envelope()->subject,
                 'body' => $body,
                 'text' => $text,
             ],
         );
+    }
+
+    protected function templateValues(): array
+    {
+        return [
+            'sender_name' => $this->senderName,
+            'sender_school' => $this->senderSchool,
+            'sender_email' => $this->senderEmail,
+            'sender_message' => $this->senderMessage ?: 'No message provided.',
+        ];
     }
 }

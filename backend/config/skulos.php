@@ -834,6 +834,124 @@ return [
     | edit, or change their own password (BlockDemoAccountMutations),
     | so they are safe to put in an email.
     */
+    /*
+    | Every email the platform sends, and the placeholders each one can
+    | use (2026-08-16). Drives the Mail Templates editor: the catalog
+    | says what exists and what may be substituted, the mail_templates
+    | table holds whatever the owner has edited, and the Mailable's own
+    | code remains the fallback when nothing has been edited.
+    |
+    | "seed" is the starting copy an editor sees, matching what that
+    | mail says today. Editing one row never affects any other mail.
+    */
+    'mail_templates' => [
+        'TrialRequestStatusMail' => [
+            'label' => 'Trial approved',
+            'description' => "Sent when a school's trial request is approved, with demo access and the setup checklist.",
+            'placeholders' => ['school_name', 'contact_name', 'portal_url', 'login_email', 'temporary_password', 'demo_url'],
+            'seed_subject' => 'SKULOS Trial Access and Setup Requirements',
+            'seed_body' => "Dear {school_name},
+
+Thank you for your interest in SKULOS.
+
+We are pleased to approve your school for the SKULOS trial. The trial will give your team the opportunity to explore the platform, test the different workflows, and provide feedback that will help us tailor the solution to your school's needs.
+
+Demo School: {demo_url}
+
+You may explore the different user roles and workflows available on the platform.
+
+We can also schedule a session to present SKULOS to your team. Please reply with a preferred date and time, the full address of the school if the session is to hold on site, roughly how many people will attend, and whether you would prefer to meet in person or online.
+
+We look forward to working with you and receiving your feedback during the trial.
+
+Kind regards,
+SKUL Operating System",
+        ],
+        'SchoolWelcomeMail' => [
+            'label' => 'School welcome',
+            'description' => 'Sent when the platform owner creates a school directly, rather than approving a trial.',
+            'placeholders' => ['school_name', 'portal_url', 'login_email', 'temporary_password', 'plan_name', 'demo_url'],
+            'seed_subject' => 'Welcome to SKULOS: Your School Access and Setup',
+            'seed_body' => "Dear {school_name},
+
+Your school has been set up on SKULOS and is ready to use.
+
+Your plan: {plan_name}
+
+Demo School: {demo_url}
+
+You can sign in at {portal_url} using {login_email} and the temporary password below. You will be asked to change it the first time you sign in.
+
+Kind regards,
+SKUL Operating System",
+        ],
+        'PasswordResetLinkMail' => [
+            'label' => 'Password reset link',
+            'description' => 'Sent when a user asks to reset their own password.',
+            'placeholders' => ['name', 'reset_url', 'school_name'],
+            'seed_subject' => 'Reset your SKULOS password',
+            'seed_body' => "Hello {name},
+
+We received a request to reset your SKULOS password. Use the button below to choose a new one.
+
+If you did not ask for this, you can ignore this email and your password will stay as it is.",
+        ],
+        'PasswordResetByAdminMail' => [
+            'label' => 'Password reset by an administrator',
+            'description' => "Sent when an administrator resets someone's password on their behalf.",
+            'placeholders' => ['name', 'school_name', 'temporary_password', 'portal_url'],
+            'seed_subject' => 'Your SKULOS password has been reset',
+            'seed_body' => "Hello {name},
+
+An administrator at {school_name} has reset your password. Sign in with the temporary password below, and you will be asked to choose a new one.",
+        ],
+        'AccountCreatedMail' => [
+            'label' => 'Account created',
+            'description' => 'Sent to a parent, student or staff member when their login is created.',
+            'placeholders' => ['name', 'school_name', 'login_email', 'temporary_password', 'portal_url'],
+            'seed_subject' => 'Your SKULOS account is ready',
+            'seed_body' => "Hello {name},
+
+An account has been created for you at {school_name}.
+
+Sign in at {portal_url} using {login_email} and the temporary password below. You will be asked to change it the first time you sign in.",
+        ],
+        'AdmissionOfferMail' => [
+            'label' => 'Admission offer',
+            'description' => 'Sent to an applicant when a school offers them admission.',
+            'placeholders' => ['applicant_name', 'school_name', 'class_name', 'portal_url'],
+            'seed_subject' => 'Admission offer from {school_name}',
+            'seed_body' => "Dear Parent/Guardian,
+
+We are pleased to offer {applicant_name} admission to {school_name}.
+
+Sign in to the admissions portal to read the offer letter, accept the offer, and complete the next steps.",
+        ],
+        'AdmissionCredentialsMail' => [
+            'label' => 'Admission portal credentials',
+            'description' => 'Sent to an applicant once their application fee is verified.',
+            'placeholders' => ['applicant_name', 'school_name', 'reference_number', 'temporary_password', 'portal_url'],
+            'seed_subject' => 'Your application reference for {school_name}',
+            'seed_body' => "Dear Parent/Guardian,
+
+Your application for {applicant_name} at {school_name} has been received.
+
+Use the reference number and password below to sign in and continue the application.",
+        ],
+        'ContactFormMail' => [
+            'label' => 'Contact form enquiry',
+            'description' => 'Sent to the platform support address when someone submits the website contact form.',
+            'placeholders' => ['sender_name', 'sender_school', 'sender_email', 'sender_message'],
+            'seed_subject' => 'New contact form message from {sender_name}',
+            'seed_body' => "Name: {sender_name}
+School: {sender_school}
+Email: {sender_email}
+
+Message:
+{sender_message}",
+        ],
+    ],
+
     'demo' => [
         'url' => env('SKULOS_DEMO_URL', 'https://greenfield.skulosapp.com'),
         'accounts' => [

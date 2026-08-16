@@ -385,6 +385,32 @@ td form, td .btn{display:inline-block;vertical-align:middle}
 td form{margin:0}
 td .btn{margin:.18rem}
 .btn-block{width:100%}
+
+/* A row of actions on a list row (2026-08-16, direct feedback: the
+   buttons "still looks scattered"). min-width alone was not enough:
+   it sets a floor, so a long label like "Suspend" still grows past a
+   short one like "View", and inline wrapping then breaks the set into
+   ragged lines of mismatched widths.
+
+   A grid of equal 1fr columns fixes both at once — every button is
+   exactly the same width, and they land on a shared column edge
+   instead of wherever the text happened to wrap. The column count is
+   set per use via --cols, chosen to divide the button count evenly so
+   the last row is never left with a single orphan (design rule). */
+.actions{display:grid;grid-template-columns:repeat(var(--cols,3),1fr);gap:.4rem;justify-items:stretch}
+/* display:contents so a single-button <form> does not become a grid
+   cell of its own — its button takes the cell directly, and lines up
+   with plain <a> and <button> siblings. */
+.actions form{display:contents;margin:0}
+.actions .btn{width:100%;min-width:0;margin:0;white-space:nowrap}
+/* An action set sitting at the right of a wide table should not stretch
+   the full column width, or each button becomes absurdly wide. */
+td .actions{margin-left:auto;max-width:24rem}
+@media(max-width:640px){
+  /* Stacked cards are narrow: two columns keeps every label readable
+     and every tap target comfortably wide. */
+  .actions{--cols:2;max-width:none;margin-left:0}
+}
 table{width:100%;border-collapse:collapse}
 th,td{text-align:left;padding:.8rem .6rem;border-bottom:1px solid var(--line);font-size:.9rem}
 th{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--mut-dim);font-weight:800}

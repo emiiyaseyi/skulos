@@ -17,6 +17,24 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Production terminates SSL at the host's own proxy and forwards
+        // to PHP over plain HTTP (2026-08-16). Without trusting it, the
+        // framework believes every request is http:// even though the
+        // browser asked for https://, and any URL it generates or checks
+        // is built on the wrong scheme.
+        //
+        // That breaks signed URLs specifically, and only in production:
+        // the signature is computed over the full absolute URL, so a link
+        // minted as https:// never matches a request seen as http://, and
+        // the target 403s with nothing in the log to explain it. The
+        // support "view as this admin" handoff is exactly that shape of
+        // link, which is why it worked locally and not live.
+        //
+        // '*' is the right setting here rather than a fixed IP: on shared
+        // hosting the proxy is the only route in, its address is not ours
+        // to pin, and the origin is not publicly reachable around it.
+        $middleware->trustProxies(at: '*');
+
         // Baseline security headers on every response, web and api
         // alike (2026-08-15): a live check of production found none of
         // them set. See the middleware's own docblock for why a full
@@ -99,6 +117,22 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpException $e, \Illuminate\Http\Request $request) {
             if ($e->getStatusCode() === 419) {
                 return redirect()->back()->with('error', 'Your session had expired. Please try again.');
+            }
+
+            // A signed link that fails its signature check renders as a
+            // bare 403 with nothing written to the log, which is how the
+            // support "view as this admin" handoff could fail live while
+            // looking correct in code. Log it with the URL that failed,
+            // so the next occurrence is diagnosable rather than guessed
+            // at, and say plainly what happened.
+            if ($e->getStatusCode() === 403 && str_contains((string) $e->getMessage(), 'signature')) {
+                \Illuminate\Support\Facades\Log::warning('Signed link rejected', [
+                    'url' => $request->fullUrl(),
+                    'secure' => $request->isSecure(),
+                    'route' => optional($request->route())->getName(),
+                ]);
+
+                return response()->view('errors.signed-link', [], 403);
             }
         });
     })->create();

@@ -67,7 +67,10 @@ class PlatformFlowTest extends TestCase
 
     public function test_guest_is_redirected_to_login(): void
     {
-        $this->get('/')->assertRedirect('/login');
+        // '/' serves the marketing site directly to a guest since
+        // 2026-08-14 (the bare domain shows the marketing homepage, not
+        // a redirect to /login) -- only /admin still redirects a guest.
+        $this->get('/')->assertOk();
         $this->get('http://localhost/admin')->assertRedirect('/login');
     }
 
@@ -105,9 +108,26 @@ class PlatformFlowTest extends TestCase
 
     public function test_creating_a_school_requires_admin_login_details(): void
     {
+        // admin_password is deliberately not required here (2026-08-16,
+        // direct instruction: "the temp password here should be auto
+        // generated too") -- a blank password is filled in by
+        // TemporaryPassword::generate() rather than rejected.
         $this->actingAs($this->superAdmin())
             ->post('http://localhost/admin/schools', ['name' => 'No Admin School'])
-            ->assertSessionHasErrors(['admin_name', 'admin_email', 'admin_password']);
+            ->assertSessionHasErrors(['admin_name', 'admin_email']);
+    }
+
+    public function test_creating_a_school_with_no_password_gets_one_generated(): void
+    {
+        $this->actingAs($this->superAdmin())->post('http://localhost/admin/schools', [
+            'name' => 'Autogen', 'slug' => 'autogen',
+            'admin_name' => 'Auto Admin', 'admin_email' => 'auto@autogen.test',
+        ])->assertRedirect();
+
+        $admin = User::where('email', 'auto@autogen.test')->first();
+        $this->assertNotNull($admin);
+        // A real, checkable password was set, not left blank.
+        $this->assertNotNull($admin->password);
     }
 
     public function test_the_created_school_admin_can_sign_in(): void

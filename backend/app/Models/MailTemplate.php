@@ -25,12 +25,17 @@ class MailTemplate extends Model
     }
 
     /**
-     * Fills {placeholders} from the given values. Unknown placeholders
+     * Replaces {placeholders} with the given values. Named substitute()
+     * rather than the more natural fill(), because Eloquent already
+     * defines fill() as an instance method and PHP will not let a model
+     * redeclare it as a static one.
+     *
+     * Unknown placeholders
      * are left exactly as typed rather than blanked, so a typo shows up
      * as "{schoolnam}" in a test send instead of silently vanishing and
      * leaving a sentence with a hole in it.
      */
-    public static function fill(string $text, array $values): string
+    public static function substitute(string $text, array $values): string
     {
         foreach ($values as $key => $value) {
             $text = str_replace('{'.$key.'}', (string) $value, $text);
@@ -54,10 +59,10 @@ class MailTemplate extends Model
         }
 
         return [
-            'subject' => static::fill($template->subject, $values),
+            'subject' => static::substitute($template->subject, $values),
             // nl2br so an editor writing plain paragraphs in a textarea
             // gets paragraphs in the email, without needing to know HTML.
-            'body' => nl2br(static::fill($template->body, $values)),
+            'body' => nl2br(static::substitute($template->body, $values)),
         ];
     }
 }

@@ -106,24 +106,25 @@
           <td data-label="Status">
             <span class="badge {{ $s->status === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucfirst($s->status) }}</span>
           </td>
-          <td style="text-align:right">
-            <button type="button" class="btn btn-ghost btn-sm school-view-btn" data-overview="{{ route('admin.schools.overview', $s) }}" data-name="{{ $s->name }}">View</button>
-            <a class="btn btn-primary btn-sm" href="{{ route('admin.schools.show', $s) }}">Manage</a>
-            @if($s->status === 'active')
-              <a class="btn btn-ghost btn-sm" href="{{ $s->portalUrl() }}" target="_blank" rel="noopener">Visit</a>
-              <form method="POST" action="{{ route('admin.schools.suspend', $s) }}" style="display:inline">@csrf<button class="btn btn-ghost btn-sm">Suspend</button></form>
-              <form method="POST" action="{{ route('admin.schools.archive', $s) }}" style="display:inline">@csrf<button class="btn btn-ghost btn-sm">Archive</button></form>
-            @else
-              <form method="POST" action="{{ route('admin.schools.activate', $s) }}" style="display:inline">@csrf<button class="btn btn-primary btn-sm">Resume</button></form>
-            @endif
-            {{-- Visually separated from the safe actions above (UX audit
-                 finding, 2026-08-10): Delete used to sit directly beside
-                 Resume/Manage with identical button styling, a real
-                 mis-tap risk for an irreversible action on a stacked
-                 mobile card where everything wraps onto its own line
-                 anyway. A left border + extra spacing reads as "these
-                 are not the same kind of action" without a bigger redesign. --}}
-            <form method="POST" action="{{ route('admin.schools.destroy', $s) }}" style="display:inline-block;margin-left:.6rem;padding-left:.6rem;border-left:1px solid var(--line)" onsubmit="return confirm('Remove {{ $s->name }}? Its data is retained and it can be restored.')">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm" style="color:var(--bad)">Delete</button></form>
+          <td>
+            {{-- An active school has 6 actions, a suspended one 4, so the
+                 column count is chosen to divide each evenly (3x2 and
+                 2x2) and never leave a single button stranded on its own
+                 last row. Delete stays last, and is the only red one, so
+                 an irreversible action is still visibly not one of the
+                 routine ones even though it now shares the same grid. --}}
+            <div class="actions" style="--cols:{{ $s->status === 'active' ? 3 : 2 }}">
+              <button type="button" class="btn btn-ghost btn-sm school-view-btn" data-overview="{{ route('admin.schools.overview', $s) }}" data-name="{{ $s->name }}">View</button>
+              <a class="btn btn-primary btn-sm" href="{{ route('admin.schools.show', $s) }}">Manage</a>
+              @if($s->status === 'active')
+                <a class="btn btn-ghost btn-sm" href="{{ $s->portalUrl() }}" target="_blank" rel="noopener">Visit</a>
+                <form method="POST" action="{{ route('admin.schools.suspend', $s) }}">@csrf<button class="btn btn-ghost btn-sm">Suspend</button></form>
+                <form method="POST" action="{{ route('admin.schools.archive', $s) }}">@csrf<button class="btn btn-ghost btn-sm">Archive</button></form>
+              @else
+                <form method="POST" action="{{ route('admin.schools.activate', $s) }}">@csrf<button class="btn btn-primary btn-sm">Resume</button></form>
+              @endif
+              <form method="POST" action="{{ route('admin.schools.destroy', $s) }}" onsubmit="return confirm('Remove {{ $s->name }}? Its data is retained and it can be restored.')">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm" style="color:var(--bad)">Delete</button></form>
+            </div>
           </td>
         </tr>
       @endforeach

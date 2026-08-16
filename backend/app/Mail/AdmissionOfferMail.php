@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Mail\Concerns\UsesEditableTemplate;
 use App\Models\School;
 use App\Models\Tenant\Applicant;
 use Illuminate\Bus\Queueable;
@@ -23,6 +24,7 @@ class AdmissionOfferMail extends Mailable
 {
     use Queueable;
     use SerializesModels;
+    use UsesEditableTemplate;
 
     public function __construct(public Applicant $applicant, public School $school)
     {
@@ -30,7 +32,7 @@ class AdmissionOfferMail extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: "You have been offered admission to {$this->school->name}");
+        return new Envelope(subject: $this->templateSubject("You have been offered admission to {$this->school->name}"));
     }
 
     public function content(): Content
@@ -38,15 +40,25 @@ class AdmissionOfferMail extends Mailable
         $portalUrl = $this->school->portalUrl('/admissions/login');
         $intro = "Congratulations {$this->applicant->name}, you have been offered admission to {$this->school->name}. Sign in to your application to view your admission letter, accept the offer, and pay school fees.";
 
-        $html = '<p style="margin:0 0 16px;">'.e($intro).'</p>'
+        $html = $this->templateBody('<p style="margin:0 0 16px;">'.e($intro).'</p>')
             .'<a href="'.e($portalUrl).'" style="display:inline-block;background-color:#E8A33D;color:#241503;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;">View your offer</a>';
 
-        $text = "{$intro}\n\n{$portalUrl}";
+        $text = $this->templateText($intro)."\n\n{$portalUrl}";
 
         return new Content(
             view: 'emails.layout',
             text: 'emails.plain',
             with: ['subject' => $this->envelope()->subject, 'body' => $html, 'text' => $text],
         );
+    }
+
+    protected function templateValues(): array
+    {
+        return [
+            'applicant_name' => $this->applicant->name,
+            'school_name' => $this->school->name,
+            'class_name' => (string) $this->applicant->schoolClass?->name,
+            'portal_url' => $this->school->portalUrl('/admissions/login'),
+        ];
     }
 }
