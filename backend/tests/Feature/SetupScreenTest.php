@@ -144,6 +144,30 @@ class SetupScreenTest extends TestCase
         app(\App\Services\Tenancy\TenantManager::class)->forget();
     }
 
+    public function test_the_student_sheet_always_includes_the_columns_the_import_needs(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('setupsheet');
+
+        // Ask for one optional column only. The import cannot identify
+        // or create a student without admission number and both name
+        // fields, so those must appear regardless of what was ticked --
+        // otherwise the sheet is filled in and only fails on upload.
+        $response = $this->actingAs($owner)->get(
+            route('school.setup.student-template', ['school' => $school->slug]).'?columns[]=address'
+        );
+
+        $response->assertOk();
+        $header = strtok($response->getContent(), "
+");
+
+        $this->assertStringContainsString('Admission Number', $header);
+        $this->assertStringContainsString('First Name', $header);
+        $this->assertStringContainsString('Last Name', $header);
+        $this->assertStringContainsString('Address', $header);
+        // Not ticked, so genuinely absent: the point is a shorter sheet.
+        $this->assertStringNotContainsString('State of Origin', $header);
+    }
+
     public function test_a_non_member_cannot_reach_another_schools_setup(): void
     {
         [$school] = $this->schoolWithOwner('setupowned');

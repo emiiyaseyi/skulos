@@ -101,6 +101,8 @@ class SetupController extends Controller
         }, $steps);
 
         return view('school.setup', [
+            'studentColumns' => (new \App\Services\Bulk\Importers\StudentImporter)->columns(),
+            'mandatoryStudentColumns' => self::mandatoryStudentColumns(),
             'defaultHouses' => config('skulos.default_houses', []),
             'defaultClubs' => config('skulos.default_clubs', []),
             'defaultComponents' => config('skulos.default_assessment_components', []),
@@ -269,5 +271,56 @@ class SetupController extends Controller
             str_contains($value, 'exam') => 'exam',
             default => trim((string) $type),
         };
+    }
+
+    /**
+     * A blank student import sheet containing only the columns a school
+     * says it is ready to fill (2026-08-16). Asked up front rather than
+     * handing over every column, because a school at setup usually has
+     * names and classes to hand but not addresses or dates of birth,
+     * and a sheet full of columns they cannot complete reads as work
+     * they have failed to do.
+     *
+     * The columns the importer genuinely cannot proceed without --
+     * admission number and the two name fields -- plus whatever the
+     * school itself has marked required, are forced in regardless of
+     * what was ticked, since a sheet missing those cannot be imported
+     * at all and would only fail later.
+     */
+    public function studentTemplate(Request $request): \Symfony\Component\HttpFoundation\Response
+    {
+        $school = $this->school($request);
+        abort_unless(app(Rbac::class)->check(Auth::user(), $school, 'students.create'), 403);
+
+        $all = (new \App\Services\Bulk\Importers\StudentImporter)->columns();
+        $mandatory = self::mandatoryStudentColumns();
+
+        $chosen = collect($request->input('columns', []))->intersect(array_keys($all));
+        $headers = collect(array_keys($all))
+            ->filter(fn ($key) => in_array($key, $mandatory, true) || $chosen->contains($key))
+            ->values();
+
+        $out = fopen('php://temp', 'r+');
+        fputcsv($out, $headers->map(fn ($key) => $all[$key])->all());
+        // One blank row so the sheet opens with somewhere obvious to
+        // start typing rather than a lone header line.
+        fputcsv($out, array_fill(0, $headers->count(), ''));
+        rewind($out);
+        $csv = (string) stream_get_contents($out);
+        fclose($out);
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="student-import-'.$school->slug.'.csv"',
+        ]);
+    }
+
+    /** Always present: without these the import cannot identify or create a student. */
+    public static function mandatoryStudentColumns(): array
+    {
+        return array_values(array_unique(array_merge(
+            ['admission_number', 'first_name', 'last_name'],
+            (array) Setting::grab('student_required_fields', []),
+        )));
     }
 }

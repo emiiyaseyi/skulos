@@ -210,6 +210,31 @@
       <p class="muted" style="margin-bottom:0">{{ $studentCount }} student(s) on record. Add or import more any time under Students.</p>
     @else
       <p class="muted" style="margin-bottom:.7rem">Add your students one at a time, or upload a class list all at once.</p>
+
+      {{-- Choose the columns before downloading (2026-08-16): a school
+           at setup usually has names and classes to hand but not
+           addresses or dates of birth, and a sheet full of columns they
+           cannot complete reads as work they have failed to do. The
+           columns the import genuinely cannot run without are ticked
+           and locked, since a sheet missing those fails on upload
+           rather than at the point of choosing. --}}
+      <details style="margin-bottom:.9rem">
+        <summary class="btn btn-ghost btn-sm" style="display:inline-block;cursor:pointer">Download a blank sheet to fill in</summary>
+        <form method="GET" action="{{ route('school.setup.student-template', ['school' => $school->slug]) }}" style="margin-top:.8rem">
+          <p class="muted" style="margin-bottom:.5rem">Tick what you are ready to fill in now. You can always add the rest later.</p>
+          <div class="grid cols-3" style="gap:.35rem;margin-bottom:.8rem">
+            @foreach($studentColumns as $key => $label)
+              @php($locked = in_array($key, $mandatoryStudentColumns, true))
+              <label class="module-check" @if($locked) title="Required, the import cannot run without it" @endif>
+                <input type="checkbox" name="columns[]" value="{{ $key }}"
+                       @checked(true) @disabled($locked) />
+                {{ $label }}@if($locked) <span class="muted">(required)</span>@endif
+              </label>
+            @endforeach
+          </div>
+          <button class="btn btn-primary btn-sm" type="submit">Download sheet</button>
+        </form>
+      </details>
       <div style="display:flex;gap:.6rem;flex-wrap:wrap">
         <a class="btn btn-primary btn-sm" href="{{ route('school.students.create', ['school' => $school->slug]) }}">Add a student</a>
         <a class="btn btn-ghost btn-sm" href="{{ route('school.students.import', ['school' => $school->slug]) }}">Bulk import from CSV</a>
