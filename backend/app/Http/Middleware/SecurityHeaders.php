@@ -49,6 +49,54 @@ class SecurityHeaders
             'camera=(self), microphone=(self), display-capture=(self), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=()'
         );
 
+        // Content-Security-Policy. Be clear about what this does and
+        // does not do: 'unsafe-inline' stays for scripts and styles,
+        // because this app has 225 inline event handlers, 86 views with
+        // inline <script>, 70 with inline <style> and ~2,900 inline
+        // style attributes. A policy strict enough to stop inline XSS
+        // would break every one of them, and rushing that refactor on a
+        // live platform is how a site goes down. So this is NOT XSS
+        // protection.
+        //
+        // What it genuinely does stop, all of which are real and worth
+        // having on their own:
+        //  - script-src 'self': an injected <script src="//evil.com/x.js">
+        //    will not load. Only this origin can serve executable code.
+        //  - connect-src 'self': injected code cannot exfiltrate student
+        //    data to an outside host via fetch/XHR/WebSocket.
+        //  - form-action 'self': an injected form cannot post a parent's
+        //    credentials to an attacker's domain.
+        //  - base-uri 'self': stops a <base> tag hijacking every relative
+        //    URL on the page.
+        //  - object-src 'none': removes the plugin/embed vector entirely.
+        //  - frame-ancestors 'self': clickjacking, matching the
+        //    X-Frame-Options above for browsers that prefer CSP.
+        //
+        // Verified before enabling: the application references no
+        // external host at all (the only one in the codebase is
+        // Laravel's stock, unrouted welcome.blade.php), so 'self' does
+        // not cut off anything real.
+        //
+        // 'wasm-unsafe-eval' is required, not incidental: CBT proctoring
+        // runs YOLOv5n through ONNX Runtime, which compiles WebAssembly.
+        // Without it, live proctoring silently stops working. blob: on
+        // media-src and worker-src is needed for the same feature's
+        // camera capture and its model workers.
+        $response->headers->set('Content-Security-Policy', implode('; ', [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: blob:",
+            "font-src 'self' data:",
+            "connect-src 'self'",
+            "media-src 'self' blob:",
+            "worker-src 'self' blob:",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "frame-ancestors 'self'",
+        ]));
+
         // HSTS only over a real HTTPS request, and only in production:
         // sending it from a plain-HTTP local dev environment would pin
         // localhost to HTTPS in the developer's own browser and lock
