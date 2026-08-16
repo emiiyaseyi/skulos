@@ -6,6 +6,7 @@ use App\Models\Tenant\ClassArm;
 use App\Models\Tenant\House;
 use App\Models\Tenant\Setting;
 use App\Models\Tenant\Student;
+use App\Models\Tenant\StudentGuardian;
 use App\Services\Bulk\Importer;
 use Illuminate\Validation\Rule;
 
@@ -54,6 +55,19 @@ class StudentImporter extends Importer
             'date_of_birth' => 'Date of Birth (YYYY-MM-DD)',
             'email' => 'Email (optional)',
             'parent_mobile' => 'Parent Mobile',
+            // Real guardian columns (2026-08-16): the sheet only ever
+            // carried a bare mobile number, which created no guardian
+            // record at all -- so an imported school had students with
+            // nobody attached, and every parent had to be added again by
+            // hand afterwards.
+            'parent1_name' => 'Parent/Guardian 1 Name',
+            'parent1_email' => 'Parent/Guardian 1 Email',
+            'parent1_phone' => 'Parent/Guardian 1 Phone',
+            'parent1_relationship' => 'Parent/Guardian 1 Relationship',
+            'parent2_name' => 'Parent/Guardian 2 Name',
+            'parent2_email' => 'Parent/Guardian 2 Email',
+            'parent2_phone' => 'Parent/Guardian 2 Phone',
+            'parent2_relationship' => 'Parent/Guardian 2 Relationship',
             'class' => 'Class',
             'house' => 'House',
             'state_of_origin' => 'State of Origin',
@@ -97,6 +111,14 @@ class StudentImporter extends Importer
                     }
                 },
             ],
+            'parent1_name' => [$this->requiredOrNullable('parent1_name'), 'string', 'max:150'],
+            'parent1_email' => ['nullable', 'email', 'max:150'],
+            'parent1_phone' => ['nullable', 'string', 'max:40'],
+            'parent1_relationship' => ['nullable', 'string', 'max:40'],
+            'parent2_name' => ['nullable', 'string', 'max:150'],
+            'parent2_email' => ['nullable', 'email', 'max:150'],
+            'parent2_phone' => ['nullable', 'string', 'max:40'],
+            'parent2_relationship' => ['nullable', 'string', 'max:40'],
             'state_of_origin' => [$this->requiredOrNullable('state_of_origin'), 'string', 'max:100'],
             'lga' => [$this->requiredOrNullable('lga'), 'string', 'max:100'],
             'address' => [$this->requiredOrNullable('address'), 'string', 'max:500'],
@@ -108,9 +130,18 @@ class StudentImporter extends Importer
         return ['admission_number'];
     }
 
+    /** Powers the preview's "already on record" flag. */
+    protected function existsAlready(string $column, string $value): bool
+    {
+        // withTrashed on purpose: a withdrawn student still owns their
+        // admission number, so re-importing it would collide at the
+        // database level even though nothing is visible on screen.
+        return Student::withTrashed()->where($column, $value)->exists();
+    }
+
     protected function persist(array $row): void
     {
-        Student::create([
+        $student = Student::create([
             'admission_number' => $row['admission_number'],
             'first_name' => $row['first_name'],
             'last_name' => $row['last_name'],
@@ -125,6 +156,38 @@ class StudentImporter extends Importer
             'lga' => $row['lga'] ?? null,
             'address' => $row['address'] ?? null,
         ]);
+
+        // A guardian row per parent given. Written here rather than left
+        // to a later manual step, because a student imported with no
+        // guardian has nobody who can sign in to see them, which is the
+        // main thing a parent account is for.
+        foreach (['parent1', 'parent2'] as $index => $prefix) {
+            $name = trim((string) ($row[$prefix.'_name'] ?? ''));
+            $phone = trim((string) ($row[$prefix.'_phone'] ?? ''));
+            $email = trim((string) ($row[$prefix.'_email'] ?? ''));
+
+            // The legacy single "parent_mobile" column still counts as
+            // the first guardian's phone when no explicit one is given,
+            // so an older sheet keeps working exactly as it did.
+            if ($prefix === 'parent1' && $phone === '') {
+                $phone = trim((string) ($row['parent_mobile'] ?? ''));
+            }
+
+            if ($name === '' && $phone === '' && $email === '') {
+                continue;
+            }
+
+            StudentGuardian::create([
+                'student_id' => $student->id,
+                'name' => $name !== '' ? $name : 'Parent/Guardian',
+                'relationship' => $row[$prefix.'_relationship'] ?? null,
+                'email' => $email !== '' ? $email : null,
+                'phone' => $phone !== '' ? $phone : null,
+                // The first one given is the primary contact, which is
+                // who notifications and fee reminders go to.
+                'is_primary' => $index === 0,
+            ]);
+        }
     }
 
     protected function resolve(array $lookup, ?string $value): ?int

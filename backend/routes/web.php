@@ -449,6 +449,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::get('/students', [\App\Http\Controllers\School\StudentController::class, 'index'])->name('school.students');
         Route::get('/students/import', [\App\Http\Controllers\School\StudentController::class, 'importForm'])->name('school.students.import');
         Route::post('/students/import', [\App\Http\Controllers\School\StudentController::class, 'import'])->name('school.students.import.run');
+        Route::post('/students/import/confirm', [\App\Http\Controllers\School\StudentController::class, 'confirmImport'])->name('school.students.import.confirm');
         Route::get('/students/template.csv', [\App\Http\Controllers\School\StudentController::class, 'template'])->name('school.students.template');
         Route::get('/students/export.csv', [\App\Http\Controllers\School\StudentController::class, 'export'])->name('school.students.export');
         Route::get('/students/settings', [\App\Http\Controllers\School\StudentController::class, 'editSettings'])->name('school.students.settings.edit');
@@ -532,6 +533,10 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/bulk-action', [$staff, 'bulkAction'])->name('bulk-action');
             Route::get('/create', [$staff, 'create'])->name('create');
             Route::post('/create', [$staff, 'store'])->name('store');
+            Route::get('/import', [$staff, 'importForm'])->name('import');
+            Route::get('/import/template', [$staff, 'importTemplate'])->name('import.template');
+            Route::post('/import', [$staff, 'import'])->name('import.run');
+            Route::post('/import/confirm', [$staff, 'confirmImport'])->name('import.confirm');
             Route::get('/trashed', [$staff, 'trashed'])->name('trashed');
             Route::post('/trashed/bulk-action', [$staff, 'trashedBulkAction'])->name('trashed.bulk-action');
             Route::get('/{staffId}', [$staff, 'show'])->name('show');

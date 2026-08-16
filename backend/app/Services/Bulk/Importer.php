@@ -86,6 +86,121 @@ abstract class Importer
     }
 
     /**
+     * Tidies a row before anything looks at it (2026-08-16). Real
+     * spreadsheets arrive with trailing spaces, doubled spaces inside
+     * names, non-breaking spaces pasted from a website and invisible
+     * zero-width characters from Word. Each turns an otherwise good row
+     * into a mysterious failure, or worse imports a student whose name
+     * silently contains a character nobody can type when searching for
+     * them later.
+     *
+     * Deliberately conservative: whitespace and invisible characters
+     * only. Nothing here changes capitalisation or spelling, because
+     * "correcting" a name is how McDonald becomes Mcdonald against a
+     * family's wishes.
+     */
+    public function normalise(array $row): array
+    {
+        foreach ($row as $key => $value) {
+            if (! is_string($value)) {
+                continue;
+            }
+
+            $clean = preg_replace('/[\x{00A0}\x{2000}-\x{200A}\x{202F}\x{205F}\x{3000}]/u', ' ', $value) ?? $value;
+            $clean = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', $clean) ?? $clean;
+            $clean = preg_replace('/\s+/u', ' ', $clean) ?? $clean;
+
+            $row[$key] = trim($clean);
+        }
+
+        return $row;
+    }
+
+    /**
+     * A dry run: says exactly what WOULD happen without writing
+     * anything, so an admin sees the good and bad rows before deciding
+     * (direct instruction 2026-08-16).
+     *
+     * @param  list<array<string, mixed>>  $rows
+     */
+    public function preview(array $rows): array
+    {
+        $duplicates = $this->findInFileDuplicates($rows);
+        $good = [];
+        $bad = [];
+
+        foreach ($rows as $index => $original) {
+            $row = $this->normalise($original);
+            $rowNumber = $index + self::FIRST_DATA_ROW;
+
+            $validator = Validator::make($row, $this->rules($row));
+            $errors = $validator->fails() ? $validator->errors()->toArray() : [];
+
+            $duplicateOf = [];
+            foreach ($this->uniqueBy() as $column) {
+                if (isset($duplicates[$column][$index])) {
+                    $duplicateOf[] = str_replace('_', ' ', $column).' appears more than once in this file';
+                }
+            }
+
+            // Flagged apart from a plain validation failure: "already on
+            // record" is a different decision for an admin than "this
+            // row is malformed".
+            $existing = $this->existingConflicts($row);
+
+            $entry = [
+                'row' => $rowNumber,
+                'values' => $row,
+                'changed' => $this->changedKeys($original, $row),
+                'errors' => $errors,
+                'duplicate_in_file' => $duplicateOf,
+                'already_on_record' => $existing,
+            ];
+
+            if ($errors === [] && $duplicateOf === [] && $existing === []) {
+                $good[] = $entry;
+            } else {
+                $bad[] = $entry;
+            }
+        }
+
+        return ['good' => $good, 'bad' => $bad, 'total' => count($rows)];
+    }
+
+    /** Which fields normalising actually touched, so the preview can say so honestly. */
+    protected function changedKeys(array $original, array $normalised): array
+    {
+        $changed = [];
+        foreach ($normalised as $key => $value) {
+            if (isset($original[$key]) && is_string($original[$key]) && $original[$key] !== $value) {
+                $changed[] = $key;
+            }
+        }
+
+        return $changed;
+    }
+
+    /** Rows clashing with something already imported, from the importer's own unique keys. */
+    protected function existingConflicts(array $row): array
+    {
+        $conflicts = [];
+        foreach ($this->uniqueBy() as $column) {
+            $value = trim((string) ($row[$column] ?? ''));
+            if ($value !== '' && $this->existsAlready($column, $value)) {
+                $conflicts[] = str_replace('_', ' ', $column).' "'.$value.'" is already on record';
+            }
+        }
+
+        return $conflicts;
+    }
+
+    /** Subclasses with a model to check against override this. */
+    protected function existsAlready(string $column, string $value): bool
+    {
+        return false;
+    }
+
+    /**
      * @param list<array<string, mixed>> $rows
      */
     public function import(array $rows, string $mode = self::MODE_STRICT): ImportResult
@@ -100,6 +215,9 @@ abstract class Importer
         $duplicates = $this->findInFileDuplicates($rows);
 
         foreach ($rows as $index => $row) {
+            // The same tidy-up the preview showed, so what is imported
+            // is exactly what the admin approved, not the raw row.
+            $row = $this->normalise($row);
             $rowNumber = $index + self::FIRST_DATA_ROW;
             $rowErrors = [];
 

@@ -48,6 +48,16 @@ class StaffImporter extends Importer
         return ['staff_id'];
     }
 
+    /** Powers the preview's "already on record" flag. */
+    protected function existsAlready(string $column, string $value): bool
+    {
+        // withTrashed for the same reason students use it: a departed
+        // staff member still holds their staff id, so re-importing it
+        // collides at the database level even though nothing shows on
+        // screen.
+        return Staff::withTrashed()->where($column, $value)->exists();
+    }
+
     protected function persist(array $row): void
     {
         Staff::create([

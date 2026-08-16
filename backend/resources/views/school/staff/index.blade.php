@@ -12,6 +12,7 @@
     @endif
     @if($canCreate)
       <a class="btn btn-primary btn-sm" href="{{ route('school.staff.create', ['school' => $school->slug]) }}">Add staff</a>
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.staff.import', ['school' => $school->slug]) }}">Bulk import</a>
     @endif
   </div>
 </div>

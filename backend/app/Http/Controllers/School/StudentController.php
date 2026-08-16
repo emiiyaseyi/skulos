@@ -366,22 +366,41 @@ class StudentController extends Controller
         $columns = (new StudentImporter)->columns();
         $out = fopen('php://temp', 'r+');
         fputcsv($out, array_keys($columns));
+
+        // Built from the column list rather than a hand-written array
+        // (2026-08-16): those two lists silently drifted apart the
+        // moment guardian columns were added, writing 13 values under
+        // 21 headers so every field after "parent mobile" landed in the
+        // wrong column. Keying off columns() means a future column
+        // cannot misalign the file again.
+        $students->load('guardians');
         foreach ($students as $student) {
-            fputcsv($out, [
-                $student->admission_number,
-                $student->first_name,
-                $student->last_name,
-                $student->other_names,
-                $student->gender,
-                $student->date_of_birth?->toDateString(),
-                $student->email,
-                $student->parent_mobile,
-                $student->currentClassArm?->label(),
-                $student->house?->name,
-                $student->state_of_origin,
-                $student->lga,
-                $student->address,
-            ]);
+            $guardians = $student->guardians->sortByDesc('is_primary')->values();
+            $values = [
+                'admission_number' => $student->admission_number,
+                'first_name' => $student->first_name,
+                'last_name' => $student->last_name,
+                'other_names' => $student->other_names,
+                'gender' => $student->gender,
+                'date_of_birth' => $student->date_of_birth?->toDateString(),
+                'email' => $student->email,
+                'parent_mobile' => $student->parent_mobile,
+                'parent1_name' => $guardians[0]->name ?? null,
+                'parent1_email' => $guardians[0]->email ?? null,
+                'parent1_phone' => $guardians[0]->phone ?? null,
+                'parent1_relationship' => $guardians[0]->relationship ?? null,
+                'parent2_name' => $guardians[1]->name ?? null,
+                'parent2_email' => $guardians[1]->email ?? null,
+                'parent2_phone' => $guardians[1]->phone ?? null,
+                'parent2_relationship' => $guardians[1]->relationship ?? null,
+                'class' => $student->currentClassArm?->label(),
+                'house' => $student->house?->name,
+                'state_of_origin' => $student->state_of_origin,
+                'lga' => $student->lga,
+                'address' => $student->address,
+            ];
+
+            fputcsv($out, array_map(fn ($key) => $values[$key] ?? null, array_keys($columns)));
         }
         rewind($out);
         $csv = (string) stream_get_contents($out);
@@ -421,14 +440,21 @@ class StudentController extends Controller
             return back()->with('error', 'That file could not be read. Download a fresh sheet and fill that in.');
         }
 
-        $result = (new StudentImporter)->import($rows, $request->input('mode'));
+        // Preview first, always (2026-08-16, direct instruction): show
+        // the good and bad rows and let the admin decide, rather than
+        // importing on upload and reporting afterwards when it is too
+        // late to change their mind. The parsed rows are held in the
+        // session so confirming does not need the file uploaded twice.
+        $preview = (new StudentImporter)->preview($rows);
+        $request->session()->put('student_import_rows', $rows);
 
         return view('school.students.import', [
             'school' => $school,
             'accent' => $school->branding()['color'],
             'columns' => (new StudentImporter)->columns(),
             'requiredFields' => Setting::grab('student_required_fields', []),
-            'result' => $result,
+            'preview' => $preview,
+            'result' => null,
         ]);
     }
 
@@ -1278,5 +1304,43 @@ class StudentController extends Controller
         }
 
         return $rows;
+    }
+
+    /**
+     * Writes what the admin approved after seeing the preview. Only
+     * ever imports the rows the preview marked good, so "import the
+     * good ones" cannot quietly pull in a row they were shown as bad.
+     */
+    public function confirmImport(Request $request): \Illuminate\View\View|\Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'students.bulk');
+        $school = $this->school($request);
+
+        $rows = $request->session()->get('student_import_rows');
+        if (! is_array($rows) || $rows === []) {
+            return redirect()->route('school.students.import', ['school' => $school->slug])
+                ->with('error', 'That upload is no longer available. Upload the file again.');
+        }
+
+        $importer = new StudentImporter;
+        $preview = $importer->preview($rows);
+
+        $goodRowNumbers = collect($preview['good'])->pluck('row')->all();
+        $onlyGood = collect($rows)
+            ->filter(fn ($row, $index) => in_array($index + 2, $goodRowNumbers, true))
+            ->values()->all();
+
+        $result = $importer->import($onlyGood, 'partial');
+        $request->session()->forget('student_import_rows');
+
+        return view('school.students.import', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'columns' => $importer->columns(),
+            'requiredFields' => Setting::grab('student_required_fields', []),
+            'preview' => null,
+            'result' => $result,
+            'skipped' => count($preview['bad']),
+        ]);
     }
 }

@@ -376,4 +376,97 @@ class StaffController extends Controller
             'status' => ['required', Rule::in([Staff::STATUS_ACTIVE, Staff::STATUS_ON_LEAVE, Staff::STATUS_SUSPENDED, Staff::STATUS_RESIGNED])],
         ];
     }
+
+    /**
+     * Bulk import of staff (2026-08-16). StaffImporter existed but was
+     * never reachable: there was no route, no controller action and no
+     * button, so the only way to add staff was one at a time. Built
+     * with the preview-then-confirm flow from the start rather than the
+     * import-and-report-afterwards shape students originally had.
+     */
+    public function importForm(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'staff.bulk');
+        $school = $this->school($request);
+
+        return view('school.staff.import', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'columns' => (new \App\Services\Bulk\Importers\StaffImporter)->columns(),
+            'preview' => null,
+            'result' => null,
+        ]);
+    }
+
+    public function importTemplate(Request $request): \Symfony\Component\HttpFoundation\Response
+    {
+        $this->authorizeAction($request, 'staff.bulk');
+
+        $importer = new \App\Services\Bulk\Importers\StaffImporter;
+
+        return response($importer->template(), 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="staff-import.csv"',
+        ]);
+    }
+
+    public function import(Request $request): \Illuminate\View\View|\Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'staff.bulk');
+        $school = $this->school($request);
+
+        $request->validate(['file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:5120']]);
+
+        try {
+            $rows = app(\App\Services\Bulk\CsvReader::class)
+                ->rows(file_get_contents($request->file('file')->getRealPath()));
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        $importer = new \App\Services\Bulk\Importers\StaffImporter;
+        $request->session()->put('staff_import_rows', $rows);
+
+        return view('school.staff.import', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'columns' => $importer->columns(),
+            'preview' => $importer->preview($rows),
+            'result' => null,
+        ]);
+    }
+
+    public function confirmImport(Request $request): \Illuminate\View\View|\Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'staff.bulk');
+        $school = $this->school($request);
+
+        $rows = $request->session()->get('staff_import_rows');
+        if (! is_array($rows) || $rows === []) {
+            return redirect()->route('school.staff.import', ['school' => $school->slug])
+                ->with('error', 'That upload is no longer available. Upload the file again.');
+        }
+
+        $importer = new \App\Services\Bulk\Importers\StaffImporter;
+        $preview = $importer->preview($rows);
+
+        // Only the rows the admin was shown as good, so confirming can
+        // never quietly pull in one they saw flagged.
+        $goodRowNumbers = collect($preview['good'])->pluck('row')->all();
+        $onlyGood = collect($rows)
+            ->filter(fn ($row, $index) => in_array($index + 2, $goodRowNumbers, true))
+            ->values()->all();
+
+        $result = $importer->import($onlyGood, 'partial');
+        $request->session()->forget('staff_import_rows');
+
+        return view('school.staff.import', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'columns' => $importer->columns(),
+            'preview' => null,
+            'result' => $result,
+            'skipped' => count($preview['bad']),
+        ]);
+    }
 }

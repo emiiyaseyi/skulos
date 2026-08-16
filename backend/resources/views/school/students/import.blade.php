@@ -9,6 +9,21 @@
   <a class="btn btn-ghost btn-sm" href="{{ route('school.students', ['school' => $school->slug]) }}">Back to students</a>
 </div>
 
+@if(! empty($preview))
+  @include('school.partials.import-preview', [
+    'preview' => $preview,
+    'columns' => $columns,
+    'confirmRoute' => route('school.students.import.confirm', ['school' => $school->slug]),
+  ])
+@endif
+
+@if(! empty($skipped))
+  <div class="flash flash-warn" style="margin-bottom:1.2rem">
+    {{ $skipped }} row(s) were skipped because they needed attention. Fix them in your file and
+    upload again to add them.
+  </div>
+@endif
+
 @isset($result)
   <div class="card" style="margin-bottom:1.25rem">
     <div class="row-between" style="margin-bottom:.6rem">

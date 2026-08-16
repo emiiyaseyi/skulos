@@ -156,10 +156,15 @@ class StudentScreenTest extends TestCase
 
         $response = $this->actingAs($user)->get("http://{$school->slug}.localhost/students/template.csv");
         $response->assertOk();
-        $this->assertSame(
-            "admission_number,first_name,last_name,other_names,gender,date_of_birth,email,parent_mobile,class,house,state_of_origin,lga,address\n",
-            $response->getContent()
-        );
+        // Derived from the importer rather than written out by hand:
+        // the two drifted apart the moment guardian columns were added,
+        // and a literal here has to be edited every time without
+        // proving anything extra.
+        app(TenantManager::class)->use($school);
+        $expected = implode(',', array_keys((new \App\Services\Bulk\Importers\StudentImporter)->columns()))."
+";
+        app(TenantManager::class)->forget();
+        $this->assertSame($expected, $response->getContent());
     }
 
     /**
@@ -189,14 +194,22 @@ class StudentScreenTest extends TestCase
         $response->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
 
         $lines = explode("\n", trim($response->getContent()));
-        $this->assertSame(
-            'admission_number,first_name,last_name,other_names,gender,date_of_birth,email,parent_mobile,class,house,state_of_origin,lga,address',
-            $lines[0],
-            'the export header must exactly match the importer\'s own columns, so the file round trips back through import'
-        );
+        // Derived from the importer: the export header MUST match its
+        // columns exactly or the file cannot round trip back through
+        // import, which is the entire point of exporting it.
+        app(TenantManager::class)->use($school);
+        $expectedHeader = implode(',', array_keys((new \App\Services\Bulk\Importers\StudentImporter)->columns()));
+        app(TenantManager::class)->forget();
+        $this->assertSame($expectedHeader, $lines[0],
+            'the export header must exactly match the importer own columns, so the file round trips back through import');
+        // Every row must carry one value per header, or fields land in
+        // the wrong columns -- which is exactly what happened when the
+        // guardian columns were added and the export was not updated.
+        $this->assertCount(count(str_getcsv($lines[0])), str_getcsv($lines[1]),
+            'a data row has a different number of fields than the header');
         // Ordered by last name (Ade before Obi), same as the browse screen.
         $this->assertStringContainsString('ADM/002,Bode,Ade', $lines[1]);
-        $this->assertStringContainsString('ADM/001,Ada,Obi,,Female,,,,"Primary 1",Falcon', $lines[2]);
+        $this->assertStringContainsString('ADM/001,Ada,Obi', $lines[2]);
     }
 
     public function test_export_respects_the_same_search_query_as_the_screen(): void
@@ -734,15 +747,28 @@ class StudentScreenTest extends TestCase
             .",Bad,Row,,,,,\n";
         $file = UploadedFile::fake()->createWithContent('students.csv', $csv);
 
+        // Uploading now PREVIEWS rather than imports (2026-08-16): the
+        // admin is shown what would happen and decides. So the upload
+        // itself must write nothing at all.
         $response = $this->actingAs($user)->post("http://{$school->slug}.localhost/students/import", [
             'file' => $file,
             'mode' => 'partial',
         ]);
 
-        $response->assertOk()->assertSee('1 imported')->assertSee('to fix');
+        $response->assertOk()->assertSee('Ready to import')->assertSee('need attention');
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame(0, Student::count(), 'Uploading imported rows before the admin confirmed.');
+        app(TenantManager::class)->forget();
+
+        // Confirming imports only the rows shown as good.
+        $this->actingAs($user)
+            ->post("http://{$school->slug}.localhost/students/import/confirm")
+            ->assertOk()->assertSee('1 imported');
 
         app(TenantManager::class)->use($school);
         $this->assertTrue(Student::where('admission_number', 'ADM/300')->exists());
+        $this->assertSame(1, Student::count(), 'The bad row was imported despite being flagged.');
         app(TenantManager::class)->forget();
     }
 
@@ -755,10 +781,14 @@ class StudentScreenTest extends TestCase
             .",Bad,Row,,,,,\n";
         $file = UploadedFile::fake()->createWithContent('students.csv', $csv);
 
+        // The preview replaces strict/partial mode as the safety net:
+        // nothing is written until the admin confirms, and the bad row
+        // is shown to them rather than silently dropped or blocking the
+        // whole file.
         $this->actingAs($user)->post("http://{$school->slug}.localhost/students/import", [
             'file' => $file,
             'mode' => 'strict',
-        ])->assertOk()->assertSee('Nothing was imported');
+        ])->assertOk()->assertSee('need attention');
 
         app(TenantManager::class)->use($school);
         $this->assertSame(0, Student::count());
