@@ -236,8 +236,11 @@ class Applicant extends Authenticatable
         $style = Setting::grab('admission_password_style') ?? config('skulos.default_admission_password_style', 'random');
         $plain = match ($style) {
             'numeric' => collect(range(1, $length))->map(fn () => random_int(0, 9))->implode(''),
-            'alphanumeric' => \Illuminate\Support\Str::password($length, symbols: false),
-            default => \Illuminate\Support\Str::password($length),
+            'alphanumeric' => \App\Support\TemporaryPassword::generate($length),
+            // No symbols even on the default: this password is
+            // shown in an email and often read aloud to a parent by
+            // phone, and symbols do not survive either (2026-08-16).
+            default => \App\Support\TemporaryPassword::generate($length),
         };
         $ttlDays = (int) (Setting::grab('admission_account_ttl_days') ?? config('skulos.default_admission_account_ttl_days', 30));
 

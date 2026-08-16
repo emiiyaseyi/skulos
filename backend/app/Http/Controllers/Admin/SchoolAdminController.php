@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use App\Support\TemporaryPassword;
 
 /**
  * Platform super admin: create and oversee schools (the Schools section,
@@ -86,6 +87,42 @@ class SchoolAdminController extends Controller
             'admins' => $school->users()->wherePivot('status', 'active')->count(),
             'counts' => $counts,
         ]);
+    }
+
+    /**
+     * Change a school's subdomain (2026-08-16). Safe to do at any time:
+     * the tenant database name is stored on schools.database and was
+     * fixed at provisioning, so it is NOT derived from the slug at
+     * runtime -- renaming here re-points the web address without
+     * touching, moving or renaming a single row of the school's data.
+     *
+     * The old address stops working immediately, which is the honest
+     * behaviour (there is no redirect infrastructure for a subdomain
+     * that no longer resolves to anything), so the confirmation says so
+     * rather than letting an admin discover it from a confused parent.
+     */
+    public function updateSlug(Request $request, School $school): RedirectResponse
+    {
+        $data = $request->validate([
+            'slug' => ['required', 'string', 'max:60', 'regex:/^[a-zA-Z0-9]+$/', Rule::unique('schools', 'slug')->ignore($school->id)],
+        ]);
+
+        $old = $school->slug;
+        // Normalised the same way every other slug is, so a typed
+        // capital can never produce an address a browser will not match.
+        $new = Str::slug($data['slug'], '');
+
+        if ($new === '') {
+            return back()->with('error', 'That address is not usable. Use letters and numbers only.');
+        }
+        if ($new !== $old && School::where('slug', $new)->exists()) {
+            return back()->with('error', "The address '{$new}' is already taken.");
+        }
+
+        $school->forceFill(['slug' => $new])->save();
+
+        return back()->with('status',
+            "{$school->name} now signs in at {$new}.".config('app.domain').". The previous address ({$old}.".config('app.domain').") no longer works, so anyone with it bookmarked needs the new one.");
     }
 
     /** Set or clear a school's next billing date, admin entered for now. */
@@ -453,7 +490,7 @@ class SchoolAdminController extends Controller
     {
         abort_unless($school->users()->whereKey($user->id)->exists(), 404);
 
-        $newPassword = Str::password(12);
+        $newPassword = TemporaryPassword::generate();
         $user->update(['password' => Hash::make($newPassword)]);
 
         Mail::to($user->email)->send(new PasswordResetByAdminMail($user, $school, $newPassword));
@@ -517,7 +554,7 @@ class SchoolAdminController extends Controller
 
         if ($data['action'] === 'reset-password') {
             foreach ($members as $admin) {
-                $newPassword = Str::password(12);
+                $newPassword = TemporaryPassword::generate();
                 $admin->update(['password' => Hash::make($newPassword)]);
                 Mail::to($admin->email)->send(new PasswordResetByAdminMail($admin, $school, $newPassword));
             }

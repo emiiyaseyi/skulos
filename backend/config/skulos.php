@@ -1964,6 +1964,33 @@ return [
     'default_houses' => ['Red House', 'Blue House', 'Green House', 'Yellow House'],
 
     /*
+    | The starter club catalog a school can load in one click, or add to
+    | (2026-08-16, supplied by the platform owner). Seeds a real tenant
+    | table on demand -- nothing reads this list at runtime once a
+    | school has its own clubs, so a school is free to rename, retire or
+    | replace any of them.
+    |
+    | Clubs are optional: a school that never enables them sees no club
+    | field on a student profile or report card at all (the
+    | 'clubs_enabled' tenant setting, default off).
+    */
+    'default_clubs' => [
+        'JETS Club',
+        'Mathematics Club',
+        'AI / ICT / Coding Club',
+        'Language Clubs',
+        'Literary and Debating Society',
+        'Press Club',
+        'Drama & Cultural Troupe',
+        'Fine Arts & Craft',
+        'Young Farmers Club',
+        'Homemakers / Home Economics Club',
+        'Business & Enterprise Club',
+        'Boy Scout & Girl Guide',
+        'Red Cross Society',
+    ],
+
+    /*
     | Extracurricular clubs schools:populate-scores picks from when
     | backfilling a demo student's "club" field on the report card's
     | Physical & Attendance section (user request 2026-07-24: "populate

@@ -62,7 +62,7 @@ class SetupScreenTest extends TestCase
         // its own distinct branch of the template, so a broken branch
         // would otherwise only surface for whichever real school
         // happened to reach that step.
-        for ($step = 1; $step <= 9; $step++) {
+        for ($step = 1; $step <= 10; $step++) {
             $this->actingAs($owner)
                 ->get(route('school.setup', ['school' => $school->slug, 'step' => $step]))
                 ->assertOk();

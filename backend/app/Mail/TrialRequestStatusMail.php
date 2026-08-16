@@ -92,7 +92,7 @@ class TrialRequestStatusMail extends Mailable
                 .'<p style="margin:0 0 4px;"><strong>Email:</strong> '.e($this->credentials['email']).'</p>'
                 .'<p style="margin:0;"><strong>Temporary password:</strong> '.e($this->credentials['password']).'</p>'
                 .'</td></tr></table>'
-                .'<p style="margin:0 0 16px;color:#7C8698;font-size:13px;">Please sign in and change this password as soon as you can.</p>';
+                .'<p style="margin:0 0 16px;color:#7C8698;font-size:13px;">Please sign in and change this password as soon as you can. This web address was chosen for your school automatically; if you would prefer a different one, reply to this email and we will change it for you.</p>';
 
             $text .= "\n\nYour sign in details\nPortal: {$this->credentials['portal_url']}\nEmail: {$this->credentials['email']}\nTemporary password: {$this->credentials['password']}\n\nPlease sign in and change this password as soon as you can.";
         }

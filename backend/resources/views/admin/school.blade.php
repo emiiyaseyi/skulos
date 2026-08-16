@@ -16,6 +16,21 @@
     <tbody>
       <tr><th>Status</th><td>{{ ucfirst($school->status) }}</td></tr>
       <tr><th>Database</th><td class="muted">{{ $school->database }}</td></tr>
+      <tr>
+        <th>Web address</th>
+        <td>
+          <form method="POST" action="{{ route('admin.schools.slug', $school) }}" style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
+            @csrf
+            <input name="slug" value="{{ $school->slug }}" maxlength="60" pattern="[a-zA-Z0-9]+" required style="max-width:12rem" />
+            <span class="muted">.{{ config('app.domain') }}</span>
+            <button class="btn btn-ghost btn-sm" type="submit">Save</button>
+          </form>
+          <p class="hint" style="margin-top:.3rem">
+            Letters and numbers only. The school's data is untouched by a change here, but the old
+            address stops working immediately, so anyone with it bookmarked will need the new one.
+          </p>
+        </td>
+      </tr>
       <tr><th>Contact email</th><td>{{ $school->email ?: 'Not set' }}</td></tr>
       <tr><th>Contact phone</th><td>{{ $school->phone ?: 'Not set' }}</td></tr>
       <tr><th>Provisioned</th><td>{{ $school->provisioned_at?->toDayDateTimeString() ?: 'No' }}</td></tr>

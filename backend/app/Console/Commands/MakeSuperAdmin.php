@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use App\Support\TemporaryPassword;
 
 class MakeSuperAdmin extends Command
 {
@@ -20,7 +21,7 @@ class MakeSuperAdmin extends Command
     {
         $email = Str::lower($this->argument('email'));
         $name = $this->option('name') ?: Str::headline(Str::before($email, '@'));
-        $password = $this->option('password') ?: Str::password(16);
+        $password = $this->option('password') ?: TemporaryPassword::generate(16);
         $generated = ! $this->option('password');
 
         $user = User::firstOrNew(['email' => $email]);

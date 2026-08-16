@@ -560,6 +560,21 @@
   // unrestricted admin one, each still only ever sees their own scoped
   // assignments once they get to the actual screen (see
   // AssignmentController::index()'s TeacherScope/FamilyScope filtering).
+  // Clubs (2026-08-16), sitting with Houses under Academic since they
+  // are the same kind of thing to an admin. Checked by real RBAC
+  // permission rather than a plan-feature key, the same way Assignments
+  // below is: clubs are not part of any launch plan's feature list, so
+  // gating them there would hide an already-built screen from every
+  // school on those tiers. Parents and students are excluded outright
+  // (they hold students.view only to see their own child), matching the
+  // block ClubController itself applies.
+  if (! in_array($scopedRoleSlug, ['parent', 'student'], true)
+      && $navRbac->check($navUser, $school, 'students.view')
+      && ! isset($renderedRoutes['school.clubs.index'])) {
+    $renderedRoutes['school.clubs.index'] = true;
+    $groups['Academic'][] = $link('school.clubs.index', 'Clubs', 'house');
+  }
+
   if ($navRbac->check($navUser, $school, 'assignments.view') && ! isset($renderedRoutes['school.assignments.index'])) {
     $renderedRoutes['school.assignments.index'] = true;
     // A parent gets the dedicated per-child cards screen instead of the

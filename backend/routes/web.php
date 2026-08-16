@@ -83,6 +83,8 @@ Route::domain($appDomain)->group(function () {
     Route::get('/trial', [\App\Http\Controllers\TrialRequestController::class, 'create'])->name('trial.create');
     Route::post('/trial', [\App\Http\Controllers\TrialRequestController::class, 'store'])->name('trial.store');
     Route::get('/trial/thanks', [\App\Http\Controllers\TrialRequestController::class, 'thanks'])->name('trial.thanks');
+    Route::get('/trial/check-slug', [\App\Http\Controllers\TrialRequestController::class, 'checkSlug'])
+        ->middleware('throttle:60,1')->name('trial.check-slug');
 
     Route::middleware(['auth', 'super_admin'])->prefix('admin')->name('admin.')->group(function () {
         Route::get('/', [\App\Http\Controllers\Admin\PlatformDashboardController::class, 'index'])->name('dashboard');
@@ -135,6 +137,7 @@ Route::domain($appDomain)->group(function () {
         Route::get('/schools/{school}', [SchoolAdminController::class, 'show'])->name('schools.show');
         Route::get('/schools/{school}/overview', [SchoolAdminController::class, 'overview'])->name('schools.overview');
         Route::post('/schools/{school}/billing-date', [SchoolAdminController::class, 'updateBillingDate'])->name('schools.billing-date');
+        Route::post('/schools/{school}/slug', [SchoolAdminController::class, 'updateSlug'])->name('schools.slug');
         Route::post('/schools/{school}/clone', [SchoolAdminController::class, 'cloneSchool'])->name('schools.clone');
         Route::post('/schools/{school}/license/enable', [SchoolAdminController::class, 'enableSelfHosted'])->name('schools.license.enable');
         Route::post('/schools/{school}/license/regenerate', [SchoolAdminController::class, 'regenerateLicense'])->name('schools.license.regenerate');
@@ -593,6 +596,25 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/{houseId}/toggle-active', [$houses, 'toggleActive'])->name('toggle-active');
             Route::get('/{houseId}/members.csv', [$houses, 'downloadMembers'])->name('download-members');
             Route::delete('/{houseId}', [$houses, 'destroy'])->name('destroy');
+        });
+        // Clubs, deliberately the same route shape as houses above so
+        // the two screens behave identically for an admin.
+        Route::prefix('clubs')->name('school.clubs.')->group(function () {
+            $clubs = \App\Http\Controllers\School\ClubController::class;
+            Route::get('/', [$clubs, 'index'])->name('index');
+            Route::post('/', [$clubs, 'store'])->name('store');
+            Route::post('/apply-defaults', [$clubs, 'applyDefaults'])->name('apply-defaults');
+            Route::post('/toggle-enabled', [$clubs, 'toggleEnabled'])->name('toggle-enabled');
+            Route::post('/distribute-members', [$clubs, 'distributeMembers'])->name('distribute');
+            Route::get('/assign', [$clubs, 'assignForm'])->name('assign-form');
+            Route::post('/assign', [$clubs, 'assign'])->name('assign');
+            Route::get('/bulk-template', [$clubs, 'bulkTemplate'])->name('bulk-template');
+            Route::post('/bulk-upload', [$clubs, 'bulkUpload'])->name('bulk-upload');
+            Route::post('/bulk-action', [$clubs, 'bulkAction'])->name('bulk-action');
+            Route::get('/{clubId}', [$clubs, 'show'])->name('show');
+            Route::post('/{clubId}', [$clubs, 'update'])->name('update');
+            Route::post('/{clubId}/toggle-active', [$clubs, 'toggleActive'])->name('toggle-active');
+            Route::delete('/{clubId}', [$clubs, 'destroy'])->name('destroy');
         });
         Route::prefix('attendance')->name('school.attendance.')->group(function () {
             $attendance = \App\Http\Controllers\School\AttendanceController::class;

@@ -126,6 +126,23 @@
       @endif
     @endif
 
+  @elseif($step['key'] === 'clubs')
+    <h3 style="margin-bottom:.3rem">Clubs</h3>
+    @if($step['done'])
+      <p class="muted" style="margin-bottom:0">Clubs are set up. Assign students, staff and parents under Clubs.</p>
+    @else
+      <p class="muted" style="margin-bottom:.7rem">
+        Optional. If your school runs clubs, load the standard list to start with and adjust it
+        afterwards under Clubs. If not, skip this step and nothing about clubs appears anywhere.
+      </p>
+      @if($canManageStudentSettings)
+        <form method="POST" action="{{ route('school.clubs.apply-defaults', ['school' => $school->slug]) }}">
+          @csrf
+          <button class="btn btn-primary btn-sm" type="submit">Load the standard clubs</button>
+        </form>
+      @endif
+    @endif
+
   @elseif($step['key'] === 'assessment')
     <h3 style="margin-bottom:.3rem">Assessment structure</h3>
     @if($step['done'])

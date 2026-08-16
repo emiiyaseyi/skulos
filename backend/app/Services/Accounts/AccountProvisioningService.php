@@ -10,6 +10,7 @@ use App\Services\Rbac\Rbac;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use App\Support\TemporaryPassword;
 
 /**
  * Creating a login for a staff member or a parent/guardian (Staff and
@@ -35,7 +36,7 @@ class AccountProvisioningService
     public function provision(School $school, string $name, string $email, string $roleSlug): array
     {
         $email = Str::lower($email);
-        $password = Str::password(12);
+        $password = TemporaryPassword::generate();
 
         $user = User::firstOrNew(['email' => $email]);
         $isNewLogin = ! $user->exists || ! $school->users()->whereKey($user->id)->exists();
@@ -125,7 +126,7 @@ class AccountProvisioningService
 
     public function resetPassword(School $school, User $user): string
     {
-        $password = Str::password(12);
+        $password = TemporaryPassword::generate();
         $user->password = Hash::make($password);
         $user->must_change_password = true;
         $user->save();

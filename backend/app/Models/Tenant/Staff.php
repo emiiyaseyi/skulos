@@ -33,7 +33,7 @@ class Staff extends Model
     protected $fillable = [
         'staff_id', 'first_name', 'last_name', 'other_names', 'gender',
         'email', 'phone', 'position', 'date_of_birth', 'employed_on',
-        'qualification', 'address', 'passport_path', 'custom', 'status', 'user_id', 'house_id',
+        'qualification', 'address', 'passport_path', 'custom', 'status', 'user_id', 'house_id', 'club_id',
     ];
 
     protected function casts(): array
@@ -53,6 +53,11 @@ class Staff extends Model
     public function house(): BelongsTo
     {
         return $this->belongsTo(House::class);
+    }
+
+    public function club(): BelongsTo
+    {
+        return $this->belongsTo(Club::class);
     }
 
     /**

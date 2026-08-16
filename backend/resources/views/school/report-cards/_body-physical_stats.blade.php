@@ -15,7 +15,12 @@
       <table class="rc-traits">
         <tr><td>Height</td><td class="val">{{ $data['physical']['height'] ?? 'N/A' }}</td></tr>
         <tr><td>Weight</td><td class="val">{{ $data['physical']['weight'] ?? 'N/A' }}</td></tr>
-        <tr><td>Club</td><td class="val">{{ $data['physical']['club'] ?? 'N/A' }}</td></tr>
+        {{-- Clubs are optional (2026-08-16): a school that does not run
+             them should not see an empty "Club: N/A" line on every
+             report card, which is what this printed before. --}}
+        @if($data['physical']['clubs_enabled'] ?? false)
+          <tr><td>Club</td><td class="val">{{ $data['physical']['club'] ?: 'N/A' }}</td></tr>
+        @endif
         <tr><td>Days school was open</td><td class="val">{{ $data['physical']['total_school_days'] ?? 'N/A' }}</td></tr>
         <tr><td>Times absent</td><td class="val">{{ $data['physical']['times_absent'] ?? 'N/A' }}</td></tr>
       </table>

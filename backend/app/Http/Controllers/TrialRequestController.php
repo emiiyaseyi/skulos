@@ -33,6 +33,10 @@ class TrialRequestController extends Controller
 
         $data = $request->validate([
             'school_name' => ['required', 'string', 'max:150'],
+            // The subdomain they would like. Validated for shape only;
+            // availability is re-checked at approval time, since another
+            // school could claim the same one in between.
+            'preferred_slug' => ['nullable', 'string', 'max:60', 'regex:/^[a-zA-Z0-9]+$/'],
             'contact_name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:150'],
             'phone' => ['nullable', 'string', 'max:40'],
@@ -40,9 +44,40 @@ class TrialRequestController extends Controller
             'message' => ['nullable', 'string', 'max:1000'],
         ]);
 
+        if (! empty($data['preferred_slug'])) {
+            $data['preferred_slug'] = \Illuminate\Support\Str::slug($data['preferred_slug'], '');
+        }
+
         TrialRequest::create($data);
 
         return redirect()->route('trial.thanks');
+    }
+
+    /**
+     * Live "is this subdomain free" check for the trial form. Public on
+     * purpose: it only ever reveals whether a subdomain is taken, which
+     * is already observable by visiting it, and the form is unusable
+     * without it. Throttled at the route.
+     */
+    public function checkSlug(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $raw = (string) $request->query('slug', '');
+        $slug = \Illuminate\Support\Str::slug($raw, '');
+
+        if ($slug === '') {
+            return response()->json(['ok' => false, 'reason' => 'Enter a name using letters and numbers only.']);
+        }
+
+        $taken = \App\Models\School::where('slug', $slug)->exists()
+            || TrialRequest::where('preferred_slug', $slug)->where('status', TrialRequest::STATUS_PENDING)->exists();
+
+        return response()->json([
+            'ok' => ! $taken,
+            'slug' => $slug,
+            'url' => $slug.'.'.config('app.domain'),
+            'suggestions' => $taken ? [$slug.'school', $slug.'academy', $slug.date('y')] : [],
+            'reason' => $taken ? 'That address is already taken.' : null,
+        ]);
     }
 
     public function thanks(): \Illuminate\View\View

@@ -40,6 +40,23 @@
         <label for="school_name">School name</label>
         <input id="school_name" name="school_name" value="{{ old('school_name') }}" required />
       </div>
+
+      {{-- The school's own web address (2026-08-16). Asked here rather
+           than derived silently at approval time, so a school sees and
+           chooses it up front instead of finding out in the approval
+           email. Availability is checked live, but re-checked at
+           approval, since another school could claim the same name in
+           between. --}}
+      <div class="field">
+        <label for="preferred_slug">Your school's web address</label>
+        <div style="display:flex;align-items:center;gap:.35rem;flex-wrap:wrap">
+          <input id="preferred_slug" name="preferred_slug" value="{{ old('preferred_slug') }}"
+                 maxlength="60" placeholder="brightstaracademy" pattern="[a-zA-Z0-9]+"
+                 style="flex:1;min-width:12rem" />
+          <span class="muted">.{{ config('app.domain') }}</span>
+        </div>
+        <div class="hint" id="slugPreview">Letters and numbers only, no spaces. Leave blank and we will suggest one.</div>
+      </div>
       <div class="grid cols-2">
         <div class="field">
           <label for="contact_name">Your name</label>
@@ -66,6 +83,45 @@
       </div>
       <button class="btn btn-primary btn-block" type="submit">Request a trial</button>
     </form>
+
+<script>
+(function () {
+  var input = document.getElementById('preferred_slug');
+  var note = document.getElementById('slugPreview');
+  if (!input || !note) return;
+  var timer = null;
+
+  function check() {
+    var value = input.value.trim();
+    if (!value) {
+      note.textContent = 'Letters and numbers only, no spaces. Leave blank and we will suggest one.';
+      note.style.color = '';
+      return;
+    }
+    fetch('{{ route('trial.check-slug') }}?slug=' + encodeURIComponent(value))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok) {
+          note.textContent = data.url + ' is available.';
+          note.style.color = 'var(--ok, #12A97B)';
+        } else {
+          var msg = data.reason || 'That address is not available.';
+          if (data.suggestions && data.suggestions.length) {
+            msg += ' Try: ' + data.suggestions.join(', ');
+          }
+          note.textContent = msg;
+          note.style.color = 'var(--bad, #E14F63)';
+        }
+      })
+      .catch(function () { /* leave the hint as it is if the check cannot run */ });
+  }
+
+  input.addEventListener('input', function () {
+    clearTimeout(timer);
+    timer = setTimeout(check, 400);
+  });
+})();
+</script>
     <p class="trial-powered">Powered by <b>SK<em>U</em>LOS</b></p>
   </div>
 </div>

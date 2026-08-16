@@ -226,7 +226,12 @@ class ReportCardService
             'physical' => [
                 'height' => $remark?->height,
                 'weight' => $remark?->weight,
-                'club' => $remark?->club,
+                // The student's real assigned club wins; the old
+                // free-text value typed on the term remark is the
+                // fallback so report cards for terms recorded before
+                // clubs existed still read exactly as they did.
+                'club' => $student->club?->name ?: $remark?->club,
+                'clubs_enabled' => (bool) \App\Models\Tenant\Setting::grab('clubs_enabled', false),
                 'total_school_days' => $term->total_school_days,
                 'times_absent' => $attendance['total'] - $attendance['present'],
                 'class_teacher_name' => $classTeacher?->fullName(),

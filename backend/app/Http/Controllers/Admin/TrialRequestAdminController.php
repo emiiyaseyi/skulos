@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use App\Support\TemporaryPassword;
 
 /**
  * Platform admin reviews "Start a Trial" leads (user request 2026-07-09):
@@ -55,8 +56,8 @@ class TrialRequestAdminController extends Controller
     {
         $data = $request->validate(['review_note' => ['nullable', 'string', 'max:2000']]);
 
-        $slug = $this->uniqueSlug($trialRequest->school_name);
-        $temporaryPassword = Str::password(12);
+        $slug = self::uniqueSlug($trialRequest->school_name, $trialRequest->preferred_slug);
+        $temporaryPassword = TemporaryPassword::generate();
 
         $school = School::create([
             'name' => $trialRequest->school_name,
@@ -152,14 +153,26 @@ class TrialRequestAdminController extends Controller
         return back()->with('status', "{$trials->count()} trial request(s) declined and emailed.");
     }
 
-    protected function uniqueSlug(string $name): string
+    /**
+     * A school's subdomain. No separator (2026-08-16, direct
+     * instruction): Str::slug()'s default turns "Bright Star Academy"
+     * into "bright-star-academy", and a hyphenated subdomain is harder
+     * to say aloud, easier to mistype, and looks worse on a letterhead
+     * than "brightstaracademy". The numeric suffix a clash falls back
+     * to is appended for the same reason without one.
+     *
+     * A school that wants something different is not stuck with this:
+     * the approval email says so, and a platform admin can change the
+     * subdomain afterwards from the school's own Manage page.
+     */
+    public static function uniqueSlug(string $name, ?string $preferred = null): string
     {
-        $base = Str::slug($name) ?: 'school';
+        $base = Str::slug($preferred ?: $name, '') ?: 'school';
         $slug = $base;
         $suffix = 1;
 
         while (School::where('slug', $slug)->exists()) {
-            $slug = "{$base}-".(++$suffix);
+            $slug = $base.(++$suffix);
         }
 
         return $slug;

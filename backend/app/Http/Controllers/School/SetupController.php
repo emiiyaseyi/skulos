@@ -47,12 +47,16 @@ class SetupController extends Controller
         $hasSession = AcademicSession::exists();
         $hasClasses = Section::whereHas('classes')->exists();
         $hasHouses = House::exists();
+        $hasClubs = \App\Models\Tenant\Club::exists();
         $hasAssessment = AssessmentComponent::exists();
         $hasStudents = Student::exists();
         $hasStaff = Staff::exists();
 
         $allRealStepsDone = (bool) ($school->brand_color || $school->logo_path || $school->welcome_headline)
             && $hasSession && $hasClasses && $hasHouses && $hasAssessment && $hasStudents && $hasStaff;
+        // $hasClubs is deliberately NOT part of this: clubs are optional,
+        // so a school that does not run them must still be able to reach
+        // a finished setup.
 
         $steps = [
             ['key' => 'welcome', 'title' => 'Welcome', 'done' => true],
@@ -60,6 +64,7 @@ class SetupController extends Controller
             ['key' => 'session', 'title' => 'Session & term', 'done' => $hasSession],
             ['key' => 'classes', 'title' => 'Class structure', 'done' => $hasClasses],
             ['key' => 'houses', 'title' => 'Houses', 'done' => $hasHouses],
+            ['key' => 'clubs', 'title' => 'Clubs', 'done' => $hasClubs],
             ['key' => 'assessment', 'title' => 'Assessment structure', 'done' => $hasAssessment],
             ['key' => 'students', 'title' => 'Students', 'done' => $hasStudents],
             ['key' => 'staff', 'title' => 'Staff', 'done' => $hasStaff],
