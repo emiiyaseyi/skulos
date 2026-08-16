@@ -83,6 +83,14 @@ Local dev uses SQLite as a stand in for MySQL. Production uses MySQL per the con
 - Redis and Meilisearch are optional locally; wire Redis in production once queue volume outgrows the `database` driver's polling, and Meilisearch for search if/when that's introduced.
 - Add `php artisan schedule:run` to cPanel's cron every minute (`* * * * * php /path/to/artisan schedule:run >> /dev/null 2>&1`), or nothing scheduled (backups, etc) will ever fire. Confirm with `php artisan schedule:list` after setup.
 
+**Redeploying an update to this platform (every time, not just the first deploy).** The command run so far each time has been:
+
+```
+cd ~/skulos && git pull origin main && cd backend && php artisan migrate --force && php artisan optimize:clear && php artisan optimize
+```
+
+`php artisan optimize` (Laravel 12) caches config, routes, views, and events in one call — this matters concretely here, not just as generic advice: `routes/web.php` is over 1,300 lines and has grown by several hundred lines in a single evening's worth of features (2026-08-16), and without route caching, PHP re-parses that entire file, including every closure and every `Route::domain()`/`Route::prefix()` group, on every single request. A page that felt fine before a large batch of new routes landed can measurably slow down afterward for exactly this reason, with nothing wrong in the new code itself. **If pages feel slower after a deploy and the command above was run, that already covers it** — the likelier miss is forgetting `optimize:clear` first (a stale cached route/config file from before the pull can otherwise mask that the new code even took effect) or running `optimize` before `migrate` (irrelevant to speed, but a stale config cache can point migrate at the wrong database if `.env` also changed). If a change ever adds a tenant migration, a new `extra_permissions` entry, or a module/plan change, run `php artisan skulos:resync` (see above) between `migrate --force` and `optimize:clear`, not after.
+
 ### Self-hosted deployment: one school running its own copy on its own cPanel account
 
 This is a different scenario from the "Backend on cPanel" section above. That section is SKULOS's own production hosting, one Laravel install serving every school as a subdomain tenant. This section is for a single school that pays to run its own dedicated copy of the app on its own cPanel account, its own MySQL, its own domain, with no other school sharing that server. The app enforces this arrangement with a disclosed license check (`App\Services\Licensing\LicenseService`): the school's install calls the main SKULOS platform on a schedule to confirm the subscription is current; if it cannot, a warning banner shows, then after a grace period the install locks itself out until it can verify again. This is not hidden from the school, it is a normal part of what they are told they are getting.
