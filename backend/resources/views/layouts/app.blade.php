@@ -563,20 +563,33 @@ tr:last-child td{border-bottom:none}
 (function(){
   function run(){
     var d=document.documentElement, out=[], deepest=null, max=0;
+    function insideFixed(el){
+      for(var n=el; n && n!==document.body; n=n.parentElement){
+        if(getComputedStyle(n).position==='fixed') return true;
+      }
+      return false;
+    }
     document.querySelectorAll('body *').forEach(function(el){
       if(el.id==='vpdebug'||el.closest('#vpdebug')) return;
       var cs=getComputedStyle(el);
-      if(cs.position==='fixed'||cs.display==='none'||cs.visibility==='hidden') return;
+      if(cs.display==='none'||cs.visibility==='hidden') return;
+      // Skip anything inside a fixed ancestor, not just fixed elements
+      // themselves: a static child of the fixed sidebar is laid out
+      // against the viewport, so adding scrollY to it produced a
+      // "deepest" value larger than the whole document.
+      if(insideFixed(el)) return;
       var b=el.getBoundingClientRect().bottom+window.scrollY;
       if(b>max){max=b;deepest=el;}
     });
     var gap=Math.round(d.scrollHeight-max);
     out.push('innerHeight: <b>'+window.innerHeight+'</b>');
+    out.push('visualViewport: <b>'+(window.visualViewport?Math.round(window.visualViewport.height):'n/a')+'</b>');
     out.push('scrollHeight: <b>'+d.scrollHeight+'</b>');
+    out.push('body height: <b>'+Math.round(document.body.getBoundingClientRect().height)+'</b>');
     out.push('last content bottom: <b>'+Math.round(max)+'</b>');
     out.push('TRAILING BLANK: <b style="color:#E8A33D">'+gap+'px</b>');
     if(deepest){
-      out.push('deepest el: <b>'+deepest.tagName.toLowerCase()+'.'+(deepest.className||'').toString().slice(0,30)+'</b>');
+      out.push('deepest: <b>'+deepest.tagName.toLowerCase()+'.'+(deepest.className||'').toString().slice(0,28)+'</b>');
     }
     document.getElementById('vpdebug').innerHTML=out.join('<br>');
   }
