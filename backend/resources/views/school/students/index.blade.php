@@ -63,7 +63,7 @@
       <p class="muted">{{ $search ? 'No students match your search.' : 'No students assigned to you yet.' }}</p>
     @else
       @if($canManage)
-        <form id="bulkStudentsForm" method="POST" action="{{ route('school.students.bulk-action', ['school' => $school->slug]) }}"></form>
+        <form id="bulkStudentsForm" method="POST" action="{{ route('school.students.bulk-action', ['school' => $school->slug]) }}">@csrf</form>
       @endif
       <div style="overflow-x:auto">
       <table class="table-stack">
@@ -224,7 +224,7 @@
     <div class="card">
       <h3 style="margin-bottom:.7rem">No class assigned</h3>
       @if($canManage)
-        <form id="bulkUnassignedForm" method="POST" action="{{ route('school.students.bulk-action', ['school' => $school->slug]) }}"></form>
+        <form id="bulkUnassignedForm" method="POST" action="{{ route('school.students.bulk-action', ['school' => $school->slug]) }}">@csrf</form>
       @endif
       <div style="overflow-x:auto">
       <table class="table-stack">

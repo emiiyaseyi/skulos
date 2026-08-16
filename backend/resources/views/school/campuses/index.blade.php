@@ -14,7 +14,7 @@
     <p class="muted">No campuses added yet. If your school has one site, add it below and mark it as the main campus.</p>
   @else
     @if($canManage)
-      <form id="bulkCampusesForm" method="POST" action="{{ route('school.campuses.bulk-destroy', ['school' => $school->slug]) }}"></form>
+      <form id="bulkCampusesForm" method="POST" action="{{ route('school.campuses.bulk-destroy', ['school' => $school->slug]) }}">@csrf</form>
     @endif
     <div style="overflow-x:auto">
     <table>

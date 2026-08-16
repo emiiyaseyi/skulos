@@ -118,7 +118,7 @@
   @if($sections->isEmpty())
     <p class="muted">No sections yet. Add one above, then add fields to it.</p>
   @else
-    <form id="bulkFieldsForm" method="POST" action="{{ route('school.admissions.form-builder.fields.bulk-action', ['school' => $school->slug]) }}"></form>
+    <form id="bulkFieldsForm" method="POST" action="{{ route('school.admissions.form-builder.fields.bulk-action', ['school' => $school->slug]) }}">@csrf</form>
     @foreach($sections as $section)
       <div style="border:1px solid var(--line);border-radius:10px;padding:.8rem;margin-bottom:.8rem">
         <div class="row-between" style="margin-bottom:.6rem">

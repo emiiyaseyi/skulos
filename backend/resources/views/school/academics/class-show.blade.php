@@ -16,10 +16,21 @@
   @if($students->isEmpty())
     <p class="muted" style="margin:0">No students in this class yet.</p>
   @else
+    {{-- Reuses the existing student bulk endpoint rather than adding a
+         second one (2026-08-16). The form sits OUTSIDE the table and
+         the checkboxes attach to it by id, because each row already
+         holds its own View form and HTML forms cannot nest -- the
+         pattern the houses list established. @csrf is present: without
+         it every bulk action fails with "your session has expired",
+         which is exactly what 26 other bulk forms were doing. --}}
+    @if($canManageStudents)
+      <form id="rosterBulkForm" method="POST" action="{{ route('school.students.bulk-action', ['school' => $school->slug]) }}">@csrf</form>
+    @endif
     <div style="overflow-x:auto">
       <table class="table-stack">
         <thead>
           <tr>
+            @if($canManageStudents)<th style="width:2.2rem"><input type="checkbox" id="roster-select-all" aria-label="Select all students" /></th>@endif
             <th>Name</th><th>Admission no.</th><th>Stream</th>
             @if($canViewParents)<th>Parent/Guardian</th>@endif
             <th></th>
@@ -29,6 +40,9 @@
           @foreach($students as $student)
             @php($primary = $student->guardians->firstWhere('is_primary') ?? $student->guardians->first())
             <tr>
+              @if($canManageStudents)
+                <td><input type="checkbox" name="student_ids[]" value="{{ $student->id }}" form="rosterBulkForm" aria-label="Select {{ $student->first_name }} {{ $student->last_name }}" /></td>
+              @endif
               <td data-label="Name">{{ $student->first_name }} {{ $student->last_name }}</td>
               <td data-label="Admission no." class="muted">{{ $student->admission_number }}</td>
               <td data-label="Stream" class="muted">{{ $student->currentClassArm?->arm?->name ?? '—' }}</td>
@@ -52,6 +66,28 @@
         </tbody>
       </table>
     </div>
+
+    @if($canManageStudents)
+      <div style="margin-top:.9rem;display:flex;gap:.5rem;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" type="submit" name="action" value="graduated" form="rosterBulkForm">Mark graduated</button>
+        <button class="btn btn-ghost btn-sm" type="submit" name="action" value="withdrawn" form="rosterBulkForm">Mark withdrawn</button>
+        <button class="btn btn-ghost btn-sm" type="submit" name="action" value="suspended" form="rosterBulkForm">Suspend</button>
+        <button class="btn btn-ghost btn-sm" type="submit" name="action" value="active" form="rosterBulkForm">Mark active</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit" name="action" value="delete" form="rosterBulkForm"
+                onclick="return confirm('Remove the selected student(s)? They can be restored from Trashed.')">Delete</button>
+      </div>
+      <script>
+        document.getElementById('roster-select-all')?.addEventListener('change', function () {
+          document.querySelectorAll('input[name="student_ids[]"]').forEach(function (box) { box.checked = this.checked; }, this);
+        });
+        document.getElementById('rosterBulkForm')?.addEventListener('submit', function (e) {
+          if (!document.querySelector('input[name="student_ids[]"]:checked')) {
+            e.preventDefault();
+            alert('Tick at least one student first.');
+          }
+        });
+      </script>
+    @endif
   @endif
 </div>
 

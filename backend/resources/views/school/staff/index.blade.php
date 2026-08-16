@@ -57,7 +57,7 @@
     <p class="muted">No staff match your search.</p>
   @else
     @if($canManage)
-      <form id="bulkStaffForm" method="POST" action="{{ route('school.staff.bulk-action', ['school' => $school->slug]) }}"></form>
+      <form id="bulkStaffForm" method="POST" action="{{ route('school.staff.bulk-action', ['school' => $school->slug]) }}">@csrf</form>
     @endif
     <div style="overflow-x:auto">
     <table class="table-stack">

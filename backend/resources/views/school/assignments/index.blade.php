@@ -66,7 +66,7 @@
     <p class="muted">No assignments yet.</p>
   @else
     @if($canCreate)
-      <form id="bulkAssignmentsForm" method="POST" action="{{ route('school.assignments.bulk-destroy', ['school' => $school->slug]) }}"></form>
+      <form id="bulkAssignmentsForm" method="POST" action="{{ route('school.assignments.bulk-destroy', ['school' => $school->slug]) }}">@csrf</form>
     @endif
     <div style="overflow-x:auto">
     <table>

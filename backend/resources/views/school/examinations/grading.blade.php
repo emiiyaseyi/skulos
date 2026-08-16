@@ -109,7 +109,7 @@
       <p class="muted">No bands yet.</p>
     @else
       @if($canManage)
-        <form id="bulkBandsForm{{ $scale->id }}" method="POST" action="{{ route('school.examinations.grading.bands.bulk-destroy', ['school' => $school->slug]) }}"></form>
+        <form id="bulkBandsForm{{ $scale->id }}" method="POST" action="{{ route('school.examinations.grading.bands.bulk-destroy', ['school' => $school->slug]) }}">@csrf</form>
       @endif
       <div style="overflow-x:auto">
       <table class="table-stack">

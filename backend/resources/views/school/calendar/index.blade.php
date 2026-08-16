@@ -39,7 +39,7 @@
   @else
     @php $anyRemovable = $events->contains(fn ($e) => ! $e->is_default); @endphp
     @if($canCreate && $anyRemovable)
-      <form id="bulkEventsForm" method="POST" action="{{ route('school.calendar.bulk-destroy', ['school' => $school->slug]) }}"></form>
+      <form id="bulkEventsForm" method="POST" action="{{ route('school.calendar.bulk-destroy', ['school' => $school->slug]) }}">@csrf</form>
     @endif
     <div style="overflow-x:auto">
     <table class="table-stack">

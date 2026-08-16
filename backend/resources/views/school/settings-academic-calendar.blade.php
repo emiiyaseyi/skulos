@@ -151,7 +151,7 @@
   <h3 style="margin-bottom:.7rem">Archived sessions</h3>
   <p class="muted" style="margin-bottom:.7rem">Kept in your records, hidden from the list above. Restore one to bring it back.</p>
   @if($canManage)
-    <form id="bulkArchivedSessionsForm" method="POST" action="{{ route('school.academics.sessions.bulk-unarchive', ['school' => $school->slug]) }}"></form>
+    <form id="bulkArchivedSessionsForm" method="POST" action="{{ route('school.academics.sessions.bulk-unarchive', ['school' => $school->slug]) }}">@csrf</form>
   @endif
   <div style="overflow-x:auto">
   <table>

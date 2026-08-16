@@ -53,7 +53,7 @@
   @if($fields->isEmpty())
     <p class="muted">No custom fields yet. Add one above.</p>
   @else
-    <form id="bulkFieldsForm" method="POST" action="{{ route('school.settings.custom-fields.bulk-action', ['school' => $school->slug]) }}"></form>
+    <form id="bulkFieldsForm" method="POST" action="{{ route('school.settings.custom-fields.bulk-action', ['school' => $school->slug]) }}">@csrf</form>
     <div style="overflow-x:auto">
     <table>
       <thead><tr>

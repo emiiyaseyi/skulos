@@ -20,7 +20,7 @@
     <p class="muted">Nothing in Trashed{{ $search ? ' matching your search' : '' }}.</p>
   @else
     @if($canManage)
-      <form id="bulkTrashedStudentsForm" method="POST" action="{{ route('school.students.trashed.bulk-action', ['school' => $school->slug]) }}"></form>
+      <form id="bulkTrashedStudentsForm" method="POST" action="{{ route('school.students.trashed.bulk-action', ['school' => $school->slug]) }}">@csrf</form>
     @endif
     <div style="overflow-x:auto">
     <table class="table-stack">

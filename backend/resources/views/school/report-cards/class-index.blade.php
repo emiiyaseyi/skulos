@@ -33,7 +33,7 @@
     <p class="muted">No students in this class yet.</p>
   @else
     @if($canAssign)
-      <form id="bulkReviewForm" method="POST" action="{{ route('school.report-cards.class.bulk-assign', ['school' => $school->slug, 'classId' => $class->id]) }}">
+      <form id="bulkReviewForm" method="POST" action="{{ route('school.report-cards.class.bulk-assign', ['school' => $school->slug, 'classId' => $class->id]) }}">@csrf
         <input type="hidden" name="term_id" value="{{ $term->id }}" />
         <input type="hidden" name="report_type" value="{{ $reportType }}" />
       </form>

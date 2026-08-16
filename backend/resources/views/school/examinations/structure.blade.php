@@ -91,7 +91,7 @@
       <p class="muted">None yet.</p>
     @else
       @if($canManage)
-        <form id="bulkCaForm" method="POST" action="{{ route('school.examinations.structure.bulk-destroy', ['school' => $school->slug]) }}"></form>
+        <form id="bulkCaForm" method="POST" action="{{ route('school.examinations.structure.bulk-destroy', ['school' => $school->slug]) }}">@csrf</form>
       @endif
       <div style="overflow-x:auto">
       <table>
@@ -210,7 +210,7 @@
       <p class="muted">None yet.</p>
     @else
       @if($canManage)
-        <form id="bulkExamForm" method="POST" action="{{ route('school.examinations.structure.bulk-destroy', ['school' => $school->slug]) }}"></form>
+        <form id="bulkExamForm" method="POST" action="{{ route('school.examinations.structure.bulk-destroy', ['school' => $school->slug]) }}">@csrf</form>
       @endif
       <div style="overflow-x:auto">
       <table>

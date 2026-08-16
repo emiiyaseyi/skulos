@@ -42,7 +42,7 @@
     <p class="muted">No traits yet.</p>
   @else
     @if($canManage)
-      <form id="bulkTraitsForm" method="POST" action="{{ route('school.report-cards.traits.bulk-action', ['school' => $school->slug]) }}"></form>
+      <form id="bulkTraitsForm" method="POST" action="{{ route('school.report-cards.traits.bulk-action', ['school' => $school->slug]) }}">@csrf</form>
     @endif
     <div style="overflow-x:auto">
     <table>

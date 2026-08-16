@@ -562,6 +562,8 @@ class AcademicsController extends Controller
             // genuinely different levels of access.
             'canViewStudents' => app(Rbac::class)->check($user, $school, 'students.view'),
             'canViewParents' => app(Rbac::class)->check($user, $school, 'parents.view'),
+            // Acting on students is a stricter permission than seeing them.
+            'canManageStudents' => app(Rbac::class)->check($user, $school, 'students.update'),
             'rosterIsScoped' => $teacherArmIds !== null || $familyStudentIds !== null,
         ]);
     }

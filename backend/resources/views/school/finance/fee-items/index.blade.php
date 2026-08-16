@@ -253,7 +253,7 @@
     <p class="muted">No bank account on file yet. Parents will not see a receiving account when submitting a payment.</p>
   @else
     @if($canManage)
-      <form id="bulkBankAccountsForm" method="POST" action="{{ route('school.finance.bank-accounts.bulk-action', ['school' => $school->slug]) }}"></form>
+      <form id="bulkBankAccountsForm" method="POST" action="{{ route('school.finance.bank-accounts.bulk-action', ['school' => $school->slug]) }}">@csrf</form>
     @endif
     <div style="overflow-x:auto">
     <table class="table-stack">
@@ -348,7 +348,7 @@
     <p class="muted">No fee items {{ $itemsTermParam === 'all' ? 'yet' : 'for this term' }}.</p>
   @else
     @if($canManage)
-      <form id="bulkFeeItemsForm" method="POST" action="{{ route('school.finance.fee-items.bulk-action', ['school' => $school->slug]) }}"></form>
+      <form id="bulkFeeItemsForm" method="POST" action="{{ route('school.finance.fee-items.bulk-action', ['school' => $school->slug]) }}">@csrf</form>
     @endif
     <div style="overflow-x:auto">
     <table class="table-stack">

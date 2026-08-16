@@ -18,7 +18,7 @@
     <p class="muted">No houses yet. Load the defaults below, or add your own.</p>
   @else
     @if($canManage)
-      <form id="bulkHousesForm" method="POST" action="{{ route('school.houses.bulk-action', ['school' => $school->slug]) }}"></form>
+      <form id="bulkHousesForm" method="POST" action="{{ route('school.houses.bulk-action', ['school' => $school->slug]) }}">@csrf</form>
     @endif
     <div style="overflow-x:auto">
     <table class="table-stack">

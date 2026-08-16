@@ -51,7 +51,7 @@
       @endif
     </p>
   @else
-    <form id="bulkNotificationsForm" method="POST" action="{{ route('school.notifications.bulk-action', ['school' => $school->slug]) }}"></form>
+    <form id="bulkNotificationsForm" method="POST" action="{{ route('school.notifications.bulk-action', ['school' => $school->slug]) }}">@csrf</form>
     @foreach($notifications as $n)
       @php($link = $n->deepLinkUrl($school))
       <div class="notif-row {{ $n->read_at ? '' : 'unread' }}">

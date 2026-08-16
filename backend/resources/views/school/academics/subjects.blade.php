@@ -91,7 +91,7 @@
     <p class="muted">No subjects added to {{ $selectedArm ? $selectedArm->label() : 'this class' }} yet.</p>
   @else
     @if($canManage)
-      <form id="bulkSubjectsForm" method="POST" action="{{ route('school.academics.subjects.bulk-detach', ['school' => $school->slug, 'classId' => $class->id]) }}">
+      <form id="bulkSubjectsForm" method="POST" action="{{ route('school.academics.subjects.bulk-detach', ['school' => $school->slug, 'classId' => $class->id]) }}">@csrf
         @if($selectedArm)<input type="hidden" name="class_arm_id" value="{{ $selectedArm->id }}" />@endif
       </form>
     @endif

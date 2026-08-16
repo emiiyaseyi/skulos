@@ -99,7 +99,7 @@
       @if($questions->isEmpty())
         <p class="muted">No questions here yet.</p>
       @else
-        <form id="bulkQuestionsForm" method="POST" action="{{ route('school.cbt.questions.bulk-action', ['school' => $school->slug]) }}"></form>
+        <form id="bulkQuestionsForm" method="POST" action="{{ route('school.cbt.questions.bulk-action', ['school' => $school->slug]) }}">@csrf</form>
 
         {{-- Bulk action bar --}}
         <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:.8rem;padding:.6rem;border:1px solid var(--line);border-radius:8px">

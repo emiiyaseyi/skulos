@@ -87,7 +87,7 @@
     <p class="muted">No payments{{ $status ? ' with this status' : '' }} yet.</p>
   @else
     @if($canVerify)
-      <form id="bulkPaymentsForm" method="POST" action="{{ route('school.finance.payments.bulk-action', ['school' => $school->slug]) }}"></form>
+      <form id="bulkPaymentsForm" method="POST" action="{{ route('school.finance.payments.bulk-action', ['school' => $school->slug]) }}">@csrf</form>
     @endif
     <div style="overflow-x:auto">
     <table class="table-stack">

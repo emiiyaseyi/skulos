@@ -98,7 +98,7 @@
   @if($periods->isEmpty())
     <p class="muted">No periods yet.</p>
   @else
-    <form id="bulkPeriodsForm" method="POST" action="{{ route('school.timetable.periods.bulk-destroy', ['school' => $school->slug]) }}"></form>
+    <form id="bulkPeriodsForm" method="POST" action="{{ route('school.timetable.periods.bulk-destroy', ['school' => $school->slug]) }}">@csrf</form>
     <div style="overflow-x:auto">
     <table>
       <thead><tr>

@@ -14,7 +14,7 @@
   @if($requests->isEmpty())
     <p class="muted">No extension requests yet.</p>
   @else
-    <form id="bulkExtensionsForm" method="POST" action="{{ route('school.examinations.window-extensions.bulk-action', ['school' => $school->slug]) }}"></form>
+    <form id="bulkExtensionsForm" method="POST" action="{{ route('school.examinations.window-extensions.bulk-action', ['school' => $school->slug]) }}">@csrf</form>
     <div style="overflow-x:auto">
     <table class="table-stack">
       <thead><tr>

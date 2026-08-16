@@ -833,6 +833,38 @@ class AcademicsScreenTest extends TestCase
             ->assertSee('Students in this class');
     }
 
+    public function test_the_class_roster_can_act_on_students_in_bulk(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadrosterbulk');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 5', 'sequence' => 5]);
+        $arm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => null]);
+        $one = \App\Models\Tenant\Student::create(['admission_number' => 'C1', 'first_name' => 'Ada', 'last_name' => 'One', 'current_class_arm_id' => $arm->id]);
+        $two = \App\Models\Tenant\Student::create(['admission_number' => 'C2', 'first_name' => 'Bola', 'last_name' => 'Two', 'current_class_arm_id' => $arm->id]);
+        $classId = $class->id;
+        app(TenantManager::class)->forget();
+
+        // The form must carry a CSRF token, or every bulk action fails
+        // with "your session has expired" -- which is exactly what was
+        // happening across 26 bulk forms before this.
+        $this->actingAs($admin)->get("http://{$school->slug}.localhost/academics/classes/{$classId}")
+            ->assertOk()
+            ->assertSee('rosterBulkForm', false)
+            ->assertSee('name="_token"', false);
+
+        $this->actingAs($admin)->post("http://{$school->slug}.localhost/students/bulk-action", [
+            'student_ids' => [$one->id, $two->id],
+            'action' => 'graduated',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame('graduated', $one->fresh()->status);
+        $this->assertSame('graduated', $two->fresh()->status);
+        app(TenantManager::class)->forget();
+    }
+
     public function test_a_parent_opening_a_class_sees_only_their_own_child(): void
     {
         [$school, $parent] = $this->schoolWithMember('parent', 'acadrosterparent');

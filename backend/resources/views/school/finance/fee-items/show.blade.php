@@ -59,7 +59,7 @@
     <p class="muted">No installments set up yet.</p>
   @else
     @if($canManage)
-      <form id="bulkInstallmentsForm" method="POST" action="{{ route('school.finance.fee-items.installments.bulk-action', ['school' => $school->slug]) }}"></form>
+      <form id="bulkInstallmentsForm" method="POST" action="{{ route('school.finance.fee-items.installments.bulk-action', ['school' => $school->slug]) }}">@csrf</form>
     @endif
     <div style="overflow-x:auto">
     <table>
