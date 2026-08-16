@@ -575,6 +575,16 @@
     $groups['Academic'][] = $link('school.clubs.index', 'Clubs', 'house');
   }
 
+  // The school-wide subject list, alongside Classes & Subjects rather
+  // than inside it: this one answers "what do we teach and who covers
+  // it", which the per-class screen cannot.
+  if (! in_array($scopedRoleSlug, ['parent', 'student'], true)
+      && $navRbac->check($navUser, $school, 'academics.view')
+      && ! isset($renderedRoutes['school.subjects.index'])) {
+    $renderedRoutes['school.subjects.index'] = true;
+    $groups['Academic'][] = $link('school.subjects.index', 'Subjects', 'academics');
+  }
+
   if ($navRbac->check($navUser, $school, 'assignments.view') && ! isset($renderedRoutes['school.assignments.index'])) {
     $renderedRoutes['school.assignments.index'] = true;
     // A parent gets the dedicated per-child cards screen instead of the

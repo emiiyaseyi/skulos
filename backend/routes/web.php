@@ -599,6 +599,21 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         });
         // Clubs, deliberately the same route shape as houses above so
         // the two screens behave identically for an admin.
+        // Subjects as a school-wide concern (2026-08-16): the
+        // existing screens only ever managed subjects from inside one
+        // class at a time, which cannot answer "what do we teach, and
+        // is every class covered by a teacher".
+        Route::prefix('subjects')->name('school.subjects.')->group(function () {
+            $subjects = \App\Http\Controllers\School\SubjectController::class;
+            Route::get('/', [$subjects, 'index'])->name('index');
+            Route::post('/', [$subjects, 'store'])->name('store');
+            Route::get('/workbook', [$subjects, 'workbook'])->name('workbook');
+            Route::post('/workbook', [$subjects, 'uploadWorkbook'])->name('workbook.upload');
+            Route::get('/{subjectId}', [$subjects, 'show'])->name('show');
+            Route::post('/{subjectId}', [$subjects, 'update'])->name('update');
+            Route::post('/{subjectId}/teacher', [$subjects, 'assignTeacher'])->name('assign-teacher');
+            Route::post('/{subjectId}/unassign', [$subjects, 'unassignTeacher'])->name('unassign-teacher');
+        });
         Route::prefix('clubs')->name('school.clubs.')->group(function () {
             $clubs = \App\Http\Controllers\School\ClubController::class;
             Route::get('/', [$clubs, 'index'])->name('index');
