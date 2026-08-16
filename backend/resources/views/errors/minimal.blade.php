@@ -15,7 +15,7 @@
      pairing, the same exemption CLAUDE.md already gives --warn/--bad. */
   :root{--accent:#E8A33D;--accent-text:color-mix(in srgb, var(--accent) 62%, black);--bg:#EEF1F6;--panel:#FFFFFF;--ink:#0B1420;--mut:rgba(11,20,32,.60);--line:rgba(11,20,32,.10)}
   *{box-sizing:border-box}
-  body{margin:0;min-height:100vh;display:grid;place-items:center;padding:2rem 1.25rem;
+  body{margin:0;min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:2rem 1.25rem;
     background:radial-gradient(1100px 550px at 50% -10%,color-mix(in srgb,var(--accent) 30%,transparent),transparent),var(--bg);
     font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:var(--ink)}
   .card{width:100%;max-width:26rem;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:2.4rem 2rem;text-align:center;box-shadow:0 8px 30px -12px rgba(15,23,35,.25)}

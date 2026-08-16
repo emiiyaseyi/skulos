@@ -4,7 +4,7 @@
 
 @push('head')
 <style>
-  .admissions-login-page{min-height:100vh;display:grid;place-items:center;padding:2rem 1.25rem}
+  .admissions-login-page{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:2rem 1.25rem}
   .admissions-login-page .form-card{width:100%;max-width:26rem;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:2.2rem;box-shadow:var(--shadow)}
   .admissions-login-page .lp-head{font-size:1.4rem;font-weight:800;line-height:1.15;letter-spacing:-.01em;text-align:center}
   .admissions-login-page .lp-sub{color:var(--mut);margin:.4rem 0 1.5rem;text-align:center}

@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="login-page">
-  <div style="min-height:100vh;display:grid;place-items:center;padding:2rem 1.25rem">
+  <div style="min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:2rem 1.25rem">
     <div class="form-card" style="width:100%;max-width:26rem;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:2.2rem;box-shadow:var(--shadow)">
       <div class="lp-head" style="font-size:1.4rem;font-weight:800;text-align:center">Forgot your password?</div>
       <p class="lp-sub" style="color:var(--mut);margin:.5rem 0 1.2rem;text-align:center">Two ways to get back in.</p>
