@@ -320,6 +320,9 @@ input[type="checkbox"],input[type="radio"]{width:1.05rem;height:1.05rem;flex-shr
 .ss-list .ss-empty{padding:.5rem .6rem;font-size:.85rem;color:var(--mut-dim);cursor:default}
 .hint{font-size:.78rem;color:var(--mut-dim);margin-top:.3rem}
 .err{color:var(--bad);font-size:.8rem;margin-top:.3rem}
+.skip-link{position:absolute;left:-9999px;top:0;z-index:200;background:var(--accent);color:var(--accent-ink);
+  padding:.7rem 1.1rem;border-radius:0 0 10px 0;font-weight:700;font-size:.9rem;text-decoration:none}
+.skip-link:focus{left:0}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;padding:.6rem 1.1rem;border-radius:10px;border:1px solid transparent;font-weight:700;font-size:.9rem;cursor:pointer;font-family:inherit;transition:transform .15s ease,background .15s ease,box-shadow .15s ease}
 .btn-primary{background:var(--accent);color:var(--accent-ink)}
 .btn-primary:hover{transform:translateY(-1px);box-shadow:0 10px 22px -10px color-mix(in srgb,var(--accent) 70%,transparent)}
@@ -549,6 +552,13 @@ tr:last-child td{border-bottom:none}
 @hasSection('bare')
   @yield('content')
 @else
+{{-- Skip link (2026-08-15 accessibility pass): the first focusable
+     element on the page, visually hidden until it takes focus. Without
+     it a keyboard or screen reader user has to tab through the entire
+     sidebar navigation on every single page before reaching the actual
+     content. Not rendered for "bare" pages (login, print views), which
+     have no navigation to skip past. --}}
+<a href="#main-content" class="skip-link">Skip to main content</a>
 @php
   $sSlug = isset($school) ? $school->slug : null;
   $cur = request()->route()?->getName();
@@ -741,7 +751,7 @@ tr:last-child td{border-bottom:none}
         </button>
       </form>
     </header>
-    <div class="content">
+    <main id="main-content" class="content" tabindex="-1">
       @if(session('status'))<div class="flash flash-ok" role="status" aria-live="polite">{{ session('status') }}</div>@endif
       @if(session('error'))<div class="flash flash-bad" role="alert">{{ session('error') }}</div>@endif
       @if($errors->any())
@@ -752,7 +762,7 @@ tr:last-child td{border-bottom:none}
         </div>
       @endif
       @yield('content')
-    </div>
+    </main>
     {{-- Legal links inside the portal too (2026-08-15): these only
          existed on the marketing site, so a signed-in parent, teacher or
          admin had no route to the privacy policy or terms governing the
