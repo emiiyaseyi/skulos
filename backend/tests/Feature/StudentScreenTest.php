@@ -795,6 +795,26 @@ class StudentScreenTest extends TestCase
         app(TenantManager::class)->forget();
     }
 
+    public function test_the_full_student_list_opens_without_searching(): void
+    {
+        [$school, $user] = $this->schoolWithMember('registrar', 'fulllist');
+
+        app(TenantManager::class)->use($school);
+        Student::create(['admission_number' => 'FL/001', 'first_name' => 'Ada', 'last_name' => 'Obi']);
+        Student::create(['admission_number' => 'FL/002', 'first_name' => 'Bode', 'last_name' => 'Ade']);
+        app(TenantManager::class)->forget();
+
+        // Without ?all the school-wide default is the grouped browse,
+        // which is why an admin previously had to invent a search term
+        // to reach the list with bulk actions on it.
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/students?all=1")
+            ->assertOk()
+            ->assertSee('FL/001')
+            ->assertSee('FL/002')
+            // The same table that carries the bulk action controls.
+            ->assertSee('student_ids[]', false);
+    }
+
     /** Bulk actions (user directive: every list gets bulk actions), the flat search-results table gets status change and soft delete. */
     public function test_bulk_status_change_and_delete_from_search_results(): void
     {

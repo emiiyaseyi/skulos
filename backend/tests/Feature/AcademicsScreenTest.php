@@ -803,15 +803,21 @@ class AcademicsScreenTest extends TestCase
     }
 
     /**
-     * User report 2026-07-25: "under classes & subjects, the student
-     * name/list should not be seen... remove the student list section as
-     * it is a repetition of the student portal section." The class
-     * detail page must never show a student's name, even though a
-     * student is enrolled in the class.
+     * Reversal, recorded deliberately: on 2026-07-25 the roster was
+     * REMOVED from this page ("the student name/list should not be
+     * seen... it is a repetition of the student portal section"). On
+     * 2026-08-16 it was asked for again -- "one should see a section
+     * where it shows all the students in that class" -- so it is back,
+     * with the scoping that makes it safe to show.
+     *
+     * What matters now is not whether names appear, but WHOSE: a
+     * teacher restricted to their own class arms must not see another
+     * class's children, and parent contact details appear only for a
+     * role permitted to see them.
      */
-    public function test_the_class_detail_page_no_longer_shows_a_student_roster(): void
+    public function test_the_class_page_lists_its_students(): void
     {
-        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadnoroster');
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadroster');
 
         app(TenantManager::class)->use($school);
         $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
@@ -823,20 +829,34 @@ class AcademicsScreenTest extends TestCase
 
         $this->actingAs($admin)->get("http://{$school->slug}.localhost/academics/classes/{$classId}")
             ->assertOk()
-            // The student's own name is the real check this test's
-            // docblock describes, and the class detail view genuinely
-            // no longer renders a roster.
-            ->assertDontSee('Chika Nwosu');
-        // Deliberately NOT assertDontSee('Students') (2026-08-15): that
-        // assertion was asserting the SIDEBAR away, not the roster.
-        // "Students" is a legitimate nav label
-        // (config('skulos.school_nav_catalog') -> 'school.students' =>
-        // ['label' => 'Students', 'permission' => 'students.view']), so
-        // any role holding students.view renders that word in the page
-        // chrome on every screen including this one. It passed only
-        // while this role/module combination happened not to surface
-        // that entry, and started failing the moment it did -- a false
-        // failure about navigation, never about a student roster.
+            ->assertSee('Chika Nwosu')
+            ->assertSee('Students in this class');
+    }
+
+    public function test_a_parent_opening_a_class_sees_only_their_own_child(): void
+    {
+        [$school, $parent] = $this->schoolWithMember('parent', 'acadrosterparent');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 4', 'sequence' => 4]);
+        $arm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => null]);
+        $mine = \App\Models\Tenant\Student::create(['admission_number' => 'B1', 'first_name' => 'Ada', 'last_name' => 'Mine', 'current_class_arm_id' => $arm->id]);
+        \App\Models\Tenant\Student::create(['admission_number' => 'B2', 'first_name' => 'Bola', 'last_name' => 'Other', 'current_class_arm_id' => $arm->id]);
+        \App\Models\Tenant\StudentGuardian::create([
+            'student_id' => $mine->id, 'name' => 'Parent One',
+            'guardian_user_id' => $parent->id, 'is_primary' => true,
+        ]);
+        $classId = $class->id;
+        app(TenantManager::class)->forget();
+
+        // A classmate's name on a parent's screen would be a real
+        // disclosure, so this is asserted directly rather than assumed
+        // from the scope helper being called.
+        $this->actingAs($parent)->get("http://{$school->slug}.localhost/academics/classes/{$classId}")
+            ->assertOk()
+            ->assertSee('Ada Mine')
+            ->assertDontSee('Bola Other');
     }
 
     public function test_assigning_a_class_teacher_updates_the_arm(): void

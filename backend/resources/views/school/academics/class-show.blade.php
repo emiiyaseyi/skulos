@@ -2,6 +2,59 @@
 @section('title', $class->name)
 
 @section('content')
+{{-- The class roster (2026-08-16). What is shown depends on the
+     viewer: a teacher scoped to their own arms sees only those, a
+     parent sees only their own child, and parent contact details
+     appear only for a role that may see them -- seeing a child's record
+     and seeing their family's contacts are different levels of access. --}}
+<div class="card" style="margin-bottom:1.2rem">
+  <div class="row-between" style="margin-bottom:.6rem">
+    <h3 style="margin:0">Students in this class ({{ $students->count() }})</h3>
+    @if($rosterIsScoped)<span class="muted" style="font-size:.82rem">Showing only the students you have access to.</span>@endif
+  </div>
+
+  @if($students->isEmpty())
+    <p class="muted" style="margin:0">No students in this class yet.</p>
+  @else
+    <div style="overflow-x:auto">
+      <table class="table-stack">
+        <thead>
+          <tr>
+            <th>Name</th><th>Admission no.</th><th>Stream</th>
+            @if($canViewParents)<th>Parent/Guardian</th>@endif
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach($students as $student)
+            @php($primary = $student->guardians->firstWhere('is_primary') ?? $student->guardians->first())
+            <tr>
+              <td data-label="Name">{{ $student->first_name }} {{ $student->last_name }}</td>
+              <td data-label="Admission no." class="muted">{{ $student->admission_number }}</td>
+              <td data-label="Stream" class="muted">{{ $student->currentClassArm?->arm?->name ?? '—' }}</td>
+              @if($canViewParents)
+                <td data-label="Parent/Guardian" class="muted">
+                  @if($primary)
+                    {{ $primary->name }}
+                    @if($primary->phone)<div style="font-size:.82rem">{{ $primary->phone }}</div>@endif
+                  @else
+                    <span class="muted">Not recorded</span>
+                  @endif
+                </td>
+              @endif
+              <td>
+                @if($canViewStudents)
+                  <a class="btn btn-ghost btn-sm" href="{{ route('school.students.show', ['school' => $school->slug, 'studentId' => $student->id]) }}">View</a>
+                @endif
+              </td>
+            </tr>
+          @endforeach
+        </tbody>
+      </table>
+    </div>
+  @endif
+</div>
+
 <div class="page-head">
   <div>
     <h1 class="title">{{ $class->name }} <span class="badge {{ $class->is_active ? 'badge-ok' : 'badge-warn' }}" style="margin-left:.4rem">{{ $class->is_active ? 'Active' : 'Retired' }}</span></h1>

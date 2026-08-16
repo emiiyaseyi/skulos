@@ -14,6 +14,9 @@
       <a class="btn btn-primary btn-sm" href="{{ route('school.students.create', ['school' => $school->slug]) }}">Add student</a>
     @endif
     @if($canImport)
+      {{-- Opens the flat list with sort, filter and bulk actions
+           without needing to invent a search term first (2026-08-16). --}}
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.students', ['school' => $school->slug, 'all' => 1]) }}">Full student list</a>
       <a class="btn btn-ghost btn-sm" href="{{ route('school.students.import', ['school' => $school->slug]) }}">Bulk import</a>
       <a class="btn btn-ghost btn-sm" href="{{ route('school.students.export', ['school' => $school->slug, 'q' => $search ?: null]) }}">Export CSV</a>
     @endif

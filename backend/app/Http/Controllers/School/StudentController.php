@@ -157,7 +157,14 @@ class StudentController extends Controller
             ]);
         }
 
-        if ($search || $scopedArmIds !== null) {
+        // "Full student list" (2026-08-16, direct request): the flat
+        // list with sort, filter and bulk actions already existed but
+        // only ever appeared after a search, so an admin who simply
+        // wanted every student had to invent a search term. ?all=1
+        // opens the same view directly -- no second screen to maintain.
+        $showAll = $request->boolean('all');
+
+        if ($search || $showAll || $scopedArmIds !== null) {
             // Sort and filter (user report 2026-07-22: "add the sort and
             // filter option to this page"), the same ?sort=/?dir=/status
             // shape the Staff and Parent lists already established.
@@ -185,6 +192,7 @@ class StudentController extends Controller
                 'accent' => $school->branding()['color'],
                 'students' => $students,
                 'search' => $search,
+                'showAll' => $showAll,
                 'status' => $status,
                 'sort' => $sort,
                 'dir' => $dir,

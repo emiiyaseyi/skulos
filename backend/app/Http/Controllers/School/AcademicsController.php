@@ -524,6 +524,30 @@ class AcademicsController extends Controller
         // across every stream of the class, see assignSubjectTeacher()).
         $staffIdBySubject = $assignmentsBySubject->map(fn ($group) => $group->first()?->staff_id);
 
+        // The class roster (2026-08-16, direct request): the page listed
+        // the class's subjects and teachers but never its students,
+        // which is the first thing anyone opening a class expects.
+        //
+        // Scoped, not blanket: a teacher restricted to their own class
+        // arms sees only the arms they actually teach, so opening
+        // another class shows its structure without its children's
+        // names. FamilyScope is applied for the same reason -- a parent
+        // reaching here sees only their own child.
+        $user = Auth::user();
+        $visibleArmIds = $armIds;
+        $teacherArmIds = app(\App\Services\Rbac\TeacherScope::class)->classArmIds($user, $school);
+        if ($teacherArmIds !== null) {
+            $visibleArmIds = $armIds->intersect($teacherArmIds);
+        }
+        $familyStudentIds = app(\App\Services\Rbac\FamilyScope::class)->studentIds($user, $school);
+
+        $students = Student::active()
+            ->whereIn('current_class_arm_id', $visibleArmIds)
+            ->when($familyStudentIds !== null, fn ($q) => $q->whereIn('id', $familyStudentIds))
+            ->with('currentClassArm.arm', 'guardians')
+            ->orderBy('last_name')->orderBy('first_name')
+            ->get();
+
         return view('school.academics.class-show', [
             'school' => $school,
             'accent' => $school->branding()['color'],
@@ -532,6 +556,13 @@ class AcademicsController extends Controller
             'staffIdBySubject' => $staffIdBySubject,
             'staffOptions' => Staff::active()->orderBy('first_name')->get(),
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'academics.update'),
+            'students' => $students,
+            // Two separate permissions, because seeing a child's own
+            // record and seeing their family's contact details are
+            // genuinely different levels of access.
+            'canViewStudents' => app(Rbac::class)->check($user, $school, 'students.view'),
+            'canViewParents' => app(Rbac::class)->check($user, $school, 'parents.view'),
+            'rosterIsScoped' => $teacherArmIds !== null || $familyStudentIds !== null,
         ]);
     }
 
