@@ -43,6 +43,23 @@ class CpanelDatabaseProvisioner
         $this->call('Mysql/create_database', ['name' => $databaseName]);
     }
 
+    /**
+     * Used by the restore flow for its throwaway staging database, not
+     * for anything a school owns. Idempotent: a database that is
+     * already gone is not an error.
+     */
+    public function deleteDatabase(string $databaseName): void
+    {
+        $existing = $this->call('Mysql/list_databases');
+        $names = collect($existing['data'] ?? [])->pluck('database')->all();
+
+        if (! in_array($databaseName, $names, true)) {
+            return;
+        }
+
+        $this->call('Mysql/delete_database', ['name' => $databaseName]);
+    }
+
     public function grantPrivileges(string $databaseName, string $dbUser): void
     {
         $this->call('Mysql/set_privileges_on_database', [

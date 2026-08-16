@@ -166,11 +166,8 @@ class BackupService
         $liveDb = $school->database;
         $tempDb = $liveDb.'_restoring_'.time();
 
-        DB::statement(sprintf('DROP DATABASE IF EXISTS `%s`', $tempDb));
-        DB::statement(sprintf(
-            'CREATE DATABASE `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci',
-            $tempDb
-        ));
+        $this->dropDatabase($tempDb);
+        $this->createDatabase($tempDb);
 
         $command = 'mysql -h '.escapeshellarg($conn['host']).' -P '.escapeshellarg((string) $conn['port']).
             ' -u '.escapeshellarg($conn['username']).' --password='.escapeshellarg($conn['password']).
@@ -179,7 +176,7 @@ class BackupService
         $result = Process::timeout(600)->run($command);
 
         if ($result->failed()) {
-            DB::statement(sprintf('DROP DATABASE IF EXISTS `%s`', $tempDb));
+            $this->dropDatabase($tempDb);
             throw new RuntimeException('mysql restore failed, the live database was not touched: '.$result->errorOutput());
         }
 
@@ -197,10 +194,7 @@ class BackupService
      */
     protected function swapMysqlDatabase(string $liveDb, string $tempDb): void
     {
-        DB::statement(sprintf(
-            'CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci',
-            $liveDb
-        ));
+        $this->createDatabase($liveDb);
 
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
 
@@ -210,10 +204,7 @@ class BackupService
 
             if ($liveTables->isNotEmpty()) {
                 $preRestoreDb = $liveDb.'_before_restore_'.date('Ymd_His');
-                DB::statement(sprintf(
-                    'CREATE DATABASE `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci',
-                    $preRestoreDb
-                ));
+                $this->createDatabase($preRestoreDb);
                 $renames = $liveTables
                     ->map(fn ($t) => sprintf('`%s`.`%s` TO `%s`.`%s`', $liveDb, $t, $preRestoreDb, $t))
                     ->implode(', ');
@@ -233,6 +224,47 @@ class BackupService
             DB::statement('SET FOREIGN_KEY_CHECKS=1');
         }
 
-        DB::statement(sprintf('DROP DATABASE IF EXISTS `%s`', $tempDb));
+        $this->dropDatabase($tempDb);
+    }
+
+    /**
+     * Creating and dropping a database has to go through cPanel's API
+     * on shared hosting (2026-08-15): the account's MySQL user is not
+     * granted global CREATE/DROP DATABASE there, so the raw statements
+     * this used to run fail outright with "Access denied" — meaning
+     * restore, the one operation whose whole job is to protect against
+     * data loss, was itself broken in production. Same mechanism
+     * TenantManager::provision() already uses to create a new school's
+     * database; falls back to plain SQL wherever the MySQL user really
+     * does have the privilege (a VPS, or local dev).
+     */
+    protected function createDatabase(string $name): void
+    {
+        if (config('tenancy.cpanel.enabled')) {
+            $provisioner = app(CpanelDatabaseProvisioner::class);
+            $provisioner->createDatabase($name);
+            // Without this the app's own MySQL user cannot read or
+            // write the database it just created, so the restored data
+            // would be inaccessible even though the restore "worked".
+            $provisioner->grantPrivileges($name, config('tenancy.cpanel.db_user'));
+
+            return;
+        }
+
+        DB::statement(sprintf(
+            'CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci',
+            $name
+        ));
+    }
+
+    protected function dropDatabase(string $name): void
+    {
+        if (config('tenancy.cpanel.enabled')) {
+            app(CpanelDatabaseProvisioner::class)->deleteDatabase($name);
+
+            return;
+        }
+
+        DB::statement(sprintf('DROP DATABASE IF EXISTS `%s`', $name));
     }
 }
