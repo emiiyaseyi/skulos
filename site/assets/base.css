@@ -3,6 +3,10 @@
    overscroll, not extra page height. Needs to be on both html and
    body since which one is the scroll root varies by browser. */
 html,body{overscroll-behavior-y:none}
+/* Fills the strip a mobile browser reveals when it hides its toolbar:
+   100lvh (toolbar hidden) minus 100svh (toolbar showing) is exactly the
+   toolbar height, and zero on desktop. See layouts/app.blade.php. */
+body::after{content:'';display:block;height:calc(100lvh - 100svh)}
 /* SKULOS shared design system. Source of truth for tokens + chrome. */
 :root{
   /* base tokens = light theme values; dark overrides applied below */

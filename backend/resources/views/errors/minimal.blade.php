@@ -9,6 +9,7 @@
   /* See layouts/app.blade.php: the blank area below content on
      Chrome for iOS was overscroll, not extra page height. */
   html,body{overscroll-behavior-y:none}
+  body::after{content:'';display:block;height:calc(100lvh - 100svh)}
   /* --accent here is a fixed platform color (#E8A33D, always this exact
      value), not a school's own configurable brand color, this page
      renders pre-auth with no tenant/school context at all. The "text on

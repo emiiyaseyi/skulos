@@ -7,6 +7,7 @@
   /* See layouts/app.blade.php: the blank area below content on
      Chrome for iOS was overscroll, not extra page height. */
   html,body{overscroll-behavior-y:none}
+  body::after{content:'';display:block;height:calc(100lvh - 100svh)}
   .login-page{min-height:100vh;min-height:100dvh;min-height:100svh}
   .lp-logo{width:64px;height:64px;border-radius:16px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:800;font-size:1.6rem;margin:0 auto 1.1rem;overflow:hidden}
   .lp-logo img{width:100%;height:100%;object-fit:contain}

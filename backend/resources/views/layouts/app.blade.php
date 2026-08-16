@@ -334,6 +334,25 @@ input[type="checkbox"],input[type="radio"]{width:1.05rem;height:1.05rem;flex-shr
    BOTH html and body: whichever element is the scrolling root varies by
    browser, and setting only one leaves the other free to overscroll. */
 html, body{overscroll-behavior-y:none}
+/* Fill the strip a mobile browser reveals when it hides its toolbar
+   (2026-08-15, the actual cause of the reported blank space). Chrome
+   for iOS auto-hides its bottom toolbar on scroll, which grows the
+   visible area, but it does not pull the scroll position back to
+   compensate — so at the end of a long page you are left looking at
+   roughly a toolbar's height of nothing below where the document
+   stops. Safari handles that differently, which is why Safari looked
+   correct and Chrome did not, and why nothing measurable was ever
+   wrong with the page itself (document height matched content height
+   exactly on the real device, footer and all).
+
+   100lvh is the viewport with the toolbar hidden, 100svh with it
+   showing, so their difference IS the toolbar height. Extending the
+   page by exactly that much means the revealed strip always still has
+   page in it. On a desktop browser the two are equal, so this
+   resolves to zero and changes nothing. Uses ::after rather than
+   padding so it cannot disturb any layout that already sets padding
+   on body. */
+body::after{content:'';display:block;height:calc(100lvh - 100svh)}
 .skip-link{position:absolute;left:-9999px;top:0;z-index:200;background:var(--accent);color:var(--accent-ink);
   padding:.7rem 1.1rem;border-radius:0 0 10px 0;font-weight:700;font-size:.9rem;text-decoration:none}
 .skip-link:focus{left:0}
