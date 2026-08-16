@@ -43,6 +43,10 @@ class TrialRequestAdminController extends Controller
 
         return view('admin.trial-requests', [
             'trials' => $trials,
+            // Only plans that can actually be sold: an approving admin
+            // should not be able to put a brand new school onto a plan
+            // marked "coming soon".
+            'plans' => \App\Models\Plan::where('is_purchasable', true)->orderBy('price_per_student_per_term')->get(),
             'status' => $status,
             'counts' => [
                 'pending' => TrialRequest::pending()->count(),
@@ -54,7 +58,15 @@ class TrialRequestAdminController extends Controller
 
     public function approve(Request $request, TrialRequest $trialRequest, TenantManager $tenants, Rbac $rbac): RedirectResponse
     {
-        $data = $request->validate(['review_note' => ['nullable', 'string', 'max:2000']]);
+        $data = $request->validate([
+            'review_note' => ['nullable', 'string', 'max:2000'],
+            // Optional: a trial can be set up on a specific plan right
+            // away rather than being left with none, which is what
+            // happened before -- a brand new school fell back to the
+            // default plan for its features and showed "No plan set" on
+            // the Billing screen until someone noticed.
+            'plan_id' => ['nullable', 'exists:plans,id'],
+        ]);
 
         $slug = self::uniqueSlug($trialRequest->school_name, $trialRequest->preferred_slug);
         $temporaryPassword = TemporaryPassword::generate();
@@ -84,6 +96,23 @@ class TrialRequestAdminController extends Controller
         // never really pointing at their own school's copy of it.
         $ownerRoleId = $rbac->cloneTemplateRole($school, 'school-owner')->id;
         $school->users()->syncWithoutDetaching([$admin->id => ['role_id' => $ownerRoleId, 'status' => 'active']]);
+
+        // Assign the chosen plan the same way BillingController does,
+        // module states included. Setting plan_id alone is not enough:
+        // module_states is what actually gates access, and a school with
+        // no explicit rows silently falls back to the default plan's
+        // features (the gotcha documented in CLAUDE.md).
+        if (! empty($data['plan_id'])) {
+            $plan = \App\Models\Plan::find($data['plan_id']);
+            if ($plan && $plan->is_purchasable) {
+                $school->update(['plan_id' => $plan->id]);
+                foreach (\App\Models\Module::optional() as $code => $meta) {
+                    $rbac->setModuleState($school, $code, in_array($code, $plan->modules ?? [], true)
+                        ? \App\Models\Module::STATE_ENABLED
+                        : \App\Models\Module::STATE_DISABLED);
+                }
+            }
+        }
 
         $trialRequest->update([
             'status' => TrialRequest::STATUS_APPROVED,

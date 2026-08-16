@@ -76,6 +76,20 @@
               <label for="approve_note_{{ $trial->id }}">Note to include (setup status, demo, training)</label>
               <textarea id="approve_note_{{ $trial->id }}" name="review_note" rows="2" placeholder="We'll set up {{ $trial->school_name }} this week and schedule a demo and staff training."></textarea>
             </div>
+            {{-- Put the school on a plan as it is set up (2026-08-16).
+                 Without this a brand new school was created with no plan
+                 at all, silently falling back to the default plan's
+                 features and showing "No plan set" on Billing until
+                 someone noticed. --}}
+            <div class="field">
+              <label for="approve_plan_{{ $trial->id }}">Plan</label>
+              <select id="approve_plan_{{ $trial->id }}" name="plan_id">
+                <option value="">Decide later</option>
+                @foreach($plans as $plan)
+                  <option value="{{ $plan->id }}">{{ $plan->name }} &mdash; {{ number_format($plan->price_per_student_per_term) }} per student per term</option>
+                @endforeach
+              </select>
+            </div>
             <button class="btn btn-primary btn-sm" type="submit">Approve and email</button>
           </form>
           <form method="POST" action="{{ route('admin.trial-requests.reject', $trial) }}">

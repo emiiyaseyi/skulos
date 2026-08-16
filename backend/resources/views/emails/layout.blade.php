@@ -16,6 +16,27 @@
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background-color:#FFFFFF;border-radius:14px;overflow:hidden;border:1px solid #E2E6ED;">
         <tr>
           <td align="center" style="background-color:#0B1420;padding:24px 32px;text-align:center;">
+            {{-- The platform mark, drawn in HTML rather than attached or
+                 linked as an image (2026-08-16). public/favicon.svg is
+                 an SVG, which most mail clients will not render at all,
+                 and favicon.ico is empty. A remote image would be
+                 blocked by default in almost every client and shows as
+                 a broken placeholder, while embedding one as an
+                 attachment adds weight that works against deliverability
+                 -- which matters here because these are the messages
+                 that must not land in junk. This reproduces the same
+                 gold rounded square and serif "S" using only table and
+                 text styling, so it renders everywhere with nothing to
+                 load. Outlook desktop ignores border-radius and shows a
+                 square, which is a fair degradation. --}}
+            <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto 12px;">
+              <tr>
+                <td width="44" height="44" align="center" valign="middle"
+                    style="width:44px;height:44px;background-color:#E8A33D;border-radius:12px;
+                           font-family:Georgia,'Times New Roman',serif;font-size:26px;font-weight:bold;
+                           color:#241503;line-height:44px;text-align:center;">S</td>
+              </tr>
+            </table>
             <span style="font-family:Arial,Helvetica,sans-serif;font-weight:bold;font-size:20px;color:#FFFFFF;letter-spacing:-0.3px;">SK<span style="color:#E8A33D;">U</span>LOS</span>
           </td>
         </tr>

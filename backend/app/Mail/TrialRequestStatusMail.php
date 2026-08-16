@@ -74,6 +74,8 @@ class TrialRequestStatusMail extends Mailable
                 ."School information (name, logo, motto, address, email, phone, website), academic structure (sections, classes and arms, subjects, calendar, houses and clubs), student information, staff information, assessment and results structure, parent and communication preferences, and any admission, fee or timetable details you would like configured.\n\n"
                 ."You do not need to prepare everything before the trial begins. We can work through the requirements together and prioritise what is needed for the initial setup.\n\n"
                 ."We can also schedule a session to present SKULOS to your team, walk through the major features, answer your questions, and discuss how the platform can be configured to suit your school's operations.\n\n"
+                ."SCHEDULING YOUR DEMO\n"
+                ."Please reply with a preferred date and time (and an alternative if possible), the full address of the school if the session is to hold on site, roughly how many people will attend and their roles, and whether you would prefer to meet in person or online.\n\n"
                 ."We look forward to working with you and receiving your feedback during the trial.\n\n"
                 ."Kind regards,\nSKUL Operating System";
         } else {

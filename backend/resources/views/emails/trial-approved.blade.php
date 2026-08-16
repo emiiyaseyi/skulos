@@ -125,6 +125,15 @@ through the requirements together and prioritise the information needed for the 
 major features, answer your questions, and discuss how the platform can be configured to suit your
 school's operations.</p>
 
+<p style="{{ $h }}">Scheduling Your Demo</p>
+<p style="{{ $p }}">To arrange the session, please reply with:</p>
+<ul style="margin:0 0 14px;padding-left:20px;">
+  <li style="{{ $li }}">A preferred date and time, and an alternative if possible</li>
+  <li style="{{ $li }}">The full address of the school, if the session is to hold on site</li>
+  <li style="{{ $li }}">Roughly how many people will attend, and their roles</li>
+  <li style="{{ $li }}">Whether you would prefer to meet in person or online</li>
+</ul>
+
 <p style="{{ $p }}">We look forward to working with you and receiving your feedback during the trial.</p>
 
 <p style="{{ $p }}">Kind regards,<br />SKUL Operating System</p>
