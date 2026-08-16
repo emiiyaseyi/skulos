@@ -162,8 +162,8 @@ a{color:inherit;text-decoration:none}
 .side-search-ic svg{width:100%;height:100%}
 .side-search-empty{display:none;padding:.3rem .9rem 1rem;font-size:.78rem;color:var(--side-mut)}
 .side-nav{flex:1;padding:.4rem .7rem 1rem}
-.side-group{font-size:.66rem;text-transform:uppercase;letter-spacing:.09em;color:var(--side-mut);font-weight:800;padding:.9rem .6rem .35rem}
-.side-group-btn{width:100%;background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;text-align:left;font-size:.66rem;text-transform:uppercase;letter-spacing:.09em;color:var(--side-mut);font-weight:800;padding:.9rem .6rem .35rem}
+.side-group{font-size:.9rem;text-transform:uppercase;letter-spacing:.09em;color:var(--side-mut);font-weight:800;padding:.9rem .6rem .35rem}
+.side-group-btn{width:100%;background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;text-align:left;font-size:.9rem;text-transform:uppercase;letter-spacing:.09em;color:var(--side-mut);font-weight:800;padding:.9rem .6rem .35rem}
 .side-group-btn span{flex:1}
 .side-group-btn .chev{width:13px;height:13px;flex-shrink:0;transition:transform .15s ease}
 .side-group-btn[aria-expanded="true"] .chev{transform:rotate(90deg)}
@@ -234,7 +234,7 @@ a{color:inherit;text-decoration:none}
   style: it reported 160px, matching neither the desktop nor the phone
   rule below).
 --}}
-.appbar-search{width:15rem !important;min-width:0;padding:.5rem .7rem;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:.85rem}
+.appbar-search{width:15rem !important;min-width:0;height:2.75rem;padding:.5rem .7rem;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:.85rem}
 .appbar-signout{display:inline-flex;align-items:center;gap:.4rem}
 .appbar-signout-icon{display:none}
 .iconbtn{width:2.75rem;height:2.75rem;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;display:inline-grid;place-items:center;position:relative}
@@ -507,12 +507,19 @@ tr:last-child td{border-bottom:none}
        place makes the same small box read as an intentional search
        icon instead of clipped text; the input itself is unchanged,
        still tappable and still opens the real search page. --}}
-  .appbar-search{width:3.2rem !important;padding:.45rem .3rem;color:transparent;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23888%22 stroke-width=%222%22%3E%3Ccircle cx=%2211%22 cy=%2211%22 r=%228%22/%3E%3Cpath d=%22m21 21-4.35-4.35%22/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:center;background-size:1rem}
-  .appbar-search::placeholder{color:transparent}
-  .appbar-search:focus{color:var(--ink);background-image:none}
-  .appbar .iconbtn{width:1.8rem;height:1.8rem;border-radius:7px}
-  .appbar .iconbtn svg{width:13px;height:13px}
-  .appbar h2{font-size:.85rem}
+  {{-- Superseded 2026-08-15 on direct report ("the hamburger menu is
+       small, the Dashboard text is small, the search box seems too
+       high and should say search in it"). The icon-only search box
+       above was solving a real overflow problem, but at 1.8rem the
+       buttons were also well under the 44px minimum touch target, and
+       a box with no visible label reads as an empty field rather than
+       a search. Now the box is a normal input showing its placeholder,
+       matched in height to the buttons beside it so the row lines up,
+       and the buttons are big enough to hit reliably. --}}
+  .appbar-search{width:6.5rem !important;height:2.4rem;padding:.45rem .6rem;font-size:.8rem}
+  .appbar .iconbtn{width:2.4rem;height:2.4rem;border-radius:9px}
+  .appbar .iconbtn svg{width:17px;height:17px}
+  .appbar h2{font-size:1rem}
   /* Sign out as an icon, same square footprint as the other appbar
      buttons, not a text button (user report 2026-07-25: the text wrapped
      to two lines, "Sign" over "out", making the button visibly taller
@@ -767,7 +774,7 @@ tr:last-child td{border-bottom:none}
       <div class="appbar-spacer"></div>
       @if(($portal ?? null) === 'school' && isset($school) && $school)
         <form method="GET" action="{{ route('school.search.index', ['school' => $school->slug]) }}" style="display:flex;align-items:center;gap:.3rem">
-          <input type="search" name="q" placeholder="Search students, staff, parents" aria-label="Search" class="appbar-search" />
+          <input type="search" name="q" placeholder="Search" aria-label="Search students, staff, parents" class="appbar-search" />
         </form>
       @endif
       @if(($portal ?? null) === 'school' && isset($school) && $school && auth()->check())
