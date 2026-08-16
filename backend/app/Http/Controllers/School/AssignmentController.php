@@ -336,7 +336,7 @@ class AssignmentController extends Controller
 
         $data = $request->validate([
             'assignment_ids' => ['required', 'array', 'min:1'],
-            'assignment_ids.*' => ['exists:assignments,id'],
+            'assignment_ids.*' => ['exists:tenant.assignments,id'],
         ]);
 
         $armIds = $teacherScope->classArmIds($user, $school);

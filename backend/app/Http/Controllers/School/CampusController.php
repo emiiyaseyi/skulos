@@ -78,7 +78,7 @@ class CampusController extends Controller
         $this->authorizeAction($request, 'school_info.manage_settings');
         $data = $request->validate([
             'campus_ids' => ['required', 'array', 'min:1'],
-            'campus_ids.*' => ['exists:campuses,id'],
+            'campus_ids.*' => ['exists:tenant.campuses,id'],
         ]);
 
         $count = Campus::whereIn('id', $data['campus_ids'])->count();

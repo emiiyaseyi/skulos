@@ -232,7 +232,7 @@ class CalendarEventController extends Controller
 
         $data = $request->validate([
             'event_ids' => ['required', 'array', 'min:1'],
-            'event_ids.*' => ['exists:calendar_events,id'],
+            'event_ids.*' => ['exists:tenant.calendar_events,id'],
         ]);
 
         $count = CalendarEvent::whereIn('id', $data['event_ids'])->where('is_default', false)->count();
