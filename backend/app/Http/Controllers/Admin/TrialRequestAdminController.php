@@ -83,6 +83,14 @@ class TrialRequestAdminController extends Controller
         $admin->name = $admin->name ?: $trialRequest->contact_name;
         $admin->password = Hash::make($temporaryPassword);
         $admin->email_verified_at = $admin->email_verified_at ?: now();
+        // Force a change at first sign in (2026-08-16, reported live:
+        // trial-approved schools kept the emailed temporary password
+        // indefinitely). SchoolAdminController::attachAdmin() has always
+        // done this for a manually created school; this path was written
+        // separately and never picked it up, so the one route a real
+        // customer actually arrives through was the one route that left
+        // a password sitting in an inbox valid forever.
+        $admin->must_change_password = true;
         $admin->save();
 
         // Bug found 2026-07-16 (user report: a platform broadcast to

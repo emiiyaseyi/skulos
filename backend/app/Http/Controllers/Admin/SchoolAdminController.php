@@ -143,8 +143,19 @@ class SchoolAdminController extends Controller
             // The school's own administrator, who will sign in and run setup.
             'admin_name' => ['required', 'string', 'max:120'],
             'admin_email' => ['required', 'email', 'max:150'],
-            'admin_password' => ['required', 'string', 'min:8', 'max:100'],
+            // Optional (2026-08-16): left blank, one is generated. A
+            // human-chosen password for someone else tends to be weak
+            // and reused, and it has to be typed accurately into a
+            // second system anyway -- the generated one is stronger and
+            // is shown once for relaying.
+            'admin_password' => ['nullable', 'string', 'min:8', 'max:100'],
+            // Chosen at creation (2026-08-16) so a new school is never
+            // left with no plan, silently falling back to the default
+            // plan's features while Billing reports "No plan set".
+            'plan_id' => ['nullable', 'exists:plans,id'],
         ]);
+
+        $data['admin_password'] = $data['admin_password'] ?: TemporaryPassword::generate();
 
         // Always normalized through Str::slug(), even when the admin typed
         // their own value: a raw typed slug only passed alpha_dash
@@ -157,9 +168,25 @@ class SchoolAdminController extends Controller
         // outside [a-z0-9_] without lowercasing first) from silently
         // eating an uppercase letter, which is how that school's database
         // ended up literally named "raining" instead of "training".
-        $slug = Str::slug($data['slug'] ?? $data['name']);
-        if (School::where('slug', $slug)->exists()) {
-            return back()->with('error', "A school with the address '{$slug}' already exists.")->withInput();
+        // No separator, matching how a trial-approved school's address
+        // is built, so both routes produce the same shape.
+        $slug = Str::slug($data['slug'] ?? $data['name'], '');
+
+        // Reported as a real field error rather than a flashed message
+        // (2026-08-16, reported live: "it did not flag that the slug
+        // already exists"). The typed value passes Rule::unique when it
+        // differs only by case or punctuation from an existing slug --
+        // "Greenfield" and "green-field" both normalise onto
+        // "greenfield" -- so this check is the one that actually catches
+        // it, and as a flashed message it appeared above a form that had
+        // collapsed itself, which is easy to miss entirely.
+        // withTrashed: an archived school still owns its address.
+        if ($slug === '' || School::withTrashed()->where('slug', $slug)->exists()) {
+            return back()->withInput()->withErrors([
+                'slug' => $slug === ''
+                    ? 'Enter an address using letters and numbers.'
+                    : "The address \"{$slug}\" is already taken. Try another.",
+            ]);
         }
 
         $school = School::create([
@@ -206,8 +233,48 @@ class SchoolAdminController extends Controller
             return back()->with('error', "{$school->name}'s tenant database was created, but attaching the administrator account failed. The school has been suspended pending manual review rather than left reachable with no owner. Try creating the owner again from the school's Admins page, then reinstate it.")->withInput();
         }
 
+        $planName = null;
+        if (! empty($data['plan_id'])) {
+            $plan = \App\Models\Plan::find($data['plan_id']);
+            if ($plan && $plan->is_purchasable) {
+                $school->update(['plan_id' => $plan->id]);
+                // Module states too, not just plan_id: module_states is
+                // what actually gates access, and a school with no rows
+                // falls back to the default plan's features.
+                foreach (\App\Models\Module::optional() as $code => $meta) {
+                    app(Rbac::class)->setModuleState($school, $code, in_array($code, $plan->modules ?? [], true)
+                        ? \App\Models\Module::STATE_ENABLED
+                        : \App\Models\Module::STATE_DISABLED);
+                }
+                $planName = $plan->name;
+            }
+        }
+
+        // The same onboarding letter a trial school receives: a school
+        // created by hand has exactly the same need for demo access,
+        // sign in details and the setup checklist, and had been getting
+        // nothing at all.
+        try {
+            Mail::to($data['admin_email'])->send(new \App\Mail\SchoolWelcomeMail(
+                $school,
+                [
+                    'portal_url' => $school->portalUrl('/login'),
+                    'email' => Str::lower($data['admin_email']),
+                    'password' => $data['admin_password'],
+                ],
+                $planName,
+            ));
+        } catch (\Throwable $e) {
+            // A mail failure must not undo a school that is already
+            // created and working; the password is shown on screen too.
+            \Illuminate\Support\Facades\Log::warning("Welcome email for {$school->slug} failed: ".$e->getMessage());
+        }
+
+        // Shown once, here: it is never stored in readable form and the
+        // owner must change it at first sign in anyway.
         return redirect()->route('admin.schools.index')->with('status',
-            "{$school->name} is ready. The administrator (".Str::lower($data['admin_email']).") can now sign in at {$school->slug}.".config('app.domain')." to finish setup.");
+            "{$school->name} is ready. The administrator (".Str::lower($data['admin_email']).") can sign in at {$school->slug}.".config('app.domain')
+            ." with the temporary password {$data['admin_password']} and will be asked to change it. Share it with them now, it is not shown again.");
     }
 
     protected function attachAdmin(School $school, string $name, string $email, string $password): User
@@ -249,8 +316,10 @@ class SchoolAdminController extends Controller
             'slug' => ['nullable', 'alpha_dash', 'max:60', Rule::unique('schools', 'slug')],
             'admin_name' => ['required', 'string', 'max:120'],
             'admin_email' => ['required', 'email', 'max:150'],
-            'admin_password' => ['required', 'string', 'min:8', 'max:100'],
+            'admin_password' => ['nullable', 'string', 'min:8', 'max:100'],
         ]);
+
+        $data['admin_password'] = $data['admin_password'] ?: TemporaryPassword::generate();
 
         // Always normalized through Str::slug(), even when the admin typed
         // their own value: a raw typed slug only passed alpha_dash

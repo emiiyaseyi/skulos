@@ -158,7 +158,9 @@ class SchoolAdminManagementTest extends TestCase
         ])->assertRedirect(route('admin.schools.index'));
 
         $school = School::where('name', 'Bright Future Academy')->firstOrFail();
-        $this->assertSame('bright-future-academy', $school->slug);
+        // No separator (2026-08-16): a hyphenated subdomain is harder to
+        // say aloud, easier to mistype and worse on a letterhead.
+        $this->assertSame('brightfutureacademy', $school->slug);
     }
 
     public function test_platform_admin_can_reset_a_school_admins_password(): void

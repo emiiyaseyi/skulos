@@ -19,9 +19,16 @@
 
 <p style="{{ $p }}">Thank you for your interest in SKULOS.</p>
 
-<p style="{{ $p }}">We are pleased to approve your school for the SKULOS trial. The trial will
-give your team the opportunity to explore the platform, test the different workflows, and provide
-feedback that will help us tailor the solution to your school's needs.</p>
+{{-- $intro lets a school created directly by the platform owner reuse
+     this same letter: it did not ask for a trial, someone set it up for
+     them, and only this opening sentence differs. Sharing one letter
+     keeps the two from drifting apart. --}}
+@php($defaultIntro = "We are pleased to approve your school for the SKULOS trial. The trial will give your team the opportunity to explore the platform, test the different workflows, and provide feedback that will help us tailor the solution to your school's needs.")
+<p style="{{ $p }}">{{ $intro ?? $defaultIntro }}</p>
+
+@if(! empty($planName))
+  <p style="{{ $p }}"><strong>Your plan:</strong> {{ $planName }}</p>
+@endif
 
 <p style="{{ $h }}">Demo Access</p>
 <p style="{{ $p }}">

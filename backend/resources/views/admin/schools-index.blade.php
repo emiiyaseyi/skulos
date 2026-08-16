@@ -18,7 +18,7 @@
        matches the same pattern already used elsewhere in this app
        (Billing's marketing feature checklist, Assessment Structure's
        per-term editing) rather than inventing a new interaction. --}}
-  <details @if($errors->any()) open @endif>
+  <details @if($errors->any() || session("error")) open @endif>
     <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:.6rem">
       <h3 style="margin:0">Create a school</h3>
       <span class="btn btn-ghost btn-sm" style="pointer-events:none">+ Add school</span>
@@ -60,9 +60,20 @@
         @error('admin_email')<div class="err">{{ $message }}</div>@enderror
       </div>
       <div class="field">
+      <div class="field">
+        <label for="plan_id">Plan</label>
+        <select id="plan_id" name="plan_id">
+          <option value="">Decide later</option>
+          @foreach(\App\Models\Plan::where('is_purchasable', true)->orderBy('price_per_student_per_term')->get() as $plan)
+            <option value="{{ $plan->id }}">{{ $plan->name }}</option>
+          @endforeach
+        </select>
+        <div class="hint">Named in the welcome email the administrator receives.</div>
+      </div>
+
         <label for="admin_password">Temporary password</label>
-        <input id="admin_password" name="admin_password" type="text" required placeholder="at least 8 characters" />
-        <div class="hint">Share this with the administrator.</div>
+        <input id="admin_password" name="admin_password" type="text" minlength="8" maxlength="100" placeholder="Leave blank and we will generate one" />
+        <div class="hint">Leave it blank to have a strong one generated. It is shown once after the school is created, and the administrator must change it at first sign in.</div>
         @error('admin_password')<div class="err">{{ $message }}</div>@enderror
       </div>
     </div>
