@@ -189,7 +189,16 @@ class AssignmentController extends Controller
             $query->whereDate('due_on', '<=', $dueTo);
         }
 
-        $summary = $unrestricted ? (clone $query)
+        // reorder() strips the base query's "order by due_on desc"
+        // before the aggregates are applied. Without it MySQL rejects
+        // the whole statement (error 1140: mixing aggregate columns
+        // with a non-aggregate one and no GROUP BY), because ordering
+        // by due_on references a plain column alongside count()/sum().
+        // SQLite permits it, so this only ever failed in production and
+        // showed as a 500 on the Assignments page -- found live
+        // 2026-08-16. An ordering is meaningless on a single row of
+        // totals anyway.
+        $summary = $unrestricted ? (clone $query)->reorder()
             ->selectRaw("count(*) as total, sum(case when due_on is null then 0 when due_on < ? then 1 else 0 end) as overdue, sum(case when due_on >= ? then 1 else 0 end) as upcoming", [now()->toDateString(), now()->toDateString()])
             ->first() : null;
 

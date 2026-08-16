@@ -170,7 +170,7 @@ a{color:inherit;text-decoration:none}
 .side-submenu{display:grid;grid-template-rows:0fr;transition:grid-template-rows .18s ease}
 .side-submenu.open{grid-template-rows:1fr}
 .side-submenu>div{overflow:hidden}
-.side-link{display:flex;align-items:center;gap:.7rem;padding:.6rem .65rem;border-radius:10px;color:var(--side-mut);font-weight:600;font-size:.9rem;transition:background .15s ease,color .15s ease}
+.side-link{display:flex;align-items:center;gap:.7rem;padding:.6rem .65rem;border-radius:10px;color:var(--side-mut);font-weight:600;font-size:1rem;transition:background .15s ease,color .15s ease}
 .side-link:hover{background:var(--side-active);color:var(--side-ink)}
 .side-link.active{background:var(--side-active);color:#fff}
 .side-link.active .ic{color:var(--accent)}
