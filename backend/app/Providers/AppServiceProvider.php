@@ -8,6 +8,7 @@ use App\Services\Rbac\Rbac;
 use App\Services\Tenancy\TenantManager;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use SocialiteProviders\Manager\SocialiteWasCalled;
@@ -50,6 +51,26 @@ class AppServiceProvider extends ServiceProvider
         // Every ->links() call in the app uses this one custom view now.
         Paginator::defaultView('vendor.pagination.custom');
         Paginator::defaultSimpleView('vendor.pagination.custom');
+
+        // Every URL this app generates (signed links especially -- the
+        // "sign in as this admin" handoff, applicant status links) is
+        // built https:// in production, unconditionally (2026-08-16).
+        //
+        // bootstrap/app.php's trustProxies(at: '*') already tells
+        // Laravel to believe the X-Forwarded-Proto header the host's
+        // proxy sends, which is the textbook fix for this -- but it
+        // depends on that specific host actually sending that specific
+        // header, which is not something this app controls or can
+        // verify from the code alone. This line removes that dependency
+        // entirely for URL generation specifically: production only
+        // ever serves over HTTPS (the wildcard certificate this whole
+        // platform relies on), so there is no real scenario where
+        // forcing https here generates a wrong link, and it fixes the
+        // signed-link failure even if the proxy trust fix alone turns
+        // out not to be enough on this particular host.
+        if ($this->app->environment('production')) {
+            URL::forceScheme('https');
+        }
 
         // Register the Microsoft (Outlook) Socialite provider. Google is
         // supported by Socialite natively.
