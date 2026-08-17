@@ -83,9 +83,13 @@ class StudentTest extends TestCase
 
     public function test_importer_template_matches_columns(): void
     {
+        // Separate parent1_*/parent2_* columns replaced the single
+        // parent_mobile-only shape (2026-08-16, direct instruction: the
+        // sheet needed a real name/email/phone/relationship per
+        // guardian, not just a phone number).
         $template = (new StudentImporter)->template();
         $this->assertSame(
-            "admission_number,first_name,last_name,other_names,gender,date_of_birth,email,parent_mobile,class,house,state_of_origin,lga,address\n",
+            "admission_number,first_name,last_name,other_names,gender,date_of_birth,email,parent_mobile,parent1_name,parent1_email,parent1_phone,parent1_relationship,parent2_name,parent2_email,parent2_phone,parent2_relationship,class,house,state_of_origin,lga,address\n",
             $template
         );
     }

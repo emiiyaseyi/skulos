@@ -86,8 +86,16 @@ class SetupController extends Controller
         if ($requested >= 1 && $requested <= count($steps)) {
             $current = $requested - 1;
         } else {
-            // Land on the first not-yet-done step, or the final "Done" step if everything is already set up.
-            $current = collect($steps)->search(fn ($s) => ! $s['done']);
+            // Land on the first not-yet-done step, or the final "Done"
+            // step if everything is already set up. 'clubs' is skipped
+            // over here the same way it is excluded from
+            // $allRealStepsDone just above: without this, a school that
+            // has not touched clubs (a genuinely optional step, never
+            // required to reach "Done") would land on it every single
+            // time they open /setup with no ?step=, and never naturally
+            // advance past it to "Done" even though the wizard already
+            // considers them finished.
+            $current = collect($steps)->search(fn ($s) => ! $s['done'] && $s['key'] !== 'clubs');
             $current = $current === false ? count($steps) - 1 : $current;
         }
 
@@ -117,7 +125,10 @@ class SetupController extends Controller
             'studentCount' => Student::count(),
             'staffCount' => Staff::count(),
             'classCatalogs' => config('skulos.default_class_structure'),
-            'allDone' => collect($steps)->every(fn ($s) => $s['done']),
+            // Same exclusion as the current-step search above: clubs is
+            // optional, so a school that has never touched it is still
+            // "all set" for the purposes of this headline.
+            'allDone' => collect($steps)->every(fn ($s) => $s['done'] || $s['key'] === 'clubs'),
             'canManageAcademics' => $rbac->check($user, $school, 'academics.create'),
             'canManageStudentSettings' => $rbac->check($user, $school, 'students.manage_settings'),
             'canApproveResults' => $rbac->check($user, $school, 'examinations.approve_results'),

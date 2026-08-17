@@ -3,11 +3,19 @@
 namespace Tests\Feature;
 
 use App\Mail\ContactFormMail;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class ContactFormTest extends TestCase
 {
+    // Needed since 2026-08-16: ContactFormMail's envelope() now checks
+    // for an edited template (Settings > Mail Templates), which queries
+    // the platform database even under Mail::fake() -- the fake
+    // intercepts the actual send, not envelope()/content(), and the
+    // first test below calls envelope() directly in its own assertion.
+    use RefreshDatabase;
+
     public function test_a_visitor_can_submit_the_contact_form_and_an_email_is_sent(): void
     {
         Mail::fake();

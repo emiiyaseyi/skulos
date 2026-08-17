@@ -471,6 +471,11 @@ class ReportCardEnrichmentTest extends TestCase
         ['term' => $term, 'student' => $student, 'subject' => $subject, 'trait' => $trait] = $this->setUpClassWithStudents($school);
 
         app(TenantManager::class)->use($school);
+        // Clubs on the report card are gated behind their own setting
+        // since 2026-08-16 (admin decides whether they appear at all).
+        // Without this, the club row is correctly suppressed and 'Art
+        // Club' never renders -- the new intended behaviour, not a bug.
+        \App\Models\Tenant\Setting::put('clubs_enabled', true);
         StudentTermRemark::create(['student_id' => $student->id, 'term_id' => $term->id, 'height' => '95cm', 'weight' => '14kg', 'club' => 'Art Club']);
         StudentBehaviouralRating::create(['student_id' => $student->id, 'term_id' => $term->id, 'behavioural_trait_id' => $trait->id, 'value' => 'Good']);
         StudentSubjectComment::create(['student_id' => $student->id, 'term_id' => $term->id, 'subject_id' => $subject->id, 'comment' => 'Counts confidently to 10.']);

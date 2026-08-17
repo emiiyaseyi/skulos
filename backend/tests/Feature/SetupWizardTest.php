@@ -66,7 +66,7 @@ class SetupWizardTest extends TestCase
 
         $this->actingAs($admin)->get("http://{$school->slug}.localhost/setup")
             ->assertOk()
-            ->assertSee('Step 2 of 9')
+            ->assertSee('Step 2 of 10')
             ->assertSee('Give your school its own colour');
     }
 
@@ -77,7 +77,7 @@ class SetupWizardTest extends TestCase
 
         $this->actingAs($admin)->get("http://{$school->slug}.localhost/setup?step=3")
             ->assertOk()
-            ->assertSee('Step 3 of 9')
+            ->assertSee('Step 3 of 10')
             ->assertSee('Create your first academic session');
     }
 
@@ -140,7 +140,7 @@ class SetupWizardTest extends TestCase
 
         $this->actingAs($admin)->get("http://{$school->slug}.localhost/setup")
             ->assertOk()
-            ->assertSee('Step 9 of 9')
+            ->assertSee('Step 10 of 10')
             ->assertSee("You're all set");
     }
 
