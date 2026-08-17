@@ -71,8 +71,20 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
+            // PDO::ATTR_TIMEOUT bounds how long PHP will wait for the
+            // CONNECT phase specifically (2026-08-17, found live: a
+            // stuck MySQL user account made every connection attempt —
+            // CLI, artisan, and real web requests — hang indefinitely
+            // with no error, since nothing here previously set any
+            // limit at all). This does not affect how long a normal
+            // query is allowed to run once connected, only how long a
+            // broken/hung connection attempt is tolerated before it
+            // fails fast enough for the retry logic below to act on it,
+            // instead of a user staring at a blank tab for a minute or
+            // more with no feedback.
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+                PDO::ATTR_TIMEOUT => (int) env('DB_CONNECT_TIMEOUT', 5),
             ]) : [],
         ],
 
@@ -91,8 +103,10 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
+            // See the identical option on 'mysql' above for why.
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+                PDO::ATTR_TIMEOUT => (int) env('DB_CONNECT_TIMEOUT', 5),
             ]) : [],
         ],
 

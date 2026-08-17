@@ -211,6 +211,50 @@ class TenantManager
 
         Config::set("database.connections.{$name}", $config);
         DB::purge($name);
+
+        $this->verifyConnection($name);
+    }
+
+    /**
+     * Confirms a freshly (re)configured connection actually works before
+     * handing it back to the caller, and gives it exactly one clean
+     * retry if not (2026-08-17, found live: a database account that got
+     * into a stuck state made every connection attempt on it hang
+     * indefinitely — not fail, hang — with no exception for anything
+     * downstream to react to. That account has since been reset, but
+     * the same shape of problem could recur for a reason outside this
+     * app's control, e.g. the underlying database server itself having
+     * a bad moment).
+     *
+     * PDO::ATTR_TIMEOUT (config/database.php) already bounds how long a
+     * single connection attempt can hang for, which is what makes a
+     * retry here actually meaningful instead of just doubling how long
+     * a stuck request waits — without that timeout, a "retry" against a
+     * connection that hangs forever would itself hang forever.
+     *
+     * A cheap `SELECT 1`, not a no-op: getPdo() alone can return a PDO
+     * object for a connection that LOOKS configured but was never
+     * actually exercised, MySQL's "connection is dead but nobody has
+     * tried to use it yet" case. Only a real round trip proves it works.
+     *
+     * One retry, not a loop: this is a live web request already waiting
+     * on the user's behalf, not a background job — after a second
+     * failure the honest thing is a real, fast error page (Laravel's
+     * own exception handling), not silently degrading service by
+     * retrying indefinitely while someone stares at a spinner.
+     */
+    protected function verifyConnection(string $name): void
+    {
+        try {
+            DB::connection($name)->select('select 1');
+        } catch (\Throwable $e) {
+            DB::purge($name);
+
+            // Deliberately unguarded: if this second attempt also
+            // fails, the exception is the truth and should propagate,
+            // not be swallowed into a silent, unexplained failure.
+            DB::connection($name)->select('select 1');
+        }
     }
 
     protected function databaseNameFor(School $school): string
