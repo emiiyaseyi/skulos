@@ -44,6 +44,8 @@ class RecordSentMail
             // and subject instead would pick the wrong row whenever the
             // same message goes to the same person twice.
             $event->message->getHeaders()->addTextHeader('X-Skulos-Log-Id', (string) $log->id);
+
+            $this->injectTrackingPixel($event, $log);
         } catch (\Throwable $e) {
             // Logging an email must never be the reason the email fails
             // to go out.
@@ -185,6 +187,45 @@ class RecordSentMail
             'student' => MailLog::AUDIENCE_STUDENT,
             default => MailLog::AUDIENCE_STAFF,
         };
+    }
+
+    /**
+     * Adds the open-tracking pixel to an HTML message, automatically,
+     * for every mail that has one (2026-08-19). This is what makes
+     * MailLog::readStatus()'s "opened" state possible at all: nothing
+     * about this app's actual mail-sending flow otherwise learns
+     * whether a message was opened.
+     *
+     * Only possible here, not in a Mailable or the shared layout view:
+     * the row this pixel needs to reference does not exist until the
+     * line just above created it, but the HTML has already been fully
+     * rendered by the time this event fires (Laravel builds a
+     * Mailable's content before firing MessageSending). Mutating the
+     * already-rendered body via $event->message->html() is the only
+     * point in the whole send pipeline where both the finished HTML and
+     * the row's real id exist together -- the same reasoning already
+     * used two lines up to add the X-Skulos-Log-Id header after the
+     * fact rather than during rendering.
+     *
+     * Plain text mail is left untouched: a hidden image makes no sense
+     * outside HTML, and every Mailable in this app already sends both
+     * parts, so plain-text-only mail should not exist here regardless.
+     */
+    protected function injectTrackingPixel(MessageSending $event, MailLog $log): void
+    {
+        $html = $event->message->getHtmlBody();
+        if (! $html) {
+            return;
+        }
+
+        $url = \Illuminate\Support\Facades\URL::signedRoute('mail.track', ['mailLog' => $log->id]);
+        $pixel = '<img src="'.e($url).'" width="1" height="1" alt="" style="display:block;border:0" />';
+
+        $withPixel = str_contains($html, '</body>')
+            ? str_replace('</body>', $pixel.'</body>', $html)
+            : $html.$pixel;
+
+        $event->message->html($withPixel);
     }
 
     /** @param  array<string, string>|iterable  $addresses */

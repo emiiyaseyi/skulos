@@ -22,7 +22,9 @@ class MailLogController extends Controller
 
         $query = MailLog::with('school')->latest();
 
-        if (in_array($status, [MailLog::STATUS_SENT, MailLog::STATUS_FAILED, MailLog::STATUS_SENDING], true)) {
+        if ($status === 'opened') {
+            $query->whereNotNull('opened_at');
+        } elseif (in_array($status, [MailLog::STATUS_SENT, MailLog::STATUS_FAILED, MailLog::STATUS_SENDING], true)) {
             $query->where('status', $status);
         }
         if ($schoolId) {
@@ -43,6 +45,7 @@ class MailLogController extends Controller
                 'all' => MailLog::count(),
                 'sent' => MailLog::where('status', MailLog::STATUS_SENT)->count(),
                 'failed' => MailLog::where('status', MailLog::STATUS_FAILED)->count(),
+                'opened' => MailLog::whereNotNull('opened_at')->count(),
             ],
             'logs' => $query->paginate(50)->withQueryString(),
             'schools' => School::orderBy('name')->get(['id', 'name']),

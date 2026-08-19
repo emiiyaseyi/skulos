@@ -8,10 +8,11 @@
   <a class="btn btn-ghost btn-sm" href="{{ route('admin.mail-report.index') }}">View the mail report (per school, per audience)</a>
 </div>
 
-<div class="grid cols-3" style="margin-bottom:1.2rem">
+<div class="grid cols-4" style="margin-bottom:1.2rem">
   <div class="stat"><b>{{ number_format($totals['all']) }}</b><span>Total sent</span></div>
   <div class="stat"><b>{{ number_format($totals['sent']) }}</b><span>Delivered</span></div>
   <div class="stat"><b>{{ number_format($totals['failed']) }}</b><span>Failed</span></div>
+  <div class="stat"><b>{{ number_format($totals['opened']) }}</b><span>Read / opened</span></div>
 </div>
 
 <div class="card" style="margin-bottom:1.2rem">
@@ -27,6 +28,7 @@
         <option value="sent" @selected($status === 'sent')>Delivered</option>
         <option value="failed" @selected($status === 'failed')>Failed</option>
         <option value="sending" @selected($status === 'sending')>In progress</option>
+        <option value="opened" @selected($status === 'opened')>Read / opened</option>
       </select>
     </div>
     <div class="field" style="margin:0">
@@ -61,12 +63,14 @@
               <td data-label="Type" class="muted">{{ $log->shortMailable() }}</td>
               <td data-label="School" class="muted">{{ $log->school?->name ?? 'Platform' }}</td>
               <td data-label="Status">
-                @if($effective === 'sent')
+                @if($log->opened_at)
+                  <span class="badge badge-ok" title="Opened {{ $log->opened_at->format('d M Y H:i') }}">Read</span>
+                @elseif($effective === 'sent')
                   <span class="badge badge-ok">Delivered</span>
                 @elseif($effective === 'failed')
-                  <span class="badge badge-bad" @if($log->error) title="{{ $log->error }}" @endif>Failed</span>
+                  <span class="badge badge-bad" @if($log->error) title="{{ $log->error }}" @endif>Not delivered</span>
                 @else
-                  <span class="badge badge-warn">In progress</span>
+                  <span class="badge badge-warn">Sent</span>
                 @endif
               </td>
             </tr>
@@ -78,7 +82,10 @@
   @endif
   <p class="hint" style="margin-top:1rem">
     Message bodies are deliberately not stored here. This is a delivery record, and email bodies
-    routinely contain credentials such as a new owner's temporary password.
+    routinely contain credentials such as a new owner's temporary password. "Read" is a best effort
+    signal from a tracking pixel, not a guarantee: many mail clients block remote images by default
+    (a real open can go unrecorded), and some (Apple Mail in particular) pre-load every image
+    automatically whether or not the message was actually opened.
   </p>
 </div>
 @endsection

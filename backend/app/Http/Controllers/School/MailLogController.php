@@ -49,7 +49,12 @@ class MailLogController extends Controller
         $search = trim((string) $request->query('q'));
 
         $query = (clone $base)->latest();
-        if (in_array($status, [MailLog::STATUS_SENT, MailLog::STATUS_FAILED, MailLog::STATUS_SENDING], true)) {
+        if ($status === 'opened') {
+            // A read email is still also "sent"/"delivered" in the
+            // status column -- opened_at is the real signal here, not
+            // a fifth value the status column itself would need to know.
+            $query->whereNotNull('opened_at');
+        } elseif (in_array($status, [MailLog::STATUS_SENT, MailLog::STATUS_FAILED, MailLog::STATUS_SENDING], true)) {
             $query->where('status', $status);
         }
         if ($search !== '') {
@@ -66,6 +71,7 @@ class MailLogController extends Controller
                 'all' => (clone $base)->count(),
                 'sent' => (clone $base)->where('status', MailLog::STATUS_SENT)->count(),
                 'failed' => (clone $base)->where('status', MailLog::STATUS_FAILED)->count(),
+                'opened' => (clone $base)->whereNotNull('opened_at')->count(),
             ],
             'logs' => $query->paginate(50)->withQueryString(),
             'status' => $status,

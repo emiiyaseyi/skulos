@@ -39,12 +39,12 @@ class MailLog extends Model
     ];
 
     protected $fillable = [
-        'recipient', 'subject', 'mailable', 'status', 'error', 'school_id', 'audience', 'sent_at',
+        'recipient', 'subject', 'mailable', 'status', 'error', 'school_id', 'audience', 'sent_at', 'opened_at',
     ];
 
     protected function casts(): array
     {
-        return ['sent_at' => 'datetime'];
+        return ['sent_at' => 'datetime', 'opened_at' => 'datetime'];
     }
 
     public function school(): BelongsTo
@@ -60,6 +60,33 @@ class MailLog extends Model
         }
 
         return $this->status;
+    }
+
+    /**
+     * The four-state label asked for directly: Sent, Delivered, Not
+     * delivered, Read/Open. "Opened" wins over "Delivered" when both are
+     * true, since a real open is stronger proof the mail reached someone
+     * than merely handing it to an SMTP server successfully -- there is
+     * no path for opened_at to be set on a message that never arrived.
+     *
+     * "Not delivered" here means effectiveStatus() === failed, i.e. this
+     * app's own send attempt failed or stalled. It is NOT a true bounce
+     * signal (the recipient's mail server rejecting a message that did
+     * leave here successfully) -- that needs a specific email provider's
+     * bounce webhook, which isn't buildable generically against an
+     * admin-configurable arbitrary SMTP server the way this app allows.
+     */
+    public function readStatus(): string
+    {
+        if ($this->opened_at) {
+            return 'opened';
+        }
+
+        return match ($this->effectiveStatus()) {
+            self::STATUS_FAILED => 'not_delivered',
+            self::STATUS_SENT => 'delivered',
+            default => 'sent',
+        };
     }
 
     public function shortMailable(): string

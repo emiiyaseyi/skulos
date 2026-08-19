@@ -4,10 +4,11 @@
 @section('crumb', 'Email SKULOS has sent on behalf of ' . $school->name)
 @section('content')
 
-<div class="grid cols-3" style="margin-bottom:1.2rem">
+<div class="grid cols-4" style="margin-bottom:1.2rem">
   <div class="stat"><b>{{ number_format($totals['all']) }}</b><span>Total sent</span></div>
   <div class="stat"><b>{{ number_format($totals['sent']) }}</b><span>Delivered</span></div>
   <div class="stat"><b>{{ number_format($totals['failed']) }}</b><span>Failed</span></div>
+  <div class="stat"><b>{{ number_format($totals['opened']) }}</b><span>Read / opened</span></div>
 </div>
 
 <div class="card" style="margin-bottom:1.2rem">
@@ -23,6 +24,7 @@
         <option value="sent" @selected($status === 'sent')>Delivered</option>
         <option value="failed" @selected($status === 'failed')>Failed</option>
         <option value="sending" @selected($status === 'sending')>In progress</option>
+        <option value="opened" @selected($status === 'opened')>Read / opened</option>
       </select>
     </div>
     <div><button class="btn btn-primary btn-sm" type="submit">Apply</button></div>
@@ -47,12 +49,14 @@
               <td data-label="Subject">{{ $log->subject ?: '—' }}</td>
               <td data-label="Type" class="muted">{{ $log->shortMailable() }}</td>
               <td data-label="Status">
-                @if($effective === 'sent')
+                @if($log->opened_at)
+                  <span class="badge badge-ok" title="Opened {{ $log->opened_at->format('d M Y H:i') }}">Read</span>
+                @elseif($effective === 'sent')
                   <span class="badge badge-ok">Delivered</span>
                 @elseif($effective === 'failed')
-                  <span class="badge badge-bad" @if($log->error) title="{{ $log->error }}" @endif>Failed</span>
+                  <span class="badge badge-bad" @if($log->error) title="{{ $log->error }}" @endif>Not delivered</span>
                 @else
-                  <span class="badge badge-warn">In progress</span>
+                  <span class="badge badge-warn">Sent</span>
                 @endif
               </td>
             </tr>
@@ -64,7 +68,9 @@
   @endif
   <p class="hint" style="margin-top:1rem">
     Message bodies are not stored: this is a record of what was sent and whether it arrived, and
-    email bodies often contain passwords or reference numbers.
+    email bodies often contain passwords or reference numbers. "Read" is a best effort signal from a
+    tracking pixel, not a guarantee: some mail clients block remote images by default, and some
+    (Apple Mail in particular) pre-load every image automatically regardless of whether it was opened.
   </p>
 </div>
 @endsection

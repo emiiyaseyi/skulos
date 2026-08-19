@@ -59,6 +59,14 @@ Route::domain($appDomain)->group(function () {
         return response(File::get($path))->header('Content-Type', 'text/plain');
     });
 
+    // The mail open-tracking pixel (2026-08-19). Signed, not
+    // authenticated: this is requested by a recipient's email client,
+    // never a signed-in browser session. The signature is what stops a
+    // stranger marking arbitrary rows opened by guessing ids, since
+    // there is no session here to check permissions against at all.
+    Route::get('/mail/track/{mailLog}.gif', [\App\Http\Controllers\MailTrackingController::class, 'pixel'])
+        ->middleware('signed')->name('mail.track');
+
     Route::get('/', function () use ($marketingPage) {
         if (Auth::check()) {
             return Auth::user()->is_super_admin
