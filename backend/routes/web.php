@@ -98,6 +98,8 @@ Route::domain($appDomain)->group(function () {
         Route::post('/broadcast', [\App\Http\Controllers\Admin\BroadcastController::class, 'send'])->name('broadcast.send');
         Route::get('/audit-log', [\App\Http\Controllers\Admin\AuditLogController::class, 'index'])->name('audit-log.index');
         Route::get('/mail-log', [\App\Http\Controllers\Admin\MailLogController::class, 'index'])->name('mail-log.index');
+        Route::get('/mail-report', [\App\Http\Controllers\Admin\MailReportController::class, 'index'])->name('mail-report.index');
+        Route::get('/mail-report/{school}', [\App\Http\Controllers\Admin\MailReportController::class, 'show'])->name('mail-report.show');
         Route::post('/audit-log/verify', [\App\Http\Controllers\Admin\AuditLogController::class, 'verify'])->name('audit-log.verify');
         Route::get('/modules', [\App\Http\Controllers\Admin\ModuleAdminController::class, 'index'])->name('modules.index');
         Route::get('/backups', [\App\Http\Controllers\Admin\BackupAdminController::class, 'index'])->name('backups.index');

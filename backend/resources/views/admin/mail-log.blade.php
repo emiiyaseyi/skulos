@@ -4,6 +4,10 @@
 @section('crumb', 'Every email SKULOS has sent, and what happened to it')
 @section('content')
 
+<div style="margin-bottom:1.2rem">
+  <a class="btn btn-ghost btn-sm" href="{{ route('admin.mail-report.index') }}">View the mail report (per school, per audience)</a>
+</div>
+
 <div class="grid cols-3" style="margin-bottom:1.2rem">
   <div class="stat"><b>{{ number_format($totals['all']) }}</b><span>Total sent</span></div>
   <div class="stat"><b>{{ number_format($totals['sent']) }}</b><span>Delivered</span></div>
