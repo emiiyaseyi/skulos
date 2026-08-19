@@ -48,15 +48,35 @@
            approval, since another school could claim the same name in
            between. --}}
       <div class="field">
-        <label for="preferred_slug">Your school's web address</label>
+        <label class="req" for="preferred_slug">Your school's web address</label>
         <div style="display:flex;align-items:center;gap:.35rem;flex-wrap:wrap">
           <input id="preferred_slug" name="preferred_slug" value="{{ old('preferred_slug') }}"
-                 maxlength="60" placeholder="brightstaracademy" pattern="[a-zA-Z0-9]+"
+                 maxlength="60" placeholder="brightstaracademy" pattern="[a-zA-Z0-9]+" required
                  style="flex:1;min-width:12rem" />
           <span class="muted">.{{ config('app.domain') }}</span>
         </div>
-        <div class="hint" id="slugPreview">Letters and numbers only, no spaces. Leave blank and we will suggest one.</div>
+        <div class="hint" id="slugPreview">Letters and numbers only, no spaces.</div>
+        @error('preferred_slug')<div class="err">{{ $message }}</div>@enderror
       </div>
+
+      {{-- A real, searchable country list rather than free text
+           (2026-08-19), sourced from the same countries table every
+           other country picker in the app already uses. A native
+           <datalist> gives type-to-filter search with no JS of its own
+           to write or ship, which is exactly the "search function" ask
+           on a page that otherwise carries no client-side dependencies. --}}
+      <div class="field">
+        <label class="req" for="country">School location (country)</label>
+        <input id="country" name="country" list="country-options" autocomplete="off"
+               value="{{ old('country') }}" placeholder="Start typing to search" required />
+        <datalist id="country-options">
+          @foreach($countries as $country)
+            <option value="{{ $country }}">
+          @endforeach
+        </datalist>
+        @error('country')<div class="err">{{ $message }}</div>@enderror
+      </div>
+
       <div class="grid cols-2">
         <div class="field">
           <label for="contact_name">Your name</label>

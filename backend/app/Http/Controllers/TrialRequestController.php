@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Country;
 use App\Models\TrialRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -15,7 +16,9 @@ class TrialRequestController extends Controller
 {
     public function create(): \Illuminate\View\View
     {
-        return view('trial.create');
+        return view('trial.create', [
+            'countries' => Country::orderBy('name')->pluck('name'),
+        ]);
     }
 
     public function store(Request $request): \Illuminate\Http\RedirectResponse
@@ -33,10 +36,15 @@ class TrialRequestController extends Controller
 
         $data = $request->validate([
             'school_name' => ['required', 'string', 'max:150'],
-            // The subdomain they would like. Validated for shape only;
-            // availability is re-checked at approval time, since another
-            // school could claim the same one in between.
-            'preferred_slug' => ['nullable', 'string', 'max:60', 'regex:/^[a-zA-Z0-9]+$/'],
+            // 2026-08-19, made mandatory (direct instruction): a school
+            // no longer leaves this to be assigned later. Shape only
+            // here; availability is re-checked at approval time, since
+            // another school could claim the same one in between.
+            'preferred_slug' => ['required', 'string', 'max:60', 'regex:/^[a-zA-Z0-9]+$/'],
+            // 2026-08-19: a real country, from the same reference table
+            // every other country picker in the app already uses, not a
+            // free-text field that could hold anything.
+            'country' => ['required', 'string', 'exists:countries,name'],
             'contact_name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:150'],
             'phone' => ['nullable', 'string', 'max:40'],
@@ -44,9 +52,7 @@ class TrialRequestController extends Controller
             'message' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        if (! empty($data['preferred_slug'])) {
-            $data['preferred_slug'] = \Illuminate\Support\Str::slug($data['preferred_slug'], '');
-        }
+        $data['preferred_slug'] = \Illuminate\Support\Str::slug($data['preferred_slug'], '');
 
         TrialRequest::create($data);
 

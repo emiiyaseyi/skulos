@@ -21,7 +21,7 @@ class TrialRequest extends Model
     public const STATUS_REJECTED = 'rejected';
 
     protected $fillable = [
-        'school_name', 'preferred_slug', 'contact_name', 'email', 'phone', 'student_count', 'message',
+        'school_name', 'country', 'preferred_slug', 'contact_name', 'email', 'phone', 'student_count', 'message',
         'status', 'review_note', 'reviewed_by', 'reviewed_at', 'school_id',
     ];
 

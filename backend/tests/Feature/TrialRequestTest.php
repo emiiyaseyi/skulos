@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\TrialRequestStatusMail;
+use App\Models\Country;
 use App\Models\School;
 use App\Models\TrialRequest;
 use App\Models\User;
@@ -55,10 +56,14 @@ class TrialRequestTest extends TestCase
 
     public function test_a_visitor_can_submit_a_trial_request(): void
     {
-        $this->get('/trial')->assertOk();
+        Country::create(['name' => 'Nigeria', 'iso2' => 'NG', 'sequence' => 1]);
+
+        $this->get('/trial')->assertOk()->assertSee('Nigeria');
 
         $this->post('/trial', [
             'school_name' => 'Sunrise Academy',
+            'country' => 'Nigeria',
+            'preferred_slug' => 'sunriseacademy',
             'contact_name' => 'Bola Adeyemi',
             'email' => 'bola@sunrise.test',
             'phone' => '08012345678',
@@ -68,9 +73,37 @@ class TrialRequestTest extends TestCase
 
         $this->assertDatabaseHas('trial_requests', [
             'school_name' => 'Sunrise Academy',
+            'country' => 'Nigeria',
+            'preferred_slug' => 'sunriseacademy',
             'email' => 'bola@sunrise.test',
             'status' => TrialRequest::STATUS_PENDING,
         ]);
+    }
+
+    public function test_the_web_address_and_country_are_both_required(): void
+    {
+        Country::create(['name' => 'Nigeria', 'iso2' => 'NG', 'sequence' => 1]);
+
+        $this->post('/trial', [
+            'school_name' => 'No Address Or Country',
+            'contact_name' => 'Bola Adeyemi',
+            'email' => 'bola@sunrise.test',
+        ])->assertSessionHasErrors(['preferred_slug', 'country']);
+
+        $this->assertDatabaseMissing('trial_requests', ['school_name' => 'No Address Or Country']);
+    }
+
+    public function test_a_country_not_in_the_real_list_is_rejected(): void
+    {
+        Country::create(['name' => 'Nigeria', 'iso2' => 'NG', 'sequence' => 1]);
+
+        $this->post('/trial', [
+            'school_name' => 'Fake Country School',
+            'country' => 'Not A Real Country',
+            'preferred_slug' => 'fakecountryschool',
+            'contact_name' => 'Bola Adeyemi',
+            'email' => 'bola@sunrise.test',
+        ])->assertSessionHasErrors(['country']);
     }
 
     public function test_the_honeypot_field_silently_drops_bot_submissions(): void
@@ -87,7 +120,11 @@ class TrialRequestTest extends TestCase
 
     public function test_repeated_submissions_are_rate_limited(): void
     {
-        $payload = ['school_name' => 'A', 'contact_name' => 'B', 'email' => 'c@example.com'];
+        Country::create(['name' => 'Nigeria', 'iso2' => 'NG', 'sequence' => 1]);
+        $payload = [
+            'school_name' => 'A', 'country' => 'Nigeria', 'preferred_slug' => 'rateschool',
+            'contact_name' => 'B', 'email' => 'c@example.com',
+        ];
 
         for ($i = 0; $i < 3; $i++) {
             $this->post('/trial', $payload)->assertRedirect(route('trial.thanks'));

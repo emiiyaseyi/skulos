@@ -61,6 +61,7 @@
       <table style="margin-bottom:.8rem">
         <tbody>
           <tr><th>Contact</th><td style="word-break:break-word">{{ $trial->contact_name }} &middot; {{ $trial->email }}@if($trial->phone) &middot; {{ $trial->phone }}@endif</td></tr>
+          @if($trial->country)<tr><th>Country</th><td>{{ $trial->country }}</td></tr>@endif
           @if($trial->student_count)<tr><th>Students</th><td>{{ number_format($trial->student_count) }}</td></tr>@endif
           @if($trial->message)<tr><th>Message</th><td>{{ $trial->message }}</td></tr>@endif
           @if($trial->reviewed_at)<tr><th>Reviewed</th><td class="muted">{{ $trial->reviewed_at->toDayDateTimeString() }} by {{ $trial->reviewer?->name ?? 'Unknown' }}@if($trial->review_note) &middot; "{{ $trial->review_note }}"@endif</td></tr>@endif
