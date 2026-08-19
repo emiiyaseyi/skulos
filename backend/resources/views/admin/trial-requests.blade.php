@@ -101,6 +101,24 @@
             <button class="btn btn-ghost btn-sm" type="submit" style="color:var(--bad)">Decline and email</button>
           </form>
         </div>
+        <details style="margin-top:.6rem">
+          <summary class="btn btn-ghost btn-sm" style="display:inline-block;cursor:pointer">Ask a question before deciding</summary>
+          <form method="POST" action="{{ route('admin.trial-requests.request-info', $trial) }}" style="margin-top:.6rem;max-width:28rem">
+            @csrf
+            <div class="field">
+              <label for="info_message_{{ $trial->id }}">What do you need from them?</label>
+              <textarea id="info_message_{{ $trial->id }}" name="message" rows="3" required minlength="5"
+                        placeholder="Could you share your school's full address and roughly how many students you have?"></textarea>
+              <div class="hint">Sent as its own email, does not change this request's status.</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" type="submit">Send question</button>
+          </form>
+        </details>
+      @elseif($trial->status === 'approved' && $trial->school_id)
+        <form method="POST" action="{{ route('admin.trial-requests.nudge', $trial) }}">
+          @csrf
+          <button class="btn btn-ghost btn-sm" type="submit">Nudge: check in on their setup</button>
+        </form>
       @endif
     </div>
   @endforeach

@@ -92,6 +92,8 @@ Route::domain($appDomain)->group(function () {
         Route::post('/trial-requests/{trialRequest}/approve', [\App\Http\Controllers\Admin\TrialRequestAdminController::class, 'approve'])->name('trial-requests.approve');
         Route::post('/trial-requests/{trialRequest}/reject', [\App\Http\Controllers\Admin\TrialRequestAdminController::class, 'reject'])->name('trial-requests.reject');
         Route::post('/trial-requests/bulk-reject', [\App\Http\Controllers\Admin\TrialRequestAdminController::class, 'bulkReject'])->name('trial-requests.bulk-reject');
+        Route::post('/trial-requests/{trialRequest}/request-info', [\App\Http\Controllers\Admin\TrialRequestAdminController::class, 'requestInfo'])->name('trial-requests.request-info');
+        Route::post('/trial-requests/{trialRequest}/nudge', [\App\Http\Controllers\Admin\TrialRequestAdminController::class, 'nudge'])->name('trial-requests.nudge');
         Route::get('/broadcast', [\App\Http\Controllers\Admin\BroadcastController::class, 'create'])->name('broadcast.create');
         Route::post('/broadcast', [\App\Http\Controllers\Admin\BroadcastController::class, 'send'])->name('broadcast.send');
         Route::get('/audit-log', [\App\Http\Controllers\Admin\AuditLogController::class, 'index'])->name('audit-log.index');
@@ -151,6 +153,7 @@ Route::domain($appDomain)->group(function () {
         Route::post('/schools/{school}/suspend', [SchoolAdminController::class, 'suspend'])->name('schools.suspend');
         Route::post('/schools/{school}/archive', [SchoolAdminController::class, 'archive'])->name('schools.archive');
         Route::post('/schools/{school}/activate', [SchoolAdminController::class, 'activate'])->name('schools.activate');
+        Route::post('/schools/{school}/nudge', [SchoolAdminController::class, 'nudge'])->name('schools.nudge');
         Route::delete('/schools/{school}', [SchoolAdminController::class, 'destroy'])->name('schools.destroy');
 
         Route::post('/schools/{school}/backups', [\App\Http\Controllers\Admin\BackupAdminController::class, 'store'])->name('schools.backups.store');

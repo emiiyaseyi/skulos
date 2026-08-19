@@ -134,4 +134,67 @@ class MailLogTest extends TestCase
         $response = $this->actingAs($outsider)->get("http://{$school->slug}.localhost/mail-log");
         $this->assertContains($response->getStatusCode(), [403, 404, 302]);
     }
+
+    public function test_a_mailable_carrying_its_own_school_is_attributed_to_that_school_with_no_tenant_connection_active(): void
+    {
+        // The exact real gap found 2026-08-17: SchoolWelcomeMail and an
+        // approved TrialRequestStatusMail are both sent from plain
+        // platform admin controllers with no tenant connection active,
+        // so relying on TenantManager::current() alone silently
+        // recorded every one of them as belonging to no school at all.
+        [$school, $owner] = $this->schoolWithOwner('mailfive');
+        app(TenantManager::class)->forget();
+        config(['mail.default' => 'array']);
+
+        Mail::to($owner->email)->send(new \App\Mail\SchoolWelcomeMail($school, [
+            'portal_url' => $school->portalUrl('/login'), 'email' => $owner->email, 'password' => 'x',
+        ]));
+
+        $log = MailLog::where('mailable', \App\Mail\SchoolWelcomeMail::class)->first();
+        $this->assertNotNull($log);
+        $this->assertSame($school->id, $log->school_id);
+    }
+
+    public function test_account_created_mail_records_its_own_audience_from_the_role_it_provisioned(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('mailsix');
+        config(['mail.default' => 'array']);
+
+        Mail::to('a-parent@example.com')->send(new \App\Mail\AccountCreatedMail(
+            $owner, $school, 'x', 'Parent', 'parent'
+        ));
+
+        $log = MailLog::where('mailable', \App\Mail\AccountCreatedMail::class)->first();
+        $this->assertSame(MailLog::AUDIENCE_PARENT, $log->audience);
+        $this->assertSame($school->id, $log->school_id);
+    }
+
+    public function test_a_password_reset_mail_derives_its_audience_from_the_recipients_real_role(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('mailseven');
+        config(['mail.default' => 'array']);
+
+        Mail::to($owner->email)->send(new \App\Mail\PasswordResetByAdminMail($owner, $school, 'newpass'));
+
+        $log = MailLog::where('mailable', \App\Mail\PasswordResetByAdminMail::class)->first();
+        // schoolWithOwner() cloned the 'school-owner' role, a staff-tier
+        // role, not one of parent/student.
+        $this->assertSame(MailLog::AUDIENCE_STAFF, $log->audience);
+    }
+
+    public function test_a_trial_applicant_has_no_audience_forced_onto_it(): void
+    {
+        config(['mail.default' => 'array']);
+        $trial = \App\Models\TrialRequest::create([
+            'school_name' => 'Prospect School', 'contact_name' => 'Ada', 'email' => 'ada@example.com',
+            'phone' => '0800', 'status' => \App\Models\TrialRequest::STATUS_PENDING,
+        ]);
+
+        Mail::to($trial->email)->send(new \App\Mail\TrialRequestStatusMail($trial));
+
+        $log = MailLog::where('mailable', \App\Mail\TrialRequestStatusMail::class)->first();
+        // Not one of the four real buckets -- forcing a guess here would
+        // misrepresent the report, not inform it.
+        $this->assertNull($log->audience);
+    }
 }

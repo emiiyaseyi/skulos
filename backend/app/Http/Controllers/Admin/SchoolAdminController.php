@@ -517,6 +517,24 @@ class SchoolAdminController extends Controller
         return back()->with('status', "{$schools->count()} school(s) restored.");
     }
 
+    /**
+     * A manual "checking in on your setup" follow-up (2026-08-19), for
+     * a school that already got its welcome mail but hasn't been heard
+     * from since. Deliberately available regardless of how the school
+     * was created (a trial approval or a direct admin creation both
+     * land here) or how long ago -- unlike an automated reminder, this
+     * is something the platform owner chooses to send, so there is no
+     * cooldown or "already nudged" state to track.
+     */
+    public function nudge(School $school, \App\Services\Schools\SchoolFollowUpService $service): \Illuminate\Http\RedirectResponse
+    {
+        $count = $service->nudge($school);
+
+        return back()->with('status', $count > 0
+            ? "Nudge sent to {$count} admin(s) at {$school->name}."
+            : "{$school->name} has no active admin to nudge yet.");
+    }
+
     public function show(School $school): \Illuminate\View\View
     {
         // school-scoped, not the shared template (2026-07-16 fix): a

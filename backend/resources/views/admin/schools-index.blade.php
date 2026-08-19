@@ -107,15 +107,18 @@
             <span class="badge {{ $s->status === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucfirst($s->status) }}</span>
           </td>
           <td>
-            {{-- An active school has 6 actions, a suspended one 4, so the
-                 column count is chosen to divide each evenly (3x2 and
-                 2x2) and never leave a single button stranded on its own
-                 last row. Delete stays last, and is the only red one, so
-                 an irreversible action is still visibly not one of the
-                 routine ones even though it now shares the same grid. --}}
-            <div class="actions" style="--cols:{{ $s->status === 'active' ? 3 : 2 }}">
+            {{-- A 3-column grid keeps every button the same width
+                 regardless of how many a given status shows (7 for
+                 active, 6 for suspended) -- CSS grid, unlike flexbox,
+                 does not stretch an incomplete last row, so a row of one
+                 or two items still reads cleanly. Delete stays last, and
+                 is the only red one, so an irreversible action is still
+                 visibly not one of the routine ones even though it now
+                 shares the same grid. --}}
+            <div class="actions" style="--cols:3">
               <button type="button" class="btn btn-ghost btn-sm school-view-btn" data-overview="{{ route('admin.schools.overview', $s) }}" data-name="{{ $s->name }}">View</button>
               <a class="btn btn-primary btn-sm" href="{{ route('admin.schools.show', $s) }}">Manage</a>
+              <form method="POST" action="{{ route('admin.schools.nudge', $s) }}">@csrf<button class="btn btn-ghost btn-sm" title="Check in on their setup">Nudge</button></form>
               @if($s->status === 'active')
                 <a class="btn btn-ghost btn-sm" href="{{ $s->portalUrl() }}" target="_blank" rel="noopener">Visit</a>
                 <form method="POST" action="{{ route('admin.schools.suspend', $s) }}">@csrf<button class="btn btn-ghost btn-sm">Suspend</button></form>

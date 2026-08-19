@@ -22,8 +22,24 @@ class MailLog extends Model
     public const STATUS_SENT = 'sent';
     public const STATUS_FAILED = 'failed';
 
+    public const AUDIENCE_PARENT = 'parent';
+
+    public const AUDIENCE_STUDENT = 'student';
+
+    public const AUDIENCE_STAFF = 'staff';
+
+    public const AUDIENCE_APPLICANT = 'applicant';
+
+    /** @var array<string, string> audience value => display label, in report order */
+    public const AUDIENCES = [
+        self::AUDIENCE_PARENT => 'Parents',
+        self::AUDIENCE_STUDENT => 'Students',
+        self::AUDIENCE_STAFF => 'Staff',
+        self::AUDIENCE_APPLICANT => 'Applicants',
+    ];
+
     protected $fillable = [
-        'recipient', 'subject', 'mailable', 'status', 'error', 'school_id', 'sent_at',
+        'recipient', 'subject', 'mailable', 'status', 'error', 'school_id', 'audience', 'sent_at',
     ];
 
     protected function casts(): array

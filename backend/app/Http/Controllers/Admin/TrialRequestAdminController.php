@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\TrialRequestInfoRequestMail;
 use App\Mail\TrialRequestStatusMail;
 use App\Models\School;
 use App\Models\TrialRequest;
@@ -154,6 +155,42 @@ class TrialRequestAdminController extends Controller
         Mail::to($trialRequest->email)->send(new TrialRequestStatusMail($trialRequest));
 
         return back()->with('status', "{$trialRequest->school_name} declined. {$trialRequest->contact_name} has been emailed.");
+    }
+
+    /**
+     * Ask a requester for more detail before a decision is made
+     * (2026-08-19). Deliberately does not change the request's own
+     * status -- asking a question is not a decision, and the request
+     * should stay visible in the pending queue until the admin actually
+     * approves or rejects it.
+     */
+    public function requestInfo(Request $request, TrialRequest $trialRequest): RedirectResponse
+    {
+        $data = $request->validate([
+            'message' => ['required', 'string', 'min:5', 'max:2000'],
+        ], [
+            'message.required' => 'Say what you need from them before sending.',
+        ]);
+
+        Mail::to($trialRequest->email)->send(new TrialRequestInfoRequestMail($trialRequest, $data['message']));
+
+        return back()->with('status', "Question sent to {$trialRequest->contact_name} at {$trialRequest->school_name}.");
+    }
+
+    /**
+     * The manual "checking in on your setup" nudge (2026-08-19), for an
+     * approved trial whose school has already had its onboarding letter
+     * for a while. Only meaningful once a School actually exists.
+     */
+    public function nudge(TrialRequest $trialRequest, \App\Services\Schools\SchoolFollowUpService $service): RedirectResponse
+    {
+        abort_unless($trialRequest->school_id, 404);
+
+        $count = $service->nudge($trialRequest->school);
+
+        return back()->with('status', $count > 0
+            ? "Nudge sent to {$count} admin(s) at {$trialRequest->school_name}."
+            : "{$trialRequest->school_name} has no active admin to nudge yet.");
     }
 
     /**

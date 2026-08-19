@@ -1097,6 +1097,17 @@ Email: {sender_email}
 Message:
 {sender_message}",
         ],
+        'SchoolFollowUpNudgeMail' => [
+            'label' => 'Follow-up nudge',
+            'description' => 'Sent manually from Trial Requests or the Schools list, checking in on a school that has not been heard from since its welcome mail.',
+            'placeholders' => ['school_name', 'contact_name', 'portal_url'],
+            'seed_subject' => "Checking in on {school_name}'s SKULOS setup",
+            'seed_body' => "Hello {contact_name},
+
+We wanted to check in on {school_name}'s SKULOS setup. We sent you an email earlier with your sign in details and the information we would need to get everything ready.
+
+If you have run into any issue at all, or have any questions, just reply to this email and we will help you sort it out. We would love to get {school_name} fully set up and ready to go ahead of the new term.",
+        ],
     ],
 
     'demo' => [
