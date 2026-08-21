@@ -50,6 +50,22 @@ class TrialRequestFeatureSelectionTest extends TestCase
         return $u;
     }
 
+    /**
+     * A real, purchasable plan claiming every key these tests reference
+     * (2026-08-21): validation now requires a submitted feature key to
+     * actually be in Plan::builtFeatureKeys() -- the union across
+     * purchasable plans -- not just anywhere in the raw catalog, since
+     * the checklist itself only ever shows that filtered set now.
+     */
+    protected function makeBuiltPlan(array $features): Plan
+    {
+        return Plan::create([
+            'name' => 'Test Plan', 'slug' => 'test-plan-'.uniqid(),
+            'price_per_student_per_term' => 500, 'modules' => [],
+            'features' => $features, 'is_purchasable' => true,
+        ]);
+    }
+
     protected function submitTrial(array $overrides = []): TrialRequest
     {
         Country::firstOrCreate(['name' => 'Nigeria'], ['iso2' => 'NG', 'sequence' => 1]);
@@ -67,6 +83,8 @@ class TrialRequestFeatureSelectionTest extends TestCase
 
     public function test_a_prospect_can_select_real_features_on_the_public_form(): void
     {
+        $this->makeBuiltPlan(['attendance_management', 'student_reports']);
+
         $trial = $this->submitTrial([
             'requested_features' => ['attendance_management', 'student_reports'],
         ]);
@@ -94,7 +112,7 @@ class TrialRequestFeatureSelectionTest extends TestCase
         // missing key to an empty array, which would have silently
         // zeroed out every new school's features the moment an admin
         // approved without opening this new section at all.
-        $plan = Plan::create(['name' => 'Test Plan', 'slug' => 'test-plan-'.uniqid(), 'price_per_student_per_term' => 500, 'modules' => [], 'features' => ['attendance_management'], 'is_purchasable' => true]);
+        $plan = $this->makeBuiltPlan(['attendance_management']);
         $trial = $this->submitTrial();
 
         $this->actingAs($this->superAdmin())->post(route('admin.trial-requests.approve', $trial), [
@@ -109,7 +127,11 @@ class TrialRequestFeatureSelectionTest extends TestCase
 
     public function test_the_admins_final_selection_at_approval_replaces_the_plans_own_features(): void
     {
-        $plan = Plan::create(['name' => 'Test Plan', 'slug' => 'test-plan-'.uniqid(), 'price_per_student_per_term' => 500, 'modules' => [], 'features' => ['attendance_management'], 'is_purchasable' => true]);
+        // Both keys the admin ultimately grants must be in scope too --
+        // a real plan somewhere claims each of them, same as the
+        // checklist's own builtFeatureCatalog() would only ever offer
+        // keys that appear on at least one purchasable plan.
+        $plan = $this->makeBuiltPlan(['attendance_management', 'student_reports', 'parent_portal']);
         $trial = $this->submitTrial([
             'requested_features' => ['student_reports'],
         ]);
@@ -130,6 +152,32 @@ class TrialRequestFeatureSelectionTest extends TestCase
         // The plan granted this, but the override replaces it outright
         // rather than merging with it.
         $this->assertFalse($school->hasFeature('attendance_management'));
+    }
+
+    public function test_the_checklist_never_shows_features_from_a_non_purchasable_plan(): void
+    {
+        // The real regression this guards (direct report, 2026-08-21):
+        // the checklist was showing the full 140-key raw catalog, 18
+        // categories deep, including "Future Features" and "Enterprise
+        // Features" that have no screen behind them at all -- because it
+        // read straight from the catalog config instead of
+        // Plan::builtFeatureCatalog(), which only includes what a real,
+        // purchasable plan actually claims.
+        $this->makeBuiltPlan(['attendance_management']);
+        Plan::create([
+            'name' => 'Enterprise', 'slug' => 'enterprise-'.uniqid(),
+            'price_per_student_per_term' => 1500, 'modules' => [],
+            'features' => ['white_label', 'custom_module_development'],
+            'is_purchasable' => false,
+        ]);
+
+        Country::firstOrCreate(['name' => 'Nigeria'], ['iso2' => 'NG', 'sequence' => 1]);
+
+        $response = $this->get('/trial');
+
+        $response->assertSee('attendance_management', false);
+        $response->assertDontSee('white_label', false);
+        $response->assertDontSee('custom_module_development', false);
     }
 
     public function test_an_unknown_feature_key_at_approval_is_rejected(): void

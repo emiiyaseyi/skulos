@@ -75,8 +75,11 @@ class TrialRequestAdminController extends Controller
             // from "the admin never opened this section"), so an absent
             // key means "leave it to the plan", exactly as if this
             // feature did not exist -- never a silent "grant nothing".
+            // Same built-only scope as the public form's own validation
+            // (2026-08-21) -- this admin screen must not be able to grant
+            // a feature that has no real screen behind it either.
             'feature_overrides' => ['nullable', 'array'],
-            'feature_overrides.*' => ['string', \Illuminate\Validation\Rule::in(\App\Models\Plan::allFeatureKeys())],
+            'feature_overrides.*' => ['string', \Illuminate\Validation\Rule::in(\App\Models\Plan::builtFeatureKeys())],
         ]);
 
         $slug = self::uniqueSlug($trialRequest->school_name, $trialRequest->preferred_slug);

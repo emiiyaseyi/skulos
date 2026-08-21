@@ -55,8 +55,15 @@ class TrialRequestController extends Controller
             // key rather than trusting whatever an unauthenticated
             // public form submits, since this list becomes the starting
             // point for a real school's actual access at approval time.
+            // Only what is actually shown (2026-08-21, direct correction:
+            // the checklist was listing the full aspirational catalog,
+            // including tiers/categories with no real screen at all yet
+            // -- see Plan::builtFeatureCatalog()). Validated against the
+            // same builtFeatureKeys() the form itself was rendered from,
+            // so a tampered submission can never claim something the UI
+            // never actually offered.
             'requested_features' => ['nullable', 'array'],
-            'requested_features.*' => ['string', \Illuminate\Validation\Rule::in(\App\Models\Plan::allFeatureKeys())],
+            'requested_features.*' => ['string', \Illuminate\Validation\Rule::in(\App\Models\Plan::builtFeatureKeys())],
         ]);
 
         $data['preferred_slug'] = \Illuminate\Support\Str::slug($data['preferred_slug'], '');

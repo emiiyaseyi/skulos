@@ -116,7 +116,7 @@
           Pick as many as you like. This is a starting point for your trial, not a final decision --
           we will review it with you and can add or remove anything before your school is set up.
         </p>
-        @include('partials.feature-checklist', ['id' => 'trialFeatures', 'name' => 'requested_features', 'checked' => old('requested_features', [])])
+        @include('partials.feature-checklist', ['id' => 'trialFeatures', 'name' => 'requested_features', 'checked' => old('requested_features', []), 'catalog' => \App\Models\Plan::builtFeatureCatalog()])
       </div>
 
       <button class="btn btn-primary btn-block" type="submit">Request a trial</button>

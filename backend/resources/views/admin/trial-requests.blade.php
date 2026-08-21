@@ -105,7 +105,7 @@
                   <span class="muted" style="font-weight:400">({{ count($trial->requested_features) }} requested)</span>
                 @endif
               </summary>
-              @include('partials.feature-checklist', ['id' => 'approveFeatures'.$trial->id, 'name' => 'feature_overrides', 'checked' => $trial->requested_features ?? []])
+              @include('partials.feature-checklist', ['id' => 'approveFeatures'.$trial->id, 'name' => 'feature_overrides', 'checked' => $trial->requested_features ?? [], 'catalog' => \App\Models\Plan::builtFeatureCatalog()])
             </details>
 
             <button class="btn btn-primary btn-sm" type="submit">Approve and email</button>
