@@ -22,12 +22,12 @@ class TrialRequest extends Model
 
     protected $fillable = [
         'school_name', 'country', 'preferred_slug', 'contact_name', 'email', 'phone', 'student_count', 'message',
-        'status', 'review_note', 'reviewed_by', 'reviewed_at', 'school_id',
+        'status', 'review_note', 'reviewed_by', 'reviewed_at', 'school_id', 'requested_features',
     ];
 
     protected function casts(): array
     {
-        return ['reviewed_at' => 'datetime'];
+        return ['reviewed_at' => 'datetime', 'requested_features' => 'array'];
     }
 
     public function reviewer(): BelongsTo

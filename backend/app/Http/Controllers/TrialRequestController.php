@@ -50,6 +50,13 @@ class TrialRequestController extends Controller
             'phone' => ['nullable', 'string', 'max:40'],
             'student_count' => ['nullable', 'integer', 'min:1', 'max:100000'],
             'message' => ['nullable', 'string', 'max:1000'],
+            // 2026-08-19: which features the prospect wants, from the
+            // real feature catalog only -- Rule::in against every real
+            // key rather than trusting whatever an unauthenticated
+            // public form submits, since this list becomes the starting
+            // point for a real school's actual access at approval time.
+            'requested_features' => ['nullable', 'array'],
+            'requested_features.*' => ['string', \Illuminate\Validation\Rule::in(\App\Models\Plan::allFeatureKeys())],
         ]);
 
         $data['preferred_slug'] = \Illuminate\Support\Str::slug($data['preferred_slug'], '');

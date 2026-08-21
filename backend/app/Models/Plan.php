@@ -41,4 +41,23 @@ class Plan extends Model
     {
         return $this->hasMany(School::class);
     }
+
+    /**
+     * Every real key in the feature catalog, flattened across all
+     * categories (2026-08-19). The one place this list is assembled,
+     * so the trial form's public submission and a school's own
+     * feature-override grant are both validated against the exact same
+     * set a plan's own "features" array is drawn from.
+     *
+     * @return array<int, string>
+     */
+    public static function allFeatureKeys(): array
+    {
+        $keys = [];
+        foreach (config('skulos.plan_feature_catalog', []) as $category) {
+            $keys = array_merge($keys, array_keys($category['features'] ?? []));
+        }
+
+        return $keys;
+    }
 }

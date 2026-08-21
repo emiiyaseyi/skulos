@@ -101,6 +101,24 @@
         <label for="message">Anything else we should know (optional)</label>
         <textarea id="message" name="message" rows="3">{{ old('message') }}</textarea>
       </div>
+
+      {{-- Feature selection (2026-08-19, direct instruction): what is
+           picked here is a request, not a guarantee -- the reviewing
+           admin sees it pre-filled on the approval screen and can add
+           to or remove from it before the school is actually created,
+           per the same instruction ("the admin can add or remove from
+           the features"). Nothing here is validated as required: an
+           empty selection is a legitimate answer from someone who
+           would rather just talk to the reviewer first. --}}
+      <div class="field">
+        <label>Which features would you like access to?</label>
+        <p class="hint" style="margin:-.2rem 0 .7rem">
+          Pick as many as you like. This is a starting point for your trial, not a final decision --
+          we will review it with you and can add or remove anything before your school is set up.
+        </p>
+        @include('partials.feature-checklist', ['id' => 'trialFeatures', 'name' => 'requested_features', 'checked' => old('requested_features', [])])
+      </div>
+
       <button class="btn btn-primary btn-block" type="submit">Request a trial</button>
     </form>
 

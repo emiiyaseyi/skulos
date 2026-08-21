@@ -67,6 +67,16 @@ class TrialRequestAdminController extends Controller
             // default plan for its features and showed "No plan set" on
             // the Billing screen until someone noticed.
             'plan_id' => ['nullable', 'exists:plans,id'],
+            // 2026-08-19: pre-filled from what the prospect requested on
+            // the public form, adjustable here before the school is
+            // created -- see School::feature_overrides. A checkbox group
+            // with nothing ticked submits no key at all (that is how
+            // HTML forms work, not a choice this app can distinguish
+            // from "the admin never opened this section"), so an absent
+            // key means "leave it to the plan", exactly as if this
+            // feature did not exist -- never a silent "grant nothing".
+            'feature_overrides' => ['nullable', 'array'],
+            'feature_overrides.*' => ['string', \Illuminate\Validation\Rule::in(\App\Models\Plan::allFeatureKeys())],
         ]);
 
         $slug = self::uniqueSlug($trialRequest->school_name, $trialRequest->preferred_slug);
@@ -78,6 +88,19 @@ class TrialRequestAdminController extends Controller
             'email' => $trialRequest->email,
             'phone' => $trialRequest->phone,
         ]);
+
+        // Set only when the admin actually ticked at least one box
+        // (see the validation rule's own comment for why an absent key
+        // must never become a silent "grant nothing" -- that would
+        // regress every trial approval that does not touch this new
+        // section back to a school with zero working features). This
+        // REPLACES the plan's own feature list rather than adding to it
+        // (School::hasFeature()), so the chosen plan below still governs
+        // pricing and RBAC modules, but this checklist alone decides
+        // what actually appears in this school's own nav.
+        if (array_key_exists('feature_overrides', $data)) {
+            $school->update(['feature_overrides' => $data['feature_overrides']]);
+        }
         $tenants->provision($school);
 
         $admin = User::firstOrNew(['email' => Str::lower($trialRequest->email)]);
