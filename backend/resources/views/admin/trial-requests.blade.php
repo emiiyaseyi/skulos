@@ -87,27 +87,10 @@
               <select id="approve_plan_{{ $trial->id }}" name="plan_id">
                 <option value="">Decide later</option>
                 @foreach($plans as $plan)
-                  <option value="{{ $plan->id }}">{{ $plan->name }}, {{ number_format($plan->price_per_student_per_term) }} per student per term</option>
+                  <option value="{{ $plan->id }}">{{ $plan->name }} &mdash; {{ number_format($plan->price_per_student_per_term) }} per student per term</option>
                 @endforeach
               </select>
             </div>
-
-            {{-- Pre-filled from what the prospect actually asked for on
-                 the public form (2026-08-19), editable before this school
-                 is ever created -- this is the school's real feature
-                 grant, not just a wishlist, since it becomes
-                 School::feature_overrides at approval and replaces
-                 whatever the chosen plan would otherwise have given it. --}}
-            <details @if(! empty($trial->requested_features)) open @endif style="margin-bottom:.8rem">
-              <summary style="cursor:pointer;font-size:.86rem;font-weight:700;padding:.3rem 0">
-                Features to grant this school
-                @if(! empty($trial->requested_features))
-                  <span class="muted" style="font-weight:400">({{ count($trial->requested_features) }} requested)</span>
-                @endif
-              </summary>
-              @include('partials.feature-checklist', ['id' => 'approveFeatures'.$trial->id, 'name' => 'feature_overrides', 'checked' => $trial->requested_features ?? [], 'catalog' => \App\Models\Plan::builtFeatureCatalog()])
-            </details>
-
             <button class="btn btn-primary btn-sm" type="submit">Approve and email</button>
           </form>
           <form method="POST" action="{{ route('admin.trial-requests.reject', $trial) }}">

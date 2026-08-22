@@ -59,7 +59,6 @@ class School extends Model
         'backup_frequency',
         'backup_time',
         'plan_id',
-        'feature_overrides',
         'price_per_student_per_term_override',
         'next_billing_date',
         'is_self_hosted',
@@ -96,7 +95,6 @@ class School extends Model
     {
         return [
             'settings' => 'array',
-            'feature_overrides' => 'array',
             'provisioned_at' => 'datetime',
             'next_billing_date' => 'date',
             'price_per_student_per_term_override' => 'decimal:2',
@@ -133,27 +131,9 @@ class School extends Model
      */
     public function hasFeature(string $key): bool
     {
-        if ($this->feature_overrides !== null) {
-            return in_array($key, $this->feature_overrides, true);
-        }
-
         $plan = $this->plan ?? Plan::where('is_default', true)->first();
 
         return in_array($key, $plan?->features ?? [], true);
-    }
-
-    /**
-     * A school's own custom feature grant, set at trial approval or
-     * later from its admin screen (2026-08-19), REPLACES what its plan
-     * would otherwise give it rather than adding to it -- same "own
-     * override wins outright, plan is only ever the fallback" shape as
-     * price_per_student_per_term_override. Null (every school before
-     * this feature, and any not explicitly given a custom grant) means
-     * exactly what it always meant: follow the plan.
-     */
-    public function usesCustomFeatures(): bool
-    {
-        return $this->feature_overrides !== null;
     }
 
     /**
@@ -169,13 +149,8 @@ class School extends Model
      */
     public function hasAnyFeatureInCategory(string $categoryKey): bool
     {
-        $categoryFeatures = array_keys(config("skulos.plan_feature_catalog.{$categoryKey}.features", []));
-
-        if ($this->feature_overrides !== null) {
-            return (bool) array_intersect($categoryFeatures, $this->feature_overrides);
-        }
-
         $plan = $this->plan ?? Plan::where('is_default', true)->first();
+        $categoryFeatures = array_keys(config("skulos.plan_feature_catalog.{$categoryKey}.features", []));
 
         return (bool) array_intersect($categoryFeatures, $plan?->features ?? []);
     }
