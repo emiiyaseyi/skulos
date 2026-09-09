@@ -1,6 +1,16 @@
 @extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => 'School Profile'])
 @section('title', 'School Profile')
 
+@push('head')
+<style>
+  .scope-choice{display:flex;gap:1.2rem;margin:.5rem 0 .5rem}
+  .scope-choice label{display:flex;align-items:center;gap:.4rem;font-size:.85rem;font-weight:600;cursor:pointer}
+  .section-ticks{display:none;flex-wrap:wrap;gap:.6rem;margin:.3rem 0 .8rem;padding:.7rem;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+  .section-ticks.open{display:flex}
+  .section-ticks label{display:flex;align-items:center;gap:.4rem;font-size:.85rem;font-weight:500;cursor:pointer}
+</style>
+@endpush
+
 @section('content')
 <div class="page-head">
   <div>
@@ -25,7 +35,22 @@
         <img src="{{ \Illuminate\Support\Facades\Storage::url($school->logo_path) }}" alt="Current school logo" style="height:56px;display:block;margin-bottom:.4rem" />
       @endif
       <input id="logo" name="logo" type="file" accept="image/*" />
-      <p class="hint">A square image works best. Up to 2 MB. Shared with Branding, changing it here updates it everywhere.</p>
+      <p class="hint">A square image works best. Up to 2 MB. Shared with Branding.</p>
+      @if($sections->count() > 1)
+        {{-- User request 2026-09-09: the per-section option Branding
+             offers should be reachable from here too. --}}
+        @include('school._scope-picker', ['field' => 'logo', 'sections' => $sections])
+        <p class="hint" style="margin:-.3rem 0 .7rem">Who this upload is for. Untouched sections keep whatever they already have. "Whole school" is the one that updates everywhere; a section-specific upload only changes that section.</p>
+        @error('logo_sections')<div class="err">{{ $message }}</div>@enderror
+        <script>
+          document.querySelectorAll('input[data-scope="logo"]').forEach(function(radio){
+            radio.addEventListener('change', function(){
+              var panel = document.querySelector('.section-ticks[data-scope-panel="logo"]');
+              if (panel) panel.classList.toggle('open', this.value === 'sections');
+            });
+          });
+        </script>
+      @endif
     </div>
 
     <div class="field">

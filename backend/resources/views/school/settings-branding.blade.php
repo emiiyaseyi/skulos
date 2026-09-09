@@ -38,20 +38,6 @@
 </style>
 @endpush
 
-@php
-  $renderScopePicker = function (string $field, string $label) use ($sections) {
-    $html = '<div class="scope-choice">'
-      .'<label><input type="radio" name="'.$field.'_scope" value="school" checked data-scope="'.$field.'"> Whole school</label>'
-      .'<label><input type="radio" name="'.$field.'_scope" value="sections" data-scope="'.$field.'"> Just some sections</label>'
-      .'</div>'
-      .'<div class="section-ticks" data-scope-panel="'.$field.'">';
-    foreach ($sections as $s) {
-      $html .= '<label><input type="checkbox" name="'.$field.'_sections[]" value="'.$s->id.'"> '.e($s->name).'</label>';
-    }
-
-    return $html.'</div><div class="hint" style="margin:-.3rem 0 .7rem">'.e($label).'</div>';
-  };
-@endphp
 
 @section('content')
 <div class="page-head">
@@ -91,7 +77,8 @@
         <div class="hint">Pick a swatch, drag the colour wheel, or type a hex code like #1B87D6. Used for buttons and accents on your pages.</div>
         @error('brand_color')<div class="err">{{ $message }}</div>@enderror
         @if($sections->count() > 1)
-          {!! $renderScopePicker('brand_color', 'Who this colour is for. Untouched sections keep whatever they already have.') !!}
+          @include('school._scope-picker', ['field' => 'brand_color', 'sections' => $sections])
+          <div class="hint" style="margin:-.3rem 0 .7rem">Who this colour is for. Untouched sections keep whatever they already have.</div>
           @error('brand_color_sections')<div class="err">{{ $message }}</div>@enderror
         @endif
       </div>
@@ -128,7 +115,8 @@
                can upload a logo for just those sections instead of the
                whole school. Upload again with the other section(s)
                ticked to give them a different one. --}}
-          {!! $renderScopePicker('logo', 'Who this upload is for. Untouched sections keep whatever they already have.') !!}
+          @include('school._scope-picker', ['field' => 'logo', 'sections' => $sections])
+          <div class="hint" style="margin:-.3rem 0 .7rem">Who this upload is for. Untouched sections keep whatever they already have.</div>
           @error('logo_sections')<div class="err">{{ $message }}</div>@enderror
         @endif
       </div>

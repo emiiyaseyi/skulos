@@ -22,23 +22,29 @@
 <div class="card" style="margin-bottom:1.25rem">
   <h3 style="margin-bottom:.4rem">Admission pipeline</h3>
   <p class="muted" style="margin-bottom:.8rem">The stages every applicant moves through, in this order. Add, rename, remove, or reorder them however suits your school.</p>
-  <div class="stack" style="gap:.5rem;margin-bottom:1rem;max-width:30rem">
+  <div class="stack" style="gap:.5rem;margin-bottom:1rem;max-width:44rem">
     @foreach($stages as $stage)
-      {{-- Real width bug (user report 2026-09-09, screenshot): this row
-           packed 4 sibling <form>s onto one unwrapped flex line, and
-           the label input's bare "flex:1" computes from a zero flex-
-           basis with no floor -- on a narrow screen it lost the fight
-           for space to the Save/Up/Down/Remove controls and collapsed
-           to only a character or two wide. Fixed with flex-wrap on the
-           row (so the move/remove controls drop to their own line
-           first) plus a real min-width on both the label form and the
-           input itself, so the input has somewhere to shrink TO before
-           it starts losing legibility. --}}
-      <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;border:1px solid var(--line);border-radius:10px;padding:.5rem .8rem">
-        <span class="muted" style="font-weight:700;min-width:1.4rem">{{ $loop->index + 1 }}.</span>
-        <form method="POST" action="{{ route('school.admissions.settings.stages.update', ['school' => $school->slug, 'stageId' => $stage->id]) }}" style="flex:1 1 12rem;min-width:12rem;display:flex;gap:.4rem">
+      {{-- Real width bug (user reports 2026-09-09, two rounds of
+           screenshots): this row packed 4 sibling <form>s onto one
+           unwrapped flex line, and the label field's bare "flex:1"
+           computed from a zero flex-basis with no floor, collapsing to
+           a character or two wide on a narrow screen. flex-wrap plus a
+           min-width fixed the collapse, but a single-line <input> can
+           never word-wrap by definition -- the fuller stage names were
+           still just getting clipped inside a too-narrow box. A plain
+           <input> genuinely cannot wrap its own text; only a <textarea>
+           can, so this is now one, sized for two visible lines and
+           given real room to grow (the whole row's own max-width was
+           also raised, it was capped tighter than the row actually
+           needed on anything wider than a phone). --}}
+      <div style="display:flex;align-items:flex-start;gap:.6rem;flex-wrap:wrap;border:1px solid var(--line);border-radius:10px;padding:.5rem .8rem">
+        <span class="muted" style="font-weight:700;min-width:1.4rem;padding-top:.5em">{{ $loop->index + 1 }}.</span>
+        <form method="POST" action="{{ route('school.admissions.settings.stages.update', ['school' => $school->slug, 'stageId' => $stage->id]) }}" style="flex:1 1 18rem;min-width:16rem;display:flex;gap:.4rem;align-items:flex-start">
           @csrf
-          <input name="label" value="{{ $stage->label }}" style="flex:1;min-width:6rem" />
+          {{-- A stage label is conceptually one line, just visually
+               wrapped when it's long -- Enter is blocked so a stray
+               keypress can't turn it into a genuine multi-line value. --}}
+          <textarea name="label" rows="2" style="flex:1;min-width:10rem;resize:vertical" onkeydown="if(event.key==='Enter'){event.preventDefault();}">{{ $stage->label }}</textarea>
           <button class="btn btn-ghost btn-sm" type="submit" style="flex-shrink:0">Save</button>
         </form>
         <form method="POST" action="{{ route('school.admissions.settings.stages.move', ['school' => $school->slug, 'stageId' => $stage->id, 'direction' => 'up']) }}" style="flex-shrink:0">
@@ -56,10 +62,10 @@
       </div>
     @endforeach
   </div>
-  <form method="POST" action="{{ route('school.admissions.settings.stages.store', ['school' => $school->slug]) }}" style="display:flex;gap:.5rem;max-width:30rem">
+  <form method="POST" action="{{ route('school.admissions.settings.stages.store', ['school' => $school->slug]) }}" style="display:flex;gap:.5rem;max-width:44rem;align-items:flex-start">
     @csrf
-    <input name="label" placeholder="e.g. Entrance Assessment" required style="flex:1" />
-    <button class="btn btn-primary btn-sm" type="submit">Add stage</button>
+    <textarea name="label" rows="2" placeholder="e.g. Entrance Assessment" required style="flex:1;min-width:10rem;resize:vertical" onkeydown="if(event.key==='Enter'){event.preventDefault();}"></textarea>
+    <button class="btn btn-primary btn-sm" type="submit" style="flex-shrink:0">Add stage</button>
   </form>
 </div>
 

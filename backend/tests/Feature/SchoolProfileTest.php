@@ -119,4 +119,40 @@ class SchoolProfileTest extends TestCase
         $this->actingAs($owner)->get("http://{$school->slug}.localhost/settings/profile")
             ->assertOk()->assertSee('RC-123456')->assertSee('1998')->assertSee('greenfield.example.com');
     }
+
+    /**
+     * User request 2026-09-09: "the logo change should be at the school
+     * profile page too" -- the per-section logo option Branding got
+     * should also work from this screen, since it already has its own
+     * logo upload.
+     */
+    public function test_owner_can_upload_a_section_scoped_logo_from_the_profile_screen(): void
+    {
+        Storage::fake('public');
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'profilefive');
+
+        app(\App\Services\Tenancy\TenantManager::class)->use($school);
+        $nurseryPrimary = \App\Models\Tenant\Section::create(['name' => 'Nursery & Primary', 'sequence' => 1]);
+        $secondary = \App\Models\Tenant\Section::create(['name' => 'Secondary', 'sequence' => 2]);
+        app(\App\Services\Tenancy\TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/settings/profile")
+            ->assertOk()->assertSee('Just some sections')->assertSee('Secondary');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/settings/profile", [
+            'logo' => \Illuminate\Http\UploadedFile::fake()->image('secondary-logo.png'),
+            'logo_scope' => 'sections',
+            'logo_sections' => [$secondary->id],
+        ])->assertRedirect();
+
+        $school->refresh();
+        $this->assertNull($school->logo_path);
+
+        app(\App\Services\Tenancy\TenantManager::class)->use($school);
+        $override = \App\Models\Tenant\SchoolSectionBranding::where('section_id', $secondary->id)->first();
+        $this->assertNotNull($override);
+        $this->assertNotNull($override->logo_path);
+        $this->assertNull(\App\Models\Tenant\SchoolSectionBranding::where('section_id', $nurseryPrimary->id)->first());
+        app(\App\Services\Tenancy\TenantManager::class)->forget();
+    }
 }

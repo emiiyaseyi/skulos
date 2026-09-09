@@ -363,6 +363,10 @@ class SchoolPortalController extends Controller
         return view('school.settings-profile', [
             'school' => $school,
             'accent' => $school->branding()['color'],
+            // User request 2026-09-09: the per-section logo option
+            // (built for Branding) should also be reachable from here,
+            // since this screen already has its own logo upload.
+            'sections' => Section::with('branding')->orderBy('sequence')->get(),
         ]);
     }
 
@@ -380,6 +384,7 @@ class SchoolPortalController extends Controller
     {
         $this->authorizeAction($request, 'school_info.update');
         $school = $this->school($request);
+        $sectionIds = Section::pluck('id')->all();
 
         // A bare domain like "www.school.com" is what most admins
         // actually type, not a full "https://..." URI (user report
@@ -400,13 +405,33 @@ class SchoolPortalController extends Controller
             'address' => ['nullable', 'string', 'max:500'],
             'website' => ['nullable', 'url', 'max:200'],
             'logo' => ['nullable', 'image', 'max:2048'],
+            // Same per-section scope Branding offers (user request
+            // 2026-09-09: "the logo change should be at the school
+            // profile page too"), so a school can set a section's own
+            // logo from either screen. Rule::in(), not exists:, for the
+            // same reason updateBranding() avoids it -- exists: defaults
+            // to the platform connection, not the tenant one.
+            'logo_scope' => ['nullable', Rule::in(['school', 'sections'])],
+            'logo_sections' => ['nullable', 'array'],
+            'logo_sections.*' => [Rule::in($sectionIds)],
         ]);
 
-        if ($request->hasFile('logo')) {
-            $school->logo_path = $request->file('logo')->store("schools/{$school->id}", 'public');
+        if ($request->hasFile('logo') && ($data['logo_scope'] ?? 'school') === 'sections' && empty($data['logo_sections'])) {
+            return back()->withErrors(['logo_sections' => 'Tick at least one section, or choose "Whole school" instead.'])->withInput();
         }
 
-        $school->fill(collect($data)->except('logo')->all())->save();
+        if ($request->hasFile('logo')) {
+            $path = $request->file('logo')->store("schools/{$school->id}", 'public');
+            if (($data['logo_scope'] ?? 'school') === 'sections') {
+                foreach ($data['logo_sections'] as $sectionId) {
+                    SchoolSectionBranding::updateOrCreate(['section_id' => $sectionId], ['logo_path' => $path]);
+                }
+            } else {
+                $school->logo_path = $path;
+            }
+        }
+
+        $school->fill(collect($data)->except(['logo', 'logo_scope', 'logo_sections'])->all())->save();
 
         return back()->with('status', 'Your school profile has been updated.');
     }
