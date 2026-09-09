@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\School;
+use App\Models\Tenant\Section;
 use App\Services\Auditing\Recorder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -34,7 +36,51 @@ class LoginController extends Controller
         return view('auth.login', [
             'school' => $school,
             'accent' => $school?->branding()['color'] ?? null,
+            'sectionLogos' => $school ? $this->sectionLogosFor($school) : [],
         ]);
+    }
+
+    /**
+     * The distinct section logos to show on the login page, when the
+     * school has turned "Show every section's logo on the login page"
+     * on (user request 2026-09-09). Every section resolves to either
+     * its own logo override or the school default, then those resolved
+     * values are grouped: a section with no override of its own simply
+     * merges into the same group as every other unconfigured section
+     * (which naturally IS the school default), so "one section
+     * overridden, the rest untouched" correctly shows exactly two marks
+     * — the override and the default — with no need to track which
+     * sections were deliberately left alone. Fewer than two distinct
+     * marks means there is nothing meaningful to show side by side, so
+     * the login page falls back to the single default logo either way.
+     */
+    protected function sectionLogosFor(School $school): array
+    {
+        if (! $school->show_all_section_logos_on_login) {
+            return [];
+        }
+
+        $sections = Section::with('branding')->orderBy('sequence')->get();
+        if ($sections->count() < 2) {
+            return [];
+        }
+
+        $groups = [];
+        foreach ($sections as $section) {
+            $logo = $section->resolvedLogoPath($school);
+            $key = $logo ?: '__none__';
+            $groups[$key]['logo'] = $logo;
+            $groups[$key]['labels'][] = $section->name;
+        }
+
+        if (count($groups) < 2) {
+            return [];
+        }
+
+        return collect($groups)->map(fn ($g) => [
+            'logo' => $g['logo'],
+            'label' => implode(' & ', $g['labels']),
+        ])->values()->all();
     }
 
     public function login(Request $request): RedirectResponse

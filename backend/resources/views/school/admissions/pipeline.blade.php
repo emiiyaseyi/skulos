@@ -150,6 +150,12 @@
               @else
                 <span class="muted">{{ $applicant->decision_notes ?: 'Decided' }}</span>
               @endif
+              <a class="btn btn-ghost btn-sm" href="{{ route('school.admissions.pipeline.messages', ['school' => $school->slug, 'applicantId' => $applicant->id]) }}">
+                Messages
+                @if($unreadFromApplicant->contains($applicant->id))
+                  <span class="badge badge-warn" style="margin-left:.3rem">New</span>
+                @endif
+              </a>
             </td>
           </tr>
         @endforeach

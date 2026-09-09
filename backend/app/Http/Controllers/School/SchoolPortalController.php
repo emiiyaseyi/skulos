@@ -9,6 +9,8 @@ use App\Models\Tenant\Notification;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\Staff;
 use App\Models\Tenant\CalendarEvent;
+use App\Models\Tenant\Section;
+use App\Models\Tenant\SchoolSectionBranding;
 use App\Models\Tenant\Term;
 use App\Services\Dashboard\DashboardPreferences;
 use App\Services\Dashboard\RoleDashboard;
@@ -214,11 +216,14 @@ class SchoolPortalController extends Controller
     {
         $this->authorizeAction($request, 'school_info.update');
         $school = $this->school($request);
+        $sections = Section::with('branding')->orderBy('sequence')->get();
 
         return view('school.settings-branding', [
             'school' => $school,
             'accent' => $school->branding()['color'],
             'chartStyle' => \App\Models\Tenant\Setting::grab('chart_style', config('skulos.default_chart_style', 'line')),
+            'sections' => $sections,
+            'showAllSectionLogos' => (bool) $school->show_all_section_logos_on_login,
         ]);
     }
 
@@ -226,6 +231,7 @@ class SchoolPortalController extends Controller
     {
         $this->authorizeAction($request, 'school_info.update');
         $school = $this->school($request);
+        $sectionIds = Section::pluck('id')->all();
 
         $data = $request->validate([
             'brand_color' => ['nullable', 'regex:/^#([0-9a-fA-F]{6})$/'],
@@ -233,7 +239,23 @@ class SchoolPortalController extends Controller
             'welcome_message' => ['nullable', 'string', 'max:400'],
             'login_layout' => ['nullable', Rule::in(array_keys(config('skulos.login_layouts')))],
             'login_box_side' => ['nullable', Rule::in(['left', 'right'])],
+            'show_all_section_logos_on_login' => ['nullable', 'boolean'],
             'logo' => ['nullable', 'image', 'max:2048'],
+            // Which sections a freshly uploaded logo/colour applies to
+            // (user request 2026-09-09: "ask if its for all sections in
+            // the school or ask them to tick a box beside each
+            // section"). Defaults to the whole school, so a school that
+            // never touches this keeps today's single-logo behaviour
+            // exactly. Validated against this school's own real section
+            // ids via Rule::in() rather than an `exists:` rule --
+            // `exists:` defaults to the PLATFORM connection, not the
+            // tenant one, a known gotcha in this codebase (see CLAUDE.md).
+            'logo_scope' => ['nullable', Rule::in(['school', 'sections'])],
+            'logo_sections' => ['nullable', 'array'],
+            'logo_sections.*' => [Rule::in($sectionIds)],
+            'brand_color_scope' => ['nullable', Rule::in(['school', 'sections'])],
+            'brand_color_sections' => ['nullable', 'array'],
+            'brand_color_sections.*' => [Rule::in($sectionIds)],
             // The school-wide default stamp/signature every report card
             // falls back to when a class teacher never uploaded their own
             // (user request 2026-07-18: "uploaded for all the school's
@@ -248,9 +270,26 @@ class SchoolPortalController extends Controller
             \App\Models\Tenant\Setting::put('chart_style', $data['chart_style']);
         }
 
+        // A scope of "sections" with nothing ticked is a genuine mistake,
+        // not a signal to fall back to the whole school -- silently
+        // re-interpreting it that way would repaint every section's
+        // logo/colour the moment an admin forgot to tick anything.
+        if ($request->hasFile('logo') && ($data['logo_scope'] ?? 'school') === 'sections' && empty($data['logo_sections'])) {
+            return back()->withErrors(['logo_sections' => 'Tick at least one section, or choose "Whole school" instead.'])->withInput();
+        }
+        if (! empty($data['brand_color']) && ($data['brand_color_scope'] ?? 'school') === 'sections' && empty($data['brand_color_sections'])) {
+            return back()->withErrors(['brand_color_sections' => 'Tick at least one section, or choose "Whole school" instead.'])->withInput();
+        }
+
         if ($request->hasFile('logo')) {
             $path = $request->file('logo')->store("schools/{$school->id}", 'public');
-            $school->logo_path = $path;
+            if (($data['logo_scope'] ?? 'school') === 'sections') {
+                foreach ($data['logo_sections'] as $sectionId) {
+                    SchoolSectionBranding::updateOrCreate(['section_id' => $sectionId], ['logo_path' => $path]);
+                }
+            } else {
+                $school->logo_path = $path;
+            }
         }
         if ($request->hasFile('stamp')) {
             $school->stamp_path = $images->toWebp($request->file('stamp'), "schools/{$school->id}", maxDimension: 500);
@@ -259,15 +298,49 @@ class SchoolPortalController extends Controller
             $school->signature_path = $images->toWebp($request->file('signature'), "schools/{$school->id}", maxDimension: 500);
         }
 
+        $brandColor = $school->brand_color;
+        if (! empty($data['brand_color'])) {
+            if (($data['brand_color_scope'] ?? 'school') === 'sections') {
+                foreach ($data['brand_color_sections'] as $sectionId) {
+                    SchoolSectionBranding::updateOrCreate(['section_id' => $sectionId], ['brand_color' => $data['brand_color']]);
+                }
+            } else {
+                $brandColor = $data['brand_color'];
+            }
+        }
+
         $school->fill([
-            'brand_color' => $data['brand_color'] ?? $school->brand_color,
+            'brand_color' => $brandColor,
             'welcome_headline' => $data['welcome_headline'] ?? $school->welcome_headline,
             'welcome_message' => $data['welcome_message'] ?? $school->welcome_message,
             'login_layout' => $data['login_layout'] ?? $school->login_layout,
             'login_box_side' => $data['login_box_side'] ?? $school->login_box_side,
+            'show_all_section_logos_on_login' => $request->boolean('show_all_section_logos_on_login'),
         ])->save();
 
         return back()->with('status', 'Your school branding has been updated.');
+    }
+
+    /**
+     * Undo a section's own logo/colour override, back to inheriting the
+     * school's default (user request 2026-09-09). Deletes the row
+     * outright rather than nulling both columns, since a row with both
+     * columns null is meaningless -- Section::branding()/resolvedLogoPath()
+     * would treat it identically to no row at all anyway.
+     */
+    public function resetSectionBranding(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'school_info.update');
+        // Read via route() rather than a typed method parameter: this
+        // route sits under Route::domain('{school}.'.$domain), and a
+        // typed scalar controller parameter binds POSITIONALLY against
+        // the full route parameter list (domain param included), not by
+        // name -- it would silently receive the school's slug instead
+        // of the section id. See CLAUDE.md's "Domain routing + route
+        // parameters gotcha", already hit more than once in this codebase.
+        SchoolSectionBranding::where('section_id', $request->route('sectionId'))->delete();
+
+        return back()->with('status', 'That section now uses the school default again.');
     }
 
     /**

@@ -184,4 +184,65 @@ class ClubTest extends TestCase
             ->get("http://{$school->slug}.localhost/clubs")
             ->assertForbidden();
     }
+
+    /**
+     * User report 2026-09-09: "subject teachers can[not] see the club
+     * menu at all" -- their students.view grant exists for unrelated
+     * screens and incidentally opened this one too, the same shape of
+     * exposure parent/student already had closed above.
+     */
+    public function test_a_subject_teacher_has_no_access_to_clubs_at_all(): void
+    {
+        [$school, $teacher] = $this->schoolWithRole('clubseven', 'subject-teacher');
+
+        $this->actingAs($teacher)
+            ->get("http://{$school->slug}.localhost/clubs")
+            ->assertForbidden();
+    }
+
+    /**
+     * User report 2026-09-09: a class teacher could reach the full
+     * admin screen (add/retire/bulk-upload etc.) -- every mutating
+     * action was already correctly blocked server side, but the screen
+     * itself looked fully editable, which read as real access. They now
+     * get their own read-only view, scoped to their own class, and a
+     * club with none of their own students in it never appears.
+     */
+    public function test_a_class_teacher_sees_only_their_own_classs_clubs_read_only(): void
+    {
+        [$school, $teacherUser] = $this->schoolWithRole('clubeight', 'class-teacher');
+
+        app(TenantManager::class)->use($school);
+        $section = \App\Models\Tenant\Section::create(['name' => 'Primary', 'sequence' => 1]);
+        $classA = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $classB = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 2', 'sequence' => 2]);
+        $armA = \App\Models\Tenant\ClassArm::create(['school_class_id' => $classA->id, 'arm_id' => \App\Models\Tenant\Arm::create(['name' => 'A'])->id]);
+        $armB = \App\Models\Tenant\ClassArm::create(['school_class_id' => $classB->id, 'arm_id' => \App\Models\Tenant\Arm::create(['name' => 'B'])->id]);
+
+        $debateClub = Club::create(['name' => 'Debate Club']);
+        $chessClub = Club::create(['name' => 'Chess Club']);
+
+        $studentA = Student::create([
+            'first_name' => 'Ada', 'last_name' => 'Obi', 'admission_number' => 'CLB/A1',
+            'status' => Student::STATUS_ACTIVE, 'current_class_arm_id' => $armA->id, 'club_id' => $debateClub->id,
+        ]);
+        Student::create([
+            'first_name' => 'Bola', 'last_name' => 'Ade', 'admission_number' => 'CLB/B1',
+            'status' => Student::STATUS_ACTIVE, 'current_class_arm_id' => $armB->id, 'club_id' => $chessClub->id,
+        ]);
+
+        $staff = \App\Models\Tenant\Staff::create(['staff_id' => 'STF/CLB1', 'first_name' => 'Tee', 'last_name' => 'Cher', 'status' => 'active', 'user_id' => $teacherUser->id]);
+        $armA->update(['class_teacher_staff_id' => $staff->id]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/clubs");
+        $response->assertOk()->assertSee('Debate Club')->assertSee('Ada Obi')
+            ->assertDontSee('Chess Club')->assertDontSee('Bola Ade');
+
+        // Server side too, not just visually: a mutating action must
+        // still be refused, even though the screen no longer offers one.
+        $this->actingAs($teacherUser)
+            ->post("http://{$school->slug}.localhost/clubs/{$debateClub->id}/toggle-active")
+            ->assertForbidden();
+    }
 }

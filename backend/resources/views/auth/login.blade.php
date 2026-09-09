@@ -11,6 +11,13 @@
   .login-page{min-height:100vh;min-height:100dvh;min-height:100svh}
   .lp-logo{width:64px;height:64px;border-radius:16px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:800;font-size:1.6rem;margin:0 auto 1.1rem;overflow:hidden}
   .lp-logo img{width:100%;height:100%;object-fit:contain}
+  /* Two or more distinct section logos side by side (user request
+     2026-09-09), in place of the single mark above. Sized down a touch
+     so the row never reads wider than the single mark it replaces. */
+  .lp-logo-lockup{display:flex;align-items:center;justify-content:center;gap:.65rem;margin:0 auto 1.1rem}
+  .lp-logo-lockup .lp-logo-sm{margin:0;position:relative}
+  .lp-logo.lp-logo-sm,.bp-logo.lp-logo-sm{width:50px;height:50px;font-size:1.15rem;border-radius:13px}
+  .lp-logo-lockup .lp-logo-sm + .lp-logo-sm::before{content:'';position:absolute;left:-.42rem;top:15%;width:1px;height:70%;background:currentColor;opacity:.25}
   .lp-head{font-size:1.55rem;font-weight:800;line-height:1.15;letter-spacing:-.01em;text-align:center}
   .lp-sub{color:var(--mut);margin:.4rem 0 1.5rem;text-align:center}
   .form-card{width:100%;max-width:26rem;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:2.2rem;box-shadow:var(--shadow)}
@@ -253,7 +260,7 @@
           <div class="lp-floaters lp-floaters-alt">{!! $altFloatIcons() !!}</div>
         </div>
         <div class="lp-identity-center">
-          <div class="bp-logo">@if($b['logo'])<img src="{{ \Illuminate\Support\Facades\Storage::url($b['logo']) }}" alt="">@else{{ $initial }}@endif</div>
+          @include('auth.partials.logo-mark', ['b' => $b, 'initial' => $initial, 'markClass' => 'bp-logo', 'sectionLogos' => $sectionLogos ?? []])
           <h1>{{ $b['headline'] }}</h1>
           <p>{{ $b['message'] }}</p>
         </div>
@@ -274,7 +281,7 @@
     <div class="lp-cover">
       <div class="lp-floaters">{!! $floatIcons() !!}</div>
       <div class="form-card" style="position:relative;z-index:1">
-        <div class="lp-logo">@if($b['logo'])<img src="{{ \Illuminate\Support\Facades\Storage::url($b['logo']) }}" alt="">@else{{ $initial }}@endif</div>
+        @include('auth.partials.logo-mark', ['b' => $b, 'initial' => $initial, 'markClass' => 'lp-logo', 'sectionLogos' => $sectionLogos ?? []])
         <div class="lp-head">{{ $b['headline'] }}</div>
         <p class="lp-sub">{{ $b['message'] }}</p>
         @include('auth.partials.login-form', ['school' => $school])
@@ -288,7 +295,7 @@
       <div class="sc-info">
         <div class="lp-floaters">{!! $floatIcons() !!}</div>
         <div style="position:relative;z-index:1">
-          <div class="lp-logo">@if($b['logo'])<img src="{{ \Illuminate\Support\Facades\Storage::url($b['logo']) }}" alt="">@else{{ $initial }}@endif</div>
+          @include('auth.partials.logo-mark', ['b' => $b, 'initial' => $initial, 'markClass' => 'lp-logo', 'sectionLogos' => $sectionLogos ?? []])
           <h1>{{ $b['headline'] }}</h1>
           <p class="muted" style="max-width:38ch;margin:0 auto">{{ $b['message'] }}</p>
           <ul>
@@ -347,7 +354,7 @@
       <div class="lp-floaters lp-floaters-alt">{!! $altFloatIcons() !!}</div>
       <div class="lp-floaters">{!! $sideFloatIcons() !!}</div>
       <div class="form-card" style="position:relative;z-index:1">
-        <div class="lp-logo">@if($b['logo'])<img src="{{ \Illuminate\Support\Facades\Storage::url($b['logo']) }}" alt="">@else{{ $initial }}@endif</div>
+        @include('auth.partials.logo-mark', ['b' => $b, 'initial' => $initial, 'markClass' => 'lp-logo', 'sectionLogos' => $sectionLogos ?? []])
         <div class="lp-head">{{ $b['headline'] }}</div>
         <p class="lp-sub">{{ $b['message'] }}</p>
         @include('auth.partials.login-form', ['school' => $school])

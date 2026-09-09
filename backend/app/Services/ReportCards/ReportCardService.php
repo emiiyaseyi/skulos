@@ -192,6 +192,16 @@ class ReportCardService
         $signaturePath = $classArm?->signature_path ?: $school?->signature_path;
         $classTeacher = $classArm?->class_teacher_staff_id ? Staff::find($classArm->class_teacher_staff_id) : null;
 
+        // The logo printed is the STUDENT'S OWN section's logo, falling
+        // back to the school-wide default (user request 2026-09-09: a
+        // school with, say, a separate Nursery & Primary identity and a
+        // separate Secondary one wants each report card to carry the
+        // logo for the class it actually falls under, not always the
+        // one school-wide mark). Same fallback shape as stamp/signature
+        // just above.
+        $section = $classArm?->schoolClass?->section;
+        $logoPath = ($section && $school ? $section->resolvedLogoPath($school) : null) ?: $school?->logo_path;
+
         return [
             'identity' => [
                 'name' => $student->fullName(),
@@ -238,6 +248,7 @@ class ReportCardService
                 'class_teacher_phone' => $classTeacher?->phone,
             ],
             'traits' => $traits,
+            'logo_url' => $logoPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($logoPath) : null,
             'stamp_url' => $stampPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($stampPath) : null,
             'signature_url' => $signaturePath ? \Illuminate\Support\Facades\Storage::disk('public')->url($signaturePath) : null,
             // Who the signature under the signoff belongs to (user

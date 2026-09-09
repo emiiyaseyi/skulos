@@ -392,6 +392,10 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/offer/accept', [$dashboard, 'acceptOffer'])->name('offer.accept');
             Route::post('/offer/decline', [$dashboard, 'declineOffer'])->name('offer.decline');
 
+            // A real two-way message thread with the school (2026-09-09,
+            // user directive), readable on the dashboard below.
+            Route::post('/messages/reply', [$dashboard, 'sendMessage'])->name('messages.reply');
+
             // Admissions module, Phase 1e: the school's own custom
             // application form, one step at a time.
             $form = \App\Http\Controllers\Admissions\ApplicationFormController::class;
@@ -878,6 +882,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         });
         Route::get('/settings/branding', [SchoolPortalController::class, 'editBranding'])->name('school.branding.edit');
         Route::post('/settings/branding', [SchoolPortalController::class, 'updateBranding'])->name('school.branding.update');
+        Route::post('/settings/branding/sections/{sectionId}/reset', [SchoolPortalController::class, 'resetSectionBranding'])->name('school.branding.sections.reset');
         Route::get('/settings/profile', [SchoolPortalController::class, 'editProfile'])->name('school.settings.profile.edit');
         Route::post('/settings/profile', [SchoolPortalController::class, 'updateProfile'])->name('school.settings.profile.update');
         Route::get('/settings/dashboard', [SchoolPortalController::class, 'editDashboard'])->name('school.dashboard.edit');
@@ -1272,6 +1277,10 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/{applicantId}/letter', [$pipeline, 'letter'])->name('pipeline.letter');
             Route::get('/{applicantId}/convert', [$pipeline, 'convertForm'])->name('pipeline.convert.form');
             Route::post('/{applicantId}/convert', [$pipeline, 'convert'])->name('pipeline.convert');
+            // A real two-way message thread with the applicant
+            // (2026-09-09), distinct from the one-way nudge above.
+            Route::get('/{applicantId}/messages', [$pipeline, 'messages'])->name('pipeline.messages');
+            Route::post('/{applicantId}/messages', [$pipeline, 'sendMessage'])->name('pipeline.messages.send');
         });
 
         // Automated admissions pipeline (2026-08-06): the receiving class

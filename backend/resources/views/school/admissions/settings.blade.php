@@ -24,22 +24,32 @@
   <p class="muted" style="margin-bottom:.8rem">The stages every applicant moves through, in this order. Add, rename, remove, or reorder them however suits your school.</p>
   <div class="stack" style="gap:.5rem;margin-bottom:1rem;max-width:30rem">
     @foreach($stages as $stage)
-      <div style="display:flex;align-items:center;gap:.6rem;border:1px solid var(--line);border-radius:10px;padding:.5rem .8rem">
+      {{-- Real width bug (user report 2026-09-09, screenshot): this row
+           packed 4 sibling <form>s onto one unwrapped flex line, and
+           the label input's bare "flex:1" computes from a zero flex-
+           basis with no floor -- on a narrow screen it lost the fight
+           for space to the Save/Up/Down/Remove controls and collapsed
+           to only a character or two wide. Fixed with flex-wrap on the
+           row (so the move/remove controls drop to their own line
+           first) plus a real min-width on both the label form and the
+           input itself, so the input has somewhere to shrink TO before
+           it starts losing legibility. --}}
+      <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;border:1px solid var(--line);border-radius:10px;padding:.5rem .8rem">
         <span class="muted" style="font-weight:700;min-width:1.4rem">{{ $loop->index + 1 }}.</span>
-        <form method="POST" action="{{ route('school.admissions.settings.stages.update', ['school' => $school->slug, 'stageId' => $stage->id]) }}" style="flex:1;display:flex;gap:.4rem">
+        <form method="POST" action="{{ route('school.admissions.settings.stages.update', ['school' => $school->slug, 'stageId' => $stage->id]) }}" style="flex:1 1 12rem;min-width:12rem;display:flex;gap:.4rem">
           @csrf
-          <input name="label" value="{{ $stage->label }}" style="flex:1" />
-          <button class="btn btn-ghost btn-sm" type="submit">Save</button>
+          <input name="label" value="{{ $stage->label }}" style="flex:1;min-width:6rem" />
+          <button class="btn btn-ghost btn-sm" type="submit" style="flex-shrink:0">Save</button>
         </form>
-        <form method="POST" action="{{ route('school.admissions.settings.stages.move', ['school' => $school->slug, 'stageId' => $stage->id, 'direction' => 'up']) }}">
+        <form method="POST" action="{{ route('school.admissions.settings.stages.move', ['school' => $school->slug, 'stageId' => $stage->id, 'direction' => 'up']) }}" style="flex-shrink:0">
           @csrf
           <button class="btn btn-ghost btn-sm" type="submit" @disabled($loop->first)>&uarr;</button>
         </form>
-        <form method="POST" action="{{ route('school.admissions.settings.stages.move', ['school' => $school->slug, 'stageId' => $stage->id, 'direction' => 'down']) }}">
+        <form method="POST" action="{{ route('school.admissions.settings.stages.move', ['school' => $school->slug, 'stageId' => $stage->id, 'direction' => 'down']) }}" style="flex-shrink:0">
           @csrf
           <button class="btn btn-ghost btn-sm" type="submit" @disabled($loop->last)>&darr;</button>
         </form>
-        <form method="POST" action="{{ route('school.admissions.settings.stages.destroy', ['school' => $school->slug, 'stageId' => $stage->id]) }}" onsubmit="return confirm('Remove this stage?')">
+        <form method="POST" action="{{ route('school.admissions.settings.stages.destroy', ['school' => $school->slug, 'stageId' => $stage->id]) }}" onsubmit="return confirm('Remove this stage?')" style="flex-shrink:0">
           @csrf @method('DELETE')
           <button class="btn btn-ghost btn-sm" style="color:var(--bad)" type="submit" @disabled($stages->count() <= 1)>Remove</button>
         </form>

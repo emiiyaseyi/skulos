@@ -567,8 +567,11 @@
   // gating them there would hide an already-built screen from every
   // school on those tiers. Parents and students are excluded outright
   // (they hold students.view only to see their own child), matching the
-  // block ClubController itself applies.
-  if (! in_array($scopedRoleSlug, ['parent', 'student'], true)
+  // block ClubController itself applies. subject-teacher added
+  // 2026-09-09, matching ClubController::authorizeAction()'s own
+  // denial list -- otherwise the nav link would still show for a role
+  // that gets a 403 the moment they click it.
+  if (! in_array($scopedRoleSlug, ['parent', 'student', 'subject-teacher'], true)
       && $navRbac->check($navUser, $school, 'students.view')
       && ! isset($renderedRoutes['school.clubs.index'])) {
     $renderedRoutes['school.clubs.index'] = true;

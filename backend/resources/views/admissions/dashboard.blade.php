@@ -244,5 +244,35 @@
       </div>
     @endif
   @endif
+
+  {{-- A real two-way message thread with the school (2026-09-09, user
+       directive), shown regardless of what stage the application is at. --}}
+  <div class="card" style="margin-top:1rem">
+    <h3 style="margin-bottom:.6rem">Messages</h3>
+    @if($thread->isEmpty())
+      <p class="muted" style="margin-bottom:1rem">No messages yet. If the school reaches out here, or you have a question for them, it will show up in this thread.</p>
+    @else
+      <div class="stack" style="gap:.6rem;margin-bottom:1rem;max-width:38rem">
+        @foreach($thread as $message)
+          <div style="border-radius:12px;padding:.7rem .9rem;max-width:80%;{{ $message->sender === 'applicant' ? 'align-self:flex-end;background:var(--accent);color:var(--accent-ink);margin-left:auto' : 'background:var(--soft)' }}">
+            <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;opacity:.7">
+              {{ $message->sender === 'applicant' ? 'You' : ($senderNames[$message->sender_user_id] ?? 'School staff') }}
+            </div>
+            <div style="white-space:pre-wrap">{{ $message->body }}</div>
+            <div style="font-size:.7rem;opacity:.55;margin-top:.3rem">{{ $message->created_at->format('d M Y, g:ia') }}</div>
+          </div>
+        @endforeach
+      </div>
+    @endif
+    <form method="POST" action="{{ route('school.admissions.messages.reply', ['school' => $school->slug]) }}" style="max-width:38rem">
+      @csrf
+      <div class="field">
+        <label for="msg_body">Send a message to the school</label>
+        <textarea id="msg_body" name="body" rows="3" maxlength="2000" required></textarea>
+        @error('body')<div class="err">{{ $message }}</div>@enderror
+      </div>
+      <button class="btn btn-primary btn-sm" type="submit">Send</button>
+    </form>
+  </div>
 </div>
 @endsection

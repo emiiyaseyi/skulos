@@ -11,7 +11,9 @@ use App\Models\Tenant\Student;
 use App\Models\Tenant\StudentGuardian;
 use App\Services\Bulk\CsvReader;
 use App\Services\Rbac\Rbac;
+use App\Services\Rbac\TeacherScope;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
@@ -44,13 +46,19 @@ class ClubController extends Controller
      * Found live on Houses 2026-07-26; the identical exposure exists
      * here for the identical reason, so it is closed the same way
      * rather than waiting to be reported again.
+     *
+     * subject-teacher added 2026-09-09 (direct instruction: "subject
+     * teachers can[not] see the club menu at all") -- their
+     * 'students.view' grant exists for genuinely unrelated screens, and
+     * incidentally opened this one too, same shape of over-exposure as
+     * parent/student above.
      */
     protected function authorizeAction(Request $request, string $permission): void
     {
         $school = $this->school($request);
         $user = Auth::user();
         $role = $user->roleIn($school);
-        abort_if(in_array($role?->slug, ['parent', 'student'], true), 403, 'You do not have permission for this.');
+        abort_if(in_array($role?->slug, ['parent', 'student', 'subject-teacher'], true), 403, 'You do not have permission for this.');
 
         abort_unless(
             app(Rbac::class)->check($user, $school, $permission),
@@ -76,12 +84,46 @@ class ClubController extends Controller
         $this->authorizeAction($request, 'students.view');
         $school = $this->school($request);
 
+        // A scoped teacher (class teacher, class assistant, or a plain
+        // "teacher" role) never gets the school-wide admin screen --
+        // even though the earlier admin-only checks on every mutating
+        // action below already blocked them from actually changing
+        // anything, they were still shown a full "add a club" / "bulk
+        // upload" / "retire" management screen that only LOOKED like it
+        // worked (2026-09-09 direct report: "class teachers... have
+        // access to clubs and can make changes to it"). They get their
+        // own read-only view instead: only clubs with a student in
+        // their own class, showing that class's own distribution --
+        // never the whole school's, and never a club with nobody in it.
+        $armIds = app(TeacherScope::class)->classArmIds(Auth::user(), $school);
+        if ($armIds !== null) {
+            return $this->scopedIndex($school, $armIds);
+        }
+
         return view('school.clubs.index', [
             'school' => $school,
             'accent' => $school->branding()['color'],
             'clubs' => Club::withCount(['students', 'staff', 'guardianMembers'])->orderBy('name')->get(),
             'defaults' => config('skulos.default_clubs', []),
             'unassignedStudents' => Student::active()->whereNull('club_id')->count(),
+            'clubsEnabled' => self::enabled(),
+        ]);
+    }
+
+    /** Read-only, scoped to a teacher's own class -- see index() above for why. */
+    protected function scopedIndex(School $school, Collection $armIds): \Illuminate\View\View
+    {
+        $studentIds = Student::active()->whereIn('current_class_arm_id', $armIds)->pluck('id');
+
+        $clubs = Club::whereHas('students', fn ($q) => $q->whereIn('id', $studentIds))
+            ->with(['students' => fn ($q) => $q->whereIn('id', $studentIds)->orderBy('first_name')])
+            ->orderBy('name')
+            ->get();
+
+        return view('school.clubs.my-class', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'clubs' => $clubs,
             'clubsEnabled' => self::enabled(),
         ]);
     }

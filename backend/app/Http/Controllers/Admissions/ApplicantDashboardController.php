@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Admissions;
 
 use App\Http\Controllers\Controller;
+use App\Models\Tenant\AdmissionMessage;
 use App\Models\Tenant\AdmissionPayment;
 use App\Models\Tenant\AdmissionWindow;
 use App\Models\Tenant\Applicant;
+use App\Models\User;
 use App\Services\Admissions\AdmissionAcceptanceService;
 use App\Services\Media\ImageProcessingService;
 use Illuminate\Http\Request;
@@ -79,6 +81,17 @@ class ApplicantDashboardController extends Controller
         // already uses.
         $pipelineStages = Applicant::pipelineChain();
 
+        // A real two-way message thread with the school (2026-09-09,
+        // user directive). Shown in full on the dashboard, so there is
+        // no separate "unread" concept to track here the way the
+        // staff-side board needs one for a list it might not open.
+        $thread = AdmissionMessage::where('applicant_id', $applicant->id)->orderBy('created_at')->get();
+        AdmissionMessage::where('applicant_id', $applicant->id)
+            ->where('sender', AdmissionMessage::SENDER_STAFF)
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
+        $senderNames = User::whereIn('id', $thread->pluck('sender_user_id')->filter()->unique())->pluck('name', 'id');
+
         return view('admissions.dashboard', [
             'school' => $school,
             'accent' => $school?->branding()['color'] ?? null,
@@ -91,7 +104,23 @@ class ApplicantDashboardController extends Controller
             'bankAccounts' => \App\Models\Tenant\BankAccount::active()->orderBy('sort_order')->get(),
             'assessmentCount' => $assessmentCount,
             'pipelineStages' => $pipelineStages,
+            'thread' => $thread,
+            'senderNames' => $senderNames,
         ]);
+    }
+
+    public function sendMessage(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $applicant = Auth::guard('applicant')->user();
+        $data = $request->validate(['body' => ['required', 'string', 'max:2000']]);
+
+        AdmissionMessage::create([
+            'applicant_id' => $applicant->id,
+            'sender' => AdmissionMessage::SENDER_APPLICANT,
+            'body' => $data['body'],
+        ]);
+
+        return back()->with('status', 'Message sent.');
     }
 
     public function submitApplicationFee(Request $request, ImageProcessingService $images): \Illuminate\Http\RedirectResponse

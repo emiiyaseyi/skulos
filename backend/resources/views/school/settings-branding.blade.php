@@ -24,8 +24,34 @@
   .color-input-row input[type="color"]{width:2.6rem;height:2.6rem;padding:2px;border:1px solid var(--line);border-radius:8px;cursor:pointer;flex-shrink:0}
   .color-input-row input[type="text"]{flex:1}
   @media(max-width:480px){.color-swatches{grid-template-columns:repeat(4,1fr)}}
+  .scope-choice{display:flex;gap:1.2rem;margin:.5rem 0 .5rem}
+  .scope-choice label{display:flex;align-items:center;gap:.4rem;font-size:.85rem;font-weight:600;cursor:pointer}
+  .section-ticks{display:none;flex-wrap:wrap;gap:.6rem;margin:.3rem 0 .8rem;padding:.7rem;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+  .section-ticks.open{display:flex}
+  .section-ticks label{display:flex;align-items:center;gap:.4rem;font-size:.85rem;font-weight:500;cursor:pointer}
+  .section-row{display:flex;align-items:center;gap:.8rem;padding:.6rem 0;border-bottom:1px solid var(--line)}
+  .section-row:last-child{border-bottom:none}
+  .section-row .mark{width:38px;height:38px;border-radius:9px;display:grid;place-items:center;color:#fff;font-weight:700;overflow:hidden;flex-shrink:0}
+  .section-row .mark img{width:100%;height:100%;object-fit:contain}
+  .section-row .name{flex:1;font-weight:600}
+  .section-row .state{font-size:.78rem;color:var(--mut)}
 </style>
 @endpush
+
+@php
+  $renderScopePicker = function (string $field, string $label) use ($sections) {
+    $html = '<div class="scope-choice">'
+      .'<label><input type="radio" name="'.$field.'_scope" value="school" checked data-scope="'.$field.'"> Whole school</label>'
+      .'<label><input type="radio" name="'.$field.'_scope" value="sections" data-scope="'.$field.'"> Just some sections</label>'
+      .'</div>'
+      .'<div class="section-ticks" data-scope-panel="'.$field.'">';
+    foreach ($sections as $s) {
+      $html .= '<label><input type="checkbox" name="'.$field.'_sections[]" value="'.$s->id.'"> '.e($s->name).'</label>';
+    }
+
+    return $html.'</div><div class="hint" style="margin:-.3rem 0 .7rem">'.e($label).'</div>';
+  };
+@endphp
 
 @section('content')
 <div class="page-head">
@@ -64,6 +90,10 @@
         </div>
         <div class="hint">Pick a swatch, drag the colour wheel, or type a hex code like #1B87D6. Used for buttons and accents on your pages.</div>
         @error('brand_color')<div class="err">{{ $message }}</div>@enderror
+        @if($sections->count() > 1)
+          {!! $renderScopePicker('brand_color', 'Who this colour is for. Untouched sections keep whatever they already have.') !!}
+          @error('brand_color_sections')<div class="err">{{ $message }}</div>@enderror
+        @endif
       </div>
       <script>
         (function(){
@@ -79,6 +109,12 @@
               native.value = color;
             });
           });
+          document.querySelectorAll('input[data-scope]').forEach(function(radio){
+            radio.addEventListener('change', function(){
+              var panel = document.querySelector('.section-ticks[data-scope-panel="'+this.getAttribute('data-scope')+'"]');
+              if (panel) panel.classList.toggle('open', this.value === 'sections');
+            });
+          });
         })();
       </script>
       <div class="field">
@@ -86,7 +122,23 @@
         <input id="logo" name="logo" type="file" accept="image/*" />
         <div class="hint">A square image works best. Up to 2 MB.</div>
         @error('logo')<div class="err">{{ $message }}</div>@enderror
+        @if($sections->count() > 1)
+          {{-- User request 2026-09-09: a school running, say, Nursery &
+               Primary under one identity and Secondary under another
+               can upload a logo for just those sections instead of the
+               whole school. Upload again with the other section(s)
+               ticked to give them a different one. --}}
+          {!! $renderScopePicker('logo', 'Who this upload is for. Untouched sections keep whatever they already have.') !!}
+          @error('logo_sections')<div class="err">{{ $message }}</div>@enderror
+        @endif
       </div>
+
+      @if($sections->count() > 1)
+        <div class="field">
+          <label><input type="checkbox" name="show_all_section_logos_on_login" value="1" @checked($showAllSectionLogos) /> Show every section's logo on the login page</label>
+          <div class="hint">Off shows just the school's default logo. On shows all of your school's distinct logos side by side, above the sign in form.</div>
+        </div>
+      @endif
 
       <div class="field">
         <label for="stamp">School stamp</label>
@@ -185,4 +237,34 @@
     <p class="hint" style="margin-top:1rem">Your page lives at {{ $school->slug }}.{{ config('app.domain','localhost') }}</p>
   </div>
 </div>
+
+@if($sections->count() > 1)
+  <div class="card" style="margin-top:1.2rem">
+    <h3 style="margin-bottom:.3rem">Section branding</h3>
+    <p class="hint" style="margin-bottom:.8rem">What each section actually shows right now. A section with no override of its own uses the school default above.</p>
+    @foreach($sections as $s)
+      @php($sLogo = $s->branding?->logo_path)
+      @php($sColor = $s->branding?->brand_color ?: $b['color'])
+      <div class="section-row">
+        <div class="mark" style="background:{{ $sColor }}">
+          @if($sLogo)<img src="{{ \Illuminate\Support\Facades\Storage::url($sLogo) }}" alt="">@else{{ strtoupper(substr($s->name,0,1)) }}@endif
+        </div>
+        <div class="name">{{ $s->name }}</div>
+        <div class="state">
+          @if($s->branding)
+            Own {{ collect([$s->branding->logo_path ? 'logo' : null, $s->branding->brand_color ? 'colour' : null])->filter()->implode(' & ') }}
+          @else
+            Using school default
+          @endif
+        </div>
+        @if($s->branding)
+          <form method="POST" action="{{ route('school.branding.sections.reset', ['school' => $school->slug, 'sectionId' => $s->id]) }}">
+            @csrf
+            <button class="btn btn-ghost btn-sm" type="submit">Reset</button>
+          </form>
+        @endif
+      </div>
+    @endforeach
+  </div>
+@endif
 @endsection

@@ -477,6 +477,7 @@ class AcademicsController extends Controller
     public function destroyClass(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'academics.update');
+        $school = $this->school($request);
         $class = SchoolClass::with('arms')->findOrFail($request->route('classId'));
 
         $armIds = $class->arms->pluck('id');
@@ -487,7 +488,17 @@ class AcademicsController extends Controller
         $name = $class->name;
         $class->delete();
 
-        return back()->with('status', "\"{$name}\" removed.");
+        // Real bug (user report 2026-09-09): the "Remove" form lives on
+        // this class's own show page, and back() redirects to wherever
+        // the request CAME from -- that same page, which now findOrFail()s
+        // on a class that no longer exists, 404ing immediately (the
+        // delete itself had already succeeded, only the redirect target
+        // was wrong -- pressing the browser's own back button afterward
+        // landed on the class list showing it correctly gone). Redirect
+        // to a page guaranteed to still exist instead of trusting the
+        // Referer.
+        return redirect()->route('school.academics.index', ['school' => $school->slug])
+            ->with('status', "\"{$name}\" removed.");
     }
 
     /**

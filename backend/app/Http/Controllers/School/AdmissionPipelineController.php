@@ -4,10 +4,13 @@ namespace App\Http\Controllers\School;
 
 use App\Http\Controllers\Controller;
 use App\Mail\AdmissionCredentialsMail;
+use App\Mail\AdmissionMessageMail;
 use App\Models\School;
+use App\Models\Tenant\AdmissionMessage;
 use App\Models\Tenant\AdmissionPayment;
 use App\Models\Tenant\Applicant;
 use App\Models\Tenant\ClassArm;
+use App\Models\User;
 use App\Services\Admissions\AdmissionOfferService;
 use App\Services\Admissions\ApplicantConversionService;
 use App\Services\Rbac\Rbac;
@@ -123,6 +126,16 @@ class AdmissionPipelineController extends Controller
                 ];
             });
 
+        // Which of this page's applicants have sent something staff
+        // hasn't looked at yet (user directive 2026-09-09), so the
+        // board can flag it without anyone needing to open every
+        // applicant's thread just to check.
+        $unreadFromApplicant = AdmissionMessage::whereIn('applicant_id', $applicantIds)
+            ->where('sender', AdmissionMessage::SENDER_APPLICANT)
+            ->whereNull('read_at')
+            ->pluck('applicant_id')
+            ->unique();
+
         return view('school.admissions.pipeline', [
             'school' => $school,
             'accent' => $school->branding()['color'],
@@ -131,7 +144,71 @@ class AdmissionPipelineController extends Controller
             'tabs' => self::TABS,
             'counts' => $counts,
             'assessmentResults' => $assessmentResults,
+            'unreadFromApplicant' => $unreadFromApplicant,
         ]);
+    }
+
+    /**
+     * The message thread with one applicant (user directive 2026-09-09:
+     * "add a option for schools admins to send a message to applicants
+     * and for applicants to also send back to them"). Deliberately its
+     * own small screen rather than squeezed into the pipeline row,
+     * which is already crowded with per-row action forms. Opening this
+     * marks every unread applicant message read, the same "viewing the
+     * thread is what marks it read" behaviour the rest of this app uses
+     * for notifications.
+     */
+    public function messages(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'admissions.decide');
+        $school = $this->school($request);
+        $applicant = Applicant::findOrFail($request->route('applicantId'));
+
+        $thread = AdmissionMessage::where('applicant_id', $applicant->id)->orderBy('created_at')->get();
+
+        AdmissionMessage::where('applicant_id', $applicant->id)
+            ->where('sender', AdmissionMessage::SENDER_APPLICANT)
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
+
+        $senderNames = User::whereIn('id', $thread->pluck('sender_user_id')->filter()->unique())->pluck('name', 'id');
+
+        return view('school.admissions.messages', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'applicant' => $applicant,
+            'thread' => $thread,
+            'senderNames' => $senderNames,
+        ]);
+    }
+
+    public function sendMessage(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'admissions.decide');
+        $school = $this->school($request);
+        $applicant = Applicant::findOrFail($request->route('applicantId'));
+
+        $data = $request->validate(['body' => ['required', 'string', 'max:2000']]);
+
+        AdmissionMessage::create([
+            'applicant_id' => $applicant->id,
+            'sender' => AdmissionMessage::SENDER_STAFF,
+            'sender_user_id' => Auth::id(),
+            'body' => $data['body'],
+        ]);
+
+        // Applicants are early in the relationship and easy to lose
+        // touch with (no in-app notification exists for them yet, the
+        // same reason the nudge/offer/credential mails all go by
+        // email), so a real email is the reliable way they will
+        // actually see this rather than the message sitting unread on
+        // a portal they have no reason to open.
+        if ($applicant->email) {
+            Mail::to($applicant->email)->send(new AdmissionMessageMail($applicant, $school, $data['body']));
+        }
+
+        return redirect()->route('school.admissions.pipeline.messages', ['school' => $school->slug, 'applicantId' => $applicant->id])
+            ->with('status', 'Message sent.');
     }
 
     public function advance(Request $request): \Illuminate\Http\RedirectResponse
