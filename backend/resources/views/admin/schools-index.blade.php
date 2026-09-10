@@ -107,35 +107,36 @@
             <span class="badge {{ $s->status === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucfirst($s->status) }}</span>
           </td>
           <td>
-            {{-- 2026-09-10 fix (still misaligned after the first pass):
-                 a single flat 3-column grid across ALL buttons left a
-                 lone or paired trailing button sharing a row with empty
-                 grid space, and the div's own inline "--cols:3" also
-                 silently beat the mobile media query's "--cols:2" since
-                 an inline style always wins over a stylesheet rule on
-                 the same custom property. Splitting the buttons into
-                 their own self-contained row groups, each grid sized to
-                 exactly how many buttons it holds, guarantees every row
-                 is completely filled edge to edge on any screen size,
-                 with no modulo math needed for future button changes. --}}
+            {{-- 2026-09-10 fix, third pass: the shared "td .actions"
+                 stylesheet rule (margin-left:auto;max-width:24rem) was
+                 meant for ONE outer block, but with buttons split into
+                 several nested ".actions" groups, that same rule matched
+                 every nested group too -- a group holding just one
+                 button (Resume, Delete) has nothing forcing it to
+                 stretch, so the auto margin shrank it to its own content
+                 width and pushed it to the right, leaving the rest of
+                 the row empty. Each nested group now explicitly
+                 overrides both back to fill the wrapper's full width,
+                 so a lone button spans edge to edge exactly like the
+                 3-button rows above it, on the same box size. --}}
             <div style="display:flex;flex-direction:column;gap:.4rem;margin-left:auto;max-width:24rem">
-              <div class="actions" style="--cols:3">
+              <div class="actions" style="--cols:3;margin-left:0;max-width:none">
                 <button type="button" class="btn btn-ghost btn-sm school-view-btn" data-overview="{{ route('admin.schools.overview', $s) }}" data-name="{{ $s->name }}">View</button>
                 <a class="btn btn-primary btn-sm" href="{{ route('admin.schools.show', $s) }}">Manage</a>
                 <form method="POST" action="{{ route('admin.schools.nudge', $s) }}">@csrf<button class="btn btn-ghost btn-sm" title="Check in on their setup">Nudge</button></form>
               </div>
               @if($s->status === 'active')
-                <div class="actions" style="--cols:3">
+                <div class="actions" style="--cols:3;margin-left:0;max-width:none">
                   <a class="btn btn-ghost btn-sm" href="{{ $s->portalUrl() }}" target="_blank" rel="noopener">Visit</a>
                   <form method="POST" action="{{ route('admin.schools.suspend', $s) }}">@csrf<button class="btn btn-ghost btn-sm">Suspend</button></form>
                   <form method="POST" action="{{ route('admin.schools.archive', $s) }}">@csrf<button class="btn btn-ghost btn-sm">Archive</button></form>
                 </div>
               @else
-                <div class="actions" style="--cols:1">
+                <div class="actions" style="--cols:1;margin-left:0;max-width:none">
                   <form method="POST" action="{{ route('admin.schools.activate', $s) }}">@csrf<button class="btn btn-primary btn-sm">Resume</button></form>
                 </div>
               @endif
-              <div class="actions" style="--cols:1">
+              <div class="actions" style="--cols:1;margin-left:0;max-width:none">
                 <form method="POST" action="{{ route('admin.schools.destroy', $s) }}" onsubmit="return confirm('Remove {{ $s->name }}? Its data is retained and it can be restored.')">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm" style="color:var(--bad)">Delete</button></form>
               </div>
             </div>
