@@ -106,39 +106,38 @@
           <td data-label="Status">
             <span class="badge {{ $s->status === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucfirst($s->status) }}</span>
           </td>
-          @php
-            // 2026-09-10 fix: with 3 columns, 7 active-school buttons
-            // (View/Manage/Nudge/Visit/Suspend/Archive/Delete) leave
-            // Delete alone in its own row, occupying only the first
-            // third of the row's width while the rest sits empty --
-            // exactly the "orphan last row" the grid's own design rule
-            // (below) says to avoid. Spanning the lone trailing button
-            // across the full row when the count doesn't divide evenly
-            // keeps every row's right edge lined up.
-            $rowButtonCount = 3 + ($s->status === 'active' ? 3 : 1) + 1;
-            $lastAlone = ($rowButtonCount % 3) === 1;
-          @endphp
           <td>
-            {{-- A 3-column grid keeps every button the same width
-                 regardless of how many a given status shows (7 for
-                 active, 5 for suspended) -- CSS grid, unlike flexbox,
-                 does not stretch an incomplete last row, so a row of one
-                 or two items still reads cleanly. Delete stays last, and
-                 is the only red one, so an irreversible action is still
-                 visibly not one of the routine ones even though it now
-                 shares the same grid. --}}
-            <div class="actions" style="--cols:3">
-              <button type="button" class="btn btn-ghost btn-sm school-view-btn" data-overview="{{ route('admin.schools.overview', $s) }}" data-name="{{ $s->name }}">View</button>
-              <a class="btn btn-primary btn-sm" href="{{ route('admin.schools.show', $s) }}">Manage</a>
-              <form method="POST" action="{{ route('admin.schools.nudge', $s) }}">@csrf<button class="btn btn-ghost btn-sm" title="Check in on their setup">Nudge</button></form>
+            {{-- 2026-09-10 fix (still misaligned after the first pass):
+                 a single flat 3-column grid across ALL buttons left a
+                 lone or paired trailing button sharing a row with empty
+                 grid space, and the div's own inline "--cols:3" also
+                 silently beat the mobile media query's "--cols:2" since
+                 an inline style always wins over a stylesheet rule on
+                 the same custom property. Splitting the buttons into
+                 their own self-contained row groups, each grid sized to
+                 exactly how many buttons it holds, guarantees every row
+                 is completely filled edge to edge on any screen size,
+                 with no modulo math needed for future button changes. --}}
+            <div style="display:flex;flex-direction:column;gap:.4rem;margin-left:auto;max-width:24rem">
+              <div class="actions" style="--cols:3">
+                <button type="button" class="btn btn-ghost btn-sm school-view-btn" data-overview="{{ route('admin.schools.overview', $s) }}" data-name="{{ $s->name }}">View</button>
+                <a class="btn btn-primary btn-sm" href="{{ route('admin.schools.show', $s) }}">Manage</a>
+                <form method="POST" action="{{ route('admin.schools.nudge', $s) }}">@csrf<button class="btn btn-ghost btn-sm" title="Check in on their setup">Nudge</button></form>
+              </div>
               @if($s->status === 'active')
-                <a class="btn btn-ghost btn-sm" href="{{ $s->portalUrl() }}" target="_blank" rel="noopener">Visit</a>
-                <form method="POST" action="{{ route('admin.schools.suspend', $s) }}">@csrf<button class="btn btn-ghost btn-sm">Suspend</button></form>
-                <form method="POST" action="{{ route('admin.schools.archive', $s) }}">@csrf<button class="btn btn-ghost btn-sm">Archive</button></form>
+                <div class="actions" style="--cols:3">
+                  <a class="btn btn-ghost btn-sm" href="{{ $s->portalUrl() }}" target="_blank" rel="noopener">Visit</a>
+                  <form method="POST" action="{{ route('admin.schools.suspend', $s) }}">@csrf<button class="btn btn-ghost btn-sm">Suspend</button></form>
+                  <form method="POST" action="{{ route('admin.schools.archive', $s) }}">@csrf<button class="btn btn-ghost btn-sm">Archive</button></form>
+                </div>
               @else
-                <form method="POST" action="{{ route('admin.schools.activate', $s) }}">@csrf<button class="btn btn-primary btn-sm">Resume</button></form>
+                <div class="actions" style="--cols:1">
+                  <form method="POST" action="{{ route('admin.schools.activate', $s) }}">@csrf<button class="btn btn-primary btn-sm">Resume</button></form>
+                </div>
               @endif
-              <form method="POST" action="{{ route('admin.schools.destroy', $s) }}" onsubmit="return confirm('Remove {{ $s->name }}? Its data is retained and it can be restored.')">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm" style="{{ $lastAlone ? 'grid-column:1/-1;' : '' }}color:var(--bad)">Delete</button></form>
+              <div class="actions" style="--cols:1">
+                <form method="POST" action="{{ route('admin.schools.destroy', $s) }}" onsubmit="return confirm('Remove {{ $s->name }}? Its data is retained and it can be restored.')">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm" style="color:var(--bad)">Delete</button></form>
+              </div>
             </div>
           </td>
         </tr>
