@@ -101,6 +101,24 @@ class SchoolAdminController extends Controller
      * that no longer resolves to anything), so the confirmation says so
      * rather than letting an admin discover it from a confused parent.
      */
+    /**
+     * A school's own name, editable by the platform owner (user report
+     * 2026-09-10: "a school has asked that we edit the name of the
+     * school but no way to do this" -- only the web address/subdomain
+     * had an edit form, the actual display name never did).
+     */
+    public function updateName(Request $request, School $school): RedirectResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+        ]);
+
+        $old = $school->name;
+        $school->forceFill(['name' => trim($data['name'])])->save();
+
+        return back()->with('status', "Renamed \"{$old}\" to \"{$school->name}\".");
+    }
+
     public function updateSlug(Request $request, School $school): RedirectResponse
     {
         $data = $request->validate([

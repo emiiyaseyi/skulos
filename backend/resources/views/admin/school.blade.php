@@ -17,6 +17,17 @@
       <tr><th>Status</th><td>{{ ucfirst($school->status) }}</td></tr>
       <tr><th>Database</th><td class="muted">{{ $school->database }}</td></tr>
       <tr>
+        <th>Name</th>
+        <td>
+          <form method="POST" action="{{ route('admin.schools.name', $school) }}" style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
+            @csrf
+            <input name="name" value="{{ $school->name }}" maxlength="150" required style="max-width:18rem" />
+            <button class="btn btn-ghost btn-sm" type="submit">Save</button>
+          </form>
+          <p class="hint" style="margin-top:.3rem">This is the school's own display name, everywhere it appears. It does not change the web address below.</p>
+        </td>
+      </tr>
+      <tr>
         <th>Web address</th>
         <td>
           <form method="POST" action="{{ route('admin.schools.slug', $school) }}" style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">

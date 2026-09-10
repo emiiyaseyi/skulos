@@ -149,6 +149,7 @@ Route::domain($appDomain)->group(function () {
         Route::get('/schools/{school}', [SchoolAdminController::class, 'show'])->name('schools.show');
         Route::get('/schools/{school}/overview', [SchoolAdminController::class, 'overview'])->name('schools.overview');
         Route::post('/schools/{school}/billing-date', [SchoolAdminController::class, 'updateBillingDate'])->name('schools.billing-date');
+        Route::post('/schools/{school}/name', [SchoolAdminController::class, 'updateName'])->name('schools.name');
         Route::post('/schools/{school}/slug', [SchoolAdminController::class, 'updateSlug'])->name('schools.slug');
         Route::post('/schools/{school}/clone', [SchoolAdminController::class, 'cloneSchool'])->name('schools.clone');
         Route::post('/schools/{school}/license/enable', [SchoolAdminController::class, 'enableSelfHosted'])->name('schools.license.enable');

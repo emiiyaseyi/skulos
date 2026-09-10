@@ -106,10 +106,22 @@
           <td data-label="Status">
             <span class="badge {{ $s->status === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucfirst($s->status) }}</span>
           </td>
+          @php
+            // 2026-09-10 fix: with 3 columns, 7 active-school buttons
+            // (View/Manage/Nudge/Visit/Suspend/Archive/Delete) leave
+            // Delete alone in its own row, occupying only the first
+            // third of the row's width while the rest sits empty --
+            // exactly the "orphan last row" the grid's own design rule
+            // (below) says to avoid. Spanning the lone trailing button
+            // across the full row when the count doesn't divide evenly
+            // keeps every row's right edge lined up.
+            $rowButtonCount = 3 + ($s->status === 'active' ? 3 : 1) + 1;
+            $lastAlone = ($rowButtonCount % 3) === 1;
+          @endphp
           <td>
             {{-- A 3-column grid keeps every button the same width
                  regardless of how many a given status shows (7 for
-                 active, 6 for suspended) -- CSS grid, unlike flexbox,
+                 active, 5 for suspended) -- CSS grid, unlike flexbox,
                  does not stretch an incomplete last row, so a row of one
                  or two items still reads cleanly. Delete stays last, and
                  is the only red one, so an irreversible action is still
@@ -126,7 +138,7 @@
               @else
                 <form method="POST" action="{{ route('admin.schools.activate', $s) }}">@csrf<button class="btn btn-primary btn-sm">Resume</button></form>
               @endif
-              <form method="POST" action="{{ route('admin.schools.destroy', $s) }}" onsubmit="return confirm('Remove {{ $s->name }}? Its data is retained and it can be restored.')">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm" style="color:var(--bad)">Delete</button></form>
+              <form method="POST" action="{{ route('admin.schools.destroy', $s) }}" onsubmit="return confirm('Remove {{ $s->name }}? Its data is retained and it can be restored.')">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm" style="{{ $lastAlone ? 'grid-column:1/-1;' : '' }}color:var(--bad)">Delete</button></form>
             </div>
           </td>
         </tr>

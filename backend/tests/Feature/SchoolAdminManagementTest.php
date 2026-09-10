@@ -163,6 +163,25 @@ class SchoolAdminManagementTest extends TestCase
         $this->assertSame('brightfutureacademy', $school->slug);
     }
 
+    /**
+     * User report 2026-09-10: a school asked to have its name corrected
+     * and there was no way to do it -- only the web address had an edit
+     * form. The web address itself must stay untouched by a rename.
+     */
+    public function test_platform_admin_can_rename_a_school(): void
+    {
+        $platformAdmin = $this->superAdmin();
+        $school = School::factory()->create(['name' => 'Old Name Academy', 'slug' => 'oldname']);
+
+        $this->actingAs($platformAdmin)
+            ->post(route('admin.schools.name', $school), ['name' => 'Renamed Academy'])
+            ->assertRedirect();
+
+        $school->refresh();
+        $this->assertSame('Renamed Academy', $school->name);
+        $this->assertSame('oldname', $school->slug, 'renaming must not touch the web address');
+    }
+
     public function test_platform_admin_can_reset_a_school_admins_password(): void
     {
         \Illuminate\Support\Facades\Mail::fake();
