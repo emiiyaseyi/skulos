@@ -268,6 +268,13 @@
     </div>
     @break
 
+  @case('unassigned_teacher')
+    <div class="card rp-card">
+      <h3 style="margin-bottom:.4rem">Nothing assigned yet</h3>
+      <p class="muted">No role, class, and subject has been assigned to this account yet. Kindly contact your school administrator for support.</p>
+    </div>
+    @break
+
   @case('finance_overview')
     <div class="card rp-card">
       @if($panel['pendingCount'] > 0)

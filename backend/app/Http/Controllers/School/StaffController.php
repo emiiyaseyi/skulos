@@ -240,7 +240,7 @@ class StaffController extends Controller
         ]);
     }
 
-    public function store(Request $request, CustomFieldService $customFields): \Illuminate\Http\RedirectResponse
+    public function store(Request $request, CustomFieldService $customFields, AccountProvisioningService $accounts): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'staff.create');
         $school = $this->school($request);
@@ -253,8 +253,50 @@ class StaffController extends Controller
         $staffMember = Staff::create($data);
         $customFields->saveValues('staff', $staffMember->id, $custom);
 
+        [$statusSuffix] = $this->provisionStaffLogin($school, $staffMember, $accounts);
+
         return redirect()->route('school.staff.show', ['school' => $school->slug, 'staffId' => $staffMember->id])
-            ->with('status', "{$staffMember->fullName()} added.");
+            ->with('status', "{$staffMember->fullName()} added.{$statusSuffix}");
+    }
+
+    /**
+     * Auto-provisions a staff login the moment they're added (user
+     * request 2026-09-11: "For staff account, parent and student created
+     * - their login details should be auto created... where they can
+     * sign in with their email or phone number with the default
+     * password"), matching the exact pattern Student/Parent already got
+     * 2026-07-21. Staff is different in one real way those two are not:
+     * which RBAC role to grant is a security-sensitive decision the Add
+     * Staff form never collects, so auto-provisioning can't safely guess
+     * class-teacher/subject-teacher/bursar/etc. The user's own resolved
+     * answer: always start on the plain "Teacher" role (view-only-ish,
+     * no class or subject scope), with RoleDashboard::build() showing an
+     * explicit "contact your school administrator" state for it (see the
+     * 'teacher' case there) until an admin manually upgrades them via
+     * Role Management to class-teacher/subject-teacher/whatever role
+     * actually fits, at which point they see that role's real dashboard.
+     *
+     * @return array{0: string} a redirect-flash suffix describing the
+     *   credentials, empty string if this staff member already had a login
+     */
+    protected function provisionStaffLogin(School $school, Staff $staffMember, AccountProvisioningService $accounts): array
+    {
+        if ($staffMember->user_id) {
+            return [''];
+        }
+
+        $password = Setting::grab('default_staff_password', config('skulos.default_staff_password'));
+        $syntheticEmail = 'staff-'.$staffMember->id.'@staff.'.$school->slug.'.skulos.local';
+        $result = $accounts->provisionAuto($school, $staffMember->fullName(), $staffMember->email, $staffMember->phone, 'teacher', $password, $syntheticEmail);
+        $staffMember->update(['user_id' => $result['user']->id]);
+
+        if (! $result['isNew']) {
+            return [' They already have a portal login from another role, unchanged.'];
+        }
+
+        $loginIdentifier = $staffMember->email ?: $staffMember->phone;
+
+        return [" Login: {$loginIdentifier}, password {$password} (must be changed at first sign in). Starts on the Teacher role until you assign a class/subject from Role Management."];
     }
 
     public function edit(Request $request, CustomFieldService $customFields): \Illuminate\View\View

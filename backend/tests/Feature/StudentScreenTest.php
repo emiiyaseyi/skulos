@@ -628,6 +628,7 @@ class StudentScreenTest extends TestCase
             'guardian_visibility' => 'class_teacher_only',
             'default_student_password' => 'Student@123',
             'default_parent_password' => 'Parent@123',
+            'default_staff_password' => 'Staff@123',
         ])->assertRedirect();
 
         app(TenantManager::class)->use($school);
@@ -658,6 +659,7 @@ class StudentScreenTest extends TestCase
             'guardian_visibility' => 'class_teacher_only',
             'default_student_password' => 'Student@123',
             'default_parent_password' => 'Parent@123',
+            'default_staff_password' => 'Staff@123',
         ])->assertRedirect();
 
         app(TenantManager::class)->use($school);
@@ -723,6 +725,7 @@ class StudentScreenTest extends TestCase
             'guardian_visibility' => 'class_teacher_only',
             'default_student_password' => 'Student@123',
             'default_parent_password' => 'Parent@123',
+            'default_staff_password' => 'Staff@123',
         ])->assertRedirect();
 
         app(TenantManager::class)->use($school);

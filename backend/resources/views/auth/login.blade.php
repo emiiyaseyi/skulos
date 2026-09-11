@@ -63,6 +63,13 @@
   .lp-showcase li::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--accent);margin-top:.5rem;flex-shrink:0}
   .lp-showcase .sc-form{display:grid;place-items:center;padding:2.5rem 1.5rem}
   @media(max-width:820px){.lp-split,.lp-showcase{grid-template-columns:1fr}.lp-brandpanel,.lp-showcase .sc-info{display:none}}
+  /* 2026-09-11 fix: the split/showcase layouts put the school's logo in
+     the brand panel, hidden entirely on mobile by the rule above --
+     leaving a phone visitor with no school branding at all, a real
+     user report. Shown only below the same breakpoint, so desktop still
+     shows just the one (bigger) mark in the panel, never both. */
+  .lp-mobile-logo{display:none}
+  @media(max-width:820px){.lp-mobile-logo{display:block}}
 
   /* floating feature icons: scattered chips that drift gently, placed on
      branded/background panels to suggest the platform's modules without
@@ -268,6 +275,9 @@
       <div class="lp-formside">
         <div class="lp-floaters">{!! $floatIcons() !!}</div>
         <div class="form-card">
+          <div class="lp-mobile-logo">
+            @include('auth.partials.logo-mark', ['b' => $b, 'initial' => $initial, 'markClass' => 'lp-logo', 'sectionLogos' => $sectionLogos ?? []])
+          </div>
           <div class="lp-head">Sign in</div>
           <p class="lp-sub">Welcome back. Please enter your details.</p>
           @include('auth.partials.login-form', ['school' => $school])
@@ -307,6 +317,9 @@
       </div>
       <div class="sc-form">
         <div class="form-card">
+          <div class="lp-mobile-logo">
+            @include('auth.partials.logo-mark', ['b' => $b, 'initial' => $initial, 'markClass' => 'lp-logo', 'sectionLogos' => $sectionLogos ?? []])
+          </div>
           <div class="lp-head">Sign in</div>
           <p class="lp-sub">Continue to your school portal.</p>
           @include('auth.partials.login-form', ['school' => $school])

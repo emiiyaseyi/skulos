@@ -52,6 +52,16 @@ class RoleDashboard
             // day operational one below.
             in_array($slug, config('skulos.leadership_role_slugs'), true) => $this->admin($school),
             $slug === 'school-admin' => $this->schoolAdministrator(),
+            // Plain "Teacher" (user request 2026-09-11): the role every
+            // auto-provisioned staff login starts on, since a real role
+            // like class-teacher/subject-teacher/bursar is a security
+            // decision no auto-provisioning step can safely guess. This
+            // account genuinely has nothing scoped to it yet, so it gets
+            // an honest "ask your admin" state instead of the generic
+            // school-wide figures 'general' shows everyone else with no
+            // matched case -- those would look like a working dashboard
+            // when this one is deliberately not set up yet.
+            $slug === 'teacher' => $this->unassignedTeacher(),
             $slug === 'class-teacher' => $this->classTeam($user, 'class_teacher'),
             $slug === 'class-assistant' => $this->classTeam($user, 'class_assistant'),
             $slug === 'subject-teacher' => $this->subjectTeacher($user),
@@ -1170,6 +1180,21 @@ class RoleDashboard
                         ->all()
                     : [],
             ],
+        ];
+    }
+
+    /**
+     * A newly auto-provisioned staff login, still on the plain "Teacher"
+     * role with no class or subject assigned (2026-09-11, see the
+     * "teacher" case in build() above for why this exists as its own
+     * state rather than falling through to general()).
+     */
+    protected function unassignedTeacher(): array
+    {
+        return [
+            'kind' => 'unassigned_teacher',
+            'figs' => [],
+            'panel' => ['type' => 'unassigned_teacher'],
         ];
     }
 

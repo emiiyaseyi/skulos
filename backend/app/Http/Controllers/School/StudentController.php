@@ -1233,6 +1233,7 @@ class StudentController extends Controller
             'guardianVisibility' => Setting::grab('guardian_visibility', 'class_teacher_only'),
             'defaultStudentPassword' => Setting::grab('default_student_password', config('skulos.default_student_password')),
             'defaultParentPassword' => Setting::grab('default_parent_password', config('skulos.default_parent_password')),
+            'defaultStaffPassword' => Setting::grab('default_staff_password', config('skulos.default_staff_password')),
             'photoMaxKb' => Setting::grab('student_photo_max_kb', config('skulos.upload_limits.student_photo_kb', 100)),
         ]);
     }
@@ -1249,6 +1250,7 @@ class StudentController extends Controller
             'guardian_visibility' => ['required', 'string', 'in:'.implode(',', array_keys(config('skulos.guardian_visibility_options')))],
             'default_student_password' => ['required', 'string', 'min:6', 'max:60'],
             'default_parent_password' => ['required', 'string', 'min:6', 'max:60'],
+            'default_staff_password' => ['required', 'string', 'min:6', 'max:60'],
             // Dbase recommendation standing rule (user request 2026-07-23:
             // "max size of image should be 100kb (admin can reduce or
             // increase it under settings, add it)"): the site's own real,
@@ -1264,6 +1266,7 @@ class StudentController extends Controller
         Setting::put('guardian_visibility', $data['guardian_visibility']);
         Setting::put('default_student_password', $data['default_student_password']);
         Setting::put('default_parent_password', $data['default_parent_password']);
+        Setting::put('default_staff_password', $data['default_staff_password']);
         if (isset($data['student_photo_max_kb'])) {
             Setting::put('student_photo_max_kb', $data['student_photo_max_kb']);
         }

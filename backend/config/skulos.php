@@ -1286,6 +1286,13 @@ If you have run into any issue at all, or have any questions, just reply to this
     */
     'default_student_password' => 'password123',
     'default_parent_password' => 'password123',
+    // Staff joined this pattern 2026-09-11 (user request: "For staff
+    // account, parent and student created - their login details should
+    // be auto created") -- always the plain "Teacher" role, since which
+    // real role a staff member gets is a security-sensitive decision no
+    // auto-provisioning step can safely guess (see StaffController::
+    // provisionStaffLogin()'s own docblock).
+    'default_staff_password' => 'password123',
 
     /*
     | Report card review chain (user directive 2026-07-12, "Intelligent

@@ -72,8 +72,8 @@
 
   <div class="card" style="margin-top:1.25rem">
     <h3 style="margin-bottom:.4rem">Auto-provisioned login defaults</h3>
-    <p class="muted" style="margin-bottom:.8rem">A student or parent gets a login the moment they're added, no separate "create login" step. A student signs in with their admission number; a parent with their email or phone. Both must change this password the first time they sign in.</p>
-    <div class="grid cols-2">
+    <p class="muted" style="margin-bottom:.8rem">A student, parent, or staff member gets a login the moment they're added, no separate "create login" step. A student signs in with their admission number; a parent or staff member with their email or phone. Staff always start on the plain Teacher role until you assign class/subject access from Role Management. Everyone must change this password the first time they sign in.</p>
+    <div class="grid cols-3">
       <div class="field">
         <label for="default_student_password">Default student password</label>
         <input id="default_student_password" name="default_student_password" value="{{ old('default_student_password', $defaultStudentPassword) }}" required minlength="6" />
@@ -83,6 +83,11 @@
         <label for="default_parent_password">Default parent password</label>
         <input id="default_parent_password" name="default_parent_password" value="{{ old('default_parent_password', $defaultParentPassword) }}" required minlength="6" />
         @error('default_parent_password')<div class="err">{{ $message }}</div>@enderror
+      </div>
+      <div class="field">
+        <label for="default_staff_password">Default staff password</label>
+        <input id="default_staff_password" name="default_staff_password" value="{{ old('default_staff_password', $defaultStaffPassword) }}" required minlength="6" />
+        @error('default_staff_password')<div class="err">{{ $message }}</div>@enderror
       </div>
     </div>
   </div>
