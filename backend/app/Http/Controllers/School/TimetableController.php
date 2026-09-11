@@ -356,7 +356,24 @@ class TimetableController extends Controller
         $school = $this->school($request);
         $user = Auth::user();
 
-        $staff = Staff::where('user_id', $user->id)->first();
+        // A multi-role account (2026-09-11) can hold a real Staff row
+        // (from a granted teaching role) AND be a guardian at the same
+        // time -- a bare Staff::where('user_id', ...) lookup used to win
+        // unconditionally regardless of which role was actually active,
+        // so a parent who also happens to hold a teaching role could
+        // never see their child's schedule again, only ever their own
+        // (empty, if unassigned) teaching one. Staff::where() itself is
+        // safe on its own -- one person has at most one Staff row per
+        // school, it is not role-versioned -- the bug was letting it
+        // silently override an active family-scoped role. Only suppress
+        // it when the CURRENT role is explicitly family-scoped; every
+        // other role (teacher-scoped or unrestricted/admin) keeps the
+        // exact pre-multi-role behaviour of showing a linked Staff
+        // record's own teaching schedule when one exists.
+        $activeRole = $user->roleIn($school);
+        $isFamilyScopedNow = $activeRole && in_array($activeRole->slug, config('skulos.family_scoped_roles', []), true);
+
+        $staff = $isFamilyScopedNow ? null : Staff::where('user_id', $user->id)->first();
         $studentIds = app(FamilyScope::class)->studentIds($user, $school);
         $term = $this->resolveOptionalTerm($request);
         $terms = Term::with('session')->get()

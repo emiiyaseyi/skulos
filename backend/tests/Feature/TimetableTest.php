@@ -622,4 +622,71 @@ class TimetableTest extends TestCase
 
         $response->assertOk()->assertSee('class="tt-grid table-stack"', false)->assertSee('Mathematics');
     }
+
+    /**
+     * Real bug (2026-09-11 multi-role accounts, user report: "a parent
+     * who is a teacher cant see child timeables"): resolveMineGrid() used
+     * to check Staff::where('user_id', ...) unconditionally, with no
+     * regard for which role was actually active. A parent granted an
+     * additional teaching role gets a real linked Staff row the moment
+     * that grant happens (MultiRoleAccountService::ensureStaffRecord()),
+     * so the Staff branch always won from then on -- the parent could
+     * never see their child's schedule again, switched or not.
+     */
+    public function test_a_parent_who_also_holds_a_teaching_role_sees_the_right_grid_for_whichever_role_is_active(): void
+    {
+        [$school, $parentUser] = $this->schoolWithMember('parent', 'ttmultirole');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Secondary', 'sequence' => 1]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'JSS 1', 'sequence' => 1]);
+        $arm = Arm::create(['name' => 'A']);
+        $classArm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => $arm->id]);
+        $subject = Subject::create(['name' => 'Mathematics']);
+        $period = TimetablePeriod::create(['section_id' => null, 'name' => 'Period 1', 'starts_at' => '08:00', 'ends_at' => '08:40', 'sequence' => 1, 'is_teaching_period' => true]);
+        $child = Student::create(['admission_number' => 'MR1', 'first_name' => 'Chika', 'last_name' => 'Obi', 'current_class_arm_id' => $classArm->id]);
+        StudentGuardian::create(['student_id' => $child->id, 'name' => 'Mrs. Obi', 'guardian_user_id' => $parentUser->id]);
+        TimetableEntry::create(['class_arm_id' => $classArm->id, 'day_of_week' => 'monday', 'timetable_period_id' => $period->id, 'subject_id' => $subject->id]);
+        app(TenantManager::class)->forget();
+
+        // Before ever holding a second role: the parent sees the child's
+        // real schedule, not an empty state. actingAs() is given a FRESH
+        // User instance each time here, deliberately -- reusing the same
+        // PHP object across calls (as actingAs() otherwise lets a test
+        // do) would keep its roleInCache from the first request forever,
+        // a test-only artifact that never happens in real production
+        // (every genuine HTTP request resolves Auth::user() fresh, with
+        // an empty cache) and would mask the exact bug this test exists
+        // to catch.
+        $this->actingAs(User::find($parentUser->id))->get(route('school.timetable.mine', ['school' => $school->slug]))
+            ->assertOk()->assertSee('Mathematics');
+
+        $teacherRole = $this->rbac->cloneTemplateRole($school, 'class-teacher');
+        app(\App\Services\Accounts\MultiRoleAccountService::class)->grantRole($school, $parentUser, $teacherRole, $parentUser);
+
+        // Still acting as Parent (never switched): the grant alone must
+        // not silently steal the family view just because a Staff row
+        // now exists -- this is the literal bug.
+        $this->actingAs(User::find($parentUser->id))->get(route('school.timetable.mine', ['school' => $school->slug]))
+            ->assertOk()->assertSee('Mathematics');
+
+        // Switch into the granted Class Teacher role.
+        $this->actingAs(User::find($parentUser->id))->post("http://{$school->slug}.localhost/session/switch-role", ['role_id' => $teacherRole->id])
+            ->assertRedirect();
+
+        // Now acting as Class Teacher: the personal teaching view shows
+        // (this teacher has no class of their own yet, so no crash and
+        // no leaked child data is what matters here).
+        $asTeacher = $this->actingAs(User::find($parentUser->id))->get(route('school.timetable.mine', ['school' => $school->slug]));
+        $asTeacher->assertOk()->assertDontSee('Mathematics');
+
+        // Switch back to Parent: the child's schedule must be visible
+        // again, not permanently lost now that a Staff row exists.
+        $primaryRoleId = (int) $school->users()->where('users.id', $parentUser->id)->value('school_user.role_id');
+        $this->actingAs(User::find($parentUser->id))->post("http://{$school->slug}.localhost/session/switch-role", ['role_id' => $primaryRoleId])
+            ->assertRedirect();
+
+        $this->actingAs(User::find($parentUser->id))->get(route('school.timetable.mine', ['school' => $school->slug]))
+            ->assertOk()->assertSee('Mathematics');
+    }
 }
