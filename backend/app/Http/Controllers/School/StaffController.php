@@ -10,12 +10,14 @@ use App\Models\Tenant\House;
 use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Setting;
 use App\Models\Tenant\Staff;
+use App\Models\User;
 use App\Services\Accounts\AccountProvisioningService;
 use App\Services\CustomFields\CustomFieldService;
 use App\Services\Rbac\Rbac;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 /**
@@ -325,9 +327,53 @@ class StaffController extends Controller
 
         $staffMember->update($data);
         $customFields->saveValues('staff', $staffMember->id, $custom);
+        $this->syncStaffLoginContact($staffMember);
 
         return redirect()->route('school.staff.show', ['school' => $school->slug, 'staffId' => $staffMember->id])
             ->with('status', "{$staffMember->fullName()} updated.");
+    }
+
+    /**
+     * Keeps a staff member's login in sync with whatever real contact
+     * info is now on their profile (user report 2026-09-11: "staff with
+     * only phone number can sign in with the phone number and when they
+     * add their email address, it can be used too" -- editing a
+     * phone-only staff member's profile to add a real email later did
+     * nothing to their actual login, which still only knew the synthetic
+     * placeholder). Only ever moves a real value ONTO the login, never
+     * removes one -- clearing a field here does not revoke how they
+     * already sign in, and a value that would collide with a different
+     * account's own login is silently skipped rather than crashing the
+     * whole profile save over it.
+     */
+    protected function syncStaffLoginContact(Staff $staffMember): void
+    {
+        if (! $staffMember->user_id) {
+            return;
+        }
+        $user = User::find($staffMember->user_id);
+        if (! $user) {
+            return;
+        }
+
+        $changed = false;
+        if ($staffMember->email && Str::lower($staffMember->email) !== Str::lower((string) $user->email)) {
+            $newEmail = Str::lower($staffMember->email);
+            if (! User::where('email', $newEmail)->where('id', '!=', $user->id)->exists()) {
+                $user->email = $newEmail;
+                $user->email_verified_at = $user->email_verified_at ?: now();
+                $changed = true;
+            }
+        }
+        if ($staffMember->phone && $staffMember->phone !== $user->phone) {
+            if (! User::where('phone', $staffMember->phone)->where('id', '!=', $user->id)->exists()) {
+                $user->phone = $staffMember->phone;
+                $changed = true;
+            }
+        }
+        if ($changed) {
+            $user->save();
+        }
     }
 
     /** Every role except the platform-only ones (assigned via config, never hardcoded here). */
@@ -341,21 +387,46 @@ class StaffController extends Controller
     }
 
     /** Creates this staff member's login (Staff Portal, user request 2026-07-12). Requires an email regardless of staff_identifier, since sign in is always by email today. */
+    /**
+     * A manual fallback for a legacy staff record that predates auto
+     * provisioning (2026-09-11) and hasn't been backfilled yet -- the
+     * normal path now is provisionStaffLogin(), called automatically from
+     * store(). Fixed 2026-09-11 to actually respect this school's own
+     * staff_identifier setting (email/phone/both) instead of always
+     * demanding an email, and to use the same known default password
+     * convention as auto-provisioning rather than a separate random,
+     * emailed one -- a school admin creating a login by hand should get
+     * the exact same result as if it had been auto-created.
+     */
     public function createLogin(Request $request, AccountProvisioningService $accounts): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'staff.update');
         $school = $this->school($request);
         $staffMember = Staff::findOrFail($request->route('staffId'));
+        $identifier = Setting::grab('staff_identifier', 'email');
 
         $data = $request->validate([
-            'email' => ['required', 'email', 'max:150'],
+            'email' => [$identifier === 'phone' ? 'nullable' : ($identifier === 'both' ? 'required_without:phone' : 'required'), 'nullable', 'email', 'max:150'],
+            'phone' => [$identifier === 'email' ? 'nullable' : ($identifier === 'both' ? 'required_without:email' : 'required'), 'nullable', 'string', 'max:40'],
             'role' => ['required', 'string', Rule::in(array_column($this->assignableRoles(), 'slug'))],
         ]);
 
-        $result = $accounts->provision($school, $staffMember->fullName(), $data['email'], $data['role']);
-        $staffMember->update(['user_id' => $result['user']->id, 'email' => $staffMember->email ?: $data['email']]);
+        if ($data['email'] ?? null) {
+            $staffMember->email = $data['email'];
+        }
+        if ($data['phone'] ?? null) {
+            $staffMember->phone = $data['phone'];
+        }
+        $staffMember->save();
 
-        return back()->with('status', "{$staffMember->fullName()}'s login has been created and emailed to them.");
+        $password = Setting::grab('default_staff_password', config('skulos.default_staff_password'));
+        $syntheticEmail = 'staff-'.$staffMember->id.'@staff.'.$school->slug.'.skulos.local';
+        $result = $accounts->provisionAuto($school, $staffMember->fullName(), $staffMember->email, $staffMember->phone, $data['role'], $password, $syntheticEmail);
+        $staffMember->update(['user_id' => $result['user']->id]);
+
+        $loginIdentifier = $staffMember->email ?: $staffMember->phone;
+
+        return back()->with('status', "{$staffMember->fullName()}'s login has been created. Login: {$loginIdentifier}, password {$password} (must be changed at first sign in).");
     }
 
     public function resetLoginPassword(Request $request, AccountProvisioningService $accounts): \Illuminate\Http\RedirectResponse

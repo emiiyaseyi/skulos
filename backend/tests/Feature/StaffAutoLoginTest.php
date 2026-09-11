@@ -158,4 +158,117 @@ class StaffAutoLoginTest extends TestCase
         $this->assertNotNull($student->user_id);
         $this->assertNotNull($guardian->guardian_user_id);
     }
+
+    /**
+     * Real production report 2026-09-11: several staff members were left
+     * with no login at all after this shipped, root-caused to the
+     * welcome email being sent synchronously and unguarded -- one SMTP
+     * hiccup killed the whole provisioning call (and, in the backfill
+     * command, every record still to come after it in that school's
+     * loop). The account itself must be created and usable regardless of
+     * whether the notification email actually sends.
+     */
+    public function test_a_failed_welcome_email_does_not_block_the_account_from_being_created(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('mailfailone');
+
+        \Illuminate\Support\Facades\Mail::shouldReceive('to')->andThrow(new \Exception('Connection could not be established with host.'));
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/staff/create", [
+            'first_name' => 'Tola', 'last_name' => 'Ade',
+            'email' => 'tola.ade@example.com', 'position' => 'Teacher',
+            'status' => Staff::STATUS_ACTIVE,
+        ])->assertRedirect();
+
+        $staffMember = Staff::where('email', 'tola.ade@example.com')->firstOrFail();
+        $this->assertNotNull($staffMember->user_id, 'the account must still be created even though the welcome email failed to send');
+    }
+
+    /**
+     * User report 2026-09-11: "staff with only phone number can sign in
+     * with the phone number and when they add their email address, it
+     * can be used too" -- a phone-only staff member's login never
+     * learned about an email added to their profile later.
+     */
+    public function test_editing_a_phone_only_staff_members_profile_to_add_an_email_syncs_it_to_their_login(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('syncone');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/students/settings", [
+            'required_fields' => [], 'parent_identifier' => 'email', 'staff_identifier' => 'phone',
+            'guardian_visibility' => 'class_teacher_only',
+            'default_student_password' => 'password123', 'default_parent_password' => 'password123', 'default_staff_password' => 'password123',
+        ])->assertRedirect();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/staff/create", [
+            'first_name' => 'Wale', 'last_name' => 'Osho',
+            'phone' => '08099998888', 'position' => 'Teacher', 'status' => Staff::STATUS_ACTIVE,
+        ])->assertRedirect();
+
+        $staffMember = Staff::where('phone', '08099998888')->firstOrFail();
+        $user = User::findOrFail($staffMember->user_id);
+        $this->assertStringEndsWith('.skulos.local', $user->email, 'starts on the synthetic placeholder since no real email was given yet');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/staff/{$staffMember->id}/edit", [
+            'first_name' => 'Wale', 'last_name' => 'Osho',
+            'phone' => '08099998888', 'email' => 'wale.osho@example.com',
+            'position' => 'Teacher', 'status' => Staff::STATUS_ACTIVE,
+        ])->assertRedirect();
+
+        $user->refresh();
+        $this->assertSame('wale.osho@example.com', $user->email);
+    }
+
+    /** The Staff profile's Login card must never show the synthetic placeholder the platform generates for a phone-only account. */
+    public function test_the_staff_profile_never_shows_the_synthetic_placeholder_email(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('nosynthone');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/students/settings", [
+            'required_fields' => [], 'parent_identifier' => 'email', 'staff_identifier' => 'phone',
+            'guardian_visibility' => 'class_teacher_only',
+            'default_student_password' => 'password123', 'default_parent_password' => 'password123', 'default_staff_password' => 'password123',
+        ])->assertRedirect();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/staff/create", [
+            'first_name' => 'Chika', 'last_name' => 'Nwosu',
+            'phone' => '08077776666', 'position' => 'Teacher', 'status' => Staff::STATUS_ACTIVE,
+        ])->assertRedirect();
+
+        $staffMember = Staff::where('phone', '08077776666')->firstOrFail();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/staff/{$staffMember->id}")
+            ->assertOk()
+            ->assertDontSee('.skulos.local')
+            ->assertSee('08077776666')
+            ->assertSee('Still using the default password');
+    }
+
+    /** User request 2026-09-11: "if it has been changed, put password last change date and time." */
+    public function test_the_staff_profile_shows_when_the_password_was_actually_changed(): void
+    {
+        [$school, $owner] = $this->schoolWithOwner('pwchangedone');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/staff/create", [
+            'first_name' => 'Ngozi', 'last_name' => 'Eze',
+            'email' => 'ngozi.eze@example.com', 'position' => 'Teacher', 'status' => Staff::STATUS_ACTIVE,
+        ])->assertRedirect();
+
+        $staffMember = Staff::where('email', 'ngozi.eze@example.com')->firstOrFail();
+        $login = User::findOrFail($staffMember->user_id);
+
+        $this->actingAs($login)->post("http://{$school->slug}.localhost/password/change", [
+            'current_password' => 'password123',
+            'password' => 'BrandNewPassword1', 'password_confirmation' => 'BrandNewPassword1',
+        ])->assertRedirect();
+
+        $login->refresh();
+        $this->assertNotNull($login->password_changed_at);
+        $this->assertFalse($login->must_change_password);
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/staff/{$staffMember->id}")
+            ->assertOk()
+            ->assertDontSee('Still using the default password')
+            ->assertSee('Password changed');
+    }
 }

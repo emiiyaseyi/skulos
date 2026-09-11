@@ -8,6 +8,7 @@ use App\Models\School;
 use App\Models\User;
 use App\Services\Rbac\Rbac;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use App\Support\TemporaryPassword;
@@ -56,10 +57,32 @@ class AccountProvisioningService
         $school->users()->syncWithoutDetaching([$user->id => ['role_id' => $role->id, 'status' => 'active']]);
 
         if ($isNewLogin && ! $this->welcomeEmails->isPaused()) {
-            Mail::to($user->email)->send(new AccountCreatedMail($user, $school, $password, $role->name, $roleSlug));
+            $this->sendSafely(fn () => Mail::to($user->email)->send(new AccountCreatedMail($user, $school, $password, $role->name, $roleSlug)), $user->email);
         }
 
         return ['user' => $user, 'password' => $password];
+    }
+
+    /**
+     * A transient SMTP failure must never block the account itself from
+     * being created (user report 2026-09-11: several staff members were
+     * silently left with no login at all, root-caused to exactly this --
+     * every call site below sent its welcome/reset email inline, unguarded,
+     * so one mail failure killed the whole request/loop iteration it was
+     * part of, silently skipping every record still to come in the same
+     * batch). The account and its role are already saved by the time this
+     * runs; a failed notification is logged and swallowed, never re-thrown.
+     */
+    protected function sendSafely(\Closure $send, string $to): void
+    {
+        try {
+            $send();
+        } catch (\Throwable $e) {
+            Log::warning('Account notification email failed to send, the account itself was still created.', [
+                'to' => $to,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
@@ -118,7 +141,7 @@ class AccountProvisioningService
         // only for a genuinely new login, the same "only once" guard
         // provision() above already applies.
         if ($isNew && $realEmail && ! $this->welcomeEmails->isPaused()) {
-            Mail::to($realEmail)->send(new AccountCreatedMail($user, $school, $defaultPassword, $role->name, $roleSlug));
+            $this->sendSafely(fn () => Mail::to($realEmail)->send(new AccountCreatedMail($user, $school, $defaultPassword, $role->name, $roleSlug)), $realEmail);
         }
 
         return ['user' => $user, 'isNew' => $isNew];
@@ -129,9 +152,15 @@ class AccountProvisioningService
         $password = TemporaryPassword::generate();
         $user->password = Hash::make($password);
         $user->must_change_password = true;
+        // Back to a known default again (user request 2026-09-11: "if it
+        // has been changed, put password last change date and time"), so
+        // an admin-issued reset correctly reads as "using the default
+        // password" again, not still showing a stale change date from
+        // before the reset.
+        $user->password_changed_at = null;
         $user->save();
 
-        Mail::to($user->email)->send(new PasswordResetByAdminMail($user, $school, $password));
+        $this->sendSafely(fn () => Mail::to($user->email)->send(new PasswordResetByAdminMail($user, $school, $password)), $user->email);
 
         return $password;
     }

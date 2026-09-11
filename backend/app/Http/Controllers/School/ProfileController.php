@@ -170,6 +170,7 @@ class ProfileController extends Controller
 
         $user->password = Hash::make($data['password']);
         $user->must_change_password = false;
+        $user->password_changed_at = now();
         $user->save();
 
         $school = $this->school($request);

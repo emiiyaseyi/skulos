@@ -57,15 +57,27 @@
   <div class="card">
     <h3 style="margin-bottom:.7rem">Login (Staff Portal)</h3>
     @if(! $login)
+      {{-- Auto-provisioning now happens the moment a staff member is
+           added (2026-09-11), so this only ever shows for a record that
+           predates that change and has not been backfilled yet
+           (php artisan accounts:backfill-logins) -- kept as a manual
+           fallback, not the normal path anymore. --}}
       <p class="muted" style="margin-bottom:.8rem">This staff member has no login yet.</p>
       @if($canManage)
         <form method="POST" action="{{ route('school.staff.login.create', ['school' => $school->slug, 'staffId' => $staffMember->id]) }}">
           @csrf
-          <div class="field">
-            <label for="login_email">Email</label>
-            <input id="login_email" name="email" type="email" value="{{ $staffMember->email }}" required />
-            <div class="hint">Sign in is always by email, even if this school's staff ID is set to phone.</div>
-          </div>
+          @if($staffIdentifier !== 'phone')
+            <div class="field">
+              <label for="login_email">Email</label>
+              <input id="login_email" name="email" type="email" value="{{ $staffMember->email }}" {{ $staffIdentifier === 'email' ? 'required' : '' }} />
+            </div>
+          @endif
+          @if($staffIdentifier !== 'email')
+            <div class="field">
+              <label for="login_phone">Phone</label>
+              <input id="login_phone" name="phone" value="{{ $staffMember->phone }}" {{ $staffIdentifier === 'phone' ? 'required' : '' }} />
+            </div>
+          @endif
           <div class="field">
             <label for="login_role">Role</label>
             <select id="login_role" name="role" required>
@@ -80,7 +92,36 @@
       @endif
     @else
       @php($pivotStatus = $school->users()->whereKey($login->id)->first()?->pivot->status)
-      <p class="muted" style="margin-bottom:.4rem"><strong style="color:var(--ink)">{{ $login->email }}</strong></p>
+      {{-- Show what this staff member can actually sign in with, straight
+           from their own profile fields (never the login's own User.email,
+           which can silently hold a placeholder like "staff-2@staff...
+           .skulos.local" for a phone-only account -- user report
+           2026-09-11: "the platform should not create a dummy email
+           address for them"). Both show together when both are on file,
+           since either one alone signs them in (school's own
+           parent/staff identifier setting decides which is REQUIRED at
+           creation, not which ones WORK). --}}
+      <p class="muted" style="margin-bottom:.2rem">Can sign in with:</p>
+      <div style="margin-bottom:.6rem">
+        @if($staffMember->email)
+          <p style="margin:0"><strong style="color:var(--ink)">{{ $staffMember->email }}</strong></p>
+        @endif
+        @if($staffMember->phone)
+          <p style="margin:0"><strong style="color:var(--ink)">{{ $staffMember->phone }}</strong></p>
+        @endif
+        @if(! $staffMember->email && ! $staffMember->phone)
+          <p class="muted" style="margin:0">No email or phone on file yet.</p>
+        @endif
+      </div>
+      <p class="muted" style="margin-bottom:.2rem">
+        @if($login->must_change_password)
+          Still using the default password (must be changed at next sign in).
+        @elseif($login->password_changed_at)
+          Password changed {{ $login->password_changed_at->toDayDateTimeString() }}.
+        @else
+          Password has been changed.
+        @endif
+      </p>
       <p class="muted" style="margin-bottom:.8rem">Access: <span class="badge {{ $pivotStatus === 'active' ? 'badge-ok' : 'badge-warn' }}">{{ ucfirst($pivotStatus) }}</span></p>
       @if($canManage)
         <div style="display:flex;gap:.5rem;flex-wrap:wrap">
