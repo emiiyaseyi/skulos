@@ -2,7 +2,19 @@
 
 This file exists so any future Claude session (or a different agent entirely) can pick up this project cold and have full context. Read this first, then [DEVELOPMENT_TRACKER.md](./DEVELOPMENT_TRACKER.md) for the complete build backlog and live status.
 
-### Live queue (2026-09-10, latest) — Two live production reports fixed on the platform Schools admin screens
+### Live queue (2026-09-11, latest) — "Examination" nav category stuck showing "Soon" for capability the Assessment Hub already provides
+
+User report (screenshot of the school-portal sidebar): "EXAMINATION" showed CBT Examination/Question Bank/Random Questions/Examination Analytics all tagged "Soon," and asked why, "we already have what it can use under the learning management system, its same approach." Confirmed exactly right: `config('skulos.plan_feature_catalog')` still carries an old, never-wired `'examination'` marketing category (7 keys: cbt_examination, learnguard_secure_browser, webcam_monitoring, browser_lockdown, question_bank, random_questions, examination_analytics) from before the real SKULOS Assessment Hub existed. When Assessment Hub actually got built (2026-07-31 through 2026-08-05), it was deliberately wired as its own "Learning Management" nav section entirely OUTSIDE the `plan_feature_catalog` loop (gated on real `assessment_hub.*` RBAC permissions instead, same pattern as Assignments — see `nav-school.blade.php`'s own comment above the `assessment_hub.view` check) — so these 4 marketing keys were simply never repointed off "Soon," even though the underlying capability has been live for over a month.
+
+**Investigated what's actually built** before touching anything: "Assessments"/"Take Assessments" (`school.cbt.assessments.index`/`school.cbt.take.available`) covers "CBT Examination"; "Question Bank" (`school.cbt.questions.index`) covers itself exactly; "Random Questions" is a real, built capability (`CbtAssessmentController::storePool()`, drawing N random questions from a category into an assessment) living inside the Assessments builder, not a standalone screen; the 3 proctoring keys (LearnGuard Secure Browser/Webcam Monitoring/Browser Lockdown) are covered by Security Profiles (`school.cbt.security-profiles.index`). "Examination Analytics" genuinely has no screen yet (the plan's own Score Matrix/Assessment Manager phase, never started) — correctly still "Soon."
+
+**Fixed**: rather than adding these keys to `$builtRoutes` (which would have rendered "Assessments"/"Question Bank" a SECOND time — once from the catalog loop, once from the unconditional Learning Management section further down the same file — since the loop's own de-dupe only checks entries within itself), added a targeted skip in the loop: `cbt_examination`/`question_bank`/`random_questions` are skipped entirely (not shown as "Soon," not shown as a duplicate real link) once `assessment_hub.view` is genuinely true for this user; `learnguard_secure_browser`/`webcam_monitoring`/`browser_lockdown` skip once `assessment_hub.export` is true (the Security Profiles tier). A user/school where Assessment Hub genuinely isn't enabled still correctly sees "Soon" for all of these — nothing is hidden that isn't actually available elsewhere.
+
+**QA**: new `PlanFeatureNavTest::test_examination_marketing_keys_stop_showing_soon_once_assessment_hub_is_live` (asserts "Soon" before the module is enabled, then the 2 unique-labeled marketing keys vanish and the real Question Bank route appears, with Examination Analytics still correctly reading "Soon," after). Full `PlanFeatureNavTest` (42/42), `CbtNavTest` (4/4, including the long-standing "whole group hidden when module disabled" test), 0 regressions.
+
+---
+
+### Live queue (2026-09-10, superseded by the entry above) — Two live production reports fixed on the platform Schools admin screens
 
 User reported two issues live on `skulosapp.com/admin/schools`, both with screenshots: (1) the per-school action buttons (View/Manage/Nudge/Visit/Suspend/Archive/Delete) "not properly aligned"; (2) "the platform owner cannot edit a name of school, a school has asked that we edit the name of the school but no way to do this."
 

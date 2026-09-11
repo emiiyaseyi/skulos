@@ -863,4 +863,51 @@ class PlanFeatureNavTest extends TestCase
             // raw catalog key text "Online Document Upload".
             ->assertSee('Document Review');
     }
+
+    /**
+     * User report 2026-09-10, screenshot of "Examination" showing CBT
+     * Examination/Question Bank/Random Questions/Examination Analytics
+     * all stuck on "Soon": these marketing keys describe exactly what
+     * the Assessment Hub already does, but that module was built as its
+     * own "Learning Management" nav section entirely outside this
+     * catalog, so these 4 keys were never repointed off "Soon" even
+     * once the real screens existed.
+     */
+    public function test_examination_marketing_keys_stop_showing_soon_once_assessment_hub_is_live(): void
+    {
+        $plan = Plan::create([
+            'name' => 'Test Plan examsoon', 'slug' => 'plan-examsoon',
+            'price_per_student_per_term' => 500, 'modules' => [],
+            'features' => ['student_records', 'cbt_examination', 'question_bank', 'random_questions', 'examination_analytics'],
+        ]);
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'examsoonone', 'plan_id' => $plan->id]));
+        $owner = User::factory()->create();
+        $role = $this->rbac->cloneTemplateRole($school, 'school-owner');
+        $school->users()->attach($owner->id, ['role_id' => $role->id, 'status' => 'active']);
+
+        // Before Assessment Hub is enabled, these correctly still read
+        // "Soon" -- the underlying screens genuinely are not reachable
+        // by this school yet.
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/dashboard")
+            ->assertOk()
+            ->assertSee('CBT Examination')
+            ->assertSee('Random Questions');
+
+        $this->rbac->setModuleState($school, 'assessment_hub', \App\Models\Module::STATE_ENABLED);
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/dashboard");
+        $response->assertOk()
+            // The marketing labels with no real link of the same name
+            // must vanish entirely, not just lose their "Soon" tag.
+            ->assertDontSee('CBT Examination')
+            ->assertDontSee('Random Questions')
+            // Question Bank's marketing label matches its real built
+            // link's own label, so presence alone does not prove the
+            // fix -- assert the real route itself is on the page.
+            ->assertSee(route('school.cbt.questions.index', ['school' => $school->slug]))
+            // Genuinely unbuilt (Score Matrix/Assessment Manager, not
+            // started) -- must keep reading "Soon", not be silently
+            // hidden or wrongly promoted.
+            ->assertSee('Examination Analytics');
+    }
 }

@@ -473,6 +473,35 @@
       if ($categoryKey === 'support' && $featureKey !== 'knowledge_base') {
         continue;
       }
+      // 2026-09-10 fix (user report, screenshot of "Examination" showing
+      // 4 items stuck on "Soon"): these marketing keys describe exactly
+      // what the SKULOS Assessment Hub already does, but that module was
+      // deliberately built OUTSIDE this plan_feature_catalog loop (see
+      // the big comment above the "assessment_hub.view" check further
+      // down this file) with its own route names, never wired into
+      // $builtRoutes for these specific keys. Left alone, a school where
+      // Assessment Hub is genuinely live would still see these 4 as
+      // "Soon" forever, which is simply false. Rather than adding
+      // $builtRoutes entries here (which would render the exact same
+      // "Assessments"/"Question Bank" links a second time, once from
+      // this loop and once from the Learning Management section below),
+      // skip the ones a real screen already covers once assessment_hub
+      // is actually visible to this user — "CBT Examination" and
+      // "Random Questions" (a random-pool draw INTO an assessment, not
+      // its own screen) are covered by "Assessments"/"Take Assessments",
+      // "Question Bank" by its own identically named screen, and the
+      // three proctoring keys by Security Profiles. "Examination
+      // Analytics" has no real screen yet (the plan's own Score Matrix/
+      // Assessment Manager phase, not started) and correctly stays
+      // "Soon" regardless.
+      $assessmentHubKeys = ['cbt_examination', 'question_bank', 'random_questions'];
+      if (in_array($featureKey, $assessmentHubKeys, true) && $navRbac->check($navUser, $school, 'assessment_hub.view')) {
+        continue;
+      }
+      $securityProfileKeys = ['learnguard_secure_browser', 'webcam_monitoring', 'browser_lockdown'];
+      if (in_array($featureKey, $securityProfileKeys, true) && $navRbac->check($navUser, $school, 'assessment_hub.export')) {
+        continue;
+      }
       // The module-toggle fallback only ever rescues a feature key that
       // has a REAL screen behind it (isset($builtRoutes[...]) below) —
       // it must not resurrect every OTHER marketing feature key in the
