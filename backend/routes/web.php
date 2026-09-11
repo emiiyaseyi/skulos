@@ -478,6 +478,16 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::post('/students/import', [\App\Http\Controllers\School\StudentController::class, 'import'])->name('school.students.import.run');
         Route::post('/students/import/confirm', [\App\Http\Controllers\School\StudentController::class, 'confirmImport'])->name('school.students.import.confirm');
         Route::get('/students/template.csv', [\App\Http\Controllers\School\StudentController::class, 'template'])->name('school.students.template');
+        // Class-scoped bulk import (2026-09-11, "upload bulk students on
+        // a class by class basis too"): reached from a specific class's
+        // own page instead of the general Students screen, so the class
+        // itself is fixed for the whole file rather than repeated on
+        // every row. Same controller actions, an {armId} route segment
+        // is all that distinguishes the two.
+        Route::get('/students/class/{armId}/import', [\App\Http\Controllers\School\StudentController::class, 'importForm'])->name('school.students.import.class');
+        Route::post('/students/class/{armId}/import', [\App\Http\Controllers\School\StudentController::class, 'import'])->name('school.students.import.run.class');
+        Route::post('/students/class/{armId}/import/confirm', [\App\Http\Controllers\School\StudentController::class, 'confirmImport'])->name('school.students.import.confirm.class');
+        Route::get('/students/class/{armId}/template.csv', [\App\Http\Controllers\School\StudentController::class, 'template'])->name('school.students.template.class');
         Route::get('/students/export.csv', [\App\Http\Controllers\School\StudentController::class, 'export'])->name('school.students.export');
         Route::get('/students/settings', [\App\Http\Controllers\School\StudentController::class, 'editSettings'])->name('school.students.settings.edit');
         Route::post('/students/settings', [\App\Http\Controllers\School\StudentController::class, 'updateSettings'])->name('school.students.settings.update');

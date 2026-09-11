@@ -1,19 +1,36 @@
 @extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => 'Import students'])
 @section('title', 'Import students')
+@php($classArm = $classArm ?? null)
 @section('content')
 <div class="page-head">
   <div>
-    <h1 class="title">Import students</h1>
-    <p class="subtitle">Upload a CSV to add many students at once.</p>
+    <h1 class="title">Import students @if($classArm)into {{ $classArm->label() }}@endif</h1>
+    <p class="subtitle">
+      @if($classArm)
+        Upload a CSV or workbook to add many students straight into {{ $classArm->label() }}. Every student
+        in this file lands in this class, so there is no Class column to fill in.
+      @else
+        Upload a CSV or workbook to add many students at once. To import straight into one class with
+        no Class column to fill in, open that class under
+        <a href="{{ route('school.academics.index', ['school' => $school->slug]) }}">Classes &amp; Subjects</a>
+        and use its own "Import students" button instead.
+      @endif
+    </p>
   </div>
-  <a class="btn btn-ghost btn-sm" href="{{ route('school.students', ['school' => $school->slug]) }}">Back to students</a>
+  @if($classArm)
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.academics.classes.show', ['school' => $school->slug, 'classId' => $classArm->school_class_id]) }}">Back to class</a>
+  @else
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.students', ['school' => $school->slug]) }}">Back to students</a>
+  @endif
 </div>
 
 @if(! empty($preview))
   @include('school.partials.import-preview', [
     'preview' => $preview,
     'columns' => $columns,
-    'confirmRoute' => route('school.students.import.confirm', ['school' => $school->slug]),
+    'confirmRoute' => $classArm
+      ? route('school.students.import.confirm.class', ['school' => $school->slug, 'armId' => $classArm->id])
+      : route('school.students.import.confirm', ['school' => $school->slug]),
   ])
 @endif
 
@@ -67,11 +84,11 @@
 <div class="grid cols-2" style="align-items:start">
   <div class="card">
     <h3 style="margin-bottom:.8rem">Upload your file</h3>
-    <form method="POST" action="{{ route('school.students.import.run', ['school' => $school->slug]) }}" enctype="multipart/form-data">
+    <form method="POST" action="{{ $classArm ? route('school.students.import.run.class', ['school' => $school->slug, 'armId' => $classArm->id]) : route('school.students.import.run', ['school' => $school->slug]) }}" enctype="multipart/form-data">
       @csrf
       <div class="field">
-        <label for="file">CSV file</label>
-        <input id="file" name="file" type="file" accept=".csv,text/csv" required />
+        <label for="file">CSV or Excel file</label>
+        <input id="file" name="file" type="file" accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" required />
         @error('file')<div class="err">{{ $message }}</div>@enderror
       </div>
       <div class="field">
@@ -86,8 +103,14 @@
 
   <div class="card">
     <h3 style="margin-bottom:.4rem">How it works</h3>
-    <p class="muted" style="margin-bottom:1rem">Download the template, fill in one student per row, then upload it. Problems are reported by row number so you can fix and re upload.</p>
-    <a class="btn btn-ghost" href="{{ route('school.students.template', ['school' => $school->slug]) }}">Download CSV template</a>
+    <p class="muted" style="margin-bottom:1rem">
+      Download the template, fill in one student per row, then upload it. Problems are reported by row
+      number so you can fix and re upload.
+      @if($classArm)
+        This template is already scoped to {{ $classArm->label() }}, with no Class column to fill in.
+      @endif
+    </p>
+    <a class="btn btn-ghost" href="{{ $classArm ? route('school.students.template.class', ['school' => $school->slug, 'armId' => $classArm->id]) : route('school.students.template', ['school' => $school->slug]) }}">Download CSV template</a>
     <div style="margin-top:1.2rem">
       <div class="row-between" style="margin-bottom:.5rem">
         <b style="font-size:.82rem">Columns</b>

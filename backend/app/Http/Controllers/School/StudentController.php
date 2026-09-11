@@ -313,26 +313,48 @@ class StudentController extends Controller
         return back()->with('status', "{$count} student(s) permanently deleted. This cannot be undone.");
     }
 
+    /**
+     * The class arm an import is scoped to, when reached from that
+     * class's own "Import students" action (2026-09-11) rather than the
+     * general Students screen. Read via $request->route() rather than a
+     * typed method parameter -- the standing domain-wildcard positional-
+     * binding gotcha documented in CLAUDE.md, since every one of these
+     * routes also sits under the {school}.{domain} subdomain wildcard.
+     */
+    protected function resolveImportClassArm(Request $request): ?ClassArm
+    {
+        $armId = $request->route('armId');
+
+        return $armId ? ClassArm::with(['schoolClass', 'arm'])->find($armId) : null;
+    }
+
     public function importForm(Request $request): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'students.bulk');
         $school = $this->school($request);
+        $classArm = $this->resolveImportClassArm($request);
 
         return view('school.students.import', [
             'school' => $school,
             'accent' => $school->branding()['color'],
-            'columns' => (new StudentImporter)->columns(),
+            'columns' => (new StudentImporter($classArm?->id))->columns(),
             'requiredFields' => Setting::grab('student_required_fields', []),
+            'classArm' => $classArm,
         ]);
     }
 
     public function template(Request $request): \Symfony\Component\HttpFoundation\Response
     {
         $this->authorizeAction($request, 'students.bulk');
+        $classArm = $this->resolveImportClassArm($request);
 
-        return response((new StudentImporter)->template(), 200, [
+        $filename = $classArm
+            ? 'students-'.\Illuminate\Support\Str::slug($classArm->label()).'-template.csv'
+            : 'students-template.csv';
+
+        return response((new StudentImporter($classArm?->id))->template(), 200, [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="students-template.csv"',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
     }
 
@@ -424,6 +446,7 @@ class StudentController extends Controller
     {
         $this->authorizeAction($request, 'students.bulk');
         $school = $this->school($request);
+        $classArm = $this->resolveImportClassArm($request);
 
         $request->validate([
             // xlsx accepted alongside csv (2026-08-16): the blank sheet
@@ -440,7 +463,7 @@ class StudentController extends Controller
 
         try {
             $rows = $isSpreadsheet
-                ? $this->rowsFromSpreadsheet($upload->getRealPath())
+                ? $this->rowsFromSpreadsheet($upload->getRealPath(), $classArm?->id)
                 : app(CsvReader::class)->rows(file_get_contents($upload->getRealPath()));
         } catch (\InvalidArgumentException $e) {
             return back()->with('error', $e->getMessage());
@@ -453,16 +476,21 @@ class StudentController extends Controller
         // importing on upload and reporting afterwards when it is too
         // late to change their mind. The parsed rows are held in the
         // session so confirming does not need the file uploaded twice.
-        $preview = (new StudentImporter)->preview($rows);
+        // The chosen class arm (if any) rides along in the same session
+        // entry so confirmImport() stays scoped to it too, regardless of
+        // which of the two confirm routes actually gets submitted.
+        $preview = (new StudentImporter($classArm?->id))->preview($rows);
         $request->session()->put('student_import_rows', $rows);
+        $request->session()->put('student_import_class_arm_id', $classArm?->id);
 
         return view('school.students.import', [
             'school' => $school,
             'accent' => $school->branding()['color'],
-            'columns' => (new StudentImporter)->columns(),
+            'columns' => (new StudentImporter($classArm?->id))->columns(),
             'requiredFields' => Setting::grab('student_required_fields', []),
             'preview' => $preview,
             'result' => null,
+            'classArm' => $classArm,
         ]);
     }
 
@@ -1280,7 +1308,7 @@ class StudentController extends Controller
      * Header labels are mapped back to their column keys because the
      * sheet shows a person "Admission Number", not "admission_number".
      */
-    protected function rowsFromSpreadsheet(string $path): array
+    protected function rowsFromSpreadsheet(string $path, ?int $lockedClassArmId = null): array
     {
         $sheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($path)->getSheet(0);
         $grid = $sheet->toArray(null, true, true, false);
@@ -1289,7 +1317,7 @@ class StudentController extends Controller
             throw new \InvalidArgumentException('That sheet has no rows to import.');
         }
 
-        $labels = (new StudentImporter)->columns();
+        $labels = (new StudentImporter($lockedClassArmId))->columns();
         $keyByLabel = [];
         foreach ($labels as $key => $label) {
             $keyByLabel[mb_strtolower($label)] = $key;
@@ -1333,7 +1361,15 @@ class StudentController extends Controller
                 ->with('error', 'That upload is no longer available. Upload the file again.');
         }
 
-        $importer = new StudentImporter;
+        // Read from session, not the confirm route's own armId (there
+        // isn't one when confirming from the class-scoped route's own
+        // {armId} path -- Laravel still exposes it via route(), but
+        // pulling from session keeps this working even if a future
+        // route shape ever drops that segment).
+        $lockedClassArmId = $request->session()->get('student_import_class_arm_id');
+        $classArm = $lockedClassArmId ? ClassArm::with(['schoolClass', 'arm'])->find($lockedClassArmId) : null;
+
+        $importer = new StudentImporter($classArm?->id);
         $preview = $importer->preview($rows);
 
         $goodRowNumbers = collect($preview['good'])->pluck('row')->all();
@@ -1343,6 +1379,7 @@ class StudentController extends Controller
 
         $result = $importer->import($onlyGood, 'partial');
         $request->session()->forget('student_import_rows');
+        $request->session()->forget('student_import_class_arm_id');
 
         return view('school.students.import', [
             'school' => $school,
@@ -1352,6 +1389,7 @@ class StudentController extends Controller
             'preview' => null,
             'result' => $result,
             'skipped' => count($preview['bad']),
+            'classArm' => $classArm,
         ]);
     }
 }

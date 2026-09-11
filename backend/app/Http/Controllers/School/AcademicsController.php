@@ -575,6 +575,11 @@ class AcademicsController extends Controller
             'canViewParents' => app(Rbac::class)->check($user, $school, 'parents.view'),
             // Acting on students is a stricter permission than seeing them.
             'canManageStudents' => app(Rbac::class)->check($user, $school, 'students.update'),
+            // Bulk import (2026-09-11, "upload bulk students on a class
+            // by class basis too") is its own permission, not folded
+            // into canManageStudents -- a role could plausibly hold one
+            // without the other.
+            'canImportStudents' => app(Rbac::class)->check($user, $school, 'students.bulk'),
             'rosterIsScoped' => $teacherArmIds !== null || $familyStudentIds !== null,
         ]);
     }

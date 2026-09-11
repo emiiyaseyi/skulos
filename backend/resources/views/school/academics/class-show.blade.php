@@ -137,13 +137,23 @@
   <div class="card" style="margin-bottom:1.1rem">
     <div class="row-between" style="margin-bottom:.7rem;flex-wrap:wrap;gap:.5rem">
       <h3 style="margin:0">{{ $arm->label() }}{{ $multiStream ? '' : ' teachers' }}</h3>
-      @if($canManage && $multiStream)
-        <form method="POST" action="{{ route('school.academics.arms.rename', ['school' => $school->slug, 'classArmId' => $arm->id]) }}" style="display:inline-flex;gap:.3rem">
-          @csrf
-          <input name="name" placeholder="Rename stream" value="{{ $arm->arm?->name }}" style="width:9rem;padding:.3rem .5rem" />
-          <button class="btn btn-ghost btn-sm" type="submit">Rename</button>
-        </form>
-      @endif
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+        @if($canImportStudents)
+          {{-- Class-scoped bulk import (2026-09-11): lets an admin
+               upload a list of students straight into this one stream,
+               with no Class column to repeat on every row -- separate
+               from the school-wide import under Students, which still
+               asks for a Class per row since it spans every class. --}}
+          <a class="btn btn-ghost btn-sm" href="{{ route('school.students.import.class', ['school' => $school->slug, 'armId' => $arm->id]) }}">Import students</a>
+        @endif
+        @if($canManage && $multiStream)
+          <form method="POST" action="{{ route('school.academics.arms.rename', ['school' => $school->slug, 'classArmId' => $arm->id]) }}" style="display:inline-flex;gap:.3rem">
+            @csrf
+            <input name="name" placeholder="Rename stream" value="{{ $arm->arm?->name }}" style="width:9rem;padding:.3rem .5rem" />
+            <button class="btn btn-ghost btn-sm" type="submit">Rename</button>
+          </form>
+        @endif
+      </div>
     </div>
     <div class="grid cols-2">
       <div>

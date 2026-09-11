@@ -23,6 +23,14 @@ use Illuminate\Validation\Rule;
  * stored in tenant Setting under "student_required_fields") — admission
  * number/first/last name are always required and email is never required,
  * neither is affected by that setting.
+ *
+ * Optionally locked to one class arm (2026-09-11, "make it possible to
+ * upload bulk students on a class by class basis too"): a school-wide
+ * import still asks for a Class column on every row, but importing from
+ * a specific class's own page fixes the destination for the whole file
+ * — the column is dropped entirely rather than asking an admin to type
+ * the same class name on every row, or risk it disagreeing with the
+ * class they actually opened.
  */
 class StudentImporter extends Importer
 {
@@ -32,7 +40,7 @@ class StudentImporter extends Importer
 
     protected array $housesByName = [];
 
-    public function __construct()
+    public function __construct(protected ?int $lockedClassArmId = null)
     {
         $this->requiredFields = Setting::grab('student_required_fields', []);
 
@@ -46,7 +54,7 @@ class StudentImporter extends Importer
 
     public function columns(): array
     {
-        return [
+        $columns = [
             'admission_number' => 'Admission Number',
             'first_name' => 'First Name',
             'last_name' => 'Last Name',
@@ -74,6 +82,12 @@ class StudentImporter extends Importer
             'lga' => 'LGA',
             'address' => 'Address',
         ];
+
+        if ($this->lockedClassArmId !== null) {
+            unset($columns['class']);
+        }
+
+        return $columns;
     }
 
     protected function requiredOrNullable(string $field): string
@@ -83,7 +97,7 @@ class StudentImporter extends Importer
 
     protected function rules(array $row): array
     {
-        return [
+        $rules = [
             'admission_number' => [
                 'required', 'string', 'max:100',
                 Rule::unique((new Student)->getConnectionName().'.students', 'admission_number'),
@@ -95,14 +109,6 @@ class StudentImporter extends Importer
             'date_of_birth' => [$this->requiredOrNullable('date_of_birth'), 'date'],
             'email' => ['nullable', 'email', 'max:150'], // optional, never required
             'parent_mobile' => [$this->requiredOrNullable('parent_mobile'), 'string', 'max:40'],
-            'class' => [
-                $this->requiredOrNullable('class'),
-                function (string $attribute, mixed $value, \Closure $fail) {
-                    if ($value !== null && $value !== '' && ! isset($this->classArmsByLabel[mb_strtolower(trim($value))])) {
-                        $fail("Class \"{$value}\" was not found. Check the exact name under Classes & Subjects.");
-                    }
-                },
-            ],
             'house' => [
                 $this->requiredOrNullable('house'),
                 function (string $attribute, mixed $value, \Closure $fail) {
@@ -123,6 +129,19 @@ class StudentImporter extends Importer
             'lga' => [$this->requiredOrNullable('lga'), 'string', 'max:100'],
             'address' => [$this->requiredOrNullable('address'), 'string', 'max:500'],
         ];
+
+        if ($this->lockedClassArmId === null) {
+            $rules['class'] = [
+                $this->requiredOrNullable('class'),
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    if ($value !== null && $value !== '' && ! isset($this->classArmsByLabel[mb_strtolower(trim($value))])) {
+                        $fail("Class \"{$value}\" was not found. Check the exact name under Classes & Subjects.");
+                    }
+                },
+            ];
+        }
+
+        return $rules;
     }
 
     protected function uniqueBy(): array
@@ -150,7 +169,7 @@ class StudentImporter extends Importer
             'date_of_birth' => $row['date_of_birth'] ?? null,
             'email' => $row['email'] ?? null,
             'parent_mobile' => $row['parent_mobile'] ?? null,
-            'current_class_arm_id' => $this->resolve($this->classArmsByLabel, $row['class'] ?? null),
+            'current_class_arm_id' => $this->lockedClassArmId ?? $this->resolve($this->classArmsByLabel, $row['class'] ?? null),
             'house_id' => $this->resolve($this->housesByName, $row['house'] ?? null),
             'state_of_origin' => $row['state_of_origin'] ?? null,
             'lga' => $row['lga'] ?? null,
