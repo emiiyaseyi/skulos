@@ -53,6 +53,14 @@
     <div class="stack" style="flex-direction:row;flex-wrap:wrap;gap:.6rem">
       @foreach($myClasses as $arm)
         <a class="btn btn-primary btn-sm" href="{{ route('school.report-cards.class-index', ['school' => $school->slug, 'classId' => $arm->schoolClass?->id, 'term_id' => $selectedTerm?->id]) }}">{{ $arm->label() }}</a>
+        {{-- Direct shortcut to the actual data-entry screen (2026-09-11,
+             user report: "class teachers are unable to enter or select
+             the Behavioural Traits for each student in the class") --
+             the entry, permission, and select-with-scale logic all
+             already work correctly, but reaching it took three hops
+             (Report Cards -> pick class -> Class teacher entry button),
+             easy to give up on. --}}
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.class.entry', ['school' => $school->slug, 'classId' => $arm->schoolClass?->id, 'term_id' => $selectedTerm?->id]) }}">{{ $arm->label() }} &middot; Traits &amp; remarks</a>
       @endforeach
     </div>
   </div>

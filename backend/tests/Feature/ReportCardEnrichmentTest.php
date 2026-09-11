@@ -260,6 +260,39 @@ class ReportCardEnrichmentTest extends TestCase
         app(TenantManager::class)->forget();
     }
 
+    /**
+     * A real class-teacher (not a school-owner fixture like the other
+     * class entry tests above) actually reaching the screen and saving
+     * a behavioural trait rating -- user report 2026-09-11: "class
+     * teachers are unable to enter or select the Behavioural Traits for
+     * each student in the class."
+     */
+    public function test_a_real_class_teacher_can_see_and_save_a_behavioural_trait_rating(): void
+    {
+        [$school, ] = $this->schoolWithMember('school-owner', 'entry-trait-one');
+        ['term' => $term, 'class' => $class, 'classArm' => $classArm, 'student' => $student, 'trait' => $trait] = $this->setUpClassWithStudents($school);
+        $teacher = $this->classTeacherFor($school, $classArm);
+
+        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/report-cards/classes/{$class->id}/entry?term_id={$term->id}")
+            ->assertOk()
+            ->assertSee($trait->name)
+            ->assertSee('Excellent');
+
+        $this->actingAs($teacher)->post("http://{$school->slug}.localhost/report-cards/classes/{$class->id}/entry", [
+            'term_id' => $term->id,
+            'students' => [
+                $student->id => ['traits' => [$trait->id => 'Excellent']],
+            ],
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $rating = StudentBehaviouralRating::where('student_id', $student->id)->where('behavioural_trait_id', $trait->id)->first();
+        app(TenantManager::class)->forget();
+
+        $this->assertNotNull($rating, 'a real class-teacher role must be able to save a trait rating');
+        $this->assertSame('Excellent', $rating->value);
+    }
+
     public function test_a_class_teacher_outside_the_class_cannot_open_class_entry(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'entry-three');
