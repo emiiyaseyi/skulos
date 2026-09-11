@@ -931,14 +931,27 @@ class StudentScreenTest extends TestCase
             'photo' => $largeImage,
         ])->assertRedirect();
 
-        app(TenantManager::class)->use($school);
-        $fresh = Student::find($studentId);
-        $this->assertNotNull($fresh->passport_path);
-        $this->assertStringEndsWith('.webp', $fresh->passport_path);
-        $bytes = \Illuminate\Support\Facades\Storage::disk('public')->size($fresh->passport_path);
-        app(TenantManager::class)->forget();
+        try {
+            app(TenantManager::class)->use($school);
+            $fresh = Student::find($studentId);
+            $this->assertNotNull($fresh->passport_path);
+            $this->assertStringEndsWith('.webp', $fresh->passport_path);
+            $bytes = \Illuminate\Support\Facades\Storage::disk('public')->size($fresh->passport_path);
+            app(TenantManager::class)->forget();
 
-        $this->assertLessThanOrEqual(40 * 1024, $bytes, 'the stored photo must fit the school\'s own configured max size');
+            $this->assertLessThanOrEqual(40 * 1024, $bytes, 'the stored photo must fit the school\'s own configured max size');
+        } finally {
+            // This writes to the REAL local public disk, not
+            // Storage::fake() -- unlike the sqlite test databases,
+            // that disk is never reset between test runs. Left
+            // uncleaned (found 2026-09-11 via a real collision: a
+            // leftover file from this test landed in the same
+            // students/{id}/ directory a later, unrelated test's
+            // school happened to reuse, inflating its own byte count),
+            // it leaks a real file for every run this test has ever
+            // done.
+            \Illuminate\Support\Facades\Storage::disk('public')->deleteDirectory("students/{$school->id}");
+        }
     }
 
     public function test_a_teacher_without_students_update_cannot_upload_a_students_photo(): void
