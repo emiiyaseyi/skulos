@@ -7,7 +7,15 @@
     <h1 class="title">Classes &amp; Subjects</h1>
     <p class="subtitle">Sections, classes, and which subjects each class offers.</p>
   </div>
-  <a class="btn btn-ghost btn-sm" href="{{ route('school.settings.calendar.edit', ['school' => $school->slug]) }}">Sessions &amp; terms are in Settings</a>
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+    {{-- 2026-09-11, user directive: "a button to go to all subjects in
+         the school which will show per sections" -- the whole-school
+         Subjects screen already existed (per-subject teacher coverage,
+         assign a teacher and pick which classes), it just had no link
+         from here. --}}
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.subjects.index', ['school' => $school->slug]) }}">All Subjects</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.settings.calendar.edit', ['school' => $school->slug]) }}">Sessions &amp; terms are in Settings</a>
+  </div>
 </div>
 
 @if($canManage)

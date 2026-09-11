@@ -99,7 +99,7 @@
     <table>
       <thead><tr>
         @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="subject-select-all" aria-label="Select all subjects" /></th>@endif
-        <th>Subject</th><th>Mandatory</th><th>Examinable</th>@if($canManage)<th></th>@endif</tr></thead>
+        <th>Subject</th><th>Mandatory</th><th>Examinable</th><th>Teacher</th>@if($canManage)<th></th>@endif</tr></thead>
       <tbody>
         @foreach($offered as $subject)
           <tr>
@@ -116,6 +116,21 @@
                 </form>
               </td>
               <td>
+                {{-- Whole-class, same as class-show.blade.php's own
+                     "Subjects offered" table -- one teacher per subject
+                     across every stream of this class, not just the
+                     stream currently selected above. --}}
+                <form method="POST" action="{{ route('school.academics.subjects.assign-teacher', ['school' => $school->slug, 'classId' => $class->id, 'subjectId' => $subject->id]) }}">
+                  @csrf
+                  <select name="staff_id" onchange="this.form.submit()" style="min-width:16rem" aria-label="Teacher for {{ $subject->name }}">
+                    <option value="">Not assigned</option>
+                    @foreach($staffOptions as $staff)
+                      <option value="{{ $staff->id }}" @selected(($staffIdBySubject[$subject->id] ?? null) === $staff->id)>{{ $staff->fullName() }}</option>
+                    @endforeach
+                  </select>
+                </form>
+              </td>
+              <td>
                 <form method="POST" action="{{ route('school.academics.subjects.detach', ['school' => $school->slug, 'classId' => $class->id, 'subjectId' => $subject->id]) }}" onsubmit="return confirm('Remove {{ $subject->name }}?')">
                   @csrf @method('DELETE')
                   @if($selectedArm)<input type="hidden" name="class_arm_id" value="{{ $selectedArm->id }}" />@endif
@@ -125,6 +140,11 @@
             @else
               <td>{{ $subject->pivot->is_mandatory ? 'Yes' : 'Optional' }}</td>
               <td>{{ $subject->pivot->is_examinable ? 'Yes' : 'No' }}</td>
+              <td class="muted">
+                @php($teacherStaffId = $staffIdBySubject[$subject->id] ?? null)
+                @php($teacher = $teacherStaffId ? $staffOptions->firstWhere('id', $teacherStaffId) : null)
+                {{ $teacher?->fullName() ?? 'Not assigned' }}
+              </td>
             @endif
           </tr>
         @endforeach

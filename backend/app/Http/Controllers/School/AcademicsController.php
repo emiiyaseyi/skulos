@@ -849,10 +849,24 @@ class AcademicsController extends Controller
     {
         $this->authorizeAction($request, 'academics.view');
         $school = $this->school($request);
-        $class = SchoolClass::with('section')->findOrFail($request->route('classId'));
+        $class = SchoolClass::with(['section', 'arms'])->findOrFail($request->route('classId'));
         $streams = ClassArm::where('school_class_id', $class->id)->whereNotNull('arm_id')->with('arm')->get()
             ->sortBy(fn (ClassArm $a) => $a->orderKey());
         [$selectedArm, $subjectsRelation] = $this->subjectScope($request, $class);
+
+        // Teacher assignment, right here too (2026-09-11, user directive
+        // "let's also make it possible to assign a teacher to each
+        // subject in a class view") -- reuses the exact same
+        // assignSubjectTeacher() action class-show.blade.php's own
+        // "Subjects offered" table already posts to, so the two screens
+        // can never disagree about who teaches what. That action is
+        // deliberately whole-class (every stream gets the same teacher
+        // for a subject, confirmed existing behaviour, not something
+        // this change alters), which is why the picker below is shown
+        // regardless of which stream tab is selected.
+        $armIds = $class->arms->pluck('id');
+        $staffIdBySubject = TeachingAssignment::whereIn('class_arm_id', $armIds)
+            ->get()->groupBy('subject_id')->map(fn ($group) => $group->first()?->staff_id);
 
         return view('school.academics.subjects', [
             'school' => $school,
@@ -865,6 +879,8 @@ class AcademicsController extends Controller
             'suggestedCatalog' => $selectedArm ? null : $defaults->suggestCatalogFor($class->section),
             'catalogs' => config('skulos.default_subjects'),
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'academics.update'),
+            'staffOptions' => Staff::active()->orderBy('first_name')->get(),
+            'staffIdBySubject' => $staffIdBySubject,
         ]);
     }
 

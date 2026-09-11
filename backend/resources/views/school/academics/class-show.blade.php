@@ -162,7 +162,7 @@
           <form method="POST" action="{{ route('school.academics.arms.assign-teacher', ['school' => $school->slug, 'armId' => $arm->id]) }}" style="display:flex;gap:.4rem">
             @csrf
             <input type="hidden" name="role" value="class_teacher" />
-            <select name="staff_id" onchange="this.form.submit()">
+            <select name="staff_id" onchange="this.form.submit()" style="min-width:16rem">
               <option value="">Not set</option>
               @foreach($staffOptions as $staff)
                 <option value="{{ $staff->id }}" @selected($arm->class_teacher_staff_id === $staff->id)>{{ $staff->fullName() }}</option>
@@ -179,7 +179,7 @@
           <form method="POST" action="{{ route('school.academics.arms.assign-teacher', ['school' => $school->slug, 'armId' => $arm->id]) }}" style="display:flex;gap:.4rem">
             @csrf
             <input type="hidden" name="role" value="assistant_teacher" />
-            <select name="staff_id" onchange="this.form.submit()">
+            <select name="staff_id" onchange="this.form.submit()" style="min-width:16rem">
               <option value="">Not set</option>
               @foreach($staffOptions as $staff)
                 <option value="{{ $staff->id }}" @selected($arm->assistant_teacher_staff_id === $staff->id)>{{ $staff->fullName() }}</option>
@@ -222,7 +222,7 @@
               @if($canManage)
                 <form method="POST" action="{{ route('school.academics.subjects.assign-teacher', ['school' => $school->slug, 'classId' => $class->id, 'subjectId' => $subject->id]) }}" style="display:inline-flex;gap:.4rem">
                   @csrf
-                  <select name="staff_id" onchange="this.form.submit()">
+                  <select name="staff_id" onchange="this.form.submit()" style="min-width:16rem">
                     <option value="">Not assigned</option>
                     @foreach($staffOptions as $staff)
                       <option value="{{ $staff->id }}" @selected(($staffIdBySubject[$subject->id] ?? null) === $staff->id)>{{ $staff->fullName() }}</option>

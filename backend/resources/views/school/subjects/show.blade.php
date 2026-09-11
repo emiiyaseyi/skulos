@@ -65,14 +65,24 @@
           <b style="font-size:.9rem">Classes without a teacher</b>
           <button type="button" class="btn btn-ghost btn-sm" id="pickAllUncovered">Select all</button>
         </div>
-        <div class="grid cols-3" style="gap:.35rem;margin-bottom:.9rem">
-          @foreach($uncovered as $arm)
-            <label class="module-check">
-              <input type="checkbox" name="class_arm_ids[]" value="{{ $arm->id }}" data-uncovered />
-              {{ $arm->label() }}
-            </label>
-          @endforeach
-        </div>
+        {{-- Grouped by section (2026-09-11, user directive) rather than
+             one flat grid -- a subject offered across Nursery, Primary,
+             and Secondary alike is otherwise a long, unlabeled list of
+             checkboxes with no way to tell which section a name belongs
+             to at a glance. --}}
+        @foreach($uncovered->groupBy(fn ($arm) => $arm->schoolClass?->section?->name ?? 'Other') as $sectionName => $armsInSection)
+          <div style="margin-bottom:.7rem">
+            <div class="muted" style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.02em;margin-bottom:.35rem">{{ $sectionName }}</div>
+            <div class="grid cols-3" style="gap:.35rem">
+              @foreach($armsInSection as $arm)
+                <label class="module-check">
+                  <input type="checkbox" name="class_arm_ids[]" value="{{ $arm->id }}" data-uncovered />
+                  {{ $arm->label() }}
+                </label>
+              @endforeach
+            </div>
+          </div>
+        @endforeach
         <button class="btn btn-primary btn-sm" type="submit">Assign to selected classes</button>
       </form>
     </div>
