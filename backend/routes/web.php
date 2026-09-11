@@ -464,7 +464,16 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
     Route::middleware(['auth', 'school_member', 'require_password_change', 'block_demo_mutations'])->group(function () {
         Route::get('/dashboard', [SchoolPortalController::class, 'dashboard'])->name('school.dashboard');
         Route::post('/session/end-impersonation', [SchoolAdminController::class, 'endImpersonation'])->name('session.end-impersonation');
-        Route::post('/session/switch-role', [\App\Http\Controllers\School\RoleSwitchController::class, 'switch'])->name('session.switch-role');
+        // Exempted from block_demo_mutations (user report 2026-09-11:
+        // "even though its a demo account, one should be able to switch
+        // to the other account so that one can also view what the other
+        // role can see"): switching which of your own already-held roles
+        // is active writes only a session value, never a real school
+        // record, so it isn't the kind of change that guard exists to
+        // stop -- a read-only demo account should still be able to look
+        // around as every role it holds.
+        Route::post('/session/switch-role', [\App\Http\Controllers\School\RoleSwitchController::class, 'switch'])
+            ->withoutMiddleware('block_demo_mutations')->name('session.switch-role');
 
         Route::prefix('help')->name('school.knowledge-base.')->group(function () {
             $kb = \App\Http\Controllers\School\KnowledgeBaseController::class;

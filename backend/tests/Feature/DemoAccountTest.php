@@ -84,6 +84,35 @@ class DemoAccountTest extends TestCase
         $this->assertTrue(\Illuminate\Support\Facades\Hash::check('a-new-password', $user->fresh()->password));
     }
 
+    /**
+     * User report 2026-09-11: "even though its a demo account, one
+     * should be able to switch to the other account so that one can
+     * also view what the other role can see." Switching which held role
+     * is active writes only a session value, never a real school
+     * record, so it's deliberately exempted from block_demo_mutations
+     * (routes/web.php) even though it's a POST.
+     */
+    public function test_a_demo_account_can_still_switch_between_its_held_roles(): void
+    {
+        $school = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'demoschool5']));
+        $user = User::factory()->create();
+        $role = app(Rbac::class)->cloneTemplateRole($school, 'parent');
+        $school->users()->attach($user->id, ['role_id' => $role->id, 'status' => 'active', 'is_demo_readonly' => true]);
+
+        $teacherRole = app(Rbac::class)->cloneTemplateRole($school, 'class-teacher');
+        \App\Models\UserAdditionalRole::create(['school_id' => $school->id, 'user_id' => $user->id, 'role_id' => $teacherRole->id]);
+
+        $response = $this->actingAs($user)->post("http://{$school->slug}.localhost/session/switch-role", ['role_id' => $teacherRole->id]);
+
+        $response->assertRedirect()->assertSessionMissing('error');
+
+        $fresh = User::find($user->id);
+        app(TenantManager::class)->use($school);
+        $active = $fresh->roleIn($school);
+        app(TenantManager::class)->forget();
+        $this->assertSame('class-teacher', $active?->slug);
+    }
+
     public function test_the_demo_flag_is_scoped_to_one_school_membership_only(): void
     {
         $demoSchool = app(TenantManager::class)->provision(School::factory()->create(['slug' => 'demoschool4']));
