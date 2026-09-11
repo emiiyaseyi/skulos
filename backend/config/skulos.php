@@ -3265,6 +3265,15 @@ If you have run into any issue at all, or have any questions, just reply to this
         // distinct action from 'decide'/'review_documents' above, which
         // stay admin/registrar tier.
         'admissions' => ['manage_settings', 'decide', 'review_documents', 'onboard'],
+        // manage_multi_role (2026-09-11, multi-role accounts): granting
+        // someone a second role at this school is a security-sensitive,
+        // institution-wide decision, same tier as report_cards.
+        // bulk_generate_all / examinations.promote_students above —
+        // deliberately NOT bundled into staff.update, so an ordinary
+        // staff-editing permission never silently also lets someone hand
+        // out extra roles. An admin extends it to another role via the
+        // existing Role Management screen if they choose to.
+        'staff' => ['manage_multi_role'],
     ],
 
     /*

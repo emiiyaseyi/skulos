@@ -4,8 +4,10 @@ namespace App\Services\Accounts;
 
 use App\Mail\AccountCreatedMail;
 use App\Mail\PasswordResetByAdminMail;
+use App\Models\Role;
 use App\Models\School;
 use App\Models\User;
+use App\Models\UserAdditionalRole;
 use App\Services\Rbac\Rbac;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -54,7 +56,7 @@ class AccountProvisioningService
         // this so a school's own permission customizations are isolated
         // to that school, not shared platform wide.
         $role = app(Rbac::class)->cloneTemplateRole($school, $roleSlug);
-        $school->users()->syncWithoutDetaching([$user->id => ['role_id' => $role->id, 'status' => 'active']]);
+        $this->syncRole($school, $user, $role);
 
         if ($isNewLogin && ! $this->welcomeEmails->isPaused()) {
             $this->sendSafely(fn () => Mail::to($user->email)->send(new AccountCreatedMail($user, $school, $password, $role->name, $roleSlug)), $user->email);
@@ -134,7 +136,7 @@ class AccountProvisioningService
         $user->save();
 
         $role = app(Rbac::class)->cloneTemplateRole($school, $roleSlug);
-        $school->users()->syncWithoutDetaching([$user->id => ['role_id' => $role->id, 'status' => 'active']]);
+        $this->syncRole($school, $user, $role);
 
         // A welcome email only ever goes to a REAL email address (never
         // the synthetic placeholder above, that would just bounce), and
@@ -163,6 +165,43 @@ class AccountProvisioningService
         $this->sendSafely(fn () => Mail::to($user->email)->send(new PasswordResetByAdminMail($user, $school, $password)), $user->email);
 
         return $password;
+    }
+
+    /**
+     * Sets this user's PRIMARY role at this school the first time they
+     * join it, but never silently overwrites an already-different
+     * primary role on a later call (2026-09-11 fix -- root cause of a
+     * real, previously undetected bug: provisioning the same real
+     * person under two different roles, most commonly a teacher who is
+     * also a parent, matching email/phone, used to silently replace
+     * their existing role with the new one via a plain
+     * syncWithoutDetaching() -- Laravel's own pivot sync calls
+     * updateExistingPivot() for an already-member user, an unconditional
+     * UPDATE regardless of what was there before). A second role for an
+     * already-member user is now recorded as an ADDITIONAL role instead,
+     * switchable from the account's own top-bar role switcher, so
+     * nothing already granted is ever lost. granted_by_user_id stays
+     * null here (a system action during provisioning, not an admin
+     * clicking Grant on the Multi-role Accounts screen).
+     */
+    protected function syncRole(School $school, User $user, Role $role): void
+    {
+        $existingRoleId = $school->users()->where('users.id', $user->id)->value('school_user.role_id');
+
+        if ($existingRoleId === null) {
+            $school->users()->syncWithoutDetaching([$user->id => ['role_id' => $role->id, 'status' => 'active']]);
+
+            return;
+        }
+
+        $school->users()->updateExistingPivot($user->id, ['status' => 'active']);
+
+        if ((int) $existingRoleId !== $role->id) {
+            UserAdditionalRole::firstOrCreate(
+                ['school_id' => $school->id, 'user_id' => $user->id, 'role_id' => $role->id],
+                ['granted_by_user_id' => null, 'granted_at' => now()]
+            );
+        }
     }
 
     /** Suspends this user's access to this one school only, without touching any other school or the account itself. */

@@ -968,6 +968,13 @@
     if ($navRbac->check($navUser, $school, 'students.manage_settings')) {
       $settingsSubgroups['Users'][] = $link('school.approvals.index', 'Approvals', 'approve');
     }
+    // Multi-role accounts (2026-09-11): a deliberately separate screen
+    // from Roles & Permissions above (the user's own explicit answer),
+    // its own permission so an ordinary staff-editing grant never also
+    // silently lets someone hand out extra roles.
+    if ($navRbac->check($navUser, $school, 'staff.manage_multi_role')) {
+      $settingsSubgroups['Users'][] = $link('school.multi-role.index', 'Multi-role Accounts', 'roles');
+    }
     $communicationSettingsLinks = [$link('school.settings.mail.edit', 'Mail Settings', 'sliders')];
     // "Notifications" here is the exact same route the email_notifications
     // catalog entry above already renders (and marks in $renderedRoutes)

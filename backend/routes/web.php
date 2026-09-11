@@ -464,6 +464,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
     Route::middleware(['auth', 'school_member', 'require_password_change', 'block_demo_mutations'])->group(function () {
         Route::get('/dashboard', [SchoolPortalController::class, 'dashboard'])->name('school.dashboard');
         Route::post('/session/end-impersonation', [SchoolAdminController::class, 'endImpersonation'])->name('session.end-impersonation');
+        Route::post('/session/switch-role', [\App\Http\Controllers\School\RoleSwitchController::class, 'switch'])->name('session.switch-role');
 
         Route::prefix('help')->name('school.knowledge-base.')->group(function () {
             $kb = \App\Http\Controllers\School\KnowledgeBaseController::class;
@@ -600,6 +601,15 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/{roleId}/permissions', [$roles, 'updateRolePermissions'])->name('permissions.update');
             Route::post('/users/{userId}/role', [$roles, 'assignRole'])->name('users.assign');
             Route::post('/users/{userId}/extra-access', [$roles, 'updateExtraAccess'])->name('users.extra-access');
+        });
+
+        // Multi-role accounts (2026-09-11), deliberately a separate
+        // screen from Role Management above -- see MultiRoleAccountController's docblock.
+        Route::prefix('multi-role-accounts')->name('school.multi-role.')->group(function () {
+            $mr = \App\Http\Controllers\School\MultiRoleAccountController::class;
+            Route::get('/', [$mr, 'index'])->name('index');
+            Route::post('/grant', [$mr, 'grant'])->name('grant');
+            Route::post('/revoke', [$mr, 'revoke'])->name('revoke');
         });
 
         Route::prefix('houses')->name('school.houses.')->group(function () {

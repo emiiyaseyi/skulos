@@ -245,6 +245,15 @@ a{color:inherit;text-decoration:none}
 .notif-bell > summary::-webkit-details-marker{display:none}
 .notif-bell-panel{position:absolute;top:calc(100% + 8px);right:0;width:20rem;max-width:calc(100vw - 2rem);max-height:24rem;overflow-y:auto;z-index:80;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:.7rem}
 .notif-bell-panel .notif{padding:.55rem 0}
+/* Role switcher (2026-09-11): same disclosure shape as the bell above,
+   only rendered for an account holding more than one role. */
+.role-switch{position:relative}
+.role-switch > summary{list-style:none;cursor:pointer}
+.role-switch > summary::-webkit-details-marker{display:none}
+.role-switch-panel{position:absolute;top:calc(100% + 8px);right:0;width:16rem;max-width:calc(100vw - 2rem);z-index:80;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:.7rem}
+.role-switch-option{display:block;width:100%;text-align:left;padding:.55rem .6rem;margin-bottom:.3rem;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-weight:700;font-size:.85rem;cursor:pointer}
+.role-switch-option:hover{background:var(--soft)}
+.role-switch-option:last-child{margin-bottom:0}
 .menu-toggle{display:none}
 .content{padding:1.9rem 1.6rem 3rem}
 .portal-legal{margin-top:auto;padding:1rem 1.6rem 1.6rem;display:flex;flex-wrap:wrap;gap:1rem;align-items:center;font-size:.78rem;color:var(--mut)}
@@ -586,6 +595,7 @@ tr:last-child td{border-bottom:none}
      Anchoring to the viewport itself instead of the bell keeps it fully
      on screen regardless of where the bell sits in the row. */
   .notif-bell-panel{position:fixed;top:4.2rem;left:.8rem;right:.8rem;width:auto;max-width:none}
+  .role-switch-panel{position:fixed;top:4.2rem;left:.8rem;right:.8rem;width:auto;max-width:none}
 }
 /* Mobile friendly data tables ("genuinely usable on a phone, not just
    responsive-looking" standing rule): a wide, many-column table (score
@@ -827,6 +837,7 @@ tr:last-child td{border-bottom:none}
       @endif
       @if(($portal ?? null) === 'school' && isset($school) && $school && auth()->check())
         @include('layouts.partials.notification-bell', ['school' => $school])
+        @include('layouts.partials.role-switcher', ['school' => $school])
       @endif
       <button class="iconbtn" id="themeToggle" aria-label="Theme">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
@@ -1568,10 +1579,10 @@ document.getElementById('themeToggle')?.addEventListener('click',function(){
     });
   });
 
-  // The bell panel is a <details>, closed on any click outside it,
-  // matching how every other dropdown/panel in this app behaves.
+  // The bell (and role-switch) panel is a <details>, closed on any click
+  // outside it, matching how every other dropdown/panel in this app behaves.
   document.addEventListener('click', function(e){
-    document.querySelectorAll('.notif-bell[open]').forEach(function(bell){
+    document.querySelectorAll('.notif-bell[open], .role-switch[open]').forEach(function(bell){
       if (! bell.contains(e.target)) bell.removeAttribute('open');
     });
   });

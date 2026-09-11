@@ -105,7 +105,23 @@ class User extends Authenticatable
     protected array $isMemberOfCache = [];
 
     /**
-     * The user's role within one school (null if not a member).
+     * The user's CURRENTLY ACTIVE role within one school (null if not a
+     * member) -- their primary school_user.role_id by default, or
+     * whichever additional role they have switched into for this school
+     * (2026-09-11, multi-role accounts), via the top-bar role switcher.
+     * This is the one choke point ~30 call sites across the app already
+     * depend on (Rbac::check(), RoleDashboard::build(), nav-school.blade.php,
+     * the post-login redirect, TeacherScope/FamilyScope, ...) to mean
+     * "this user's current effective role" -- making this single method
+     * session-aware means every one of them respects a switch automatically,
+     * with zero changes needed anywhere else.
+     *
+     * The session value is NEVER trusted blindly: it must be this exact
+     * user's own primary role, or a row they actually hold in
+     * user_additional_roles for THIS school, checked fresh on every
+     * cache-miss. A tampered, stale, or since-revoked value silently
+     * falls back to the primary role rather than switching into
+     * something no longer held, or erroring.
      */
     public function roleIn(School $school): ?Role
     {
@@ -114,7 +130,23 @@ class User extends Authenticatable
                 ->where('schools.id', $school->id)
                 ->first()?->pivot;
 
-            $this->roleInCache[$school->id] = $membership?->role_id ? Role::find($membership->role_id) : null;
+            $primaryRoleId = $membership?->role_id;
+            $activeRoleId = $primaryRoleId;
+
+            if (app()->bound('session')) {
+                $switchedRoleId = session('active_role_'.$school->id);
+                if ($switchedRoleId && (int) $switchedRoleId !== (int) $primaryRoleId) {
+                    $holds = UserAdditionalRole::where('school_id', $school->id)
+                        ->where('user_id', $this->id)
+                        ->where('role_id', $switchedRoleId)
+                        ->exists();
+                    if ($holds) {
+                        $activeRoleId = $switchedRoleId;
+                    }
+                }
+            }
+
+            $this->roleInCache[$school->id] = $activeRoleId ? Role::find($activeRoleId) : null;
         }
 
         return $this->roleInCache[$school->id];
