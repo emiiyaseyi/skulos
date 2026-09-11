@@ -172,4 +172,90 @@ class AdmissionDocumentUploadTest extends TestCase
         $this->actingAs($teacher)->get(route('school.admissions.document-review.index', ['school' => $school->slug]))
             ->assertForbidden();
     }
+
+    /**
+     * User directive 2026-09-11: "let the school be able to make some of
+     * the document mandatory in the application settings." Every type
+     * stays optional by default (nothing new for an already-provisioned
+     * school), but a school can flag specific ones as required, and the
+     * applicant cannot finish without them.
+     */
+    public function test_a_required_document_blocks_finishing_until_uploaded(): void
+    {
+        [$school] = $this->schoolWithApplicantAndStaff('adusix');
+        app(TenantManager::class)->use($school);
+        \App\Models\Tenant\Setting::put('admission_required_documents', ['birth_certificate']);
+        app(TenantManager::class)->forget();
+        $this->signIn($school);
+
+        $this->get("http://{$school->slug}.localhost/admissions/documents")
+            ->assertOk()->assertSee('Birth Certificate *', false);
+
+        $this->post("http://{$school->slug}.localhost/admissions/documents", [
+            'last_report_card' => UploadedFile::fake()->create('report.pdf', 200, 'application/pdf'),
+        ])->assertSessionHasErrors('birth_certificate');
+
+        $this->post("http://{$school->slug}.localhost/admissions/documents", [
+            'birth_certificate' => UploadedFile::fake()->image('birth.jpg'),
+            'last_report_card' => UploadedFile::fake()->create('report.pdf', 200, 'application/pdf'),
+        ])->assertRedirect("http://{$school->slug}.localhost/admissions/dashboard");
+    }
+
+    /**
+     * A required document already on file (even just pending, not yet
+     * verified) satisfies the requirement -- revisiting this step must
+     * not force a redundant re-upload of something already given.
+     */
+    public function test_an_already_uploaded_required_document_does_not_need_reuploading(): void
+    {
+        [$school, , $applicant] = $this->schoolWithApplicantAndStaff('aduseven');
+        app(TenantManager::class)->use($school);
+        \App\Models\Tenant\Setting::put('admission_required_documents', ['birth_certificate']);
+        app(TenantManager::class)->forget();
+        $this->signIn($school);
+
+        $this->post("http://{$school->slug}.localhost/admissions/documents", [
+            'birth_certificate' => UploadedFile::fake()->image('birth.jpg'),
+        ])->assertRedirect();
+
+        // Revisiting and submitting with nothing new must not fail.
+        $this->post("http://{$school->slug}.localhost/admissions/documents", [])
+            ->assertRedirect("http://{$school->slug}.localhost/admissions/dashboard")
+            ->assertSessionDoesntHaveErrors('birth_certificate');
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame(1, AdmissionDocument::where('applicant_id', $applicant->id)->count());
+        app(TenantManager::class)->forget();
+    }
+
+    /**
+     * A real report: "applicant did not upload any document but its
+     * showing Application complete. The school will review your
+     * documents shortly." -- the message must not claim a review is
+     * coming when nothing was ever given to review.
+     */
+    public function test_the_completion_message_does_not_promise_a_review_when_nothing_was_uploaded(): void
+    {
+        [$school] = $this->schoolWithApplicantAndStaff('aduight');
+        $this->signIn($school);
+
+        $this->followingRedirects()
+            ->post("http://{$school->slug}.localhost/admissions/documents", [])
+            ->assertOk()
+            ->assertSee('Application complete.')
+            ->assertDontSee('The school will review your documents shortly.');
+    }
+
+    public function test_the_completion_message_still_mentions_review_when_something_was_uploaded(): void
+    {
+        [$school] = $this->schoolWithApplicantAndStaff('adunine');
+        $this->signIn($school);
+
+        $this->followingRedirects()
+            ->post("http://{$school->slug}.localhost/admissions/documents", [
+                'birth_certificate' => UploadedFile::fake()->image('birth.jpg'),
+            ])
+            ->assertOk()
+            ->assertSee('The school will review your documents shortly.');
+    }
 }

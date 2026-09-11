@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admissions;
 
+use App\Http\Controllers\Admissions\Concerns\HasWizardSteps;
 use App\Models\Tenant\AdmissionFormField;
 use App\Models\Tenant\AdmissionFormSection;
 use App\Models\Tenant\AdmissionFormValue;
@@ -17,26 +18,21 @@ use Illuminate\Support\Facades\Auth;
  * for real persisted draft state on AdmissionFormValue rather than
  * reflecting existing records — an applicant can leave and come back,
  * nothing is lost.
+ *
+ * 2026-09-11: also a real clickable stepper (HasWizardSteps) so an
+ * applicant can jump straight to any step instead of only stepping
+ * forward one at a time, and a "Save and continue later" action that
+ * persists whatever is filled in without enforcing required fields.
  */
 class ApplicationFormController extends Controller
 {
-    protected function steps(): array
-    {
-        AdmissionFormSection::ensureSeeded();
-
-        return AdmissionFormSection::where('is_active', true)
-            ->distinct()
-            ->orderBy('step')
-            ->pluck('step')
-            ->values()
-            ->all();
-    }
+    use HasWizardSteps;
 
     public function show(Request $request): \Illuminate\View\View|\Illuminate\Http\RedirectResponse
     {
         $school = $request->attributes->get('school');
         $applicant = Auth::guard('applicant')->user();
-        $steps = $this->steps();
+        $steps = $this->customStepNumbers();
 
         if (empty($steps)) {
             // No custom fields configured — documents (Phase 1f) always
@@ -73,6 +69,7 @@ class ApplicationFormController extends Controller
             // step now, chained automatically after the last custom-field
             // step, so a custom step is never the actual last one anymore.
             'totalSteps' => count($steps) + 1,
+            'stepList' => $this->wizardStepList($school, $step),
         ]);
     }
 
@@ -80,8 +77,17 @@ class ApplicationFormController extends Controller
     {
         $school = $request->attributes->get('school');
         $applicant = Auth::guard('applicant')->user();
-        $steps = $this->steps();
+        $steps = $this->customStepNumbers();
         $step = (int) ($request->query('step') ?: ($steps[0] ?? 1));
+
+        // "Save and continue later" (2026-09-11, user directive): saves
+        // whatever is filled in on THIS step without enforcing required
+        // fields, and sends the applicant back to their dashboard rather
+        // than forcing them through every remaining step in one sitting.
+        // "Continue" (the default) keeps the original behaviour exactly:
+        // required fields are enforced, and a clean save advances to the
+        // next step.
+        $isDraft = $request->input('mode') === 'draft';
 
         $fields = AdmissionFormField::whereHas('section', fn ($q) => $q->where('step', $step))
             ->where('is_active', true)
@@ -89,6 +95,7 @@ class ApplicationFormController extends Controller
 
         $rules = [];
         foreach ($fields as $field) {
+            $required = ! $isDraft && $field->is_required;
             if ($field->type === 'geo') {
                 // The reusable Country/State/LGA picker posts three flat,
                 // non-nested field names (not fields[{id}][...] — old()
@@ -96,13 +103,13 @@ class ApplicationFormController extends Controller
                 // calls old($countryName, ...) using its own name prop
                 // verbatim, so a bracketed name would silently never
                 // restore on a validation-error redisplay).
-                $rules["field_{$field->id}_country"] = $field->is_required ? ['required', 'string', 'max:120'] : ['nullable', 'string', 'max:120'];
+                $rules["field_{$field->id}_country"] = $required ? ['required', 'string', 'max:120'] : ['nullable', 'string', 'max:120'];
                 $rules["field_{$field->id}_state"] = ['nullable', 'string', 'max:120'];
                 $rules["field_{$field->id}_lga"] = ['nullable', 'string', 'max:120'];
 
                 continue;
             }
-            $rules["fields.{$field->id}"] = $field->is_required ? ['required', 'string', 'max:2000'] : ['nullable', 'string', 'max:2000'];
+            $rules["fields.{$field->id}"] = $required ? ['required', 'string', 'max:2000'] : ['nullable', 'string', 'max:2000'];
         }
         $data = $request->validate($rules);
 
@@ -134,6 +141,11 @@ class ApplicationFormController extends Controller
                 ['applicant_id' => $applicant->id, 'admission_form_field_id' => $field->id],
                 ['value' => $value]
             );
+        }
+
+        if ($isDraft) {
+            return redirect()->route('school.admissions.dashboard', ['school' => $school->slug])
+                ->with('status', 'Progress saved. Come back anytime to continue your application.');
         }
 
         $stepIndex = array_search($step, $steps, true);

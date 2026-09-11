@@ -1186,6 +1186,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/stages/{stageId}/move/{direction}', [$admissionSettings, 'moveStage'])->name('stages.move');
             Route::post('/reference-format', [$admissionSettings, 'updateReferenceFormat'])->name('reference-format');
             Route::post('/letter-content', [$admissionSettings, 'updateLetterContent'])->name('letter-content');
+            Route::post('/documents', [$admissionSettings, 'updateDocumentSettings'])->name('documents');
             Route::post('/windows', [$admissionSettings, 'storeWindow'])->name('windows.store');
             Route::post('/windows/{batchUuid}/update', [$admissionSettings, 'updateWindowBatch'])->name('windows.update');
             Route::post('/windows/{batchUuid}/toggle', [$admissionSettings, 'toggleWindowBatch'])->name('windows.toggle');

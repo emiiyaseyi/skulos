@@ -141,6 +141,26 @@
 </div>
 
 <div class="card" style="margin-bottom:1.25rem">
+  <h3 style="margin-bottom:.4rem">Required documents</h3>
+  <p class="muted" style="margin-bottom:.8rem">
+    Tick any document an applicant must upload before they can finish their application. Anything
+    left unticked stays optional, the same as it is today.
+  </p>
+  <form method="POST" action="{{ route('school.admissions.settings.documents', ['school' => $school->slug]) }}">
+    @csrf
+    <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:.9rem">
+      @foreach($documentTypes as $key => $label)
+        <label style="font-weight:500;display:flex;gap:.5rem;align-items:center">
+          <input type="checkbox" name="required_documents[]" value="{{ $key }}" @checked(in_array($key, $requiredDocuments, true)) />
+          {{ $label }}
+        </label>
+      @endforeach
+    </div>
+    <button class="btn btn-primary btn-sm" type="submit">Save document requirements</button>
+  </form>
+</div>
+
+<div class="card" style="margin-bottom:1.25rem">
   <h3 style="margin-bottom:.8rem">Open a new admission window</h3>
   <form method="POST" action="{{ route('school.admissions.settings.windows.store', ['school' => $school->slug]) }}">
     @csrf

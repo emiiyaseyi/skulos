@@ -26,6 +26,8 @@
     </div>
   </div>
 
+  @include('admissions.partials.wizard-steps')
+
   @if($errors->any())
     <div class="flash flash-bad" style="margin-bottom:1rem">{{ $errors->first() }}</div>
   @endif
@@ -71,7 +73,12 @@
           @endif
         @endforeach
       @endforeach
-      <button class="btn btn-primary btn-block" type="submit">Continue</button>
+      <button class="btn btn-primary btn-block" type="submit" name="mode" value="continue">Continue</button>
+      {{-- Save and continue later (2026-09-11, user directive): persists
+           whatever is filled in on this step without requiring every
+           required field first, and sends the applicant back to their
+           dashboard instead of the next step. --}}
+      <button class="btn btn-ghost btn-block" type="submit" name="mode" value="draft" formnovalidate style="margin-top:.5rem">Save and continue later</button>
     </form>
   </div>
 </div>

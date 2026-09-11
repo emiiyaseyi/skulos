@@ -136,6 +136,66 @@ class AdmissionFormSubmissionTest extends TestCase
         $this->assertSame(['country' => 'Nigeria', 'state' => 'Lagos', 'lga' => 'Ikeja'], $stored);
     }
 
+    /**
+     * User directive 2026-09-11: "applicant should be able to move from
+     * one section to another without using the continue button at the
+     * end of the page, so we should have the name of each section at
+     * the top and user can click on anyone." Jumping was already safe
+     * server-side; this confirms the stepper actually renders the links
+     * and that jumping straight to a later step (without ever
+     * submitting the earlier one) still works.
+     */
+    public function test_the_stepper_shows_every_step_and_lets_an_applicant_jump_directly_to_one(): void
+    {
+        [$school] = $this->activeApplicantSchool('afssix');
+        $this->signIn($school, 'APP/0001', 'secret123');
+
+        $this->get("http://{$school->slug}.localhost/admissions/form?step=1")
+            ->assertOk()
+            ->assertSee('Guardian Info')
+            ->assertSee('Health')
+            ->assertSee('Documents');
+
+        // Jump straight to step 2 without ever submitting step 1.
+        $this->get("http://{$school->slug}.localhost/admissions/form?step=2")
+            ->assertOk()->assertSee('Known Allergies');
+    }
+
+    /**
+     * "Save and continue later" (2026-09-11, user directive): persists
+     * whatever is filled in without enforcing the step's own required
+     * fields, and sends the applicant to their dashboard rather than the
+     * next step.
+     */
+    public function test_save_and_continue_later_persists_partial_progress_without_requiring_fields(): void
+    {
+        [$school, , $fieldName] = $this->activeApplicantSchool('afsseven');
+        $this->signIn($school, 'APP/0001', 'secret123');
+
+        // fieldName is required; a plain "Continue" would reject this.
+        $this->post("http://{$school->slug}.localhost/admissions/form?step=1", [
+            'fields' => [$fieldName->id => ''],
+            'mode' => 'draft',
+        ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect("http://{$school->slug}.localhost/admissions/dashboard");
+    }
+
+    public function test_save_and_continue_later_still_saves_whatever_was_actually_typed(): void
+    {
+        [$school, , $fieldName] = $this->activeApplicantSchool('afseight');
+        $this->signIn($school, 'APP/0001', 'secret123');
+
+        $this->post("http://{$school->slug}.localhost/admissions/form?step=1", [
+            'fields' => [$fieldName->id => 'Mrs Adeyemi'],
+            'mode' => 'draft',
+        ])->assertRedirect("http://{$school->slug}.localhost/admissions/dashboard");
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame('Mrs Adeyemi', AdmissionFormValue::where('admission_form_field_id', $fieldName->id)->value('value'));
+        app(TenantManager::class)->forget();
+    }
+
     public function test_a_locked_out_applicant_cannot_reach_the_form(): void
     {
         [$school] = $this->activeApplicantSchool('afsfour');

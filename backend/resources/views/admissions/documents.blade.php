@@ -26,22 +26,35 @@
     </div>
   </div>
 
+  @include('admissions.partials.wizard-steps')
+
   @if($errors->any())
     <div class="flash flash-bad" style="margin-bottom:1rem">{{ $errors->first() }}</div>
   @endif
 
+  @php($requiredDocuments = $requiredDocuments ?? [])
   <div class="card">
-    <p class="muted" style="margin-bottom:1rem">Upload whichever of these you already have. All are optional, you can add or replace one later from your dashboard.</p>
+    <p class="muted" style="margin-bottom:1rem">
+      @if(count($requiredDocuments))
+        Documents marked * are required before you can finish. Upload whichever of the rest you
+        already have too, you can add or replace one later from your dashboard.
+      @else
+        Upload whichever of these you already have. All are optional, you can add or replace one
+        later from your dashboard.
+      @endif
+    </p>
     <form method="POST" action="{{ route('school.admissions.documents.save', ['school' => $school->slug]) }}" enctype="multipart/form-data">
       @csrf
       @foreach($documentTypes as $key => $label)
         @php($doc = $existing[$key] ?? null)
+        @php($isRequired = in_array($key, $requiredDocuments, true) && (! $doc || $doc->status === 'rejected'))
         <div class="field">
-          <label for="doc_{{ $key }}">{{ $label }}</label>
+          <label for="doc_{{ $key }}">{{ $label }}{{ $isRequired ? ' *' : '' }}</label>
           @if($doc && $doc->status === 'verified')
             <div class="badge badge-ok" style="display:inline-block">Verified</div>
           @else
-            <input id="doc_{{ $key }}" name="{{ $key }}" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" />
+            <input id="doc_{{ $key }}" name="{{ $key }}" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" @if($isRequired) required @endif />
+            @error($key)<div class="err">{{ $message }}</div>@enderror
             @if($doc && $doc->status === 'pending')
               <div class="hint">Uploaded, awaiting review. Choose a file above to replace it.</div>
             @elseif($doc && $doc->status === 'rejected')

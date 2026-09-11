@@ -56,6 +56,8 @@ class AdmissionSettingsController extends Controller
             'referencePrefix' => Setting::grab('admission_reference_prefix') ?? config('skulos.default_admission_reference_prefix', 'APP'),
             'letterIntro' => Setting::grab('admission_letter_intro') ?? config('skulos.default_admission_letter_intro'),
             'letterNextSteps' => Setting::grab('admission_letter_next_steps') ?? config('skulos.default_admission_letter_next_steps'),
+            'documentTypes' => config('skulos.admission_document_types', []),
+            'requiredDocuments' => Setting::grab('admission_required_documents', []),
             'batches' => $this->windowBatches(),
             'sessions' => AcademicSession::active()->orderByDesc('id')->get(),
             'classes' => SchoolClass::active()->with('section')->orderBy('sequence')->get(),
@@ -218,6 +220,29 @@ class AdmissionSettingsController extends Controller
         Setting::put('admission_letter_next_steps', $data['letter_next_steps']);
 
         return back()->with('status', 'Admission letter content updated.');
+    }
+
+    /**
+     * Which of the catalog document types (config('skulos.admission_
+     * document_types')) an applicant must upload before finishing the
+     * wizard (user directive 2026-09-11: "let the school be able to make
+     * some of the document mandatory in the application settings").
+     * Every type stays optional until a school explicitly ticks it here
+     * -- the exact same default as before this setting existed, so no
+     * already-provisioned school's applicant flow changes on its own.
+     */
+    public function updateDocumentSettings(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'admissions.manage_settings');
+
+        $data = $request->validate([
+            'required_documents' => ['nullable', 'array'],
+            'required_documents.*' => [Rule::in(array_keys(config('skulos.admission_document_types', [])))],
+        ]);
+
+        Setting::put('admission_required_documents', $data['required_documents'] ?? []);
+
+        return back()->with('status', 'Document requirements updated.');
     }
 
     public function storeWindow(Request $request): \Illuminate\Http\RedirectResponse

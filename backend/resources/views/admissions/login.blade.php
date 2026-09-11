@@ -50,6 +50,9 @@
     <p class="support-line" style="margin-top:1rem;text-align:center">
       <a href="{{ route('school.admissions.recover.show', ['school' => $school->slug]) }}">Forgot your reference number or password?</a>
     </p>
+    <p class="support-line" style="margin-top:.5rem;text-align:center">
+      <a href="{{ route('school.login', ['school' => $school->slug]) }}">Back to school portal</a>
+    </p>
   </div>
 </div>
 @endsection
