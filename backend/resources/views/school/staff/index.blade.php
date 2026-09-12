@@ -7,6 +7,11 @@
     <p class="subtitle">{{ number_format($total) }} on record.</p>
   </div>
   <div class="stack" style="flex-direction:row;gap:.6rem">
+    {{-- User report 2026-09-12: "Tunde Yusuf is both a Staff and a
+         Parent, not seen here, also admin should have a section where
+         he/she can see staff who are also parents somewhere from the
+         staff portal." --}}
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.staff.also-parents', ['school' => $school->slug]) }}">Also Parents{{ $alsoParentsCount ? " ({$alsoParentsCount})" : '' }}</a>
     @if($canManage)
       <a class="btn btn-ghost btn-sm" href="{{ route('school.staff.trashed', ['school' => $school->slug]) }}">Trashed</a>
     @endif

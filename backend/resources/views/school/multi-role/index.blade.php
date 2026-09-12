@@ -55,10 +55,19 @@
 </div>
 
 <div class="card">
-  <h3 style="margin-bottom:.4rem">Every school member</h3>
+  <div class="row-between" style="flex-wrap:wrap;gap:.6rem;margin-bottom:.4rem">
+    <h3 style="margin:0">Every school member</h3>
+    <form method="GET" action="{{ route('school.multi-role.index', ['school' => $school->slug]) }}" style="display:flex;gap:.4rem">
+      <input type="search" name="q" value="{{ $search }}" placeholder="Search by name or email" aria-label="Search members by name or email" style="min-width:14rem" />
+      <button class="btn btn-ghost btn-sm" type="submit">Search</button>
+      @if($search)
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.multi-role.index', ['school' => $school->slug]) }}">Clear</a>
+      @endif
+    </form>
+  </div>
   <p class="muted" style="margin-bottom:.8rem">"Primary role" is their real, structural role. Anything shown as an extra badge is an additional role they can switch into.</p>
   @if($members->isEmpty())
-    <p class="muted">No members yet.</p>
+    <p class="muted">{{ $search ? 'No members match "'.$search.'".' : 'No members yet.' }}</p>
   @else
     <div style="overflow-x:auto">
     <table class="table-stack">

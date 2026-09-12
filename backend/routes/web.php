@@ -585,6 +585,9 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/import/confirm', [$staff, 'confirmImport'])->name('import.confirm');
             Route::get('/trashed', [$staff, 'trashed'])->name('trashed');
             Route::post('/trashed/bulk-action', [$staff, 'trashedBulkAction'])->name('trashed.bulk-action');
+            // Before {staffId} below -- otherwise the wildcard route
+            // would greedily match "also-parents" as a staff id.
+            Route::get('/also-parents', [$staff, 'alsoParents'])->name('also-parents');
             Route::get('/{staffId}', [$staff, 'show'])->name('show');
             Route::get('/{staffId}/edit', [$staff, 'edit'])->name('edit');
             Route::post('/{staffId}/edit', [$staff, 'update'])->name('update');

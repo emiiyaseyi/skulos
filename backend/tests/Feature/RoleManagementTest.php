@@ -250,6 +250,32 @@ class RoleManagementTest extends TestCase
         $this->assertCount(35, $usersByRoleId[$bursarRole->id], 'the popup data must list every member of the role, not just one page');
     }
 
+    /** User request 2026-09-12: "include search button here where admin can search for user names easily." */
+    public function test_the_users_table_can_be_searched_by_name_or_email(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'rmnine');
+        $bursarRole = $this->rbac->cloneTemplateRole($school, 'bursar');
+        $yusuf = User::factory()->create(['name' => 'Tunde Yusuf', 'email' => 'tunde.yusuf@example.com']);
+        $school->users()->attach($yusuf->id, ['role_id' => $bursarRole->id, 'status' => 'active']);
+        $other = User::factory()->create(['name' => 'Ada Obi', 'email' => 'ada@example.com']);
+        $school->users()->attach($other->id, ['role_id' => $bursarRole->id, 'status' => 'active']);
+
+        // Checking against the specific row markup, not a bare
+        // assertDontSee($name): a role's own member list (the "click a
+        // role, see everyone on it" popup data) always lists every
+        // holder of that role regardless of this search box, by
+        // design -- so "Ada Obi" legitimately still appears somewhere
+        // on the page even while searching "Yusuf", just not as a row
+        // in the Users table itself.
+        $byName = $this->actingAs($owner)->get(route('school.roles.index', ['school' => $school->slug, 'q' => 'Yusuf']));
+        $byName->assertOk()->assertSee('<strong>Tunde Yusuf</strong>', false)
+            ->assertDontSee('<strong>Ada Obi</strong>', false);
+
+        $byEmail = $this->actingAs($owner)->get(route('school.roles.index', ['school' => $school->slug, 'q' => 'ada@example.com']));
+        $byEmail->assertOk()->assertSee('<strong>Ada Obi</strong>', false)
+            ->assertDontSee('<strong>Tunde Yusuf</strong>', false);
+    }
+
     public function test_a_teacher_without_staff_update_cannot_open_the_page(): void
     {
         [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'rmseven');

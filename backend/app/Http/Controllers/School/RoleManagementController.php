@@ -135,8 +135,19 @@ class RoleManagementController extends Controller
         // could run into the thousands of queries on a large school.
         // Bounding to one page means those per-user calls only ever run
         // for the 30 users actually being rendered.
+        // Search by name or email (user request 2026-09-12: "include
+        // search button here where admin can search for user names
+        // easily") -- a school with hundreds of students/staff/parents
+        // on this one paginated table otherwise means paging through
+        // to find one specific person.
+        $search = trim((string) $request->query('q'));
+
         $members = $school->users()
             ->wherePivot('status', 'active')
+            ->when($search, fn ($q) => $q->where(function ($w) use ($search) {
+                $w->where('users.name', 'like', "%{$search}%")
+                    ->orWhere('users.email', 'like', "%{$search}%");
+            }))
             ->orderBy('users.name')
             ->paginate(30)
             ->withQueryString()
@@ -173,6 +184,7 @@ class RoleManagementController extends Controller
             'userCountsByRole' => $userCountsByRole,
             'usersByRoleId' => $usersByRoleId,
             'members' => $members,
+            'search' => $search,
             'moduleOptions' => $this->moduleOptions(),
             'permissionCatalog' => $this->permissionCatalog(),
         ]);

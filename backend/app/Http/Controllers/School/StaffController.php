@@ -95,6 +95,44 @@ class StaffController extends Controller
             'total' => Staff::count(),
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'staff.update'),
             'canCreate' => app(Rbac::class)->check(Auth::user(), $school, 'staff.create'),
+            'alsoParentsCount' => \App\Models\Tenant\StudentGuardian::whereIn('guardian_user_id', Staff::pluck('user_id')->filter())->distinct('guardian_user_id')->count('guardian_user_id'),
+        ]);
+    }
+
+    /**
+     * "Staff who are also parents" (user report 2026-09-12, from a real
+     * live case: "Tunde Yusuf is both a Staff and a Parent, not seen
+     * here, also admin should have a section where he/she can see
+     * staff who are also parents somewhere from the staff portal").
+     * Defined the same way FamilyScope itself defines "is this person
+     * a parent" -- a real StudentGuardian row, not the RBAC 'parent'
+     * role slug -- since a staff member's real-world parenthood here
+     * doesn't depend on which role (primary or an additional one via
+     * the multi-role switcher) they happen to hold at this school.
+     */
+    public function alsoParents(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'staff.view');
+        $school = $this->school($request);
+
+        $staffUserIds = Staff::whereNotNull('user_id')->pluck('user_id', 'id');
+        $guardianRows = \App\Models\Tenant\StudentGuardian::whereIn('guardian_user_id', $staffUserIds->values())
+            ->with('student.currentClassArm.schoolClass')
+            ->get()
+            ->groupBy('guardian_user_id');
+
+        $rows = Staff::active()->whereIn('user_id', $guardianRows->keys())
+            ->orderBy('first_name')->orderBy('last_name')
+            ->get()
+            ->map(fn (Staff $staff) => [
+                'staff' => $staff,
+                'children' => $guardianRows->get($staff->user_id, collect())->map(fn ($g) => $g->student),
+            ]);
+
+        return view('school.staff.also-parents', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'rows' => $rows,
         ]);
     }
 

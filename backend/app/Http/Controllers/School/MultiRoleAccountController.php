@@ -62,8 +62,18 @@ class MultiRoleAccountController extends Controller
         $this->authorizeAction($request);
         $school = $this->school($request);
 
+        // Search by name or email (user directive 2026-09-12: "include
+        // search button here too and every page or section like this
+        // to aid searching" -- same convention as Role Management's
+        // own Users table).
+        $search = trim((string) $request->query('q'));
+
         $members = $school->users()
             ->wherePivot('status', 'active')
+            ->when($search, fn ($q) => $q->where(function ($w) use ($search) {
+                $w->where('users.name', 'like', "%{$search}%")
+                    ->orWhere('users.email', 'like', "%{$search}%");
+            }))
             ->orderBy('users.name')
             ->paginate(30)
             ->withQueryString();
@@ -80,6 +90,7 @@ class MultiRoleAccountController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'members' => $members,
+            'search' => $search,
             'roles' => $this->assignableRoles(),
         ]);
     }

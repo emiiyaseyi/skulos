@@ -385,4 +385,31 @@ class StaffPortalTest extends TestCase
         $this->assertNotNull(Staff::withTrashed()->find($staffId));
         app(TenantManager::class)->forget();
     }
+
+    /**
+     * User report 2026-09-12: "Tunde Yusuf is both a Staff and a
+     * Parent, not seen here, also admin should have a section where
+     * he/she can see staff who are also parents somewhere from the
+     * staff portal." Defined via a real StudentGuardian row (the same
+     * way FamilyScope defines "is this person a parent"), not the RBAC
+     * role slug, since a staff member's real-world parenthood doesn't
+     * depend on which role (primary or additional) they hold here.
+     */
+    public function test_the_also_parents_screen_lists_a_staff_member_who_is_a_real_guardian(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'stfparent');
+        $parentTeacher = User::factory()->create(['name' => 'Tunde Yusuf']);
+        $otherTeacher = User::factory()->create(['name' => 'Ada Obi']);
+
+        app(TenantManager::class)->use($school);
+        $staffOne = Staff::create(['staff_id' => 'STF/0090', 'first_name' => 'Tunde', 'last_name' => 'Yusuf', 'position' => 'Class Teacher', 'user_id' => $parentTeacher->id]);
+        Staff::create(['staff_id' => 'STF/0091', 'first_name' => 'Ada', 'last_name' => 'Obi', 'position' => 'Bursar', 'user_id' => $otherTeacher->id]);
+        $child = \App\Models\Tenant\Student::create(['admission_number' => 'ALS/1', 'first_name' => 'Chika', 'last_name' => 'Yusuf']);
+        \App\Models\Tenant\StudentGuardian::create(['student_id' => $child->id, 'name' => 'Tunde Yusuf', 'guardian_user_id' => $parentTeacher->id]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/staff/also-parents");
+
+        $response->assertOk()->assertSee('Tunde Yusuf')->assertSee('Chika Yusuf')->assertDontSee('Ada Obi');
+    }
 }

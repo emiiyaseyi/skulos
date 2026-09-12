@@ -91,9 +91,18 @@
 </div>
 
 <div class="card">
-  <h3 style="margin-bottom:.8rem">Users</h3>
+  <div class="row-between" style="flex-wrap:wrap;gap:.6rem;margin-bottom:.8rem">
+    <h3 style="margin:0">Users</h3>
+    <form method="GET" action="{{ route('school.roles.index', ['school' => $school->slug]) }}" style="display:flex;gap:.4rem">
+      <input type="search" name="q" value="{{ $search }}" placeholder="Search by name or email" aria-label="Search users by name or email" style="min-width:14rem" />
+      <button class="btn btn-ghost btn-sm" type="submit">Search</button>
+      @if($search)
+        <a class="btn btn-ghost btn-sm" href="{{ route('school.roles.index', ['school' => $school->slug]) }}">Clear</a>
+      @endif
+    </form>
+  </div>
   @if($members->isEmpty())
-    <p class="muted">No users yet.</p>
+    <p class="muted">{{ $search ? 'No users match "'.$search.'".' : 'No users yet.' }}</p>
   @else
     <div style="overflow-x:auto">
     <table class="table-stack">
