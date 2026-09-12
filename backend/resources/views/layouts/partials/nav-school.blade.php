@@ -793,6 +793,29 @@
     ];
   }
 
+  // "My Reviews" (2026-09-12, user directive): "there's no submenu for
+  // staff assign class to review report to... class teacher should see
+  // list of report cards sent for review, the status... note that
+  // subject teacher wont see [their own class's report cards] as its
+  // only class teachers that sees it but if the user is both class and
+  // subject, he/she will see it." One screen, two independently-gated
+  // sections computed from real data (does this Staff row lead a
+  // class? does anything have assigned_to_staff_id pointing at them?),
+  // not a role-slug special case, so "holds both" falls out naturally.
+  // Same report_cards.view gate as Traits & Remarks Entry above --
+  // class-teacher already held it, subject-teacher was granted it
+  // fresh alongside review_assigned for exactly this screen.
+  if ($isTeacherScoped && $navRbac->check($navUser, $school, 'report_cards.view')) {
+    $myReviewsActive = $cur === 'school.report-cards.my-reviews';
+    $academicSubgroups['Examinations']['my_reviews'] = [
+      'active' => $myReviewsActive,
+      'html' => '<a class="side-link'.($myReviewsActive ? ' active' : '').'" href="'.route('school.report-cards.my-reviews', ['school' => $slug]).'">'.
+        '<span>My Report Reviews</span>'.
+        view('layouts.partials.icon', ['name' => 'approve'])->render().
+        '</a>',
+    ];
+  }
+
   // Narrative Evaluation (user request 2026-07-18: "add a new settings
   // for all admins across all plan that allows the admin... to set a
   // class or some classes to have the Narrative Evaluation style of
@@ -1114,7 +1137,7 @@
   // scoped to Settings specifically), pushed into the otherwise-flat
   // Academic group rather than making the whole group nested.
   $examEntries = [];
-  foreach (['enter_scores', 'traits_remarks', 'term_broadsheets', 'grading', 'narrative_evaluation', 'report_card_calculation', 'bulk_generate', 'bulk_release', 'promote_students'] as $examKey) {
+  foreach (['enter_scores', 'traits_remarks', 'my_reviews', 'term_broadsheets', 'grading', 'narrative_evaluation', 'report_card_calculation', 'bulk_generate', 'bulk_release', 'promote_students'] as $examKey) {
     if (isset($academicSubgroups['Examinations'][$examKey])) {
       $examEntries[] = $academicSubgroups['Examinations'][$examKey];
     }

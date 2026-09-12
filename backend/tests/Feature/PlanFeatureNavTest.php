@@ -103,10 +103,17 @@ class PlanFeatureNavTest extends TestCase
      * all under report and analystics." result_management's own nav
      * permission mapping was looser (examinations.view, which a subject
      * teacher genuinely holds for entering scores) than the screen it
-     * points at actually requires (report_cards.view, which they do
+     * points at actually requires (report_cards.view, which they did
      * not hold), so the link rendered anyway and led nowhere real.
+     *
+     * Superseded 2026-09-12: subject-teacher now genuinely holds
+     * report_cards.view (user directive: they can see/act on report
+     * cards explicitly assigned to them for review), so the original
+     * "leads nowhere" problem this test guarded against no longer
+     * applies -- the link is expected to show now, and it leads
+     * somewhere real.
      */
-    public function test_a_subject_teacher_never_sees_report_cards_in_the_nav(): void
+    public function test_a_subject_teacher_now_sees_report_cards_in_the_nav(): void
     {
         $plan = Plan::create([
             'name' => 'Test Plan rcnavhide', 'slug' => 'plan-rcnavhide',
@@ -118,7 +125,8 @@ class PlanFeatureNavTest extends TestCase
         $school->users()->attach($user->id, ['role_id' => $role->id, 'status' => 'active']);
 
         $this->actingAs($user)->get("http://{$school->slug}.localhost/dashboard")
-            ->assertOk()->assertDontSee('Report Cards');
+            ->assertOk()->assertSee('Report Cards');
+        $this->actingAs($user)->get("http://{$school->slug}.localhost/report-cards")->assertOk();
     }
 
     /** A class teacher genuinely holds report_cards.view and must still see the link, unaffected by the fix above. */

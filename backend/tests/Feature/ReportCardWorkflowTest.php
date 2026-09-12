@@ -340,12 +340,22 @@ class ReportCardWorkflowTest extends TestCase
         $this->actingAs($teacher)->post("http://{$school->slug}.localhost/report-cards/{$studentId}/generate")->assertNotFound();
     }
 
-    public function test_a_subject_teacher_without_report_card_access_is_forbidden(): void
+    /**
+     * Was a flat 403 before 2026-09-12: subject-teacher now holds
+     * report_cards.view (needed for the new "My Report Reviews" screen,
+     * user directive: a subject teacher can see/act on report cards
+     * explicitly assigned to them), so the index itself is reachable --
+     * the real boundary (cannot generate/approve/etc without the right
+     * grant) is asserted by the other tests in this class and still
+     * holds, e.g. test_a_subject_teacher_cannot_generate_a_report_card
+     * directly above this one.
+     */
+    public function test_a_subject_teacher_can_view_the_index_but_not_act_on_report_cards(): void
     {
         [$school, $teacher] = $this->schoolWithMember('subject-teacher', 'rcnine');
         $this->seedClassWithStudent($school);
 
-        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/report-cards")->assertForbidden();
+        $this->actingAs($teacher)->get("http://{$school->slug}.localhost/report-cards")->assertOk();
     }
 
 

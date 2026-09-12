@@ -1150,6 +1150,13 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/sections/{sectionId}/signer', [$reportCards, 'updateSectionSigner'])->name('section.signer');
             Route::get('/preview/{template?}', [$reportCards, 'preview'])->name('preview');
             Route::get('/pending-review', [$reportCards, 'pendingReview'])->name('pending-review');
+            // A class/subject teacher's own review queue (2026-09-12,
+            // user directive), distinct from the admin-only school-wide
+            // pending-review screen above: every report card in their
+            // own class (read only) plus every review actually assigned
+            // to them (actionable via the existing approve/send-back
+            // actions, now permission-checked to also allow this).
+            Route::get('/my-reviews', [$reportCards, 'myReviews'])->name('my-reviews');
             Route::get('/bulk-generate', [$reportCards, 'bulkGenerateAllForm'])->name('bulk-generate');
             Route::post('/bulk-generate', [$reportCards, 'bulkGenerateAll'])->name('bulk-generate.submit');
             Route::get('/bulk-release', [$reportCards, 'bulkReleaseAllForm'])->name('bulk-release');

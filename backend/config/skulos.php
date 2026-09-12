@@ -3252,7 +3252,17 @@ If you have run into any issue at all, or have any questions, just reply to this
         // action a school admin should explicitly opt other roles into via
         // Roles & Permissions, not something that comes bundled with
         // everyday per-class report card creation.
-        'report_cards' => ['assign_review', 'release', 'bulk_generate_all'],
+        'report_cards' => ['assign_review', 'release', 'bulk_generate_all',
+            // Narrower than assign_review (user directive 2026-09-12:
+            // class/subject teachers should see and act on report
+            // cards specifically assigned to THEM for review, not gain
+            // the admin's school-wide "assign/approve anything"
+            // power). ReportCardController::approve()/sendBack() only
+            // honour this when the review's own assigned_to_staff_id
+            // matches the acting user's Staff row -- granted by
+            // default to class-teacher and subject-teacher below.
+            'review_assigned',
+        ],
         // Admissions module (2026-07-30): configuring the pipeline chain,
         // fee amounts, and which class/session cycles are open is an
         // institution wide decision, same tier as school_info/students
@@ -3429,6 +3439,12 @@ If you have run into any issue at all, or have any questions, just reply to this
             'students.view', 'students.update', 'attendance.*',
             'examinations.view', 'examinations.create', 'examinations.update', 'examinations.view_broadsheet',
             'report_cards.view', 'report_cards.create', 'report_cards.update',
+            // Review report cards explicitly assigned to them for their
+            // own class (2026-09-12) -- report_cards.assign_review
+            // itself stays admin-only (school-wide assign/approve
+            // power); this is the narrower "act on what's assigned to
+            // me" grant, see extra_permissions above.
+            'report_cards.review_assigned',
             'timetable.view', 'assignments.view', 'assignments.create', 'assignments.update', 'assignments.delete',
             'calendar.view', 'communication.view', 'communication.create',
             // create/update/delete/bulk added 2026-08-02 (user directive:
@@ -3451,6 +3467,14 @@ If you have run into any issue at all, or have any questions, just reply to this
         'subject-teacher' => ['name' => 'Subject Teacher', 'grants' => [
             'students.view', 'attendance.view',
             'examinations.view', 'examinations.create', 'examinations.update',
+            // A subject teacher never owns a class's report card entry
+            // (that stays class-teacher only, above), but can see and
+            // act on a review explicitly assigned to them (2026-09-12
+            // user directive), the same narrow grant class-teacher
+            // gets. view is needed just to open the review screen at
+            // all -- this role previously held no report_cards
+            // permission whatsoever.
+            'report_cards.view', 'report_cards.review_assigned',
             'timetable.view', 'assignments.view', 'assignments.create', 'assignments.update', 'assignments.delete',
             'calendar.view', 'communication.view',
             // Assessment Hub, Phase 2: a teacher builds the question

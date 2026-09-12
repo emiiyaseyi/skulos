@@ -99,6 +99,51 @@ class ReportCardController extends Controller
         app(StudentAccessGuard::class)->assertVisible(Auth::user(), $this->school($request), $student);
     }
 
+    /**
+     * Approve/reject a single review either via the school-wide admin
+     * grant (report_cards.assign_review, any student), or the narrower
+     * report_cards.review_assigned grant, restricted to a review
+     * already explicitly assigned to the acting user's own Staff
+     * record (2026-09-12, user directive: class/subject teachers act
+     * on report cards assigned to THEM, without gaining the admin's
+     * blanket assign/approve-anything power). Only the single-row
+     * approve()/sendBack() actions honour this narrower grant; the
+     * bulk variants stay admin-only, matching what was actually asked
+     * for (one teacher deciding their own assigned reviews, not a
+     * school-wide bulk sweep).
+     */
+    protected function authorizeReviewDecision(Request $request, Student $student, ReportCardReview $review): void
+    {
+        $school = $this->school($request);
+        $user = Auth::user();
+        $rbac = app(Rbac::class);
+
+        // The admin path keeps the exact same TeacherScope-based
+        // visibility check every other report-card action already
+        // enforces (2026-07-17 audit finding M-1's own fix, see
+        // assertStudentVisible's docblock) -- unchanged.
+        if ($rbac->check($user, $school, 'report_cards.assign_review')) {
+            $this->assertStudentVisible($request, $student);
+
+            return;
+        }
+
+        // The narrower path deliberately does NOT also require
+        // TeacherScope visibility: a subject-teacher assigned to
+        // review a student they have no TeachingAssignment for (a
+        // real, intended use of this feature) would otherwise 404
+        // before ever reaching this check. Being the explicit
+        // assignee IS the scope here, nothing broader is granted.
+        if ($rbac->check($user, $school, 'report_cards.review_assigned')) {
+            $staff = Staff::where('user_id', $user->id)->first();
+            if ($staff && $review->assigned_to_staff_id === $staff->id) {
+                return;
+            }
+        }
+
+        abort(403, 'You do not have permission for this.');
+    }
+
     public function edit(Request $request, ReportCardPreferences $prefs): \Illuminate\View\View
     {
         $this->authorizeAction($request, 'report_cards.view');
@@ -938,14 +983,27 @@ class ReportCardController extends Controller
         return back()->with('status', "Default reviewer for {$class->name} updated.");
     }
 
-    /** Send a report card back to a staff member (class teacher, subject teacher, or anyone else) for correction. */
+    /**
+     * Send a report card back to a staff member (class teacher, subject
+     * teacher, or anyone else) for correction. report_cards.update
+     * (class-teacher's own everyday grant) keeps working exactly as
+     * before, unrestricted to their own visible students -- the
+     * narrower review_assigned check below is only consulted as a
+     * FALLBACK for a role that lacks .update (e.g. subject-teacher),
+     * never a new restriction on top of what already worked.
+     */
     public function sendBack(Request $request): \Illuminate\Http\RedirectResponse
     {
-        $this->authorizeAction($request, 'report_cards.update');
         $student = Student::findOrFail($request->route('studentId'));
-        $this->assertStudentVisible($request, $student);
         $term = $this->resolveTerm($request);
         $reportType = $this->resolveReportType($request);
+
+        $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id, 'report_type' => $reportType]);
+        if (app(Rbac::class)->check(Auth::user(), $this->school($request), 'report_cards.update')) {
+            $this->assertStudentVisible($request, $student);
+        } else {
+            $this->authorizeReviewDecision($request, $student, $review);
+        }
 
         $data = $request->validate([
             'assigned_to_staff_id' => ['required', 'exists:tenant.staff,id'],
@@ -954,7 +1012,6 @@ class ReportCardController extends Controller
             'notes.required' => 'A comment is required when sending a report card back for correction.',
         ]);
 
-        $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id, 'report_type' => $reportType]);
         $review->fill([
             'status' => ReportCardReview::STATUS_NEEDS_CORRECTION,
             // A correction restarts the chain from the first stage, the
@@ -1097,13 +1154,12 @@ class ReportCardController extends Controller
      */
     public function approve(Request $request): \Illuminate\Http\RedirectResponse
     {
-        $this->authorizeAction($request, 'report_cards.assign_review');
         $student = Student::findOrFail($request->route('studentId'));
-        $this->assertStudentVisible($request, $student);
         $term = $this->resolveTerm($request);
         $reportType = $this->resolveReportType($request);
 
         $review = ReportCardReview::firstOrNew(['student_id' => $student->id, 'term_id' => $term->id, 'report_type' => $reportType]);
+        $this->authorizeReviewDecision($request, $student, $review);
 
         if ($review->isFinalStage()) {
             $review->status = ReportCardReview::STATUS_APPROVED;
@@ -1326,6 +1382,69 @@ class ReportCardController extends Controller
             'staffOptions' => Staff::active()->orderBy('first_name')->get(),
             'sections' => Section::with(['classes' => fn ($q) => $q->active()->orderBy('sequence')])->orderBy('sequence')->get(),
             'reviewStageEnabled' => $this->reviewStageEnabled(),
+        ]);
+    }
+
+    /**
+     * A class/subject teacher's own review queue (2026-09-12, user
+     * directive), distinct from the school-wide admin screen above.
+     * Two independent sections:
+     *   1. Every report card for a class this user actually leads
+     *      (class_teacher_staff_id or assistant_teacher_staff_id) --
+     *      read only, "what's the status of my class's report cards",
+     *      never shown to a plain subject-teacher who leads no class.
+     *   2. Every review explicitly assigned to this user, regardless
+     *      of role -- actionable via the existing approve()/sendBack()
+     *      actions, which now also accept report_cards.review_assigned
+     *      scoped to a review actually assigned to the acting user.
+     * A user who both leads a class AND has reviews assigned to them
+     * (e.g. holds both roles via the multi-role account switcher, or a
+     * class teacher who is also given a subject review) sees both
+     * sections -- this falls out naturally from each section's own
+     * real data check, no role-slug special casing needed.
+     */
+    public function myReviews(Request $request): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'report_cards.view');
+        $school = $this->school($request);
+        $user = Auth::user();
+        $term = $this->currentTermOrAbort();
+        $reportType = $this->resolveReportType($request);
+
+        $staff = Staff::where('user_id', $user->id)->first();
+
+        $myClassArmIds = $staff
+            ? ClassArm::where('class_teacher_staff_id', $staff->id)->orWhere('assistant_teacher_staff_id', $staff->id)->pluck('id')
+            : collect();
+
+        $myClassReviews = collect();
+        if ($myClassArmIds->isNotEmpty()) {
+            $studentIds = Student::whereIn('current_class_arm_id', $myClassArmIds)->active()->pluck('id');
+            $myClassReviews = ReportCardReview::whereIn('student_id', $studentIds)
+                ->where('term_id', $term->id)->where('report_type', $reportType)
+                ->with(['student.currentClassArm.schoolClass', 'assignedTo'])
+                ->get()
+                ->sortBy(fn ($r) => $r->student?->fullName())
+                ->values();
+        }
+
+        $assignedToMe = $staff
+            ? ReportCardReview::where('assigned_to_staff_id', $staff->id)
+                ->where('term_id', $term->id)->where('report_type', $reportType)
+                ->with(['student.currentClassArm.schoolClass'])
+                ->get()
+                ->sortBy(fn ($r) => $r->student?->fullName())
+                ->values()
+            : collect();
+
+        return view('school.report-cards.my-reviews', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'term' => $term,
+            'reportType' => $reportType,
+            'showMyClassSection' => $myClassArmIds->isNotEmpty(),
+            'myClassReviews' => $myClassReviews,
+            'assignedToMe' => $assignedToMe,
         ]);
     }
 
