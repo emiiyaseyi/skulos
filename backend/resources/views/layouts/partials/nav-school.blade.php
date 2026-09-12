@@ -760,6 +760,39 @@
     $academicSubgroups['Examinations']['enter_scores'] = $link('school.examinations.index', 'Enter Scores', 'pencil');
   }
 
+  // Traits & remarks entry (user report 2026-09-11, reported again
+  // after the earlier 2026-09-11 fix which only added a shortcut to
+  // the Report Cards landing page: "still no submenu to enter or
+  // select student traits as a class teacher"). The actual entry
+  // screen, permission, and remark-scale logic already work correctly
+  // -- the gap was purely that nothing under Examinations, the section
+  // a teacher naturally checks right next to Enter Scores, pointed at
+  // it at all. A scoped teacher with exactly one class gets a direct
+  // link straight into that class's entry screen; with zero or several
+  // classes (which one is ambiguous here) it links to Report Cards,
+  // which already lists a "Traits & remarks" shortcut per class.
+  // Deliberately NOT labelled "Behavioural Traits" -- that label
+  // already names the unrelated admin trait-CATALOG screen under
+  // Reports & Analytics (config('skulos.plan_feature_catalog')'s
+  // advanced_report_cards key); two different screens sharing one
+  // label would be its own new confusion.
+  if ($isTeacherScoped && $navRbac->check($navUser, $school, 'report_cards.view')) {
+    $myEntryArms = app(\App\Services\Rbac\TeacherScope::class)->classArmIds($navUser, $school);
+    $entryRouteName = ($myEntryArms && $myEntryArms->count() === 1) ? 'school.report-cards.class.entry' : 'school.report-cards.index';
+    $entryParams = ['school' => $slug];
+    if ($entryRouteName === 'school.report-cards.class.entry') {
+      $entryParams['classId'] = \App\Models\Tenant\ClassArm::find($myEntryArms->first())?->school_class_id;
+    }
+    $entryActive = $cur === $entryRouteName;
+    $academicSubgroups['Examinations']['traits_remarks'] = [
+      'active' => $entryActive,
+      'html' => '<a class="side-link'.($entryActive ? ' active' : '').'" href="'.route($entryRouteName, $entryParams).'">'.
+        '<span>Traits &amp; Remarks Entry</span>'.
+        view('layouts.partials.icon', ['name' => 'discipline'])->render().
+        '</a>',
+    ];
+  }
+
   // Narrative Evaluation (user request 2026-07-18: "add a new settings
   // for all admins across all plan that allows the admin... to set a
   // class or some classes to have the Narrative Evaluation style of
@@ -1081,7 +1114,7 @@
   // scoped to Settings specifically), pushed into the otherwise-flat
   // Academic group rather than making the whole group nested.
   $examEntries = [];
-  foreach (['enter_scores', 'term_broadsheets', 'grading', 'narrative_evaluation', 'report_card_calculation', 'bulk_generate', 'bulk_release', 'promote_students'] as $examKey) {
+  foreach (['enter_scores', 'traits_remarks', 'term_broadsheets', 'grading', 'narrative_evaluation', 'report_card_calculation', 'bulk_generate', 'bulk_release', 'promote_students'] as $examKey) {
     if (isset($academicSubgroups['Examinations'][$examKey])) {
       $examEntries[] = $academicSubgroups['Examinations'][$examKey];
     }

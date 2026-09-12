@@ -293,6 +293,27 @@ class ReportCardEnrichmentTest extends TestCase
         $this->assertSame('Excellent', $rating->value);
     }
 
+    /**
+     * The 2026-09-11 shortcut above (a link on the Report Cards landing
+     * page) turned out not to be enough on its own -- reported again
+     * the same day: "still no submenu to enter or select student
+     * traits as a class teacher". A teacher checks Examinations, right
+     * next to Enter Scores, not the Report Cards page. A scoped teacher
+     * with exactly one class now gets a direct nav link straight into
+     * that class's entry screen.
+     */
+    public function test_a_class_teacher_with_one_class_sees_a_direct_traits_nav_link(): void
+    {
+        [$school, ] = $this->schoolWithMember('school-owner', 'entry-nav-one');
+        ['class' => $class, 'classArm' => $classArm] = $this->setUpClassWithStudents($school);
+        $teacher = $this->classTeacherFor($school, $classArm);
+
+        $response = $this->actingAs($teacher)->get("http://{$school->slug}.localhost/dashboard");
+
+        $response->assertOk()->assertSee('Traits &amp; Remarks Entry', false)
+            ->assertSee("/report-cards/classes/{$class->id}/entry", false);
+    }
+
     public function test_a_class_teacher_outside_the_class_cannot_open_class_entry(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'entry-three');
