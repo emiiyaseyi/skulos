@@ -250,4 +250,81 @@ class ReportCardSectionOverridesTest extends TestCase
 
         $this->assertSame('Knowledge and Character', $school->fresh()->motto);
     }
+
+    /**
+     * The direct audit case: two separate schools, one opts fully into
+     * every feature in this batch (template override, watermark,
+     * Key Assessment Areas narrative style, custom term wording -- the
+     * same shape of change applied to PPMS in production), the other
+     * never touches any of it. Since each school lives in its own
+     * physically separate tenant database (this codebase's whole
+     * multi-tenancy model), the un-opted-in school cannot see any of
+     * school one's data by construction -- this proves it end to end
+     * through real HTTP requests rather than just asserting the schema.
+     */
+    public function test_one_schools_opt_in_to_every_feature_in_this_batch_leaves_a_second_school_completely_unaffected(): void
+    {
+        [$schoolOne, $ownerOne] = $this->schoolWithMember('school-owner', 'auditschoolone');
+        ['section' => $sectionOne, 'class' => $classOne, 'student' => $studentOne, 'term' => $termOne] = $this->seedOneClass($schoolOne);
+
+        [$schoolTwo, $ownerTwo] = $this->schoolWithMember('school-owner', 'auditschooltwo');
+        ['student' => $studentTwo, 'term' => $termTwo] = $this->seedOneClass($schoolTwo);
+
+        // School one opts into everything: the watermark, the skill-based
+        // narrative style with its own Key Assessment Areas, and custom
+        // term wording -- exactly PPMS's own real setup (a section's
+        // report_card_template override is a SEPARATE, non-narrative
+        // concern; a narrative-evaluation class always renders the
+        // 'narrative' look regardless of that override, so it is not
+        // combined with narrative mode here, matching how the real
+        // ppms:setup-report-card command itself never sets it either).
+        app(TenantManager::class)->use($schoolOne);
+        $schoolOne->logo_path = 'schools/1/logo.png';
+        $schoolOne->save();
+        Setting::put('term_label', 'Trimester');
+        ClassNarrativeTerm::create(['school_class_id' => $classOne->id, 'term_id' => $termOne->id]);
+        SchoolSectionBranding::create([
+            'section_id' => $sectionOne->id,
+            'narrative_style' => 'skills',
+            'watermark_enabled' => true,
+        ]);
+        $area = ReportCardSkillArea::create(['category' => 'Literacy & Phonics', 'name' => 'Letter Recognition & Sound', 'sequence' => 1]);
+        StudentSkillRemark::create(['student_id' => $studentOne->id, 'term_id' => $termOne->id, 'skill_area_id' => $area->id, 'remark' => 'He identifies letters a to p.']);
+        app(TenantManager::class)->forget();
+
+        // School one's own report card shows every opted-in feature.
+        $this->actingAs($ownerOne)->get("http://{$schoolOne->slug}.localhost/report-cards/{$studentOne->id}/{$termOne->id}")
+            ->assertOk()
+            ->assertSee('class="rc-watermark"', false)
+            ->assertSee('Key Assessment Areas')
+            ->assertSee('He identifies letters a to p.');
+
+        $this->actingAs($ownerOne)->get("http://{$schoolOne->slug}.localhost/settings/calendar")
+            ->assertOk()
+            ->assertSee('Sessions &amp; Trimesters', false);
+
+        // School two never touched any of this: plain template, no
+        // watermark, plain subject comments (no narrative mode at all
+        // here, so no "Key Assessment Areas" or "Subject Comments"
+        // block either), the stock "Term" wording, and specifically NOT
+        // school one's own skill-area catalog entry or remark text --
+        // the strongest possible proof nothing leaked across schools.
+        $twoResponse = $this->actingAs($ownerTwo)->get("http://{$schoolTwo->slug}.localhost/report-cards/{$studentTwo->id}/{$termTwo->id}");
+        $twoResponse->assertOk()
+            ->assertDontSee('class="rc-watermark"', false)
+            ->assertDontSee('Key Assessment Areas')
+            ->assertDontSee('Letter Recognition & Sound')
+            ->assertDontSee('He identifies letters a to p.');
+
+        $this->actingAs($ownerTwo)->get("http://{$schoolTwo->slug}.localhost/settings/calendar")
+            ->assertOk()
+            ->assertSee('Sessions &amp; Terms', false)
+            ->assertDontSee('Sessions &amp; Trimesters', false);
+
+        app(TenantManager::class)->use($schoolTwo);
+        $this->assertSame('Term', TermLabel::current());
+        $this->assertSame(0, ReportCardSkillArea::count());
+        $this->assertNull(SchoolSectionBranding::first());
+        app(TenantManager::class)->forget();
+    }
 }
