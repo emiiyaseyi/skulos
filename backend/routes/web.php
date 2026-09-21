@@ -945,6 +945,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/class-structure', [$academics, 'applyClassStructure'])->name('class-structure.apply');
             Route::post('/sections', [$academics, 'storeSection'])->name('sections.store');
             Route::post('/sections/{sectionId}', [$academics, 'updateSection'])->name('sections.update');
+            Route::delete('/sections/{sectionId}', [$academics, 'destroySection'])->name('sections.destroy');
             Route::post('/classes', [$academics, 'storeClass'])->name('classes.store');
             Route::get('/classes/{classId}', [$academics, 'showClass'])->name('classes.show');
             Route::post('/classes/{classId}', [$academics, 'updateClass'])->name('classes.update');
@@ -1152,7 +1153,9 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/review-chain', [$reportCards, 'updateReviewChain'])->name('review-chain');
             Route::post('/sections/{sectionId}/signer', [$reportCards, 'updateSectionSigner'])->name('section.signer');
             Route::post('/sections/{sectionId}/overrides', [$reportCards, 'updateSectionOverrides'])->name('section.overrides');
+            Route::post('/classes/{classId}/overrides', [$reportCards, 'updateClassOverrides'])->name('class.overrides');
             Route::get('/preview/{template?}', [$reportCards, 'preview'])->name('preview');
+            Route::get('/preview/class/{classId}', [$reportCards, 'previewClass'])->name('preview.class');
             Route::get('/pending-review', [$reportCards, 'pendingReview'])->name('pending-review');
             // A class/subject teacher's own review queue (2026-09-12,
             // user directive), distinct from the admin-only school-wide

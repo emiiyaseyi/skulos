@@ -24,11 +24,18 @@ class SchoolClass extends Model
 
     protected $table = 'school_classes';
 
-    protected $fillable = ['section_id', 'name', 'sequence', 'is_active', 'default_reviewer_staff_id', 'evaluation_style', 'grading_scale_id'];
+    protected $fillable = [
+        'section_id', 'name', 'sequence', 'is_active', 'default_reviewer_staff_id', 'evaluation_style', 'grading_scale_id',
+        'report_card_template', 'narrative_style', 'watermark_enabled',
+    ];
 
     protected function casts(): array
     {
-        return ['sequence' => 'integer', 'is_active' => 'boolean'];
+        return [
+            'sequence' => 'integer',
+            'is_active' => 'boolean',
+            'watermark_enabled' => 'boolean',
+        ];
     }
 
     /**
@@ -102,5 +109,42 @@ class SchoolClass extends Model
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * This class's own explicit report card template choice, or null to
+     * inherit its section's (which itself may inherit the school wide
+     * default). Resolving the school wide fallback needs
+     * ReportCardPreferences, a service -- see
+     * ReportCardPreferences::templateForClass().
+     */
+    public function reportCardTemplate(): ?string
+    {
+        return $this->report_card_template ?: null;
+    }
+
+    /**
+     * Only meaningful for a class that is already in Narrative
+     * Evaluation mode for the term being rendered: this class's own
+     * explicit choice, falling back to its section's (SchoolSectionBranding
+     * once again resolves), 'comments' if neither ever set one.
+     */
+    public function resolvedNarrativeStyle(): string
+    {
+        if ($this->narrative_style === 'skills' || $this->narrative_style === 'comments') {
+            return $this->narrative_style;
+        }
+
+        return $this->section?->narrativeStyle() ?? 'comments';
+    }
+
+    /** This class's own watermark choice, falling back to its section's, off if neither ever set one. */
+    public function resolvedWatermarkEnabled(): bool
+    {
+        if ($this->watermark_enabled !== null) {
+            return (bool) $this->watermark_enabled;
+        }
+
+        return $this->section?->watermarkEnabled() ?? false;
     }
 }

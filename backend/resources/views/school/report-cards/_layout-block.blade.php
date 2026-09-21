@@ -31,7 +31,7 @@
     @if($school->alternate_phone)<p class="rc-lb-text">{{ $school->alternate_phone }}</p>@endif
     @break
   @case('term_session')
-    <div class="term">{{ $data['term']['name'] }} @if(($data['report_type'] ?? 'full_term') === 'mid_term')Mid Term Report @else Report @endif&middot; {{ $data['term']['session'] }}</div>
+    <div class="term">{{ $data['term']['name'] }} @if(($data['report_type'] ?? 'full_term') === 'mid_term')Mid {{ \App\Support\TermLabel::current() }} Report @else Report @endif&middot; {{ $data['term']['session'] }}</div>
     @break
   @case('student_name')
     <div><b>Name</b>{{ $data['identity']['name'] }}</div>
@@ -61,7 +61,7 @@
     <div><b>Attendance</b>{{ $data['attendance']['present'] }} of {{ $data['attendance']['total'] }}</div>
     @break
   @case('next_term_begins')
-    <div><b>Next Term Begins</b>{{ $data['remarks']['next_term_begins_on'] ?: 'To be announced.' }}</div>
+    <div><b>Next {{ \App\Support\TermLabel::current() }} Begins</b>{{ $data['remarks']['next_term_begins_on'] ?: 'To be announced.' }}</div>
     @break
   @case('overall_position')
     <div><b>Position</b>{{ $data['overall']['position'] ?? 'N/A' }} of {{ $data['overall']['class_size'] ?? 'N/A' }}</div>

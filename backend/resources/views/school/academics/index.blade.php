@@ -42,18 +42,34 @@
       <div class="row-between" style="margin-bottom:.7rem;flex-wrap:wrap;gap:.6rem">
         <h3>{{ $section->name }}</h3>
         @if($canManage)
-          <form method="POST" action="{{ route('school.academics.sections.update', ['school' => $school->slug, 'sectionId' => $section->id]) }}" style="display:flex;gap:.4rem;align-items:flex-end;flex-wrap:wrap">
-            @csrf
-            <div class="field" style="margin-bottom:0">
-              <label for="sec_name_{{ $section->id }}">Section name</label>
-              <input id="sec_name_{{ $section->id }}" name="name" value="{{ $section->name }}" required />
-            </div>
-            <div class="field" style="margin-bottom:0;width:5.5rem">
-              <label for="sec_seq_{{ $section->id }}">Position</label>
-              <input id="sec_seq_{{ $section->id }}" name="sequence" type="number" min="1" value="{{ $section->sequence }}" />
-            </div>
-            <button class="btn btn-ghost btn-sm" type="submit">Save</button>
-          </form>
+          <div style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap">
+            <form method="POST" action="{{ route('school.academics.sections.update', ['school' => $school->slug, 'sectionId' => $section->id]) }}" style="display:flex;gap:.4rem;align-items:flex-end;flex-wrap:wrap">
+              @csrf
+              <div class="field" style="margin-bottom:0">
+                <label for="sec_name_{{ $section->id }}">Section name</label>
+                <input id="sec_name_{{ $section->id }}" name="name" value="{{ $section->name }}" required />
+              </div>
+              <div class="field" style="margin-bottom:0;width:5.5rem">
+                <label for="sec_seq_{{ $section->id }}">Position</label>
+                <input id="sec_seq_{{ $section->id }}" name="sequence" type="number" min="1" value="{{ $section->sequence }}" />
+              </div>
+              <button class="btn btn-ghost btn-sm" type="submit">Save</button>
+            </form>
+            {{--
+              A default class structure loads sections the school may
+              not actually want (user report 2026-09-21, screenshot: an
+              unwanted preloaded "Primary" block, renamed elsewhere to
+              "Basic," kept showing up with no way to remove it).
+              Deleting is refused server-side, not just hidden here, if
+              this section still has any class under it -- see
+              destroySection()'s own docblock.
+            --}}
+            <form method="POST" action="{{ route('school.academics.sections.destroy', ['school' => $school->slug, 'sectionId' => $section->id]) }}" onsubmit="return confirm('Delete the \'{{ $section->name }}\' section? This only works while it has no classes under it.')">
+              @csrf
+              @method('DELETE')
+              <button class="btn btn-ghost btn-sm" type="submit" style="color:var(--bad)">Delete</button>
+            </form>
+          </div>
         @endif
       </div>
       @if($section->classes->isEmpty())

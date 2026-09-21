@@ -783,6 +783,52 @@ class AcademicsScreenTest extends TestCase
         $this->assertNull($gone);
     }
 
+    /**
+     * User report 2026-09-21, screenshot: a school loaded a default
+     * class structure, then renamed the section they actually wanted,
+     * but the unwanted preloaded "Primary" block had no way to remove
+     * it. Refused rather than cascade deleted when classes exist under
+     * it, the same shape destroyClass() already uses for an enrolled
+     * student.
+     */
+    public function test_a_section_with_classes_under_it_cannot_be_deleted(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadtwentytwo');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Primary', 'sequence' => 2]);
+        SchoolClass::create(['section_id' => $section->id, 'name' => 'Primary 1', 'sequence' => 1]);
+        $sectionId = $section->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->delete("http://{$school->slug}.localhost/academics/sections/{$sectionId}")
+            ->assertRedirect()->assertSessionHas('error');
+
+        app(TenantManager::class)->use($school);
+        $stillExists = Section::find($sectionId);
+        app(TenantManager::class)->forget();
+        $this->assertNotNull($stillExists);
+    }
+
+    public function test_an_empty_section_can_be_deleted(): void
+    {
+        [$school, $admin] = $this->schoolWithMember('school-owner', 'acadtwentythree');
+
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Unused Block', 'sequence' => 5]);
+        \App\Models\Tenant\SchoolSectionBranding::create(['section_id' => $section->id, 'watermark_enabled' => true]);
+        $sectionId = $section->id;
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($admin)->delete("http://{$school->slug}.localhost/academics/sections/{$sectionId}")
+            ->assertRedirect()->assertSessionHas('status');
+
+        app(TenantManager::class)->use($school);
+        $this->assertNull(Section::find($sectionId));
+        $this->assertNull(\App\Models\Tenant\SchoolSectionBranding::where('section_id', $sectionId)->first());
+        app(TenantManager::class)->forget();
+    }
+
     public function test_the_class_detail_page_shows_the_teacher_and_subjects(): void
     {
         [$school, $admin] = $this->schoolWithMember('school-owner', 'acadtwentytwo');

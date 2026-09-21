@@ -78,7 +78,7 @@ class ReportCardSectionOverridesTest extends TestCase
         $arm = Arm::create(['name' => 'A']);
         $classArm = ClassArm::create(['school_class_id' => $class->id, 'arm_id' => $arm->id]);
         $session = AcademicSession::create(['name' => '2025/2026']);
-        $term = Term::create(['academic_session_id' => $session->id, 'name' => 'First Term', 'sequence' => 1]);
+        $term = Term::create(['academic_session_id' => $session->id, 'name' => 'First Term 2025/2026', 'sequence' => 1]);
         $term->makeCurrent();
         $student = Student::create(['admission_number' => 'K1', 'first_name' => 'Kingsley', 'last_name' => 'Adegoke', 'current_class_arm_id' => $classArm->id]);
 
@@ -326,5 +326,176 @@ class ReportCardSectionOverridesTest extends TestCase
         $this->assertSame(0, ReportCardSkillArea::count());
         $this->assertNull(SchoolSectionBranding::first());
         app(TenantManager::class)->forget();
+    }
+
+    /**
+     * The general, any-school command built for the greenfield request
+     * (user directive 2026-09-21, asked right after PPMS's own one-off
+     * command was applied): same shape of setup, auto-detecting real
+     * section/class names and seeding the shared starter catalog,
+     * without touching the school's own address/phone/website (that
+     * stays real PPMS-only data, never copied by this general command).
+     */
+    public function test_the_general_enable_skills_section_command_auto_detects_and_seeds_the_starter_catalog(): void
+    {
+        [$school] = $this->schoolWithMember('school-owner', 'greenfieldstyle');
+        ['section' => $section, 'class' => $class, 'term' => $term] = $this->seedOneClass($school);
+        $originalAddress = $school->address;
+
+        $this->artisan('report-card:enable-skills-section', ['slug' => $school->slug, '--term-label' => 'Trimester'])
+            ->assertExitCode(0);
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame('Trimester', TermLabel::current());
+        $this->assertStringContainsString('Trimester', Term::find($term->id)->name);
+        $branding = SchoolSectionBranding::where('section_id', $section->id)->first();
+        $this->assertSame('skills', $branding->narrative_style);
+        $this->assertTrue((bool) $branding->watermark_enabled);
+        $this->assertTrue($class->fresh()->isNarrativeEvaluationForTerm($term->id));
+        $this->assertSame(13, ReportCardSkillArea::count());
+        app(TenantManager::class)->forget();
+
+        // Address/phone/website are real PPMS-only data, never touched
+        // by this general, reusable command for a different school.
+        $this->assertSame($originalAddress, $school->fresh()->address);
+    }
+
+    public function test_the_general_enable_skills_section_command_never_overwrites_an_already_customized_catalog(): void
+    {
+        [$school] = $this->schoolWithMember('school-owner', 'greenfieldstyletwo');
+        $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        ReportCardSkillArea::create(['category' => 'Custom Category', 'name' => 'Custom Skill', 'sequence' => 1]);
+        app(TenantManager::class)->forget();
+
+        $this->artisan('report-card:enable-skills-section', ['slug' => $school->slug, '--no-seed-catalog' => true])->assertExitCode(0);
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame(1, ReportCardSkillArea::count());
+        app(TenantManager::class)->forget();
+    }
+
+    /**
+     * The class-level extension (user directive 2026-09-21: "one can
+     * tick the section or classes the report card is meant to be for").
+     * A class's own override wins over its section's, which itself
+     * would otherwise win over the school default.
+     */
+    public function test_a_classs_own_template_override_wins_over_its_section_and_the_school_default(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'classoverrideone');
+        ['section' => $section, 'class' => $class, 'student' => $student, 'term' => $term] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        app(ReportCardPreferences::class)->setTemplate('classic');
+        SchoolSectionBranding::create(['section_id' => $section->id, 'report_card_template' => 'vibrant']);
+        $class->update(['report_card_template' => 'bordered']);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/{$student->id}/{$term->id}")
+            ->assertOk()
+            ->assertSee('rc-sheet rc-bordered', false)
+            ->assertDontSee('rc-sheet rc-vibrant', false);
+    }
+
+    /**
+     * A class's own watermark choice is genuinely tri-state: here it
+     * explicitly opts OUT even though its own section turned the
+     * watermark on for every class in it by default.
+     */
+    public function test_a_class_can_opt_out_of_its_sections_own_watermark(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'classoverridetwo');
+        ['section' => $section, 'class' => $class, 'student' => $student, 'term' => $term] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        $school->logo_path = 'schools/1/logo.png';
+        $school->save();
+        SchoolSectionBranding::create(['section_id' => $section->id, 'watermark_enabled' => true]);
+        $class->update(['watermark_enabled' => false]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/{$student->id}/{$term->id}")
+            ->assertOk()
+            ->assertDontSee('class="rc-watermark"', false);
+    }
+
+    public function test_the_class_preview_shows_a_sample_report_card_reflecting_the_classs_own_resolved_look(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'classpreviewone');
+        ['section' => $section, 'class' => $class, 'term' => $term] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        ClassNarrativeTerm::create(['school_class_id' => $class->id, 'term_id' => $term->id]);
+        SchoolSectionBranding::create(['section_id' => $section->id, 'narrative_style' => 'skills', 'watermark_enabled' => true]);
+        $school->logo_path = 'schools/1/logo.png';
+        $school->save();
+        ReportCardSkillArea::create(['category' => 'Literacy & Phonics', 'name' => 'Letter Recognition & Sound', 'sequence' => 1]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/preview/class/{$class->id}")
+            ->assertOk()
+            ->assertSee('Key Assessment Areas')
+            ->assertSee('Literacy &amp; Phonics', false)
+            ->assertSee('Not yet entered.')
+            ->assertSee('class="rc-watermark"', false)
+            ->assertSee($class->name);
+    }
+
+    public function test_an_admin_can_preview_any_class(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'classpreviewtwo');
+        ['class' => $class] = $this->seedOneClass($school);
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/preview/class/{$class->id}")
+            ->assertOk();
+    }
+
+    public function test_a_class_teacher_can_only_preview_their_own_class(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'classpreviewthree');
+        ['class' => $ownClass, 'classArm' => $ownArm] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        $otherSection = Section::create(['name' => 'Secondary', 'sequence' => 3]);
+        $otherClass = SchoolClass::create(['section_id' => $otherSection->id, 'name' => 'JSS 1', 'sequence' => 1]);
+        $otherArm = ClassArm::create(['school_class_id' => $otherClass->id, 'arm_id' => Arm::create(['name' => 'B'])->id]);
+        $staff = \App\Models\Tenant\Staff::create(['staff_id' => 'T1', 'first_name' => 'Tade', 'last_name' => 'Teacher']);
+        $ownArm->update(['class_teacher_staff_id' => $staff->id]);
+        app(TenantManager::class)->forget();
+
+        $teacherUser = User::factory()->create();
+        $teacherRole = $this->rbac->cloneTemplateRole($school, 'class-teacher');
+        $school->users()->attach($teacherUser->id, ['role_id' => $teacherRole->id, 'status' => 'active']);
+        app(TenantManager::class)->use($school);
+        \App\Models\Tenant\Staff::where('id', $staff->id)->update(['user_id' => $teacherUser->id]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/report-cards/preview/class/{$ownClass->id}")
+            ->assertOk();
+
+        $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/report-cards/preview/class/{$otherClass->id}")
+            ->assertNotFound();
+    }
+
+    public function test_an_admin_can_save_a_class_level_override_and_it_appears_pre_selected(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'classoverridethree');
+        ['class' => $class] = $this->seedOneClass($school);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/classes/{$class->id}/overrides", [
+            'report_card_template' => 'bordered',
+            'narrative_style' => 'skills',
+            'watermark_enabled' => '1',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $fresh = SchoolClass::find($class->id);
+        app(TenantManager::class)->forget();
+
+        $this->assertSame('bordered', $fresh->report_card_template);
+        $this->assertSame('skills', $fresh->narrative_style);
+        $this->assertTrue($fresh->watermark_enabled);
     }
 }

@@ -19,6 +19,7 @@ use App\Models\Tenant\TeachingAssignment;
 use App\Models\Tenant\Term;
 use App\Services\Maintenance\HealthService;
 use App\Services\Results\ResultService;
+use App\Support\TermLabel;
 
 /**
  * What a dashboard shows depends on who is looking (user request
@@ -195,7 +196,7 @@ class RoleDashboard
                 // feature moved under Academic earlier this session.
                 ['n' => number_format($activeAssignments), 'l' => 'Active Assignments', 'ic' => 'assignments', 'c' => '#E14F63', 'href' => $href('school.assignments.index')],
                 ['n' => number_format($pendingReviews->count()), 'l' => 'Reports Pending Review', 'ic' => 'results', 'c' => '#E5901C', 'href' => $href('school.report-cards.pending-review')],
-                ['n' => $avg !== null ? "{$avg}%" : 'N/A', 'l' => 'Term Average', 'ic' => 'results', 'c' => '#6D4FE0', 'href' => $href('school.report-cards.index')],
+                ['n' => $avg !== null ? "{$avg}%" : 'N/A', 'l' => TermLabel::current().' Average', 'ic' => 'results', 'c' => '#6D4FE0', 'href' => $href('school.report-cards.index')],
                 ['n' => $healthScore !== null ? $healthScore : 'N/A', 'l' => 'Health Score', 'ic' => 'health', 'c' => $healthScore === null ? '#E14F63' : ($healthScore >= 80 ? '#12A97B' : ($healthScore >= 50 ? '#E5901C' : '#E14F63')), 'href' => $href('school.maintenance.index')],
             ],
             'panel' => [
@@ -581,8 +582,8 @@ class RoleDashboard
                 ['n' => number_format($present), 'l' => 'Present Today', 'ic' => 'students', 'c' => '#0EA5A0', 'pct' => '60%'],
                 ['n' => number_format($absent), 'l' => 'Absent Today', 'ic' => 'students', 'c' => '#E14F63', 'pct' => '30%'],
                 ['n' => $average !== null ? "{$average}%" : 'N/A', 'l' => 'Class Average', 'ic' => 'results', 'c' => '#6D4FE0', 'pct' => '65%'],
-                ['n' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : 'N/A', 'l' => 'Attendance This Term', 'ic' => 'students', 'c' => '#12A97B', 'pct' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : '0%'],
-                ['n' => $termAbsentRate !== null ? "{$termAbsentRate}%" : 'N/A', 'l' => 'Absent This Term', 'ic' => 'students', 'c' => '#E14F63', 'pct' => $termAbsentRate !== null ? "{$termAbsentRate}%" : '0%'],
+                ['n' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : 'N/A', 'l' => 'Attendance This '.TermLabel::current(), 'ic' => 'students', 'c' => '#12A97B', 'pct' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : '0%'],
+                ['n' => $termAbsentRate !== null ? "{$termAbsentRate}%" : 'N/A', 'l' => 'Absent This '.TermLabel::current(), 'ic' => 'students', 'c' => '#E14F63', 'pct' => $termAbsentRate !== null ? "{$termAbsentRate}%" : '0%'],
             ],
             'panel' => [
                 'type' => 'class_overview',
@@ -687,7 +688,7 @@ class RoleDashboard
                 ['n' => $attendanceRate !== null ? "{$attendanceRate}%" : 'N/A', 'l' => 'Attendance Today', 'ic' => 'students', 'c' => '#12A97B', 'pct' => $attendanceRate !== null ? "{$attendanceRate}%" : '0%'],
                 ['n' => number_format($present), 'l' => 'Present Today', 'ic' => 'students', 'c' => '#0EA5A0', 'pct' => '60%'],
                 ['n' => number_format($absent), 'l' => 'Absent Today', 'ic' => 'students', 'c' => '#E14F63', 'pct' => '30%'],
-                ['n' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : 'N/A', 'l' => 'Attendance This Term', 'ic' => 'students', 'c' => '#12A97B', 'pct' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : '0%'],
+                ['n' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : 'N/A', 'l' => 'Attendance This '.TermLabel::current(), 'ic' => 'students', 'c' => '#12A97B', 'pct' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : '0%'],
             ],
             'panel' => [
                 'type' => 'subject_overview',
@@ -935,7 +936,7 @@ class RoleDashboard
             'kind' => 'finance_overview',
             'figs' => [
                 ['n' => number_format($pendingCount), 'l' => 'Pending Payments', 'ic' => 'billing', 'c' => '#E5901C'],
-                ['n' => '₦'.number_format((float) $verifiedTotal, 2), 'l' => 'Verified This Term', 'ic' => 'billing', 'c' => '#12A97B'],
+                ['n' => '₦'.number_format((float) $verifiedTotal, 2), 'l' => 'Verified This '.TermLabel::current(), 'ic' => 'billing', 'c' => '#12A97B'],
             ],
             'panel' => [
                 'type' => 'finance_overview',
@@ -1076,7 +1077,7 @@ class RoleDashboard
                 // "nothing has been recorded for this child yet", which
                 // is the actual, normal reason (a new student before
                 // attendance has been taken this term).
-                ['n' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : 'No data yet', 'l' => $multiChild ? 'Attendance This Term (avg)' : 'Attendance This Term', 'ic' => 'attendance', 'c' => '#12A97B', 'pct' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : '0%', 'popup' => $attendancePerChild->isNotEmpty() ? 'attendance-term-popup' : null],
+                ['n' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : 'No data yet', 'l' => 'Attendance This '.TermLabel::current().($multiChild ? ' (avg)' : ''), 'ic' => 'attendance', 'c' => '#12A97B', 'pct' => $termAttendanceRate !== null ? "{$termAttendanceRate}%" : '0%', 'popup' => $attendancePerChild->isNotEmpty() ? 'attendance-term-popup' : null],
                 ['n' => number_format($reportsReleased), 'l' => 'Report Cards Released', 'ic' => 'results', 'c' => '#6D4FE0', 'pct' => $reportsReleased > 0 ? '70%' : '10%'],
             ],
             'panel' => [

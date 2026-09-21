@@ -49,7 +49,7 @@
          already had, unchanged; picking a real term edits that term's
          own override on top of it, without touching the universal rows. --}}
     <div class="field" style="margin:0;min-width:14rem">
-      <label for="term_id">Term</label>
+      <label for="term_id">{{ \App\Support\TermLabel::current() }}</label>
       <select id="term_id" name="term_id" onchange="this.form.submit()" style="min-width:13rem">
         <option value="all" @selected(! $term)>All terms</option>
         @foreach($terms as $t)

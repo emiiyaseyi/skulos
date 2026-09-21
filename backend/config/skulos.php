@@ -2804,6 +2804,29 @@ If you have run into any issue at all, or have any questions, just reply to this
     'behavioural_trait_remark_scale' => ['Excellent', 'Very Good', 'Good', 'Fair', 'Weak'],
 
     /*
+    | A generic Nursery/Early Years "Key Assessment Areas" starting
+    | catalog (user directive 2026-09-21) for the report card's 'skills'
+    | narrative style (SchoolSectionBranding.narrative_style). Sourced
+    | from Potter's Prowess Model School's own real report card, but not
+    | school-branded content -- a fairly standard early-years rubric any
+    | school can start from. Only ever a seed, same "config seeds a real
+    | tenant table once, then that table is the only thing ever read"
+    | rule as default_behavioural_traits/default_comment_bank above: a
+    | school that opts into 'skills' can add/edit/remove freely from its
+    | own real report_card_skill_areas table afterward, this array is
+    | never read live at render time.
+    */
+    'default_report_card_skill_areas' => [
+        'Literacy & Phonics' => ['Letter Recognition & Sound', 'Letter Writing Skills'],
+        'Numeracy Concepts' => ['Number Recognition', 'Number Writing Skills'],
+        'Creative Art/Rhymes & Vocational Skills' => ['Drawing & Painting Skills', 'Knowledge Of Rhymes', 'Knowledge Of Vocations'],
+        'Moral & Character Development' => ['Respect for Others', 'Attentiveness & Obedience'],
+        'Practical Life & Nature Skills' => ['Independence Practice', 'Identification of Objects'],
+        'Writing Skills' => ['Pencil & Tools Handling'],
+        'Physical & Health Habit Skills' => ['Participation & Focus'],
+    ],
+
+    /*
     | Fields a report card can show. Grouped for the settings screen. A
     | school can hide any of these; "custom_fields" (free text label/value
     | pairs an admin can add per template) covers anything not listed here

@@ -186,12 +186,12 @@
 </div>
 
 <div class="card" style="margin-top:1.25rem">
-  <h3 style="margin-bottom:.4rem">Per-section report card look</h3>
-  <p class="muted" style="margin-bottom:.8rem">A school running different report card designs for different sections (e.g. Nursery/Kindergarten vs Primary vs Secondary) can give each section its own template here, instead of the one "Report card look" chosen above. Left as "School default", a section simply uses that choice. Narrative style and watermark only take effect for a class that has Narrative Evaluation switched on for the term being printed (Academic &gt; Narrative Evaluation).</p>
+  <h3 style="margin-bottom:.4rem">Per-section and per-class report card look</h3>
+  <p class="muted" style="margin-bottom:.8rem">A school running different report card designs for different sections or individual classes (user directive 2026-09-21: "one can tick the section or classes the report card is meant to be for") can give each its own template here, instead of the one "Report card look" chosen above. Left as "Section default"/"School default", a class or section simply inherits the choice above it. Narrative style and watermark only take effect for a class that has Narrative Evaluation switched on for the term being printed (Academic &gt; Narrative Evaluation). Use Preview to see a sample report card with the current settings, even before any real scores exist.</p>
 
   <div style="overflow-x:auto">
   <table>
-    <thead><tr><th>Section</th><th>Template</th><th>Narrative style</th><th>Watermark</th><th></th></tr></thead>
+    <thead><tr><th>Section / Class</th><th>Template</th><th>Narrative style</th><th>Watermark</th><th></th></tr></thead>
     <tbody>
       {{--
         A <form> cannot be a direct child of <tr> in valid HTML (only
@@ -205,7 +205,7 @@
         @php($ovFormId = 'section-overrides-'.$section->id)
         <tr>
           <td>
-            {{ $section->name }}
+            <strong>{{ $section->name }}</strong>
             <form id="{{ $ovFormId }}" method="POST" action="{{ route('school.report-cards.section.overrides', ['school' => $school->slug, 'sectionId' => $section->id]) }}" style="display:none">
               @csrf
               <input type="hidden" name="watermark_enabled" value="0" />
@@ -233,6 +233,43 @@
           </td>
           <td><button class="btn btn-ghost btn-sm" type="submit" form="{{ $ovFormId }}">Save</button></td>
         </tr>
+        @foreach($section->classes as $class)
+          @php($cvFormId = 'class-overrides-'.$class->id)
+          <tr>
+            <td style="padding-left:1.4rem" class="muted">
+              {{ $class->name }}
+              <form id="{{ $cvFormId }}" method="POST" action="{{ route('school.report-cards.class.overrides', ['school' => $school->slug, 'classId' => $class->id]) }}" style="display:none">
+                @csrf
+              </form>
+            </td>
+            <td>
+              <select name="report_card_template" form="{{ $cvFormId }}">
+                <option value="">Section default</option>
+                @foreach(config('skulos.report_card_templates') as $key => $meta)
+                  <option value="{{ $key }}" @selected($class->report_card_template === $key)>{{ $meta['label'] }}</option>
+                @endforeach
+              </select>
+            </td>
+            <td>
+              <select name="narrative_style" form="{{ $cvFormId }}">
+                <option value="" @selected(! $class->narrative_style)>Section default</option>
+                <option value="comments" @selected($class->narrative_style === 'comments')>Subject comments</option>
+                <option value="skills" @selected($class->narrative_style === 'skills')>Key Assessment Areas (skill based)</option>
+              </select>
+            </td>
+            <td>
+              <select name="watermark_enabled" form="{{ $cvFormId }}">
+                <option value="" @selected($class->watermark_enabled === null)>Section default</option>
+                <option value="1" @selected($class->watermark_enabled === true)>On</option>
+                <option value="0" @selected($class->watermark_enabled === false)>Off</option>
+              </select>
+            </td>
+            <td style="white-space:nowrap;display:flex;gap:.4rem">
+              <button class="btn btn-ghost btn-sm" type="submit" form="{{ $cvFormId }}">Save</button>
+              <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.preview.class', ['school' => $school->slug, 'classId' => $class->id]) }}" target="_blank" rel="noopener">Preview</a>
+            </td>
+          </tr>
+        @endforeach
       @endforeach
     </tbody>
   </table>

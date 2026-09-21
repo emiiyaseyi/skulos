@@ -162,9 +162,9 @@
         </div>
       </div>
       <div class="field">
-        <label for="term_id">Term</label>
+        <label for="term_id">{{ \App\Support\TermLabel::current() }}</label>
         <select id="term_id" name="term_id" required aria-invalid="@error('term_id') true @else false @enderror" @error('term_id') aria-describedby="term_id-error" @enderror>
-          <option value="">Select a term</option>
+          <option value="">Select a {{ strtolower(\App\Support\TermLabel::current()) }}</option>
           @foreach($terms as $term)
             <option value="{{ $term->id }}" @selected(old('term_id') == $term->id)>{{ $term->name }} ({{ $term->session?->name }})</option>
           @endforeach
@@ -335,7 +335,7 @@
       <div class="field" style="margin:0;min-width:12rem">
         <label for="items_term">Showing items for</label>
         <select id="items_term" name="items_term" onchange="this.form.submit()">
-          <option value="current" @selected($itemsTermParam === 'current')>Current term{{ $itemsTerm ? " ({$itemsTerm->name})" : '' }}</option>
+          <option value="current" @selected($itemsTermParam === 'current')>Current {{ strtolower(\App\Support\TermLabel::current()) }}{{ $itemsTerm ? " ({$itemsTerm->name})" : '' }}</option>
           @foreach($terms as $term)
             <option value="{{ $term->id }}" @selected($itemsTermParam == $term->id)>{{ $term->name }} ({{ $term->session?->name }})</option>
           @endforeach
@@ -354,7 +354,7 @@
     <table class="table-stack">
       <thead><tr>
         @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="fee-item-select-all" aria-label="Select all fee items" /></th>@endif
-        <th>Name</th><th>Term</th><th>Amount</th><th>Classes</th><th>Installments</th><th>Status</th>
+        <th>Name</th><th>{{ \App\Support\TermLabel::current() }}</th><th>Amount</th><th>Classes</th><th>Installments</th><th>Status</th>
         @if($feeApprovalEnabled)<th>Approval</th>@endif
         <th></th></tr></thead>
       <tbody>
@@ -364,7 +364,7 @@
               <td><input type="checkbox" form="bulkFeeItemsForm" class="fee-item-row-check" name="fee_item_ids[]" value="{{ $item->id }}" aria-label="Select {{ $item->name }}" /></td>
             @endif
             <td data-label="Name"><strong>{{ $item->name }}</strong>@if($item->is_optional)<span class="badge" style="margin-left:.4rem">Optional</span>@endif</td>
-            <td class="muted" data-label="Term">{{ $item->term?->name }}</td>
+            <td class="muted" data-label="{{ \App\Support\TermLabel::current() }}">{{ $item->term?->name }}</td>
             <td data-label="Amount">₦{{ number_format((float) $item->amount, 2) }}</td>
             <td class="muted" data-label="Classes">{{ $item->schoolClasses->isEmpty() ? 'Every class' : $item->schoolClasses->pluck('name')->join(', ') }}</td>
             <td class="muted" data-label="Installments">{{ $item->allow_installments ? 'Allowed' : 'Full amount only' }}</td>

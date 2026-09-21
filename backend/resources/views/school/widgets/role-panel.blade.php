@@ -1,4 +1,5 @@
 @php
+  $termWord = strtolower(\App\Support\TermLabel::current());
   $total = ($panel['boys'] ?? 0) + ($panel['girls'] ?? 0);
   $boysPct = $total ? round(($panel['boys'] / $total) * 100) : 0;
   $girlsPct = $total ? round(($panel['girls'] / $total) * 100) : 0;
@@ -74,7 +75,7 @@
             @if($panel['average'] === null)
               No scores recorded yet{{ $panel['term'] ? " for {$panel['term']}" : '' }}.
             @else
-              Class average this term ({{ $panel['term'] }}): <strong style="color:var(--ink)">{{ $panel['average'] }}%</strong>
+              Class average this {{ $termWord }} ({{ $panel['term'] }}): <strong style="color:var(--ink)">{{ $panel['average'] }}%</strong>
             @endif
           </p>
         </div>
@@ -93,8 +94,8 @@
         <a class="btn btn-ghost btn-sm" href="{{ route('school.chat.index', ['school' => $school->slug]) }}">Message parents</a>
       </div>
     </div>
-    @include('school.widgets._students-at-risk', ['items' => $panel['attendanceAtRisk'] ?? [], 'title' => 'Attendance needing attention', 'subtitle' => 'Low attendance this term, an early flag, not a formal report.'])
-    @include('school.widgets._students-at-risk', ['items' => $panel['performanceAtRisk'] ?? [], 'title' => 'Performance needing attention', 'subtitle' => 'Low average score this term, an early flag, not a formal report.'])
+    @include('school.widgets._students-at-risk', ['items' => $panel['attendanceAtRisk'] ?? [], 'title' => 'Attendance needing attention', 'subtitle' => 'Low attendance this '.$termWord.', an early flag, not a formal report.'])
+    @include('school.widgets._students-at-risk', ['items' => $panel['performanceAtRisk'] ?? [], 'title' => 'Performance needing attention', 'subtitle' => 'Low average score this '.$termWord.', an early flag, not a formal report.'])
     @include('school.widgets._upcoming-exams', ['items' => $panel['upcomingExams'] ?? []])
     @include('school.widgets._upcoming-assignments', ['items' => $panel['upcomingAssignments'] ?? []])
     @include('school.widgets._birthdays', ['today' => $panel['birthdaysToday'] ?? [], 'upcoming' => $panel['birthdaysUpcoming'] ?? []])
@@ -119,8 +120,8 @@
         <a class="btn btn-ghost btn-sm" href="{{ route('school.chat.index', ['school' => $school->slug]) }}">Message parents</a>
       </div>
     </div>
-    @include('school.widgets._students-at-risk', ['items' => $panel['attendanceAtRisk'] ?? [], 'title' => 'Attendance needing attention', 'subtitle' => 'Low attendance this term, an early flag, not a formal report.'])
-    @include('school.widgets._students-at-risk', ['items' => $panel['performanceAtRisk'] ?? [], 'title' => 'Performance needing attention', 'subtitle' => 'Low average score this term, an early flag, not a formal report.'])
+    @include('school.widgets._students-at-risk', ['items' => $panel['attendanceAtRisk'] ?? [], 'title' => 'Attendance needing attention', 'subtitle' => 'Low attendance this '.$termWord.', an early flag, not a formal report.'])
+    @include('school.widgets._students-at-risk', ['items' => $panel['performanceAtRisk'] ?? [], 'title' => 'Performance needing attention', 'subtitle' => 'Low average score this '.$termWord.', an early flag, not a formal report.'])
     @include('school.widgets._upcoming-exams', ['items' => $panel['upcomingExams'] ?? []])
     @include('school.widgets._upcoming-assignments', ['items' => $panel['upcomingAssignments'] ?? []])
     @include('school.widgets._birthdays', ['today' => $panel['birthdaysToday'] ?? [], 'upcoming' => $panel['birthdaysUpcoming'] ?? []])
@@ -162,7 +163,7 @@
       'rows' => collect($panel['feePerChild'] ?? []),
     ])
     @include('school.widgets._stat-popup', [
-      'id' => 'attendance-term-popup', 'title' => 'Attendance this term, per child', 'rows' => collect($panel['attendancePerChild'] ?? [])
+      'id' => 'attendance-term-popup', 'title' => 'Attendance this '.$termWord.', per child', 'rows' => collect($panel['attendancePerChild'] ?? [])
         ->map(fn ($r) => ['name' => $r['name'], 'value' => $r['rate'] !== null ? "{$r['rate']}%" : 'Not marked yet', 'ok' => $r['rate'] === null || $r['rate'] >= 75]),
       'emptyText' => 'No attendance recorded yet.',
     ])
@@ -350,9 +351,9 @@
       @endif
     </div>
 
-    @include('school.widgets._students-at-risk', ['items' => $panel['attendanceAtRisk'] ?? [], 'title' => 'Attendance at risk', 'subtitle' => 'Low attendance this term, an early flag, not a formal report.'])
+    @include('school.widgets._students-at-risk', ['items' => $panel['attendanceAtRisk'] ?? [], 'title' => 'Attendance at risk', 'subtitle' => 'Low attendance this '.$termWord.', an early flag, not a formal report.'])
 
-    @include('school.widgets._students-at-risk', ['items' => $panel['performanceAtRisk'] ?? [], 'title' => 'Performance at risk', 'subtitle' => 'Low average score this term, an early flag, not a formal report.'])
+    @include('school.widgets._students-at-risk', ['items' => $panel['performanceAtRisk'] ?? [], 'title' => 'Performance at risk', 'subtitle' => 'Low average score this '.$termWord.', an early flag, not a formal report.'])
 
     @if(! empty($panel['resultTrend']))
       {{--
@@ -370,7 +371,7 @@
       --}}
       <div class="card rp-card">
         <h3 style="margin-bottom:.3rem">Result performance</h3>
-        <p class="muted" style="margin-bottom:.8rem">Average score across every term with results recorded so far.</p>
+        <p class="muted" style="margin-bottom:.8rem">Average score across every {{ $termWord }} with results recorded so far.</p>
         @include('school.widgets._trend-line', [
           'values' => array_column($panel['resultTrend'], 'average'),
           'labels' => array_column($panel['resultTrend'], 'label'),

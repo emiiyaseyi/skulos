@@ -13,7 +13,7 @@
 <div class="card" style="margin-bottom:1.1rem">
   <form method="GET" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end">
     <div class="field" style="margin:0;min-width:14rem">
-      <label for="term_id">Term to evaluate</label>
+      <label for="term_id">{{ \App\Support\TermLabel::current() }} to evaluate</label>
       <select id="term_id" name="term_id" onchange="this.form.submit()">
         @foreach($terms as $t)
           <option value="{{ $t->id }}" @selected($term && $term->id === $t->id)>{{ $t->session?->name }} {{ $t->name }}</option>

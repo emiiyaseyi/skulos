@@ -1,5 +1,5 @@
 <div class="card">
-  <h3>This term's key dates</h3>
+  <h3>This {{ strtolower(\App\Support\TermLabel::current()) }}'s key dates</h3>
   @if($termKeyDates['term'])
     <p style="margin-bottom:.8rem">{{ $termKeyDates['term']->name }} milestones.</p>
     @foreach($termKeyDates['items'] as $item)

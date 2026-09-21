@@ -2,6 +2,7 @@
 
 namespace App\Services\ReportCards;
 
+use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Section;
 use App\Models\Tenant\Setting;
 
@@ -66,6 +67,19 @@ class ReportCardPreferences
     public function templateFor(?Section $section): string
     {
         $override = $section?->reportCardTemplate();
+        $templates = array_keys(config('skulos.report_card_templates', []));
+
+        return ($override && in_array($override, $templates, true)) ? $override : $this->template();
+    }
+
+    /**
+     * The finer, class-level version of templateFor() (user directive
+     * 2026-09-21: "one can tick the section or classes"): this class's
+     * own override, then its section's, then the school wide default.
+     */
+    public function templateForClass(?SchoolClass $class): string
+    {
+        $override = $class?->reportCardTemplate() ?: $class?->section?->reportCardTemplate();
         $templates = array_keys(config('skulos.report_card_templates', []));
 
         return ($override && in_array($override, $templates, true)) ? $override : $this->template();

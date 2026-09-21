@@ -56,7 +56,7 @@
         </select>
       </div>
       <div class="field">
-        <label for="term_id">Term (optional)</label>
+        <label for="term_id">{{ \App\Support\TermLabel::current() }} (optional)</label>
         <select id="term_id" name="term_id">
           <option value="">Not set</option>
           @foreach($terms as $term)
@@ -136,9 +136,9 @@
         </select>
         <p class="muted" style="font-size:.78rem;margin-top:.3rem">
           @if($assessment->subject_id && $assessment->term_id)
-            Requires the Subject and Term above, both already set. A taker's score is scaled to the component's own maximum.
+            Requires the Subject and {{ \App\Support\TermLabel::current() }} above, both already set. A taker's score is scaled to the component's own maximum.
           @else
-            Set Subject and Term above first — a gradebook score needs both.
+            Set Subject and {{ \App\Support\TermLabel::current() }} above first, a gradebook score needs both.
           @endif
         </p>
       </div>

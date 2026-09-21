@@ -1,16 +1,17 @@
-@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => 'Term Calculation'])
-@section('title', 'Term Calculation')
+@php($termWord = \App\Support\TermLabel::current())
+@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => $termWord.' Calculation'])
+@section('title', $termWord.' Calculation')
 
 @section('content')
 <div class="page-head">
   <div>
-    <h1 class="title">Term Calculation</h1>
-    <p class="subtitle">For each term, choose how its report card treats the terms before it in the same session.</p>
+    <h1 class="title">{{ $termWord }} Calculation</h1>
+    <p class="subtitle">For each {{ strtolower($termWord) }}, choose how its report card treats the {{ strtolower($termWord) }}s before it in the same session.</p>
   </div>
 </div>
 
 @if($sequenceLabels->isEmpty())
-  <div class="card"><p class="muted">No terms have been set up yet.</p></div>
+  <div class="card"><p class="muted">No {{ strtolower($termWord) }}s have been set up yet.</p></div>
 @else
   <form method="POST" action="{{ route('school.examinations.report-card-calculation.update', ['school' => $school->slug]) }}">
     @csrf
@@ -18,7 +19,7 @@
       <table>
         <thead>
           <tr>
-            <th>Term</th>
+            <th>{{ $termWord }}</th>
             <th>Calculation</th>
           </tr>
         </thead>
@@ -28,7 +29,7 @@
               <td><strong>{{ $label }}</strong></td>
               <td>
                 @if($sequence <= 1)
-                  <span class="muted">This term only, nothing comes before it.</span>
+                  <span class="muted">This {{ strtolower($termWord) }} only, nothing comes before it.</span>
                 @else
                   <select name="sequence[{{ $sequence }}]">
                     @foreach($modes as $code => $mode)

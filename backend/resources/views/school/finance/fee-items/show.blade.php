@@ -26,7 +26,7 @@
         </div>
       </div>
       <div class="field">
-        <label for="term_id">Term</label>
+        <label for="term_id">{{ \App\Support\TermLabel::current() }}</label>
         <select id="term_id" name="term_id" required>
           @foreach($terms as $term)
             <option value="{{ $term->id }}" @selected(old('term_id', $feeItem->term_id) == $term->id)>{{ $term->name }} ({{ $term->session?->name }})</option>

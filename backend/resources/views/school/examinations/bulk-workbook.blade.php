@@ -13,7 +13,7 @@
 <div class="card" style="margin-bottom:1.1rem">
   <form method="GET" action="{{ route('school.examinations.workbook', ['school' => $school->slug]) }}" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end">
     <div class="field" style="margin:0;min-width:14rem">
-      <label for="term_id">Term</label>
+      <label for="term_id">{{ \App\Support\TermLabel::current() }}</label>
       <select id="term_id" name="term_id" onchange="this.form.requestSubmit()">
         @foreach($terms as $t)
           <option value="{{ $t->id }}" @selected($term && $term->id === $t->id)>{{ $t->session?->name }} {{ $t->name }}</option>
@@ -23,8 +23,8 @@
     <div class="field" style="margin:0;min-width:12rem">
       <label for="report_type">Report type</label>
       <select id="report_type" name="report_type" onchange="this.form.requestSubmit()">
-        <option value="{{ \App\Models\Tenant\ReportCardReview::REPORT_TYPE_FULL_TERM }}" @selected($reportType === \App\Models\Tenant\ReportCardReview::REPORT_TYPE_FULL_TERM)>Full Term Report</option>
-        <option value="{{ \App\Models\Tenant\ReportCardReview::REPORT_TYPE_MID_TERM }}" @selected($reportType === \App\Models\Tenant\ReportCardReview::REPORT_TYPE_MID_TERM)>Mid Term Report</option>
+        <option value="{{ \App\Models\Tenant\ReportCardReview::REPORT_TYPE_FULL_TERM }}" @selected($reportType === \App\Models\Tenant\ReportCardReview::REPORT_TYPE_FULL_TERM)>Full {{ \App\Support\TermLabel::current() }} Report</option>
+        <option value="{{ \App\Models\Tenant\ReportCardReview::REPORT_TYPE_MID_TERM }}" @selected($reportType === \App\Models\Tenant\ReportCardReview::REPORT_TYPE_MID_TERM)>Mid {{ \App\Support\TermLabel::current() }} Report</option>
       </select>
     </div>
   </form>

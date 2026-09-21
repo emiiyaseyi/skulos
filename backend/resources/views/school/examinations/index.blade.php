@@ -30,7 +30,7 @@
 <div class="card" style="margin-bottom:1.25rem">
   <form method="GET" action="{{ route('school.examinations.index', ['school' => $school->slug]) }}" class="grid cols-2">
     <div class="field">
-      <label for="term_id">Term</label>
+      <label for="term_id">{{ \App\Support\TermLabel::current() }}</label>
       <select id="term_id" name="term_id" onchange="this.form.requestSubmit()">
         @foreach($terms as $term)
           <option value="{{ $term->id }}" @selected($termId === $term->id)>{{ $term->session?->name }}: {{ $term->name }}</option>

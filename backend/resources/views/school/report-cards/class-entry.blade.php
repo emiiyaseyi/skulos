@@ -16,7 +16,16 @@
     <h1 class="title">Class Teacher Entry &middot; {{ $class->name }}</h1>
     <p class="subtitle">Physical stats, behavioural traits, and remarks for {{ $term->name }}. Fill in what applies, then save once for the whole class.</p>
   </div>
-  <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.class-index', ['school' => $school->slug, 'classId' => $class->id, 'term_id' => $term->id]) }}">Back to class</a>
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+    {{-- Sample-data preview (user directive 2026-09-21: "one should be
+         able to switch and view the report card designs for the
+         various sections... class teachers should be able to see this
+         too"), so a class teacher can see exactly what their class's
+         report card looks like, watermark/narrative style included,
+         before any real scores exist. --}}
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.preview.class', ['school' => $school->slug, 'classId' => $class->id]) }}" target="_blank" rel="noopener">Preview sample report card</a>
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.class-index', ['school' => $school->slug, 'classId' => $class->id, 'term_id' => $term->id]) }}">Back to class</a>
+  </div>
 </div>
 
 <div class="card" style="margin-bottom:1.1rem">

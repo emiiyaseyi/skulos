@@ -26,7 +26,7 @@
     @if($terms->isNotEmpty())
       <form method="GET" style="display:flex;gap:.5rem;align-items:center">
         <select name="term_id" onchange="this.form.submit()" style="min-width:13rem">
-          <option value="all" @selected(! $term)>All terms</option>
+          <option value="all" @selected(! $term)>All {{ strtolower(\App\Support\TermLabel::current()) }}s</option>
           @foreach($terms as $t)
             <option value="{{ $t->id }}" @selected($term && $term->id === $t->id)>{{ $t->session?->name }} {{ $t->name }}</option>
           @endforeach

@@ -22,7 +22,7 @@
   <div class="card" style="margin-bottom:1.1rem">
     <form method="GET" action="{{ route('school.calendar.index', ['school' => $school->slug]) }}">
       <div class="field" style="margin:0;max-width:18rem">
-        <label for="term_id">Term</label>
+        <label for="term_id">{{ \App\Support\TermLabel::current() }}</label>
         <select id="term_id" name="term_id" onchange="this.form.requestSubmit()">
           @foreach($termsInSession as $term)
             <option value="{{ $term->id }}" @selected($selectedTerm->id === $term->id)>{{ $term->name }}</option>

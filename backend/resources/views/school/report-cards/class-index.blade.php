@@ -11,8 +11,8 @@
     <form method="GET" action="{{ route('school.report-cards.class-index', ['school' => $school->slug, 'classId' => $class->id]) }}">
       <input type="hidden" name="term_id" value="{{ $term->id }}" />
       <select name="report_type" onchange="this.form.requestSubmit()">
-        <option value="{{ \App\Models\Tenant\ReportCardReview::REPORT_TYPE_FULL_TERM }}" @selected($reportType === \App\Models\Tenant\ReportCardReview::REPORT_TYPE_FULL_TERM)>Full Term Report</option>
-        <option value="{{ \App\Models\Tenant\ReportCardReview::REPORT_TYPE_MID_TERM }}" @selected($reportType === \App\Models\Tenant\ReportCardReview::REPORT_TYPE_MID_TERM)>Mid Term Report</option>
+        <option value="{{ \App\Models\Tenant\ReportCardReview::REPORT_TYPE_FULL_TERM }}" @selected($reportType === \App\Models\Tenant\ReportCardReview::REPORT_TYPE_FULL_TERM)>Full {{ \App\Support\TermLabel::current() }} Report</option>
+        <option value="{{ \App\Models\Tenant\ReportCardReview::REPORT_TYPE_MID_TERM }}" @selected($reportType === \App\Models\Tenant\ReportCardReview::REPORT_TYPE_MID_TERM)>Mid {{ \App\Support\TermLabel::current() }} Report</option>
       </select>
     </form>
     <form method="POST" action="{{ route('school.report-cards.class.generate', ['school' => $school->slug, 'classId' => $class->id]) }}">

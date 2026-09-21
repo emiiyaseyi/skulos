@@ -19,7 +19,7 @@
     <table class="table-stack">
       <thead><tr>
         <th style="width:2.2rem"><input type="checkbox" id="ext-select-all" aria-label="Select all pending requests" /></th>
-        <th>Teacher</th><th>Component</th><th>Term</th><th>Reason</th><th>Requested close</th><th>Status</th><th></th>
+        <th>Teacher</th><th>Component</th><th>{{ \App\Support\TermLabel::current() }}</th><th>Reason</th><th>Requested close</th><th>Status</th><th></th>
       </tr></thead>
       <tbody>
         @foreach($requests as $req)
@@ -31,7 +31,7 @@
             </td>
             <td data-label="Teacher"><strong>{{ $req->staff?->fullName() }}</strong></td>
             <td class="muted" data-label="Component">{{ $req->window?->component?->name }}</td>
-            <td class="muted" data-label="Term">{{ $req->window?->term?->name }} ({{ $req->window?->term?->session?->name }})</td>
+            <td class="muted" data-label="{{ \App\Support\TermLabel::current() }}">{{ $req->window?->term?->name }} ({{ $req->window?->term?->session?->name }})</td>
             <td class="muted" style="max-width:16rem" title="{{ $req->reason }}" data-label="Reason">{{ \Illuminate\Support\Str::limit($req->reason, 60) }}</td>
             <td class="muted" style="white-space:nowrap" data-label="Requested close">{{ $req->requested_close_at?->format('d M Y, g:ia') }}</td>
             <td data-label="Status">

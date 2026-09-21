@@ -17,7 +17,7 @@
 --}}
 <form method="GET" action="{{ route('school.examinations.narrative-evaluation', ['school' => $school->slug]) }}" style="margin-bottom:1rem">
   <div class="field" style="max-width:22rem">
-    <label for="term_id">Term</label>
+    <label for="term_id">{{ \App\Support\TermLabel::current() }}</label>
     <select id="term_id" name="term_id" onchange="this.form.submit()">
       @foreach($terms as $t)
         <option value="{{ $t->id }}" @selected($term?->id === $t->id)>{{ $t->name }} &middot; {{ $t->session?->name }}@if($t->is_current) (current) @endif</option>

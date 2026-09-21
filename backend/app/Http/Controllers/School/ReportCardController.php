@@ -169,7 +169,11 @@ class ReportCardController extends Controller
             // appear here too", so it no longer needs a detour to
             // Branding just to set it).
             'canManageBranding' => app(Rbac::class)->check(Auth::user(), $school, 'school_info.update'),
-            'sections' => Section::with('branding')->orderBy('sequence')->get(),
+            // Classes eager loaded too (user directive 2026-09-21, "one
+            // can tick the section or classes the report card is meant
+            // to be for") so the same screen can also show a per-class
+            // override row nested under each section.
+            'sections' => Section::with(['branding', 'classes' => fn ($q) => $q->orderBy('sequence')])->orderBy('sequence')->get(),
         ]);
     }
 
@@ -309,6 +313,37 @@ class ReportCardController extends Controller
         return back()->with('status', "Report card look updated for {$section->name}.");
     }
 
+    /**
+     * The finer, class-level version of updateSectionOverrides() (user
+     * directive 2026-09-21: "one can tick the section or classes the
+     * report card is meant to be for"). Unlike a section's watermark
+     * toggle (a plain on/off with no wider fallback to inherit from), a
+     * class's own watermark choice is genuinely tri-state -- "Inherit
+     * section" (blank/null, the default for every existing class),
+     * "On", or "Off" -- since a class might specifically want to OPT
+     * OUT of a watermark its own section otherwise turned on for every
+     * other class in it.
+     */
+    public function updateClassOverrides(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.update');
+        $class = SchoolClass::findOrFail($request->route('classId'));
+
+        $data = $request->validate([
+            'report_card_template' => ['nullable', 'string', Rule::in(array_keys(config('skulos.report_card_templates')))],
+            'narrative_style' => ['nullable', 'string', Rule::in(['comments', 'skills'])],
+            'watermark_enabled' => ['nullable', 'string', Rule::in(['1', '0'])],
+        ]);
+
+        $class->update([
+            'report_card_template' => $data['report_card_template'] ?: null,
+            'narrative_style' => $data['narrative_style'] ?: null,
+            'watermark_enabled' => isset($data['watermark_enabled']) ? ($data['watermark_enabled'] === '1') : null,
+        ]);
+
+        return back()->with('status', "Report card look updated for \"{$class->name}\".");
+    }
+
     /** The active grading scale's bands as the render view's grade key legend, most generous band first. */
     protected function gradeBands(): array
     {
@@ -333,6 +368,57 @@ class ReportCardController extends Controller
             'template' => $template,
             'fields' => $prefs->fields(),
             'data' => $cards->sample(),
+            'gradeBands' => $this->gradeBands(),
+            'layoutEnabled' => $layout->enabled(),
+            'layoutZones' => $layout->zones(),
+            'bodySections' => $layout->effectiveBodyOrder($layout->enabled()),
+            'bodyRows' => $layout->groupIntoRows($layout->effectiveBodyOrder($layout->enabled())),
+            'footerText' => $prefs->footerText(),
+            'footerAlign' => $prefs->footerAlign(),
+            'headerAlign' => $layout->headerAlign(),
+            'bodyAlign' => $layout->bodyAlign(),
+            'customBlocks' => $this->customBlocksKeyed(),
+            'isPreview' => true,
+        ]);
+    }
+
+    /**
+     * "How and where do I view the report card per section or per class
+     * that has been designed... before any real scores exist" (user
+     * directive 2026-09-21): the same sample-data preview as preview()
+     * above, but reflecting exactly what THIS class's own report card
+     * actually produces right now -- its own template/watermark/
+     * narrative-style override, falling through its section then the
+     * school wide default precisely like a real student's report would
+     * (ReportCardService::forStudent()'s own resolution chain), and
+     * whether it is genuinely in Narrative Evaluation mode for the
+     * current term. A class teacher (report_cards.view, held by that
+     * role already) is scoped to only their own class(es) via
+     * TeacherScope, the same restriction every other class level report
+     * card action in this controller already applies -- an admin with
+     * unscoped report_cards.view can preview any class.
+     */
+    public function previewClass(Request $request, ReportCardService $cards, ReportCardPreferences $prefs, ReportCardLayout $layout): \Illuminate\View\View
+    {
+        $this->authorizeAction($request, 'report_cards.view');
+        $school = $this->school($request);
+        $class = SchoolClass::with(['section', 'arms'])->findOrFail($request->route('classId'));
+
+        $scopedArmIds = app(TeacherScope::class)->classArmIds(Auth::user(), $school);
+        if ($scopedArmIds !== null) {
+            abort_unless($class->arms->pluck('id')->intersect($scopedArmIds)->isNotEmpty(), 404);
+        }
+
+        $currentTerm = Term::current()->first();
+        $template = ($currentTerm && $class->isNarrativeEvaluationForTerm($currentTerm->id))
+            ? 'narrative' : $prefs->templateForClass($class);
+
+        return view('school.report-cards.render', [
+            'school' => $school,
+            'accent' => $school->branding()['color'],
+            'template' => $template,
+            'fields' => $prefs->fields(),
+            'data' => $cards->sample($class),
             'gradeBands' => $this->gradeBands(),
             'layoutEnabled' => $layout->enabled(),
             'layoutZones' => $layout->zones(),
@@ -385,12 +471,12 @@ class ReportCardController extends Controller
         // for a report built from a subset of scored components.
         $narrativeClass = $reportType === ReportCardReview::REPORT_TYPE_FULL_TERM
             && $student->currentClassArm?->schoolClass?->isNarrativeEvaluationForTerm($term->id);
-        $section = $student->currentClassArm?->schoolClass?->section;
+        $studentClass = $student->currentClassArm?->schoolClass;
 
         return view('school.report-cards.render', [
             'school' => $school,
             'accent' => $school->branding()['color'],
-            'template' => $narrativeClass ? 'narrative' : $prefs->templateFor($section),
+            'template' => $narrativeClass ? 'narrative' : $prefs->templateForClass($studentClass),
             'fields' => $prefs->fields(),
             'data' => $cards->forStudent($student, $term, null, $reportType),
             'gradeBands' => $this->gradeBands(),
@@ -767,7 +853,7 @@ class ReportCardController extends Controller
 
         $students = Student::whereIn('current_class_arm_id', $armIds)->orderBy('last_name')->get();
         $template = ($reportType === ReportCardReview::REPORT_TYPE_FULL_TERM && $class->isNarrativeEvaluationForTerm($term->id))
-            ? 'narrative' : $prefs->templateFor($class->section);
+            ? 'narrative' : $prefs->templateForClass($class);
 
         return view('school.report-cards.class-print', [
             'school' => $school,
@@ -1615,13 +1701,14 @@ class ReportCardController extends Controller
         // narrative Creche/Reception rather than the template being one
         // all-or-nothing school wide setting, and can toggle differently
         // term to term without rewriting a past term's report cards.
-        $template = $class->isNarrativeEvaluationForTerm($term->id) ? 'narrative' : $prefs->templateFor($class->section);
-        // 'skills' (user directive 2026-09-21) only ever applies while
-        // the class is genuinely in Narrative Evaluation mode -- a
-        // scored class's section can still carry a narrative_style
-        // value from before it was toggled off, that value must never
-        // leak into a scored class's entry screen.
-        $narrativeStyle = $template === 'narrative' ? ($class->section?->narrativeStyle() ?? 'comments') : 'comments';
+        $template = $class->isNarrativeEvaluationForTerm($term->id) ? 'narrative' : $prefs->templateForClass($class);
+        // 'skills' (user directive 2026-09-21, extended to class level
+        // the same day) only ever applies while the class is genuinely
+        // in Narrative Evaluation mode -- a scored class's own or its
+        // section's narrative_style can still carry a value from before
+        // it was toggled off, that value must never leak into a scored
+        // class's entry screen.
+        $narrativeStyle = $template === 'narrative' ? $class->resolvedNarrativeStyle() : 'comments';
         $subjects = collect();
         $comments = collect();
         $skillAreas = collect();

@@ -1,3 +1,4 @@
+@php $termWord = \App\Support\TermLabel::current(); @endphp
 @extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => 'Assessment Structure'])
 @section('title', 'Assessment Structure')
 
@@ -6,7 +7,7 @@
   <div>
     <h1 class="title">Assessment Structure</h1>
     <p class="subtitle">The Test / Continuous Assessment and Examination components every subject is scored against. Currently sums to {{ rtrim(rtrim(number_format($totalPossible, 2), '0'), '.') }} marks in total.</p>
-    <p class="muted" style="font-size:.82rem;margin-top:.3rem">Mid Term and Full Term Report columns below control which components feed each report card (user directive: CA1+CA2 style components can count toward a lighter Mid Term report while the Exam is Full Term only). For accurate grading, the components ticked for a given report should sum to roughly 100 marks in total.</p>
+    <p class="muted" style="font-size:.82rem;margin-top:.3rem">Mid {{ $termWord }} and Full {{ $termWord }} Report columns below control which components feed each report card (user directive: CA1+CA2 style components can count toward a lighter Mid {{ $termWord }} report while the Exam is Full {{ $termWord }} only). For accurate grading, the components ticked for a given report should sum to roughly 100 marks in total.</p>
   </div>
   <div class="stack" style="flex-direction:row;gap:.6rem">
     @if($canManagePermission)
@@ -97,7 +98,7 @@
       <table>
         <thead><tr>
           @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="ca-select-all" aria-label="Select all CA components" /></th>@endif
-          <th>Name</th><th>Out of</th><th>Mid Term</th><th>Full Term</th>@if($canManagePermission && $term)<th>Entry window</th>@endif @if($canManage)<th></th>@endif</tr></thead>
+          <th>Name</th><th>Out of</th><th>Mid {{ $termWord }}</th><th>Full {{ $termWord }}</th>@if($canManagePermission && $term)<th>Entry window</th>@endif @if($canManage)<th></th>@endif</tr></thead>
         <tbody>
           @foreach($caComponents as $component)
             @php $window = $windowsByComponent->get($component->id); @endphp
@@ -135,9 +136,9 @@
                   <input name="name" value="{{ $component->name }}" required style="flex:1;min-width:8rem" />
                   <input name="max_score" type="number" step="0.01" min="0.01" value="{{ $component->max_score }}" required style="max-width:8rem" />
                   <input type="hidden" name="counts_for_midterm" value="0" />
-                  <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_midterm" value="1" @checked($component->counts_for_midterm) /> Mid Term</label>
+                  <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_midterm" value="1" @checked($component->counts_for_midterm) /> Mid {{ $termWord }}</label>
                   <input type="hidden" name="counts_for_fullterm" value="0" />
-                  <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_fullterm" value="1" @checked($component->counts_for_fullterm) /> Full Term</label>
+                  <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_fullterm" value="1" @checked($component->counts_for_fullterm) /> Full {{ $termWord }}</label>
                   <button class="btn btn-primary btn-sm" type="submit">Save</button>
                 </form>
               </td>
@@ -196,9 +197,9 @@
         <input name="name" placeholder="e.g. First CA" required style="flex:1;min-width:9rem" />
         <input name="max_score" type="number" step="0.01" min="0.01" placeholder="Out of" required style="max-width:7rem" />
         <input type="hidden" name="counts_for_midterm" value="0" />
-        <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_midterm" value="1" /> Mid Term</label>
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_midterm" value="1" /> Mid {{ $termWord }}</label>
         <input type="hidden" name="counts_for_fullterm" value="0" />
-        <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_fullterm" value="1" checked /> Full Term</label>
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_fullterm" value="1" checked /> Full {{ $termWord }}</label>
         <button class="btn btn-primary btn-sm" type="submit">Add</button>
       </form>
     @endif
@@ -216,7 +217,7 @@
       <table>
         <thead><tr>
           @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="exam-select-all" aria-label="Select all exam components" /></th>@endif
-          <th>Name</th><th>Out of</th><th>Mid Term</th><th>Full Term</th>@if($canManagePermission && $term)<th>Entry window</th>@endif @if($canManage)<th></th>@endif</tr></thead>
+          <th>Name</th><th>Out of</th><th>Mid {{ $termWord }}</th><th>Full {{ $termWord }}</th>@if($canManagePermission && $term)<th>Entry window</th>@endif @if($canManage)<th></th>@endif</tr></thead>
         <tbody>
           @foreach($examComponents as $component)
             @php $window = $windowsByComponent->get($component->id); @endphp
@@ -254,9 +255,9 @@
                   <input name="name" value="{{ $component->name }}" required style="flex:1;min-width:8rem" />
                   <input name="max_score" type="number" step="0.01" min="0.01" value="{{ $component->max_score }}" required style="max-width:8rem" />
                   <input type="hidden" name="counts_for_midterm" value="0" />
-                  <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_midterm" value="1" @checked($component->counts_for_midterm) /> Mid Term</label>
+                  <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_midterm" value="1" @checked($component->counts_for_midterm) /> Mid {{ $termWord }}</label>
                   <input type="hidden" name="counts_for_fullterm" value="0" />
-                  <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_fullterm" value="1" @checked($component->counts_for_fullterm) /> Full Term</label>
+                  <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_fullterm" value="1" @checked($component->counts_for_fullterm) /> Full {{ $termWord }}</label>
                   <button class="btn btn-primary btn-sm" type="submit">Save</button>
                 </form>
               </td>
@@ -315,9 +316,9 @@
         <input name="name" placeholder="e.g. Exam" required style="flex:1;min-width:9rem" />
         <input name="max_score" type="number" step="0.01" min="0.01" placeholder="Out of" required style="max-width:7rem" />
         <input type="hidden" name="counts_for_midterm" value="0" />
-        <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_midterm" value="1" /> Mid Term</label>
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_midterm" value="1" /> Mid {{ $termWord }}</label>
         <input type="hidden" name="counts_for_fullterm" value="0" />
-        <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_fullterm" value="1" checked /> Full Term</label>
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" name="counts_for_fullterm" value="1" checked /> Full {{ $termWord }}</label>
         <button class="btn btn-primary btn-sm" type="submit">Add</button>
       </form>
     @endif

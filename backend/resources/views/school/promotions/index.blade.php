@@ -16,11 +16,11 @@
   @else
     <div style="overflow-x:auto">
     <table class="table-stack">
-      <thead><tr><th>Term evaluated</th><th>Threshold</th><th>Promoted</th><th>Repeated</th><th>Graduated</th><th>Skipped</th><th>Run</th><th></th></tr></thead>
+      <thead><tr><th>{{ \App\Support\TermLabel::current() }} evaluated</th><th>Threshold</th><th>Promoted</th><th>Repeated</th><th>Graduated</th><th>Skipped</th><th>Run</th><th></th></tr></thead>
       <tbody>
         @foreach($runs as $run)
           <tr>
-            <td data-label="Term evaluated">{{ $run->term?->session?->name }} {{ $run->term?->name }}</td>
+            <td data-label="{{ \App\Support\TermLabel::current() }} evaluated">{{ $run->term?->session?->name }} {{ $run->term?->name }}</td>
             <td data-label="Threshold">{{ $run->threshold }}%</td>
             <td data-label="Promoted">{{ $run->promoted_count }}</td>
             <td data-label="Repeated">{{ $run->repeated_count }}</td>

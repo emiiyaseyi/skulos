@@ -204,22 +204,24 @@ class ReportCardService
         $logoPath = ($section && $school ? $section->resolvedLogoPath($school) : null) ?: $school?->logo_path;
 
         // Watermark (user directive 2026-09-21: "the section logo is
-        // also used as a watermark for the section report cards"),
-        // opt-in per section, off for every section by default. Reuses
-        // whichever logo just resolved above (own override or the
-        // school default), so a watermark always matches the same mark
-        // already printed in the header.
-        $watermarkPath = ($section?->watermarkEnabled() ?? false) ? $logoPath : null;
+        // also used as a watermark for the section report cards", then
+        // extended to class level the same day: "one can tick the
+        // section or classes"), opt-in per class or section, off by
+        // default everywhere. Reuses whichever logo just resolved above
+        // (own override or the school default), so a watermark always
+        // matches the same mark already printed in the header.
+        $watermarkPath = ($classArm?->schoolClass?->resolvedWatermarkEnabled() ?? false) ? $logoPath : null;
 
         // Key Assessment Areas (user directive 2026-09-21): only built
-        // when this section has actually opted into the 'skills'
-        // narrative style, so a school that never uses this pays no
-        // extra query for it. Grouped by category, in catalog order,
-        // every configured skill always appears even if this student
-        // was never given a remark for it ("Not yet entered" in the
-        // view), same convention BehaviouralTrait traits already use.
+        // when this class (falling back to its section) has actually
+        // opted into the 'skills' narrative style, so a school that
+        // never uses this pays no extra query for it. Grouped by
+        // category, in catalog order, every configured skill always
+        // appears even if this student was never given a remark for it
+        // ("Not yet entered" in the view), same convention
+        // BehaviouralTrait traits already use.
         $skillAreas = [];
-        if (($section?->narrativeStyle() ?? 'comments') === 'skills') {
+        if (($classArm?->schoolClass?->resolvedNarrativeStyle() ?? 'comments') === 'skills') {
             $skillRemarks = StudentSkillRemark::where('student_id', $student->id)->where('term_id', $term->id)
                 ->pluck('remark', 'skill_area_id');
             foreach (\App\Models\Tenant\ReportCardSkillArea::active()->orderBy('sequence')->get() as $area) {
@@ -276,7 +278,7 @@ class ReportCardService
                 'class_teacher_phone' => $classTeacher?->phone,
             ],
             'traits' => $traits,
-            'narrative_style' => $section?->narrativeStyle() ?? 'comments',
+            'narrative_style' => $classArm?->schoolClass?->resolvedNarrativeStyle() ?? 'comments',
             'skill_areas' => $skillAreas,
             'logo_url' => $logoPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($logoPath) : null,
             'watermark_url' => $watermarkPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($watermarkPath) : null,
@@ -326,15 +328,39 @@ class ReportCardService
 
     /**
      * Static illustrative data, shaped identically to forStudent(), used
-     * only so an admin can preview each template/field combination before
-     * any real scores exist.
+     * only so an admin (or, since 2026-09-21, a class teacher previewing
+     * their own class) can see what a template/field combination will
+     * actually look like before any real scores exist. Given a real
+     * $class, this reflects that class's OWN resolved report card look
+     * (template/narrative style/watermark, falling through its section
+     * to the school default exactly like forStudent() does for a real
+     * student) rather than the generic illustrative defaults below --
+     * see ReportCardController::previewClass().
      */
-    public function sample(): array
+    public function sample(?\App\Models\Tenant\SchoolClass $class = null): array
     {
+        $section = $class?->section;
+        $narrativeStyle = $class?->resolvedNarrativeStyle() ?? 'comments';
+        $watermarkOn = $class?->resolvedWatermarkEnabled() ?? false;
+        $school = $this->tenants->current();
+        $logoPath = ($section && $school ? $section->resolvedLogoPath($school) : null) ?: $school?->logo_path;
+        $logoUrl = $logoPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($logoPath) : null;
+        $watermarkUrl = ($watermarkOn && $logoPath) ? \Illuminate\Support\Facades\Storage::disk('public')->url($logoPath) : null;
+
+        // Every configured Key Assessment Area shows, with no remark yet
+        // entered -- exactly what a genuinely not-yet-scored real
+        // student's report would show, never a fabricated sample remark.
+        $skillAreas = [];
+        if ($narrativeStyle === 'skills') {
+            foreach (\App\Models\Tenant\ReportCardSkillArea::active()->orderBy('sequence')->get() as $area) {
+                $skillAreas[$area->category][] = ['name' => $area->name, 'remark' => null];
+            }
+        }
+
         return [
             'identity' => [
-                'name' => 'Ada Grace Obi', 'admission_number' => 'ADM/2025/014', 'gender' => 'Female',
-                'date_of_birth' => '12 Mar 2013', 'age' => 13, 'class' => 'JSS 2 A', 'house' => 'Red House',
+                'name' => 'Ada Grace Obi (sample)', 'admission_number' => 'ADM/2025/014', 'gender' => 'Female',
+                'date_of_birth' => '12 Mar 2013', 'age' => 13, 'class' => $class?->name ?? 'JSS 2 A', 'house' => 'Red House',
                 'class_teacher' => 'Mrs. F. Adigun', 'photo_url' => null,
             ],
             'term' => ['name' => 'Third Term', 'session' => '2025/2026'],
@@ -371,12 +397,13 @@ class ReportCardService
                 ['name' => 'Handling of Tools', 'type' => 'score', 'value' => 4],
                 ['name' => 'Sports', 'type' => 'score', 'value' => 5],
             ],
-            'narrative_style' => 'comments',
-            'skill_areas' => [],
+            'narrative_style' => $narrativeStyle,
+            'skill_areas' => $skillAreas,
+            'logo_url' => $logoUrl,
             'stamp_url' => null,
-            'watermark_url' => null,
+            'watermark_url' => $watermarkUrl,
             'signature_url' => null,
-            'signer_name' => 'Head Teacher',
+            'signer_name' => $section?->signerLabel() ?? 'Head Teacher',
             'trend' => ['First Term' => 74.3, 'Second Term' => 76.75, 'Third Term' => 78.25],
         ];
     }

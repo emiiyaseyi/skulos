@@ -1,6 +1,11 @@
 @php
   $slug = $school?->slug;
   $chev = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+  // A school's own word for "Term" (user report 2026-09-21: "the school
+  // has change their termly wording to Trimester but its not reflecting
+  // across the school platform menu names, buttons etc"), 'Term' unless
+  // this school set one under School Profile. See App\Support\TermLabel.
+  $termWord = $school ? \App\Support\TermLabel::current() : 'Term';
 
   /*
    * A class or subject teacher (user directive 2026-07-12, live QA:
@@ -209,7 +214,7 @@
     'school_sections' => ['school.academics.index', 'Classes &amp; Subjects', 'academics'],
     'classes_arms' => ['school.academics.index', 'Classes &amp; Subjects', 'academics'],
     'subject_management' => ['school.academics.index', 'Classes &amp; Subjects', 'academics'],
-    'academic_sessions_terms' => ['school.settings.calendar.edit', 'Sessions &amp; Terms', 'terms'],
+    'academic_sessions_terms' => ['school.settings.calendar.edit', 'Sessions &amp; '.$termWord.'s', 'terms'],
     'continuous_assessment' => ['school.examinations.structure', 'Assessment Structure', 'structure'],
     // "Results" and "Report Cards" merged into one nav line (user
     // directive 2026-07-15), same merge pattern as Staff/Teacher Portal:
@@ -232,7 +237,7 @@
     // Nested under Academic > Examinations alongside Enter Scores/Grading
     // (user directive 2026-07-18: "add a submenu for term broadsheets
     // too"), not its own top-level Reports & Analytics line any more.
-    'student_reports' => ['school.reports.students.index', 'Term Broadsheets', 'broadsheet'],
+    'student_reports' => ['school.reports.students.index', $termWord.' Broadsheets', 'broadsheet'],
     'unlimited_grading_systems' => ['school.examinations.grading', 'Grading', 'scale'],
     // Already fully built, just never wired into this catalog (2026-07-18):
     // ReportCardService::forStudent() already computes both overall
@@ -270,7 +275,7 @@
     'timetable_management' => $isRestrictedNav
         ? ['school.timetable.mine', 'Timetable', 'schedule']
         : ['school.timetable.index', 'Timetable', 'schedule'],
-    'student_promotion' => ['school.settings.calendar.edit', 'Sessions &amp; Terms', 'terms'],
+    'student_promotion' => ['school.settings.calendar.edit', 'Sessions &amp; '.$termWord.'s', 'terms'],
     // Repointed from school.campuses (2026-07-18): a real, dedicated
     // School Profile screen now exists (SchoolPortalController::
     // editProfile(), built 2026-07-17), so the feature key genuinely
@@ -838,7 +843,7 @@
   if (! $isRestrictedNav && $navRbac->check($navUser, $school, 'examinations.approve_results')
       && ! isset($renderedRoutes['school.examinations.report-card-calculation'])) {
     $renderedRoutes['school.examinations.report-card-calculation'] = true;
-    $academicSubgroups['Examinations']['report_card_calculation'] = $link('school.examinations.report-card-calculation', 'Term Calculation', 'percent');
+    $academicSubgroups['Examinations']['report_card_calculation'] = $link('school.examinations.report-card-calculation', $termWord.' Calculation', 'percent');
   }
 
   // Bulk Generate Report Cards (user request 2026-07-23: "add a bulk way

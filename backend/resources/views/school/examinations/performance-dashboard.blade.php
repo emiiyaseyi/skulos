@@ -11,7 +11,7 @@
 </div>
 
 <div class="grid cols-3" style="gap:1rem;margin-bottom:1.25rem">
-  <div class="card stat" style="padding:1rem"><b>{{ $termAverage !== null ? "{$termAverage}%" : 'N/A' }}</b><span>Term average</span></div>
+  <div class="card stat" style="padding:1rem"><b>{{ $termAverage !== null ? "{$termAverage}%" : 'N/A' }}</b><span>{{ \App\Support\TermLabel::current() }} average</span></div>
   <div class="card stat" style="padding:1rem"><b>{{ number_format($studentsAssessed) }}</b><span>Students assessed</span></div>
   <div class="card stat" style="padding:1rem"><b>{{ count($atRisk) }}</b><span>Performance at risk</span></div>
 </div>

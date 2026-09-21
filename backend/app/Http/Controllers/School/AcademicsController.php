@@ -410,6 +410,44 @@ class AcademicsController extends Controller
     }
 
     /**
+     * Refuses to delete a section with any class under it, the same
+     * refuse-rather-than-silently-cascade posture destroyClass() already
+     * uses for an enrolled student (user report 2026-09-21, screenshot:
+     * a school loaded a default class structure, renamed the section
+     * they actually wanted but the unwanted preloaded "Primary" block
+     * had no delete option at all, "let's make those blocks deletable
+     * so that its not seen again, it there are classes under it, it
+     * should notify the admin so as to crosscheck it"). A section with
+     * classes under it is NOT silently cascade deleted along with them
+     * (that would delete real class/subject/teaching-assignment data no
+     * confirmation screen here ever showed) -- the admin is told exactly
+     * which classes are in the way and must move or remove them first.
+     */
+    public function destroySection(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'academics.update');
+        $school = $this->school($request);
+        $section = Section::with('classes')->findOrFail($request->route('sectionId'));
+
+        if ($section->classes->isNotEmpty()) {
+            $classNames = $section->classes->pluck('name')->implode(', ');
+
+            return back()->with('error', "\"{$section->name}\" has {$section->classes->count()} class(es) under it ({$classNames}) and cannot be removed. Move or remove those classes first, then it can be deleted.");
+        }
+
+        $name = $section->name;
+        // A section-scoped report card override (2026-09-21) has no real
+        // FK constraint to it, same as every other tenant table in this
+        // codebase -- clear it explicitly rather than leave an orphaned
+        // row pointing at a section id that no longer exists.
+        \App\Models\Tenant\SchoolSectionBranding::where('section_id', $section->id)->delete();
+        $section->delete();
+
+        return redirect()->route('school.academics.index', ['school' => $school->slug])
+            ->with('status', "\"{$name}\" removed.");
+    }
+
+    /**
      * A class needs at least one ClassArm to actually hold students
      * (Student.current_class_arm_id points at a ClassArm, not a
      * SchoolClass) — creating one here with arm_id null (a single,
