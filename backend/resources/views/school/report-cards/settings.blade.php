@@ -162,14 +162,14 @@
       <div class="field" style="margin:0">
         <label for="rc_stamp">School wide stamp</label>
         @if($school->stamp_path)
-          <img src="{{ \Illuminate\Support\Facades\Storage::url($school->stamp_path) }}" alt="Current school stamp" style="display:block;max-height:60px;margin-bottom:.4rem" />
+          <img src="{{ \App\Support\TenantAsset::url($school->stamp_path) }}" alt="Current school stamp" style="display:block;max-height:60px;margin-bottom:.4rem" />
         @endif
         <input id="rc_stamp" name="stamp" type="file" accept="image/*" />
       </div>
       <div class="field" style="margin:0">
         <label for="rc_signature">School wide signature</label>
         @if($school->signature_path)
-          <img src="{{ \Illuminate\Support\Facades\Storage::url($school->signature_path) }}" alt="Current school signature" style="display:block;max-height:60px;margin-bottom:.4rem" />
+          <img src="{{ \App\Support\TenantAsset::url($school->signature_path) }}" alt="Current school signature" style="display:block;max-height:60px;margin-bottom:.4rem" />
         @endif
         <input id="rc_signature" name="signature" type="file" accept="image/*" />
       </div>

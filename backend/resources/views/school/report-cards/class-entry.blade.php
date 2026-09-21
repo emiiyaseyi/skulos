@@ -38,12 +38,12 @@
         <div style="font-weight:700;font-size:.85rem;margin-bottom:.5rem">{{ $arm->label() }}</div>
         <div style="display:flex;gap:.8rem;margin-bottom:.6rem;align-items:flex-end;flex-wrap:wrap">
           <div>
-            @if($arm->stamp_path)<img src="{{ \Illuminate\Support\Facades\Storage::url($arm->stamp_path) }}" alt="Stamp" style="height:36px;display:block;margin-bottom:.3rem" />@endif
+            @if($arm->stamp_path)<img src="{{ \App\Support\TenantAsset::url($arm->stamp_path) }}" alt="Stamp" style="height:36px;display:block;margin-bottom:.3rem" />@endif
             <label class="muted" for="stamp-{{ $arm->id }}">Stamp</label>
             <input id="stamp-{{ $arm->id }}" name="stamp" type="file" accept="image/*" style="max-width:11rem" />
           </div>
           <div>
-            @if($arm->signature_path)<img src="{{ \Illuminate\Support\Facades\Storage::url($arm->signature_path) }}" alt="Signature" style="height:36px;display:block;margin-bottom:.3rem" />@endif
+            @if($arm->signature_path)<img src="{{ \App\Support\TenantAsset::url($arm->signature_path) }}" alt="Signature" style="height:36px;display:block;margin-bottom:.3rem" />@endif
             <label class="muted" for="signature-{{ $arm->id }}">Signature</label>
             <input id="signature-{{ $arm->id }}" name="signature" type="file" accept="image/*" style="max-width:11rem" />
           </div>

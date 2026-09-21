@@ -1,4 +1,4 @@
-@if($show('class_teacher_remark') || $show('principal_remark') || ($show('next_term_begins') && ! $isEval))
+@if($show('class_teacher_remark') || $show('principal_remark') || $show('next_term_begins'))
   <div class="rc-remarks">
     @if($show('class_teacher_remark'))
       <div><b>Class Teacher's Remark</b>{{ $data['remarks']['class_teacher'] ?: 'Not yet entered.' }}</div>
@@ -12,7 +12,12 @@
            signer, rather than the fixed generic "Head of School". --}}
       <div><b>{{ $data['signer_name'] ?? 'Head Teacher' }}'s Remark</b>{{ $data['remarks']['principal'] ?: 'Not yet entered.' }}</div>
     @endif
-    @if($show('next_term_begins') && ! $isEval)
+    {{-- "Next Term Begins" now renders here for EVERY template,
+         including narrative (2026-09-21) -- moved out of the top
+         identity strip to match the reference report card's own
+         placement, "THIRD TRIMESTER BEGINS" near the stamp, not in
+         the header. --}}
+    @if($show('next_term_begins'))
       <div><b>Next {{ \App\Support\TermLabel::current() }} Begins</b>{{ $data['remarks']['next_term_begins_on'] ?: 'To be announced.' }}</div>
     @endif
   </div>

@@ -543,7 +543,7 @@ class ReportCardController extends Controller
         $narrativeClass = $previewClass && $currentTerm && $previewClass->isNarrativeEvaluationForTerm($currentTerm->id);
 
         $sample = $cards->sample($previewClass);
-        $logoUrl = $sample['logo_url'] ?? ($school->logo_path ? \Illuminate\Support\Facades\Storage::url($school->logo_path) : null);
+        $logoUrl = $sample['logo_url'] ?? \App\Support\TenantAsset::url($school->logo_path);
         $template = $narrativeClass ? 'narrative' : $prefs->templateForClass($previewClass);
 
         $blockLabels = config('skulos.report_card_layout_blocks', []);

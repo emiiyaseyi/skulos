@@ -644,6 +644,59 @@ class ReportCardSectionOverridesTest extends TestCase
             ->assertDontSee('class="rc-photo"', false);
     }
 
+    /**
+     * The real broken-logo bug, live user report 2026-09-21 with the
+     * actual broken URL: https://skulosapp.com/storage/schools/10/...
+     * (the platform's own bare root domain, not the school's real
+     * subdomain -- APP_URL is one static, non-tenant-aware value).
+     * TenantAsset::url() must build the URL against THIS school's own
+     * subdomain instead, the same way School::portalUrl() already does
+     * for emailed links.
+     */
+    public function test_the_preview_logo_url_uses_the_schools_own_subdomain_not_the_bare_app_url(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'logourlone');
+        ['class' => $class] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        $school->logo_path = 'schools/'.$school->id.'/logo.png';
+        $school->save();
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/preview/class/{$class->id}");
+        $response->assertOk();
+        $response->assertSee("http://{$school->slug}.localhost/storage/schools/{$school->id}/logo.png", false);
+        $response->assertDontSee('http://localhost/storage/', false);
+    }
+
+    /**
+     * Live user report 2026-09-21, side-by-side screenshot against the
+     * reference report card: the narrative identity area showed Gender
+     * twice (once in the new top strip, once still in the untouched
+     * .rc-id grid below it) plus admission number/date of birth/house/
+     * class teacher/attendance, none of which the reference's own
+     * identity row has. "I want it to be exact match."
+     */
+    public function test_a_narrative_report_cards_identity_area_shows_exactly_name_gender_class_session_once_each(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'narrativeidtwo');
+        ['class' => $class, 'student' => $student, 'term' => $term] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        ClassNarrativeTerm::create(['school_class_id' => $class->id, 'term_id' => $term->id]);
+        $student->update(['gender' => 'Male']);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/{$student->id}/{$term->id}");
+        $response->assertOk();
+        $html = $response->getContent();
+        $this->assertSame(1, substr_count($html, '<b>Gender</b>'));
+        $this->assertStringNotContainsString('<b>Admission No.</b>', $html);
+        $this->assertStringNotContainsString('<b>Date of Birth</b>', $html);
+        $this->assertStringNotContainsString('<b>House</b>', $html);
+        $this->assertStringNotContainsString('<b>Class Teacher</b>', $html);
+    }
+
     public function test_the_class_report_cards_screen_shows_a_preview_link(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'classindexpreview');

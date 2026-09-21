@@ -17,7 +17,6 @@ use App\Models\Tenant\Subject;
 use App\Models\Tenant\Term;
 use App\Services\Results\ResultService;
 use App\Services\Tenancy\TenantManager;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * Builds the data a report card view needs, whatever template/fields the
@@ -242,7 +241,7 @@ class ReportCardService
                 'class' => $classArm?->label(),
                 'house' => $student->house?->name,
                 'class_teacher' => $classTeacher?->fullName(),
-                'photo_url' => $student->passport_path ? Storage::url($student->passport_path) : null,
+                'photo_url' => \App\Support\TenantAsset::url($student->passport_path),
             ],
             'term' => ['name' => $term->name, 'session' => $term->session?->name],
             'report_type' => $reportType,
@@ -280,10 +279,10 @@ class ReportCardService
             'traits' => $traits,
             'narrative_style' => $classArm?->schoolClass?->resolvedNarrativeStyle() ?? 'comments',
             'skill_areas' => $skillAreas,
-            'logo_url' => $logoPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($logoPath) : null,
-            'watermark_url' => $watermarkPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($watermarkPath) : null,
-            'stamp_url' => $stampPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($stampPath) : null,
-            'signature_url' => $signaturePath ? \Illuminate\Support\Facades\Storage::disk('public')->url($signaturePath) : null,
+            'logo_url' => \App\Support\TenantAsset::url($logoPath),
+            'watermark_url' => \App\Support\TenantAsset::url($watermarkPath),
+            'stamp_url' => \App\Support\TenantAsset::url($stampPath),
+            'signature_url' => \App\Support\TenantAsset::url($signaturePath),
             // Who the signature under the signoff belongs to (user
             // request 2026-07-27): the student's own section's signer,
             // defaulting to Head Teacher/Principal, admin-overridable
@@ -344,8 +343,8 @@ class ReportCardService
         $watermarkOn = $class?->resolvedWatermarkEnabled() ?? false;
         $school = $this->tenants->current();
         $logoPath = ($section && $school ? $section->resolvedLogoPath($school) : null) ?: $school?->logo_path;
-        $logoUrl = $logoPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($logoPath) : null;
-        $watermarkUrl = ($watermarkOn && $logoPath) ? \Illuminate\Support\Facades\Storage::disk('public')->url($logoPath) : null;
+        $logoUrl = \App\Support\TenantAsset::url($logoPath);
+        $watermarkUrl = $watermarkOn ? \App\Support\TenantAsset::url($logoPath) : null;
 
         // The school's own real current term/session (user directive
         // 2026-09-21: "the preview should match the current term"),

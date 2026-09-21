@@ -123,32 +123,35 @@
   </div>
 
   @if($isEval)
-    {{-- Name/Gender/Class/Session in one row (user reference report card,
-         2026-09-21: "NAME: ... GENDER: ... CLASS: ... SESSION: ..."),
-         Gender/Session added alongside the pre-existing Name/Class/Next
-         Term Begins strip, which previously dropped both entirely for
-         the narrative template even though every other template's own
-         identity grid already carries them. --}}
+    {{-- Name/Gender/Class/Session, ONLY, in one row (user reference
+         report card, 2026-09-21: "NAME: ... GENDER: ... CLASS: ...
+         SESSION: ..."), and nothing else -- the reference's own
+         identity row has no admission number, date of birth, age,
+         house, class teacher, or attendance count, all of which used
+         to ALSO render in the .rc-id grid just below regardless of
+         $isEval (duplicating Gender a second time and adding clutter
+         the reference never had). "Next Term Begins" moved to the
+         bottom, near the stamp, matching the reference's own
+         "THIRD TRIMESTER BEGINS" placement -- see _body-remarks. --}}
     <div class="rc-strip">
       <div><b>Name</b>{{ $data['identity']['name'] }}</div>
       @if($show('gender'))<div><b>Gender</b>{{ $data['identity']['gender'] }}</div>@endif
       @if($show('class'))<div><b>Class</b>{{ $data['identity']['class'] }}</div>@endif
       @if($data['term']['session'] ?? null)<div><b>Session</b>{{ $data['term']['session'] }}</div>@endif
-      @if($show('next_term_begins'))<div><b>Next {{ $rcTermWord }} Begins</b>{{ $data['remarks']['next_term_begins_on'] ?: 'To be announced.' }}</div>@endif
+    </div>
+  @else
+    <div class="rc-id">
+      <div><b>Name</b>{{ $data['identity']['name'] }}</div>
+      @if($show('admission_number'))<div><b>Admission No.</b>{{ $data['identity']['admission_number'] }}</div>@endif
+      @if($show('class'))<div><b>Class</b>{{ $data['identity']['class'] }}</div>@endif
+      @if($show('gender'))<div><b>Gender</b>{{ $data['identity']['gender'] }}</div>@endif
+      @if($show('date_of_birth'))<div><b>Date of Birth</b>{{ $data['identity']['date_of_birth'] }}</div>@endif
+      @if($show('age'))<div><b>Age</b>{{ $data['identity']['age'] }}</div>@endif
+      @if($show('house'))<div><b>House</b>{{ $data['identity']['house'] }}</div>@endif
+      @if($show('class_teacher'))<div><b>Class Teacher</b>{{ $data['identity']['class_teacher'] }}</div>@endif
+      @if($show('attendance'))<div><b>Attendance</b>{{ $data['attendance']['present'] }} of {{ $data['attendance']['total'] }}</div>@endif
     </div>
   @endif
-
-  <div class="rc-id">
-    @unless($isEval)<div><b>Name</b>{{ $data['identity']['name'] }}</div>@endunless
-    @if($show('admission_number'))<div><b>Admission No.</b>{{ $data['identity']['admission_number'] }}</div>@endif
-    @if($show('class') && ! $isEval)<div><b>Class</b>{{ $data['identity']['class'] }}</div>@endif
-    @if($show('gender'))<div><b>Gender</b>{{ $data['identity']['gender'] }}</div>@endif
-    @if($show('date_of_birth'))<div><b>Date of Birth</b>{{ $data['identity']['date_of_birth'] }}</div>@endif
-    @if($show('age'))<div><b>Age</b>{{ $data['identity']['age'] }}</div>@endif
-    @if($show('house'))<div><b>House</b>{{ $data['identity']['house'] }}</div>@endif
-    @if($show('class_teacher'))<div><b>Class Teacher</b>{{ $data['identity']['class_teacher'] }}</div>@endif
-    @if($show('attendance'))<div><b>Attendance</b>{{ $data['attendance']['present'] }} of {{ $data['attendance']['total'] }}</div>@endif
-  </div>
   @endif
 
   {{--
