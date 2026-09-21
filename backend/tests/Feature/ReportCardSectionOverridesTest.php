@@ -360,6 +360,31 @@ class ReportCardSectionOverridesTest extends TestCase
         $this->assertSame($originalAddress, $school->fresh()->address);
     }
 
+    /**
+     * Live user directive 2026-09-21, confirmed via AskUserQuestion:
+     * "creche, reception and KG classes of nursery" should ALL be in
+     * the narrative style, not just one auto-detected "KG One" class.
+     */
+    public function test_all_classes_in_section_switches_every_class_not_just_one(): void
+    {
+        [$school] = $this->schoolWithMember('school-owner', 'allclassesone');
+        ['section' => $section, 'class' => $kg1, 'term' => $term] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        $creche = SchoolClass::create(['section_id' => $section->id, 'name' => 'Creche', 'sequence' => 0]);
+        $reception = SchoolClass::create(['section_id' => $section->id, 'name' => 'Reception', 'sequence' => 1]);
+        app(TenantManager::class)->forget();
+
+        $this->artisan('report-card:enable-skills-section', ['slug' => $school->slug, '--all-classes-in-section' => true])
+            ->assertExitCode(0);
+
+        app(TenantManager::class)->use($school);
+        $this->assertTrue($kg1->fresh()->isNarrativeEvaluationForTerm($term->id));
+        $this->assertTrue($creche->fresh()->isNarrativeEvaluationForTerm($term->id));
+        $this->assertTrue($reception->fresh()->isNarrativeEvaluationForTerm($term->id));
+        app(TenantManager::class)->forget();
+    }
+
     public function test_the_general_enable_skills_section_command_never_overwrites_an_already_customized_catalog(): void
     {
         [$school] = $this->schoolWithMember('school-owner', 'greenfieldstyletwo');

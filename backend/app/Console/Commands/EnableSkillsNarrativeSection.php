@@ -33,6 +33,7 @@ class EnableSkillsNarrativeSection extends Command
         {slug : The school slug to apply this to}
         {--section= : Exact section name, auto-detected if omitted}
         {--class= : Exact class name, auto-detected if omitted}
+        {--all-classes-in-section : Switch EVERY class in the resolved section, not just one auto-detected class -- use when a section (e.g. Nursery) is entirely non-scored, not just one class within it}
         {--term-label= : If given, renames the current session\'s terms and sets the school\'s own "Term" wording (e.g. Trimester); omitted leaves term wording untouched}
         {--no-seed-catalog : Skip seeding config(\'skulos.default_report_card_skill_areas\') -- use when the school already has, or wants to type, its own Key Assessment Areas list}';
 
@@ -86,23 +87,29 @@ class EnableSkillsNarrativeSection extends Command
             $this->info("Using section \"{$section->name}\".");
 
             $className = $this->option('class');
-            $class = $className
-                ? SchoolClass::where('section_id', $section->id)->where('name', $className)->first()
-                : SchoolClass::where('section_id', $section->id)
+            $classes = match (true) {
+                (bool) $className => SchoolClass::where('section_id', $section->id)->where('name', $className)->get(),
+                $this->option('all-classes-in-section') => SchoolClass::where('section_id', $section->id)->get(),
+                default => SchoolClass::where('section_id', $section->id)
                     ->where(fn ($q) => $q->where('name', 'like', '%kg%1%')
                         ->orWhere('name', 'like', '%kg%one%')
                         ->orWhere('name', 'like', '%kindergarten 1%')
                         ->orWhere('name', 'like', '%creche%')
                         ->orWhere('name', 'like', '%reception%'))
-                    ->first();
+                    ->get(),
+            };
 
-            if (! $class) {
+            if ($classes->isEmpty()) {
                 $this->warn('Could not confidently identify a class to switch into Narrative Evaluation (known classes under this section: '.
                     SchoolClass::where('section_id', $section->id)->pluck('name')->implode(', ').
-                    '). Skipping the Narrative Evaluation toggle -- turn it on manually from Academic > Narrative Evaluation for the right class; the rest of this setup still applies to the section.');
+                    '). Re-run with --class="Exact Name" or --all-classes-in-section, or turn it on manually from Academic > Narrative Evaluation; the rest of this setup still applies to the section.');
             } elseif ($currentTerm) {
-                ClassNarrativeTerm::firstOrCreate(['school_class_id' => $class->id, 'term_id' => $currentTerm->id]);
-                $this->info("Narrative Evaluation turned on for \"{$class->name}\", {$currentTerm->name}.");
+                $toggled = 0;
+                foreach ($classes as $class) {
+                    ClassNarrativeTerm::firstOrCreate(['school_class_id' => $class->id, 'term_id' => $currentTerm->id]);
+                    $toggled++;
+                }
+                $this->info("Narrative Evaluation turned on for {$toggled} class(es) under \"{$section->name}\" (".$classes->pluck('name')->implode(', ')."), {$currentTerm->name}.");
             } else {
                 $this->warn('No current term found, skipped the Narrative Evaluation toggle.');
             }

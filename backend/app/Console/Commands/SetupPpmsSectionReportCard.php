@@ -88,20 +88,32 @@ class SetupPpmsSectionReportCard extends Command
             }
             $this->info("Using section \"{$section->name}\".");
 
+            // Every class in the section, not just one auto-detected
+            // "KG One" pattern (user directive 2026-09-21, live: "the
+            // creche, reception and KG classes of nursery does not use
+            // student image on the report card" -- confirmed via
+            // AskUserQuestion that ALL of them, not just KG 1, should be
+            // in the same narrative Key Assessment Areas style). --class
+            // still narrows to exactly one, for a section that genuinely
+            // mixes narrative and scored classes.
             $className = $this->option('class');
-            $class = $className
-                ? SchoolClass::where('section_id', $section->id)->where('name', $className)->first()
-                : SchoolClass::where('section_id', $section->id)
-                    ->where(fn ($q) => $q->where('name', 'like', '%kg%1%')->orWhere('name', 'like', '%kg%one%')->orWhere('name', 'like', '%kindergarten 1%'))
-                    ->first();
+            $classes = $className
+                ? SchoolClass::where('section_id', $section->id)->where('name', $className)->get()
+                : SchoolClass::where('section_id', $section->id)->get();
 
-            if (! $class) {
-                $this->warn('Could not confidently identify the KG One class under this section (known classes: '.
+            if ($classes->isEmpty()) {
+                $this->warn('No classes found under this section (known classes: '.
                     SchoolClass::where('section_id', $section->id)->pluck('name')->implode(', ').
-                    '). Skipping Narrative Evaluation toggle -- turn it on manually from Academic > Narrative Evaluation for the right class, the rest of this setup still applies to the whole section.');
+                    '). Skipping the Narrative Evaluation toggle -- turn it on manually from Academic > Narrative Evaluation for the right class(es), the rest of this setup still applies to the section.');
             } elseif ($currentTerm) {
-                ClassNarrativeTerm::firstOrCreate(['school_class_id' => $class->id, 'term_id' => $currentTerm->id]);
-                $this->info("Narrative Evaluation turned on for \"{$class->name}\", {$currentTerm->name}.");
+                $toggled = 0;
+                foreach ($classes as $class) {
+                    ClassNarrativeTerm::firstOrCreate(['school_class_id' => $class->id, 'term_id' => $currentTerm->id]);
+                    $toggled++;
+                }
+                $this->info("Narrative Evaluation turned on for {$toggled} class(es) under \"{$section->name}\" (".$classes->pluck('name')->implode(', ')."), {$currentTerm->name}.");
+            } else {
+                $this->warn('No current term found, skipped the Narrative Evaluation toggle.');
             }
 
             // 4. Section report card look: Key Assessment Areas style, watermark on.
