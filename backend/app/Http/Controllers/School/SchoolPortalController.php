@@ -367,6 +367,9 @@ class SchoolPortalController extends Controller
             // (built for Branding) should also be reachable from here,
             // since this screen already has its own logo upload.
             'sections' => Section::with('branding')->orderBy('sequence')->get(),
+            // User directive 2026-09-21: a school's own word for "Term",
+            // settable from here. See App\Support\TermLabel.
+            'termLabel' => \App\Support\TermLabel::current(),
         ]);
     }
 
@@ -404,6 +407,7 @@ class SchoolPortalController extends Controller
             'alternate_phone' => ['nullable', 'string', 'max:40'],
             'address' => ['nullable', 'string', 'max:500'],
             'website' => ['nullable', 'url', 'max:200'],
+            'term_label' => ['nullable', 'string', 'max:40'],
             'logo' => ['nullable', 'image', 'max:2048'],
             // Same per-section scope Branding offers (user request
             // 2026-09-09: "the logo change should be at the school
@@ -431,7 +435,12 @@ class SchoolPortalController extends Controller
             }
         }
 
-        $school->fill(collect($data)->except(['logo', 'logo_scope', 'logo_sections'])->all())->save();
+        // term_label lives in tenant Settings, not on the platform School
+        // model (App\Support\TermLabel), so it is excluded from the
+        // school fill() below like the other non-column fields already are.
+        \App\Models\Tenant\Setting::put('term_label', $data['term_label'] ?? null);
+
+        $school->fill(collect($data)->except(['logo', 'logo_scope', 'logo_sections', 'term_label'])->all())->save();
 
         return back()->with('status', 'Your school profile has been updated.');
     }

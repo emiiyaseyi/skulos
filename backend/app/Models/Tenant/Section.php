@@ -66,4 +66,33 @@ class Section extends Model
     {
         return $this->branding?->brand_color ?: $school->brand_color;
     }
+
+    /**
+     * Which base report card look this section's own report cards use.
+     * Null means "inherit the school wide choice", the pre-existing,
+     * only-ever behaviour before per-section overrides existed (user
+     * directive 2026-09-21).
+     */
+    public function reportCardTemplate(): ?string
+    {
+        return $this->branding?->report_card_template ?: null;
+    }
+
+    /**
+     * Only meaningful for a class that is already in Narrative
+     * Evaluation mode for the term being rendered: 'comments' (the
+     * default, unchanged pre-existing free text per subject table) or
+     * 'skills' (a grouped category/skill remark table, built for a
+     * Nursery/Early Years style rubric).
+     */
+    public function narrativeStyle(): string
+    {
+        return $this->branding?->narrative_style === 'skills' ? 'skills' : 'comments';
+    }
+
+    /** Whether this section's own report cards render its resolved logo as a background watermark. Off for every section until an admin turns it on. */
+    public function watermarkEnabled(): bool
+    {
+        return (bool) ($this->branding?->watermark_enabled ?? false);
+    }
 }

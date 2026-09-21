@@ -13,7 +13,7 @@
       <div><b>{{ $data['signer_name'] ?? 'Head Teacher' }}'s Remark</b>{{ $data['remarks']['principal'] ?: 'Not yet entered.' }}</div>
     @endif
     @if($show('next_term_begins') && ! $isEval)
-      <div><b>Next Term Begins</b>{{ $data['remarks']['next_term_begins_on'] ?: 'To be announced.' }}</div>
+      <div><b>Next {{ \App\Support\TermLabel::current() }} Begins</b>{{ $data['remarks']['next_term_begins_on'] ?: 'To be announced.' }}</div>
     @endif
   </div>
 @endif

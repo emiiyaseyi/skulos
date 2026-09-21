@@ -10,6 +10,7 @@ use App\Models\Tenant\Section;
 use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Subject;
 use App\Models\Tenant\Term;
+use App\Support\TermLabel;
 
 /**
  * One-click starting points for a school's subject list and grading
@@ -266,10 +267,14 @@ class AcademicDefaults
         }
 
         $session = AcademicSession::create(['name' => $name]);
+        // The school's own word for "Term" (user directive 2026-09-21),
+        // 'Term' for every school that has never set one -- byte for
+        // byte the same name this always produced before this existed.
+        $termWord = TermLabel::current();
         foreach (['First' => 1, 'Second' => 2, 'Third' => 3] as $ordinal => $sequence) {
             Term::create([
                 'academic_session_id' => $session->id,
-                'name' => "{$ordinal} Term {$yearLabel}",
+                'name' => "{$ordinal} {$termWord} {$yearLabel}",
                 'sequence' => $sequence,
             ]);
         }

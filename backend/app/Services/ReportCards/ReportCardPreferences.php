@@ -2,6 +2,7 @@
 
 namespace App\Services\ReportCards;
 
+use App\Models\Tenant\Section;
 use App\Models\Tenant\Setting;
 
 /**
@@ -49,6 +50,25 @@ class ReportCardPreferences
     public function shows(string $field): bool
     {
         return (bool) ($this->fields()[$field] ?? false);
+    }
+
+    /**
+     * The base template a report card actually renders with, for a
+     * student in the given section: that section's own override if it
+     * has one, otherwise the school wide choice (user directive
+     * 2026-09-21: "I have a school who have different report card for
+     * each section of their school"). A caller that has already decided
+     * this student's class is in Narrative Evaluation mode for the term
+     * being rendered overrides this entirely with 'narrative', same as
+     * before this method existed -- narrative-or-not is decided one
+     * level up, this only ever picks the SCORED look.
+     */
+    public function templateFor(?Section $section): string
+    {
+        $override = $section?->reportCardTemplate();
+        $templates = array_keys(config('skulos.report_card_templates', []));
+
+        return ($override && in_array($override, $templates, true)) ? $override : $this->template();
     }
 
     public function setTemplate(string $template): void

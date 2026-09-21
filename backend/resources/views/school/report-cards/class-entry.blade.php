@@ -48,9 +48,12 @@
 <div class="card">
   @if($students->isEmpty())
     <p class="muted">No students in this class yet.</p>
-  @elseif($traits->isEmpty() && $subjects->isEmpty())
+  @elseif($narrativeStyle === 'skills' && $skillAreas->isEmpty() && $traits->isEmpty())
+    <p class="muted">No active behavioural traits or Key Assessment Areas are set up yet for this narrative style. <a href="{{ route('school.report-cards.traits.index', ['school' => $school->slug]) }}">Add some</a>, then come back here.</p>
+  @elseif($narrativeStyle !== 'skills' && $traits->isEmpty() && $subjects->isEmpty())
     <p class="muted">No active behavioural traits are set up yet. <a href="{{ route('school.report-cards.traits.index', ['school' => $school->slug]) }}">Add some</a>, then come back here.</p>
   @else
+    @if($narrativeStyle !== 'skills')
     <div class="row-between" style="margin-bottom:1rem;flex-wrap:wrap;gap:.6rem">
       <p class="muted" style="margin:0;font-size:.85rem">Prefer a spreadsheet? Download everyone's current details, fill in what's missing, and upload it back.</p>
       <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center">
@@ -63,6 +66,9 @@
         </form>
       </div>
     </div>
+    @else
+    <p class="muted" style="margin-bottom:1rem;font-size:.85rem">Key Assessment Area remarks are entered on screen only for now, there is no spreadsheet round trip for this narrative style yet.</p>
+    @endif
     <form method="POST" action="{{ route('school.report-cards.class.entry.update', ['school' => $school->slug, 'classId' => $class->id]) }}">
       @csrf
       <input type="hidden" name="term_id" value="{{ $term->id }}" />
@@ -84,9 +90,15 @@
           @foreach($traits as $trait)
             <th>{{ $trait->name }}</th>
           @endforeach
-          @foreach($subjects as $subject)
-            <th>{{ $subject->name }} comment</th>
-          @endforeach
+          @if($narrativeStyle === 'skills')
+            @foreach($skillAreas as $area)
+              <th style="min-width:14rem">{{ $area->category }} &middot; {{ $area->name }}</th>
+            @endforeach
+          @else
+            @foreach($subjects as $subject)
+              <th>{{ $subject->name }} comment</th>
+            @endforeach
+          @endif
           <th style="min-width:14rem">Class teacher's remark</th>
           @if($canEnterPrincipalRemark)<th style="min-width:14rem">Head of school's remark</th>@endif
         </tr></thead>
@@ -115,9 +127,15 @@
                   @endif
                 </td>
               @endforeach
-              @foreach($subjects as $subject)
-                <td data-label="{{ $subject->name }} comment"><input name="students[{{ $student->id }}][comments][{{ $subject->id }}]" value="{{ $comments->get($student->id.'-'.$subject->id)?->first()?->comment }}" style="min-width:14rem" /></td>
-              @endforeach
+              @if($narrativeStyle === 'skills')
+                @foreach($skillAreas as $area)
+                  <td data-label="{{ $area->category }} &middot; {{ $area->name }}"><textarea name="students[{{ $student->id }}][skill_remarks][{{ $area->id }}]" rows="2" style="min-width:14rem">{{ $skillRemarks->get($student->id.'-'.$area->id)?->first()?->remark }}</textarea></td>
+                @endforeach
+              @else
+                @foreach($subjects as $subject)
+                  <td data-label="{{ $subject->name }} comment"><input name="students[{{ $student->id }}][comments][{{ $subject->id }}]" value="{{ $comments->get($student->id.'-'.$subject->id)?->first()?->comment }}" style="min-width:14rem" /></td>
+                @endforeach
+              @endif
               <td data-label="Class teacher's remark"><textarea name="students[{{ $student->id }}][class_teacher_remark]" rows="2" style="min-width:14rem">{{ $remark?->class_teacher_remark }}</textarea></td>
               @if($canEnterPrincipalRemark)
                 <td data-label="Head of school's remark"><textarea name="students[{{ $student->id }}][principal_remark]" rows="2" style="min-width:14rem">{{ $remark?->principal_remark }}</textarea></td>

@@ -10,6 +10,7 @@ use App\Models\Tenant\ReportCardReview;
 use App\Models\Tenant\Staff;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\StudentBehaviouralRating;
+use App\Models\Tenant\StudentSkillRemark;
 use App\Models\Tenant\StudentSubjectComment;
 use App\Models\Tenant\StudentTermRemark;
 use App\Models\Tenant\Subject;
@@ -202,6 +203,33 @@ class ReportCardService
         $section = $classArm?->schoolClass?->section;
         $logoPath = ($section && $school ? $section->resolvedLogoPath($school) : null) ?: $school?->logo_path;
 
+        // Watermark (user directive 2026-09-21: "the section logo is
+        // also used as a watermark for the section report cards"),
+        // opt-in per section, off for every section by default. Reuses
+        // whichever logo just resolved above (own override or the
+        // school default), so a watermark always matches the same mark
+        // already printed in the header.
+        $watermarkPath = ($section?->watermarkEnabled() ?? false) ? $logoPath : null;
+
+        // Key Assessment Areas (user directive 2026-09-21): only built
+        // when this section has actually opted into the 'skills'
+        // narrative style, so a school that never uses this pays no
+        // extra query for it. Grouped by category, in catalog order,
+        // every configured skill always appears even if this student
+        // was never given a remark for it ("Not yet entered" in the
+        // view), same convention BehaviouralTrait traits already use.
+        $skillAreas = [];
+        if (($section?->narrativeStyle() ?? 'comments') === 'skills') {
+            $skillRemarks = StudentSkillRemark::where('student_id', $student->id)->where('term_id', $term->id)
+                ->pluck('remark', 'skill_area_id');
+            foreach (\App\Models\Tenant\ReportCardSkillArea::active()->orderBy('sequence')->get() as $area) {
+                $skillAreas[$area->category][] = [
+                    'name' => $area->name,
+                    'remark' => $skillRemarks[$area->id] ?? null,
+                ];
+            }
+        }
+
         return [
             'identity' => [
                 'name' => $student->fullName(),
@@ -248,7 +276,10 @@ class ReportCardService
                 'class_teacher_phone' => $classTeacher?->phone,
             ],
             'traits' => $traits,
+            'narrative_style' => $section?->narrativeStyle() ?? 'comments',
+            'skill_areas' => $skillAreas,
             'logo_url' => $logoPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($logoPath) : null,
+            'watermark_url' => $watermarkPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($watermarkPath) : null,
             'stamp_url' => $stampPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($stampPath) : null,
             'signature_url' => $signaturePath ? \Illuminate\Support\Facades\Storage::disk('public')->url($signaturePath) : null,
             // Who the signature under the signoff belongs to (user
@@ -340,7 +371,10 @@ class ReportCardService
                 ['name' => 'Handling of Tools', 'type' => 'score', 'value' => 4],
                 ['name' => 'Sports', 'type' => 'score', 'value' => 5],
             ],
+            'narrative_style' => 'comments',
+            'skill_areas' => [],
             'stamp_url' => null,
+            'watermark_url' => null,
             'signature_url' => null,
             'signer_name' => 'Head Teacher',
             'trend' => ['First Term' => 74.3, 'Second Term' => 76.75, 'Third Term' => 78.25],

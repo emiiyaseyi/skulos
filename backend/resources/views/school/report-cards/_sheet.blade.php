@@ -8,12 +8,24 @@
 --}}
 @php($show = fn($f) => $fields[$f] ?? false)
 @php($isEval = in_array($template, ['evaluation', 'narrative'], true))
+{{-- A school's own word for "Term" (user directive 2026-09-21), 'Term' unless the school set one under School Profile. --}}
+@php($rcTermWord = \App\Support\TermLabel::current())
 {{-- Resolved by ReportCardService::forStudent() per the STUDENT'S OWN
      section, falling back to the school default (user request
      2026-09-09) -- not read straight off $school any more. --}}
 @php($logoUrl = $data['logo_url'] ?? null)
+{{-- Section watermark (user directive 2026-09-21): opt-in per section,
+     off unless that section's own ReportCardSection branding turned it
+     on, in which case ReportCardService already resolved it to the
+     same logo already printed in the header. Purely decorative, so it
+     is excluded from print's page-count math the same way every other
+     background/border decoration already is. --}}
+@php($watermarkUrl = $data['watermark_url'] ?? null)
 @php($rcTemplateClasses = ['modern' => 'rc-modern', 'compact' => 'rc-compact', 'bordered' => 'rc-bordered', 'vibrant' => 'rc-vibrant'])
 <div class="rc-sheet {{ $rcTemplateClasses[$template] ?? ($isEval ? 'rc-eval' : '') }}">
+  @if($watermarkUrl)
+    <div class="rc-watermark" style="background-image:url('{{ $watermarkUrl }}')" aria-hidden="true"></div>
+  @endif
   @if(($layoutEnabled ?? false) && ! empty($layoutZones))
     <div class="rc-head rc-head-custom">
       @foreach(($layoutZones['header'] ?? []) as $block)
@@ -85,7 +97,7 @@
         <p>{{ $school->motto }}</p>
       @endif
       @php($rcSessionYears = $data['term']['session'] ? trim(preg_replace('/\s*Session$/i', '', $data['term']['session'])) : null)
-      @php($rcReportTypeLabel = ($data['report_type'] ?? 'full_term') === 'mid_term' ? 'Mid Term Report' : 'Report')
+      @php($rcReportTypeLabel = ($data['report_type'] ?? 'full_term') === 'mid_term' ? 'Mid '.$rcTermWord.' Report' : 'Report')
       <div class="term">{{ $data['term']['name'] }} {{ $rcReportTypeLabel }} @if($rcSessionYears && ! str_contains($data['term']['name'], $rcSessionYears))&middot; {{ $data['term']['session'] }}@endif</div>
     </div>
     @if($show('student_photo_header'))
@@ -108,7 +120,7 @@
     <div class="rc-strip">
       <div><b>Name</b>{{ $data['identity']['name'] }}</div>
       @if($show('class'))<div><b>Class</b>{{ $data['identity']['class'] }}</div>@endif
-      @if($show('next_term_begins'))<div><b>Next Term Begins</b>{{ $data['remarks']['next_term_begins_on'] ?: 'To be announced.' }}</div>@endif
+      @if($show('next_term_begins'))<div><b>Next {{ $rcTermWord }} Begins</b>{{ $data['remarks']['next_term_begins_on'] ?: 'To be announced.' }}</div>@endif
     </div>
   @endif
 

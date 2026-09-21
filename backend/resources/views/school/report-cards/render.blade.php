@@ -8,7 +8,12 @@
   .rc-wrap{max-width:56rem;margin:0 auto;padding:2rem 1.25rem 4rem}
   .rc-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
   .rc-bar .tag{font-size:.75rem;font-weight:700;padding:.3rem .7rem;border-radius:999px;background:var(--accent);color:var(--accent-ink)}
-  .rc-sheet{background:#fff;color:#1a1a1a;border-radius:10px;padding:2rem;box-shadow:0 8px 30px rgba(0,0,0,.12);font-size:.72rem}
+  .rc-sheet{position:relative;background:#fff;color:#1a1a1a;border-radius:10px;padding:2rem;box-shadow:0 8px 30px rgba(0,0,0,.12);font-size:.72rem}
+  {{-- Section watermark (2026-09-21): tiled behind everything via a
+       negative z-index inside .rc-sheet's own stacking context
+       (position:relative above), so no other rule in this file needs
+       to know it exists. --}}
+  .rc-watermark{position:absolute;inset:0;background-repeat:repeat;background-position:center;background-size:130px;opacity:.07;z-index:-1;pointer-events:none}
   {{-- Every <p> in a report card sheet used the browser's own default
        paragraph margin (about 1em top and bottom) with nothing to zero it
        out, real font/spacing culprit behind "so many spaces...too big"

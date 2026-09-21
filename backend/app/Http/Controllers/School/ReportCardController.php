@@ -169,7 +169,7 @@ class ReportCardController extends Controller
             // appear here too", so it no longer needs a detour to
             // Branding just to set it).
             'canManageBranding' => app(Rbac::class)->check(Auth::user(), $school, 'school_info.update'),
-            'sections' => Section::orderBy('sequence')->get(),
+            'sections' => Section::with('branding')->orderBy('sequence')->get(),
         ]);
     }
 
@@ -277,6 +277,38 @@ class ReportCardController extends Controller
         return back()->with('status', "Report card signer updated for {$section->name}.");
     }
 
+    /**
+     * A section's own report card look override (user directive
+     * 2026-09-21: "I have a school who have different report card for
+     * each section of their school"). "School default" for the
+     * template, or a blank narrative style, clears that section's own
+     * override back to inheriting the school wide choice -- see
+     * ReportCardPreferences::templateFor() / Section::narrativeStyle().
+     * Watermark is a plain on/off, no "inherit" concept.
+     */
+    public function updateSectionOverrides(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.update');
+        $section = Section::findOrFail($request->route('sectionId'));
+
+        $data = $request->validate([
+            'report_card_template' => ['nullable', 'string', Rule::in(array_keys(config('skulos.report_card_templates')))],
+            'narrative_style' => ['nullable', 'string', Rule::in(['comments', 'skills'])],
+            'watermark_enabled' => ['nullable', 'boolean'],
+        ]);
+
+        \App\Models\Tenant\SchoolSectionBranding::updateOrCreate(
+            ['section_id' => $section->id],
+            [
+                'report_card_template' => $data['report_card_template'] ?: null,
+                'narrative_style' => $data['narrative_style'] ?: null,
+                'watermark_enabled' => (bool) ($data['watermark_enabled'] ?? false),
+            ]
+        );
+
+        return back()->with('status', "Report card look updated for {$section->name}.");
+    }
+
     /** The active grading scale's bands as the render view's grade key legend, most generous band first. */
     protected function gradeBands(): array
     {
@@ -353,11 +385,12 @@ class ReportCardController extends Controller
         // for a report built from a subset of scored components.
         $narrativeClass = $reportType === ReportCardReview::REPORT_TYPE_FULL_TERM
             && $student->currentClassArm?->schoolClass?->isNarrativeEvaluationForTerm($term->id);
+        $section = $student->currentClassArm?->schoolClass?->section;
 
         return view('school.report-cards.render', [
             'school' => $school,
             'accent' => $school->branding()['color'],
-            'template' => $narrativeClass ? 'narrative' : $prefs->template(),
+            'template' => $narrativeClass ? 'narrative' : $prefs->templateFor($section),
             'fields' => $prefs->fields(),
             'data' => $cards->forStudent($student, $term, null, $reportType),
             'gradeBands' => $this->gradeBands(),
@@ -734,7 +767,7 @@ class ReportCardController extends Controller
 
         $students = Student::whereIn('current_class_arm_id', $armIds)->orderBy('last_name')->get();
         $template = ($reportType === ReportCardReview::REPORT_TYPE_FULL_TERM && $class->isNarrativeEvaluationForTerm($term->id))
-            ? 'narrative' : $prefs->template();
+            ? 'narrative' : $prefs->templateFor($class->section);
 
         return view('school.report-cards.class-print', [
             'school' => $school,
@@ -1582,16 +1615,28 @@ class ReportCardController extends Controller
         // narrative Creche/Reception rather than the template being one
         // all-or-nothing school wide setting, and can toggle differently
         // term to term without rewriting a past term's report cards.
-        $template = $class->isNarrativeEvaluationForTerm($term->id) ? 'narrative' : $prefs->template();
+        $template = $class->isNarrativeEvaluationForTerm($term->id) ? 'narrative' : $prefs->templateFor($class->section);
+        // 'skills' (user directive 2026-09-21) only ever applies while
+        // the class is genuinely in Narrative Evaluation mode -- a
+        // scored class's section can still carry a narrative_style
+        // value from before it was toggled off, that value must never
+        // leak into a scored class's entry screen.
+        $narrativeStyle = $template === 'narrative' ? ($class->section?->narrativeStyle() ?? 'comments') : 'comments';
         $subjects = collect();
         $comments = collect();
-        // Comments are entered here whenever the active look actually shows
-        // them: always for the comments-only "narrative" template, or for
-        // any other template a school turned the optional "subject_
-        // comments" field on for (found in QA 2026-07-18: without this, a
-        // school on Classic/Modern/etc. with that field on had nowhere to
-        // ever enter one).
-        if ($template === 'narrative' || $prefs->shows('subject_comments')) {
+        $skillAreas = collect();
+        $skillRemarks = collect();
+        if ($narrativeStyle === 'skills') {
+            $skillAreas = \App\Models\Tenant\ReportCardSkillArea::active()->orderBy('sequence')->get();
+            $skillRemarks = \App\Models\Tenant\StudentSkillRemark::whereIn('student_id', $studentIds)
+                ->where('term_id', $term->id)->get()->groupBy(fn ($r) => $r->student_id.'-'.$r->skill_area_id);
+        } elseif ($template === 'narrative' || $prefs->shows('subject_comments')) {
+            // Comments are entered here whenever the active look actually
+            // shows them: always for the comments-only "narrative"
+            // template, or for any other template a school turned the
+            // optional "subject_comments" field on for (found in QA
+            // 2026-07-18: without this, a school on Classic/Modern/etc.
+            // with that field on had nowhere to ever enter one).
             $subjectIds = \App\Models\Tenant\TeachingAssignment::whereIn('class_arm_id', $armIds)->pluck('subject_id')->unique();
             $subjects = \App\Models\Tenant\Subject::whereIn('id', $subjectIds)->orderBy('name')->get();
             $comments = \App\Models\Tenant\StudentSubjectComment::whereIn('student_id', $studentIds)
@@ -1609,6 +1654,9 @@ class ReportCardController extends Controller
             'ratings' => $ratings,
             'subjects' => $subjects,
             'comments' => $comments,
+            'skillAreas' => $skillAreas,
+            'skillRemarks' => $skillRemarks,
+            'narrativeStyle' => $narrativeStyle,
             'template' => $template,
             'canEnterPrincipalRemark' => app(Rbac::class)->check($user, $school, 'report_cards.release'),
         ]);
@@ -1671,6 +1719,16 @@ class ReportCardController extends Controller
                 \App\Models\Tenant\StudentSubjectComment::updateOrCreate(
                     ['student_id' => $studentId, 'subject_id' => $subjectId, 'term_id' => $term->id],
                     ['comment' => $comment]
+                );
+            }
+
+            foreach (($row['skill_remarks'] ?? []) as $skillAreaId => $remark) {
+                if ($remark === '' || $remark === null) {
+                    continue;
+                }
+                \App\Models\Tenant\StudentSkillRemark::updateOrCreate(
+                    ['student_id' => $studentId, 'term_id' => $term->id, 'skill_area_id' => $skillAreaId],
+                    ['remark' => $remark]
                 );
             }
         }

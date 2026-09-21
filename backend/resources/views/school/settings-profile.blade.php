@@ -58,6 +58,12 @@
       <input id="motto" name="motto" maxlength="150" value="{{ old('motto', $school->motto) }}" />
     </div>
 
+    <div class="field">
+      <label for="term_label">Term wording</label>
+      <input id="term_label" name="term_label" maxlength="40" placeholder="Term" value="{{ old('term_label', $termLabel) }}" />
+      <p class="hint">What your school calls a "Term", e.g. Trimester or Semester. Shown on report cards, Sessions &amp; {{ $termLabel }}s, and new {{ strtolower($termLabel) }}s created from here on. Leave blank to keep "Term". This doesn't rename a {{ strtolower($termLabel) }} you've already created, e.g. "First Term 2026/2027"; edit that directly from Sessions &amp; {{ $termLabel }}s.</p>
+    </div>
+
     <div class="grid cols-2">
       <div class="field">
         <label for="registration_number">Registration number</label>

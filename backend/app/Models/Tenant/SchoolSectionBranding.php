@@ -18,7 +18,17 @@ class SchoolSectionBranding extends Model
 
     protected $connection = 'tenant';
 
-    protected $fillable = ['section_id', 'logo_path', 'brand_color'];
+    protected $fillable = [
+        'section_id', 'logo_path', 'brand_color',
+        'report_card_template', 'narrative_style', 'watermark_enabled',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'watermark_enabled' => 'boolean',
+        ];
+    }
 
     public function section(): BelongsTo
     {

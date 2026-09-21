@@ -1,11 +1,12 @@
-@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => 'Sessions & Terms'])
-@section('title', 'Sessions & Terms')
+@php($termWord = \App\Support\TermLabel::current())
+@extends('layouts.app', ['portal' => 'school', 'school' => $school, 'accent' => $accent, 'pageTitle' => 'Sessions & '.$termWord.'s'])
+@section('title', 'Sessions & '.$termWord.'s')
 
 @section('content')
 <div class="page-head">
   <div>
-    <h1 class="title">Sessions &amp; Terms</h1>
-    <p class="subtitle">One time setup: create academic sessions and terms, and set which one is current.</p>
+    <h1 class="title">Sessions &amp; {{ $termWord }}s</h1>
+    <p class="subtitle">One time setup: create academic sessions and {{ strtolower($termWord) }}s, and set which one is current.</p>
   </div>
   @if($canManage)
     <a class="btn btn-ghost btn-sm" href="{{ route('school.academics.promotion-settings.edit', ['school' => $school->slug]) }}">Promotion requirement</a>
@@ -15,7 +16,7 @@
 @if($suggestedTerm)
   <div class="card" style="margin-bottom:1.1rem;border-color:var(--accent)">
     <div class="row-between" style="flex-wrap:wrap;gap:.6rem">
-      <p style="margin:0">Today's date falls within <strong>{{ $suggestedTerm->name }}</strong> ({{ $suggestedTerm->session->name }}). Set it as the current term?</p>
+      <p style="margin:0">Today's date falls within <strong>{{ $suggestedTerm->name }}</strong> ({{ $suggestedTerm->session->name }}). Set it as the current {{ strtolower($termWord) }}?</p>
       @if($canManage)
         <form method="POST" action="{{ route('school.academics.terms.make-current', ['school' => $school->slug, 'termId' => $suggestedTerm->id]) }}">
           @csrf
@@ -27,13 +28,13 @@
 @endif
 
 <div class="card" style="margin-bottom:1.1rem">
-  <h3 style="margin-bottom:.7rem">Academic sessions &amp; terms</h3>
+  <h3 style="margin-bottom:.7rem">Academic sessions &amp; {{ strtolower($termWord) }}s</h3>
   @if($sessions->isEmpty())
-    <p class="muted">No sessions yet. Create one below, e.g. enter 2025 for the 2025/2026 session, and its three terms are added automatically. Alternatively, fill in each term's start and end date once created, and this page will suggest the current one automatically based on today's date.</p>
+    <p class="muted">No sessions yet. Create one below, e.g. enter 2025 for the 2025/2026 session, and its three {{ strtolower($termWord) }}s are added automatically. Alternatively, fill in each {{ strtolower($termWord) }}'s start and end date once created, and this page will suggest the current one automatically based on today's date.</p>
   @else
     <div style="overflow-x:auto">
     <table>
-      <thead><tr><th>Session</th><th>Terms</th><th>Dates</th><th></th></tr></thead>
+      <thead><tr><th>Session</th><th>{{ $termWord }}s</th><th>Dates</th><th></th></tr></thead>
       <tbody>
         @foreach($sessions as $session)
           <tr>
@@ -48,9 +49,9 @@
                   @if($term->is_current)
                     <span class="badge badge-ok">Current</span>
                     @if($canManage)
-                      <form method="POST" action="{{ route('school.academics.end-term', ['school' => $school->slug]) }}" style="display:inline" onsubmit="return confirm('End {{ $term->name }} now? This moves to the next term, and if this is the last term of the session, promotes qualifying students to their next class. This cannot be undone from here.')">
+                      <form method="POST" action="{{ route('school.academics.end-term', ['school' => $school->slug]) }}" style="display:inline" onsubmit="return confirm('End {{ $term->name }} now? This moves to the next {{ strtolower($termWord) }}, and if this is the last {{ strtolower($termWord) }} of the session, promotes qualifying students to their next class. This cannot be undone from here.')">
                         @csrf
-                        <button class="btn btn-primary btn-sm" type="submit">End this term</button>
+                        <button class="btn btn-primary btn-sm" type="submit">End this {{ strtolower($termWord) }}</button>
                       </form>
                     @endif
                   @endif
@@ -122,13 +123,13 @@
           <label for="start_year">Create a session (start year)</label>
           <input id="start_year" name="start_year" type="number" min="2000" max="2100" placeholder="e.g. 2025" required />
         </div>
-        <button class="btn btn-primary btn-sm" type="submit">Create session &amp; terms</button>
+        <button class="btn btn-primary btn-sm" type="submit">Create session &amp; {{ strtolower($termWord) }}s</button>
       </form>
       @if($sessions->isNotEmpty())
         <form method="POST" action="{{ route('school.academics.terms.store', ['school' => $school->slug]) }}" style="display:flex;gap:.5rem;align-items:flex-end;flex-wrap:wrap">
           @csrf
           <div class="field" style="margin-bottom:0">
-            <label for="t_session">Add a custom term to</label>
+            <label for="t_session">Add a custom {{ strtolower($termWord) }} to</label>
             <select id="t_session" name="academic_session_id" required>
               @foreach($sessions as $session)
                 <option value="{{ $session->id }}">{{ $session->name }}</option>
@@ -136,10 +137,10 @@
             </select>
           </div>
           <div class="field" style="margin-bottom:0;flex:1">
-            <label for="t_name">Term name</label>
-            <input id="t_name" name="name" placeholder="e.g. Summer Term 2025/2026" required />
+            <label for="t_name">{{ $termWord }} name</label>
+            <input id="t_name" name="name" placeholder="e.g. Summer {{ $termWord }} 2025/2026" required />
           </div>
-          <button class="btn btn-ghost btn-sm" type="submit">Add term</button>
+          <button class="btn btn-ghost btn-sm" type="submit">Add {{ strtolower($termWord) }}</button>
         </form>
       @endif
     </div>
@@ -157,7 +158,7 @@
   <table>
     <thead><tr>
       @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="archived-session-select-all" aria-label="Select all archived sessions" /></th>@endif
-      <th>Session</th><th>Terms</th><th></th>
+      <th>Session</th><th>{{ $termWord }}s</th><th></th>
     </tr></thead>
     <tbody>
       @foreach($archivedSessions as $session)

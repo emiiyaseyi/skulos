@@ -1151,6 +1151,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/suggested-remark', [$reportCards, 'updateSuggestedRemark'])->name('suggested-remark');
             Route::post('/review-chain', [$reportCards, 'updateReviewChain'])->name('review-chain');
             Route::post('/sections/{sectionId}/signer', [$reportCards, 'updateSectionSigner'])->name('section.signer');
+            Route::post('/sections/{sectionId}/overrides', [$reportCards, 'updateSectionOverrides'])->name('section.overrides');
             Route::get('/preview/{template?}', [$reportCards, 'preview'])->name('preview');
             Route::get('/pending-review', [$reportCards, 'pendingReview'])->name('pending-review');
             // A class/subject teacher's own review queue (2026-09-12,

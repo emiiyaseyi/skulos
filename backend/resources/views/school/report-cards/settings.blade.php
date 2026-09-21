@@ -186,6 +186,60 @@
 </div>
 
 <div class="card" style="margin-top:1.25rem">
+  <h3 style="margin-bottom:.4rem">Per-section report card look</h3>
+  <p class="muted" style="margin-bottom:.8rem">A school running different report card designs for different sections (e.g. Nursery/Kindergarten vs Primary vs Secondary) can give each section its own template here, instead of the one "Report card look" chosen above. Left as "School default", a section simply uses that choice. Narrative style and watermark only take effect for a class that has Narrative Evaluation switched on for the term being printed (Academic &gt; Narrative Evaluation).</p>
+
+  <div style="overflow-x:auto">
+  <table>
+    <thead><tr><th>Section</th><th>Template</th><th>Narrative style</th><th>Watermark</th><th></th></tr></thead>
+    <tbody>
+      {{--
+        A <form> cannot be a direct child of <tr> in valid HTML (only
+        <td>/<th> can), so each row's fields are associated with an
+        out-of-band <form> by id, the same form="..." attribute pattern
+        the bulk-action checkbox rows elsewhere in this codebase already
+        use for the identical reason (a table row's own cells can't
+        nest a <form> around several of them).
+      --}}
+      @foreach($sections as $section)
+        @php($ovFormId = 'section-overrides-'.$section->id)
+        <tr>
+          <td>
+            {{ $section->name }}
+            <form id="{{ $ovFormId }}" method="POST" action="{{ route('school.report-cards.section.overrides', ['school' => $school->slug, 'sectionId' => $section->id]) }}" style="display:none">
+              @csrf
+              <input type="hidden" name="watermark_enabled" value="0" />
+            </form>
+          </td>
+          <td>
+            <select name="report_card_template" form="{{ $ovFormId }}">
+              <option value="">School default</option>
+              @foreach(config('skulos.report_card_templates') as $key => $meta)
+                <option value="{{ $key }}" @selected($section->branding?->report_card_template === $key)>{{ $meta['label'] }}</option>
+              @endforeach
+            </select>
+          </td>
+          <td>
+            <select name="narrative_style" form="{{ $ovFormId }}">
+              <option value="comments" @selected(($section->branding?->narrative_style ?: 'comments') === 'comments')>Subject comments</option>
+              <option value="skills" @selected($section->branding?->narrative_style === 'skills')>Key Assessment Areas (skill based)</option>
+            </select>
+          </td>
+          <td>
+            <label style="display:flex;align-items:center;gap:.4rem;margin:0">
+              <input type="checkbox" name="watermark_enabled" value="1" form="{{ $ovFormId }}" @checked($section->branding?->watermark_enabled) />
+              <span class="muted" style="font-size:.78rem">Logo as watermark</span>
+            </label>
+          </td>
+          <td><button class="btn btn-ghost btn-sm" type="submit" form="{{ $ovFormId }}">Save</button></td>
+        </tr>
+      @endforeach
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="card" style="margin-top:1.25rem">
   <h3 style="margin-bottom:.4rem">Signature signer</h3>
   <p class="muted" style="margin-bottom:.8rem">Who the signature above is shown as belonging to on each section's report cards. Left blank, a section defaults to Head Teacher, or Principal for a section named Secondary.</p>
 

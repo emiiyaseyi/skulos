@@ -7,7 +7,9 @@
   body{background:#e9ebee}
   .rc-wrap{max-width:56rem;margin:0 auto;padding:2rem 1.25rem 4rem}
   .rc-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
-  .rc-sheet{background:#fff;color:#1a1a1a;border-radius:10px;padding:2rem;box-shadow:0 8px 30px rgba(0,0,0,.12);margin-bottom:1.5rem;font-size:.72rem}
+  .rc-sheet{position:relative;background:#fff;color:#1a1a1a;border-radius:10px;padding:2rem;box-shadow:0 8px 30px rgba(0,0,0,.12);margin-bottom:1.5rem;font-size:.72rem}
+  {{-- Section watermark, mirrors render.blade.php's own copy (2026-09-21). --}}
+  .rc-watermark{position:absolute;inset:0;background-repeat:repeat;background-position:center;background-size:130px;opacity:.07;z-index:-1;pointer-events:none}
   .rc-sheet p{margin:.2rem 0 0}
   .rc-head{display:flex;align-items:center;gap:.8rem;text-align:center;border-bottom:2px solid var(--accent);padding-bottom:.6rem;margin-bottom:.7rem}
   .rc-head-text{flex:1;min-width:0}
