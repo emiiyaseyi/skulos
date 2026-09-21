@@ -498,4 +498,90 @@ class ReportCardSectionOverridesTest extends TestCase
         $this->assertSame('skills', $fresh->narrative_style);
         $this->assertTrue($fresh->watermark_enabled);
     }
+
+    /**
+     * Live user report 2026-09-21: an admin went to the "Report Card
+     * Designer" (the drag-and-drop Layout Designer, /report-cards/
+     * settings/layout) expecting to find the class-specific design
+     * built above, and instead saw the old generic "Ada Grace Obi /
+     * JSS 2 A" sample with none of PPMS's own Trimester wording or Key
+     * Assessment Areas. This class picks that same class through the
+     * Layout Designer and confirms the whole live preview re-renders
+     * with its real resolved narrative style/skill areas.
+     */
+    public function test_the_layout_designer_reflects_a_picked_classs_own_resolved_look(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'designerpreviewone');
+        ['section' => $section, 'class' => $class, 'term' => $term] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        ClassNarrativeTerm::create(['school_class_id' => $class->id, 'term_id' => $term->id]);
+        SchoolSectionBranding::create(['section_id' => $section->id, 'narrative_style' => 'skills']);
+        ReportCardSkillArea::create(['category' => 'Literacy & Phonics', 'name' => 'Letter Recognition & Sound', 'sequence' => 1]);
+        app(TenantManager::class)->forget();
+
+        // Without a class picked, the page still renders the old generic default.
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/settings/layout")
+            ->assertOk()
+            ->assertSee('JSS 2 A');
+
+        // With this class picked, it reflects the class's own real look.
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/settings/layout?classId={$class->id}")
+            ->assertOk()
+            ->assertSee('Key Assessment Areas')
+            ->assertSee('Literacy &amp; Phonics', false)
+            ->assertSee($class->name);
+    }
+
+    public function test_a_class_teacher_only_sees_their_own_class_in_the_layout_designer_picker(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'designerpreviewtwo');
+        ['class' => $ownClass, 'classArm' => $ownArm] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        $otherSection = Section::create(['name' => 'Secondary', 'sequence' => 3]);
+        $otherClass = SchoolClass::create(['section_id' => $otherSection->id, 'name' => 'JSS 1', 'sequence' => 1]);
+        ClassArm::create(['school_class_id' => $otherClass->id, 'arm_id' => Arm::create(['name' => 'B'])->id]);
+        $staff = \App\Models\Tenant\Staff::create(['staff_id' => 'T1', 'first_name' => 'Tade', 'last_name' => 'Teacher']);
+        $ownArm->update(['class_teacher_staff_id' => $staff->id]);
+        app(TenantManager::class)->forget();
+
+        $teacherUser = User::factory()->create();
+        $teacherRole = $this->rbac->cloneTemplateRole($school, 'class-teacher');
+        $school->users()->attach($teacherUser->id, ['role_id' => $teacherRole->id, 'status' => 'active']);
+        app(TenantManager::class)->use($school);
+        \App\Models\Tenant\Staff::where('id', $staff->id)->update(['user_id' => $teacherUser->id]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($teacherUser)->get("http://{$school->slug}.localhost/report-cards/settings/layout");
+        $response->assertOk()
+            ->assertSee($ownClass->name)
+            ->assertDontSee($otherClass->name);
+    }
+
+    public function test_a_narrative_report_cards_identity_strip_includes_gender_and_session(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'narrativeidone');
+        ['class' => $class, 'student' => $student, 'term' => $term] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        ClassNarrativeTerm::create(['school_class_id' => $class->id, 'term_id' => $term->id]);
+        $student->update(['gender' => 'Male']);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/{$student->id}/{$term->id}")
+            ->assertOk()
+            ->assertSee('<b>Gender</b>', false)
+            ->assertSee('<b>Session</b>', false);
+    }
+
+    public function test_the_class_report_cards_screen_shows_a_preview_link(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'classindexpreview');
+        ['class' => $class, 'term' => $term] = $this->seedOneClass($school);
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/classes/{$class->id}?term_id={$term->id}")
+            ->assertOk()
+            ->assertSee(route('school.report-cards.preview.class', ['school' => $school->slug, 'classId' => $class->id]));
+    }
 }

@@ -107,6 +107,39 @@
   <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.edit', ['school' => $school->slug]) }}">Back to Report settings</a>
 </div>
 
+{{--
+  "Preview as" a real class (user directive 2026-09-21: "one should be
+  able to switch and view the report card designs for the various
+  sections... class teachers should be able to see this too"). Every
+  block/section below is re-rendered server side (on submit) with that
+  class's own resolved template, narrative style, watermark, and real
+  Key Assessment Areas, using dummy student data -- exactly what that
+  class's real report card will look like once it has students. Left on
+  "Whole school (default look)", this page behaves exactly as before.
+--}}
+@if($sectionsForPicker->isNotEmpty())
+<div class="card" style="margin-bottom:1.1rem">
+  <form method="GET" style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap">
+    <div class="field" style="margin:0;min-width:16rem">
+      <label for="lb_class_id">Preview as</label>
+      <select id="lb_class_id" name="classId" onchange="this.form.requestSubmit()">
+        <option value="">Whole school (default look)</option>
+        @foreach($sectionsForPicker as $section)
+          <optgroup label="{{ $section->name }}">
+            @foreach($section->classes as $class)
+              <option value="{{ $class->id }}" @selected($previewClass?->id === $class->id)>{{ $class->name }}</option>
+            @endforeach
+          </optgroup>
+        @endforeach
+      </select>
+    </div>
+    @if($previewClass)
+      <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.preview.class', ['school' => $school->slug, 'classId' => $previewClass->id]) }}" target="_blank" rel="noopener">Open full preview</a>
+    @endif
+  </form>
+</div>
+@endif
+
 <form method="POST" action="{{ route('school.report-cards.layout.update', ['school' => $school->slug]) }}" id="layoutForm">
   @csrf
   <input type="hidden" name="enabled" id="enabledInput" value="{{ $enabled ? '1' : '0' }}" />

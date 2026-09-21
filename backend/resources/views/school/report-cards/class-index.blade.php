@@ -21,6 +21,13 @@
       <input type="hidden" name="report_type" value="{{ $reportType }}" />
       <button class="btn btn-primary btn-sm" type="submit">Generate all</button>
     </form>
+    {{-- Sample-data preview (user directive 2026-09-21, reinforced live:
+         "button to preview the report card is missing here too... use
+         dummy data for it so no area is blank"), the most natural place
+         to put it since this is where an admin/teacher already is when
+         a class genuinely has no students yet to generate a real report
+         for. Never gated on students existing. --}}
+    <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.preview.class', ['school' => $school->slug, 'classId' => $class->id]) }}" target="_blank" rel="noopener">Preview</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.class.entry', ['school' => $school->slug, 'classId' => $class->id, 'term_id' => $term->id]) }}">Class teacher entry</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.class.print', ['school' => $school->slug, 'classId' => $class->id, 'term_id' => $term->id, 'report_type' => $reportType]) }}" target="_blank">Print all (PDF)</a>
     <a class="btn btn-ghost btn-sm" href="{{ route('school.reports.students.index', ['school' => $school->slug]) }}">Broadsheet (Excel)</a>

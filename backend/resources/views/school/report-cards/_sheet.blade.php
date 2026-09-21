@@ -117,9 +117,17 @@
   </div>
 
   @if($isEval)
+    {{-- Name/Gender/Class/Session in one row (user reference report card,
+         2026-09-21: "NAME: ... GENDER: ... CLASS: ... SESSION: ..."),
+         Gender/Session added alongside the pre-existing Name/Class/Next
+         Term Begins strip, which previously dropped both entirely for
+         the narrative template even though every other template's own
+         identity grid already carries them. --}}
     <div class="rc-strip">
       <div><b>Name</b>{{ $data['identity']['name'] }}</div>
+      @if($show('gender'))<div><b>Gender</b>{{ $data['identity']['gender'] }}</div>@endif
       @if($show('class'))<div><b>Class</b>{{ $data['identity']['class'] }}</div>@endif
+      @if($data['term']['session'] ?? null)<div><b>Session</b>{{ $data['term']['session'] }}</div>@endif
       @if($show('next_term_begins'))<div><b>Next {{ $rcTermWord }} Begins</b>{{ $data['remarks']['next_term_begins_on'] ?: 'To be announced.' }}</div>@endif
     </div>
   @endif

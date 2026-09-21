@@ -517,9 +517,34 @@ class ReportCardController extends Controller
     {
         $this->authorizeAction($request, 'report_cards.view');
         $school = $this->school($request);
-        $sample = $cards->sample();
-        $logoUrl = $school->logo_path ? \Illuminate\Support\Facades\Storage::url($school->logo_path) : null;
-        $template = $prefs->template();
+
+        // "Preview as" a real class (user directive 2026-09-21: "the
+        // report card designer should also make it possible to design
+        // report cards per sections or per classes... one should be
+        // able to switch and view the report card designs for the
+        // various sections"). Blank/omitted keeps the exact previous
+        // behaviour -- the school wide default look with generic sample
+        // data -- so every school that never touches this selector sees
+        // nothing different.
+        $previewClass = $request->filled('classId')
+            ? SchoolClass::with('section')->find($request->query('classId'))
+            : null;
+        // A scoped teacher previewing here is restricted the same way
+        // previewClass() already restricts the dedicated preview route
+        // -- picking a class they don't teach silently falls back to
+        // the default look rather than showing someone else's class.
+        if ($previewClass) {
+            $scopedArmIds = app(TeacherScope::class)->classArmIds(Auth::user(), $school);
+            if ($scopedArmIds !== null && $previewClass->arms()->pluck('id')->intersect($scopedArmIds)->isEmpty()) {
+                $previewClass = null;
+            }
+        }
+        $currentTerm = Term::current()->first();
+        $narrativeClass = $previewClass && $currentTerm && $previewClass->isNarrativeEvaluationForTerm($currentTerm->id);
+
+        $sample = $cards->sample($previewClass);
+        $logoUrl = $sample['logo_url'] ?? ($school->logo_path ? \Illuminate\Support\Facades\Storage::url($school->logo_path) : null);
+        $template = $narrativeClass ? 'narrative' : $prefs->templateForClass($previewClass);
 
         $blockLabels = config('skulos.report_card_layout_blocks', []);
         $blockHtml = [];
@@ -562,6 +587,19 @@ class ReportCardController extends Controller
             $bodyHtml[$block->bodyKey()] = view('school.report-cards._body-custom', ['customBlock' => $block])->render();
         }
 
+        // The class picker itself: every section's classes, scoped to
+        // only the classes a scoped teacher actually teaches (the same
+        // restriction just applied to $previewClass above), so a class
+        // teacher previewing here only ever sees their own class(es) as
+        // options, never the whole school's.
+        $scopedArmIds = app(TeacherScope::class)->classArmIds(Auth::user(), $school);
+        $sectionsForPicker = Section::with(['classes' => function ($q) use ($scopedArmIds) {
+            $q->orderBy('sequence');
+            if ($scopedArmIds !== null) {
+                $q->whereHas('arms', fn ($a) => $a->whereIn('id', $scopedArmIds));
+            }
+        }])->orderBy('sequence')->get()->filter(fn (Section $s) => $s->classes->isNotEmpty());
+
         return view('school.report-cards.layout', [
             'school' => $school,
             'accent' => $school->branding()['color'],
@@ -572,6 +610,8 @@ class ReportCardController extends Controller
             'headerAlign' => $layout->headerAlign(),
             'bodySections' => $layout->bodyOrder(),
             'bodyLabels' => $bodyLabels,
+            'sectionsForPicker' => $sectionsForPicker,
+            'previewClass' => $previewClass,
             'bodyHtml' => $bodyHtml,
             'bodyAlign' => $layout->bodyAlign(),
             'bodyColumns' => $layout->bodyColumns(),
