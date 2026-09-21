@@ -100,7 +100,13 @@
       @php($rcReportTypeLabel = ($data['report_type'] ?? 'full_term') === 'mid_term' ? 'Mid '.$rcTermWord.' Report' : 'Report')
       <div class="term">{{ $data['term']['name'] }} {{ $rcReportTypeLabel }} @if($rcSessionYears && ! str_contains($data['term']['name'], $rcSessionYears))&middot; {{ $data['term']['session'] }}@endif</div>
     </div>
-    @if($show('student_photo_header'))
+    {{-- No student photo on a narrative report (user directive
+         2026-09-21: "remmber that the creche, reception and KG classes
+         of nursery does not use student image on the report card"),
+         matching the reference report card's own header, which has no
+         photo box at all -- logo left, name/address centered, nothing
+         on the right. --}}
+    @if($show('student_photo_header') && ! $isEval)
       @if($data['identity']['photo_url'] ?? null)
         <img class="rc-photo" src="{{ $data['identity']['photo_url'] }}" alt="" />
       @elseif($show('student_photo_avatar_fallback'))

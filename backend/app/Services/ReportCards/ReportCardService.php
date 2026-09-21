@@ -347,6 +347,16 @@ class ReportCardService
         $logoUrl = $logoPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($logoPath) : null;
         $watermarkUrl = ($watermarkOn && $logoPath) ? \Illuminate\Support\Facades\Storage::disk('public')->url($logoPath) : null;
 
+        // The school's own real current term/session (user directive
+        // 2026-09-21: "the preview should match the current term"),
+        // never the old hardcoded "Third Term 2025/2026" illustrative
+        // value -- falls back to that same illustrative label only for
+        // a school with no term set up at all yet (a genuinely fresh,
+        // unconfigured school), so the preview never shows a blank term.
+        $currentTerm = Term::current()->with('session')->first();
+        $termName = $currentTerm?->name ?? 'Third Term';
+        $termSession = $currentTerm?->session?->name ?? '2025/2026';
+
         // Every configured Key Assessment Area shows, with no remark yet
         // entered -- exactly what a genuinely not-yet-scored real
         // student's report would show, never a fabricated sample remark.
@@ -363,7 +373,7 @@ class ReportCardService
                 'date_of_birth' => '12 Mar 2013', 'age' => 13, 'class' => $class?->name ?? 'JSS 2 A', 'house' => 'Red House',
                 'class_teacher' => 'Mrs. F. Adigun', 'photo_url' => null,
             ],
-            'term' => ['name' => 'Third Term', 'session' => '2025/2026'],
+            'term' => ['name' => $termName, 'session' => $termSession],
             'report_type' => ReportCardReview::REPORT_TYPE_FULL_TERM,
             'component_columns' => ['First CA', 'Second CA', 'Exam'],
             'cumulative_mode' => ReportCardCumulativePolicy::MODE_AVERAGE,

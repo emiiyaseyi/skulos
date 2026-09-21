@@ -575,6 +575,50 @@ class ReportCardSectionOverridesTest extends TestCase
             ->assertSee('<b>Session</b>', false);
     }
 
+    /**
+     * Live user report 2026-09-21, screenshot of a preview: the header
+     * read "THIRD TERM REPORT 2025/2026" while the school's real
+     * current session/term was something else entirely, "the preview
+     * should match the current term."
+     */
+    public function test_the_preview_shows_the_schools_own_real_current_term_not_a_hardcoded_one(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'previewtermone');
+        ['class' => $class] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        $session = AcademicSession::create(['name' => '2030/2031']);
+        $realTerm = Term::create(['academic_session_id' => $session->id, 'name' => 'Second Term 2030/2031', 'sequence' => 2]);
+        $realTerm->makeCurrent();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/preview/class/{$class->id}")
+            ->assertOk()
+            ->assertSee('Second Term 2030/2031')
+            ->assertDontSee('Third Term');
+    }
+
+    /**
+     * Live user report 2026-09-21: "remmber that the creche, reception
+     * and KG classes of nursery does not use student image on the
+     * report card" -- matches the reference report card's own header,
+     * which has no photo box at all.
+     */
+    public function test_a_narrative_report_card_never_shows_a_student_photo_even_when_the_field_is_on(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'narrativephotoone');
+        ['class' => $class, 'student' => $student, 'term' => $term] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        ClassNarrativeTerm::create(['school_class_id' => $class->id, 'term_id' => $term->id]);
+        app(ReportCardPreferences::class)->setFields(['student_photo_header' => true, 'student_photo_avatar_fallback' => true]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/{$student->id}/{$term->id}")
+            ->assertOk()
+            ->assertDontSee('class="rc-photo"', false);
+    }
+
     public function test_the_class_report_cards_screen_shows_a_preview_link(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'classindexpreview');
