@@ -343,6 +343,45 @@
 </div>
 
 <div class="card" style="margin-top:1.25rem">
+  <h3 style="margin-bottom:.4rem">Per-section fields</h3>
+  <p class="muted" style="margin-bottom:.8rem">Physical & Attendance and Stamp/Signature are shown/hidden school wide above (Report Settings fields). A section can override either one here, without affecting other sections (user directive 2026-09-22: "make these per-section too").</p>
+  <div style="overflow-x:auto">
+  <table>
+    <thead><tr><th>Section</th><th>Physical &amp; Attendance</th><th>Stamp/Signature</th><th></th></tr></thead>
+    <tbody>
+      @foreach($sections as $section)
+        @php($foFormId = 'section-fields-'.$section->id)
+        <tr>
+          <td>
+            {{ $section->name }}
+            <form id="{{ $foFormId }}" method="POST" action="{{ route('school.report-cards.section.field-overrides', ['school' => $school->slug, 'sectionId' => $section->id]) }}" style="display:none">
+              @csrf
+            </form>
+          </td>
+          @php($fo = $section->branding?->field_overrides ?? [])
+          <td>
+            <select name="physical_stats" form="{{ $foFormId }}">
+              <option value="" @selected(! array_key_exists('physical_stats', $fo))>School default</option>
+              <option value="1" @selected(($fo['physical_stats'] ?? null) === true)>On</option>
+              <option value="0" @selected(($fo['physical_stats'] ?? null) === false)>Off</option>
+            </select>
+          </td>
+          <td>
+            <select name="stamp_signature" form="{{ $foFormId }}">
+              <option value="" @selected(! array_key_exists('stamp_signature', $fo))>School default</option>
+              <option value="1" @selected(($fo['stamp_signature'] ?? null) === true)>On</option>
+              <option value="0" @selected(($fo['stamp_signature'] ?? null) === false)>Off</option>
+            </select>
+          </td>
+          <td><button class="btn btn-ghost btn-sm" type="submit" form="{{ $foFormId }}">Save</button></td>
+        </tr>
+      @endforeach
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="card" style="margin-top:1.25rem">
   <h3 style="margin-bottom:.4rem">Signature signer</h3>
   <p class="muted" style="margin-bottom:.8rem">Who the signature above is shown as belonging to on each section's report cards. Left blank, a section defaults to Head Teacher, or Principal for a section named Secondary.</p>
 

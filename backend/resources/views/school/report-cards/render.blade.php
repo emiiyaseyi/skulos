@@ -13,7 +13,8 @@
        negative z-index inside .rc-sheet's own stacking context
        (position:relative above), so no other rule in this file needs
        to know it exists. --}}
-  .rc-watermark{position:absolute;inset:0;background-repeat:repeat;background-position:center;background-size:130px;opacity:.07;z-index:-1;pointer-events:none}
+  {{-- .14, not the original .07 (user report 2026-09-22, live: "watermark is missing too" -- the data was resolving correctly, .07 was just too faint against a colourful logo to actually notice). --}}
+  .rc-watermark{position:absolute;inset:0;background-repeat:repeat;background-position:center;background-size:130px;opacity:.14;z-index:-1;pointer-events:none}
   {{-- Text watermark (2026-09-22, "add a text" alternative to an
        image): one large rotated word across the page, not tiled like
        the logo image above -- a repeating text pattern needs real

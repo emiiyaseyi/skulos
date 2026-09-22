@@ -9,7 +9,7 @@
   .rc-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
   .rc-sheet{position:relative;background:#fff;color:#1a1a1a;border-radius:10px;padding:2rem;box-shadow:0 8px 30px rgba(0,0,0,.12);margin-bottom:1.5rem;font-size:.72rem}
   {{-- Section watermark, mirrors render.blade.php's own copy (2026-09-21). --}}
-  .rc-watermark{position:absolute;inset:0;background-repeat:repeat;background-position:center;background-size:130px;opacity:.07;z-index:-1;pointer-events:none}
+  .rc-watermark{position:absolute;inset:0;background-repeat:repeat;background-position:center;background-size:130px;opacity:.14;z-index:-1;pointer-events:none}
   .rc-watermark-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;z-index:-1;pointer-events:none}
   .rc-watermark-text span{font-size:3.4rem;font-weight:800;color:rgba(0,0,0,.07);transform:rotate(-30deg);white-space:nowrap;text-transform:uppercase;letter-spacing:.06em}
   .rc-sheet p{margin:.2rem 0 0}

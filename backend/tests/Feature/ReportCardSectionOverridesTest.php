@@ -637,6 +637,74 @@ class ReportCardSectionOverridesTest extends TestCase
     }
 
     /**
+     * Physical & Attendance and Stamp/Signature made per-section (user
+     * directive 2026-09-22, confirmed via AskUserQuestion: "Make these
+     * per-section too" -- turning Physical & Attendance on for one
+     * section must not also turn it on for a school that never touches
+     * this section's own override).
+     */
+    public function test_a_section_can_override_physical_attendance_and_stamp_signature_fields(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'fieldoverrideone');
+        ['section' => $section, 'class' => $class] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        $prefs = app(ReportCardPreferences::class);
+        // School wide default is off for both -- confirms the override
+        // genuinely ADDS visibility, not just reflects an already-on default.
+        $this->assertFalse($prefs->showsFor('physical_stats', SchoolClass::find($class->id)));
+        $this->assertFalse($prefs->showsFor('stamp_signature', SchoolClass::find($class->id)));
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/sections/{$section->id}/field-overrides", [
+            'physical_stats' => '1',
+            'stamp_signature' => '1',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $classFresh = SchoolClass::find($class->id);
+        $this->assertTrue($prefs->showsFor('physical_stats', $classFresh));
+        $this->assertTrue($prefs->showsFor('stamp_signature', $classFresh));
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_a_second_school_is_unaffected_by_another_schools_field_overrides(): void
+    {
+        [$schoolA, $ownerA] = $this->schoolWithMember('school-owner', 'fieldoverridea');
+        ['section' => $sectionA] = $this->seedOneClass($schoolA);
+        [$schoolB] = $this->schoolWithMember('school-owner', 'fieldoverrideb');
+        ['class' => $classB] = $this->seedOneClass($schoolB);
+
+        $this->actingAs($ownerA)->post("http://{$schoolA->slug}.localhost/report-cards/sections/{$sectionA->id}/field-overrides", [
+            'physical_stats' => '1',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($schoolB);
+        $stillOff = app(ReportCardPreferences::class)->showsFor('physical_stats', SchoolClass::find($classB->id));
+        app(TenantManager::class)->forget();
+
+        $this->assertFalse($stillOff);
+    }
+
+    public function test_a_sections_physical_stats_override_actually_shows_on_the_real_report_card(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'fieldoverridecard');
+        ['section' => $section, 'class' => $class, 'student' => $student, 'term' => $term] = $this->seedOneClass($school);
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/{$student->id}/{$term->id}")
+            ->assertOk()
+            ->assertDontSee('Attendance Record');
+
+        app(TenantManager::class)->use($school);
+        SchoolSectionBranding::updateOrCreate(['section_id' => $section->id], ['field_overrides' => ['physical_stats' => true]]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/{$student->id}/{$term->id}")
+            ->assertOk()
+            ->assertSee('Attendance Record');
+    }
+
+    /**
      * The bordered-table redesign and "Comment" wording apply to every
      * template (user directive 2026-09-22, confirmed via AskUserQuestion:
      * "Every template" over narrative only) -- a plain Classic template

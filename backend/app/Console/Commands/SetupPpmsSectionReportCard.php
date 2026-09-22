@@ -10,6 +10,7 @@ use App\Models\Tenant\SchoolSectionBranding;
 use App\Models\Tenant\Section;
 use App\Models\Tenant\Setting;
 use App\Models\Tenant\Term;
+use App\Services\ReportCards\ReportCardLayout;
 use App\Services\Tenancy\TenantManager;
 use App\Support\TermLabel;
 use Illuminate\Console\Command;
@@ -34,7 +35,7 @@ class SetupPpmsSectionReportCard extends Command
 
     protected $description = "Applies PPMS's own Nursery/Kindergarten report card design (real school details, Key Assessment Areas, watermark, Trimester wording) using the general per-section report card features";
 
-    public function handle(TenantManager $tenants): int
+    public function handle(TenantManager $tenants, ReportCardLayout $layout): int
     {
         $school = School::where('slug', $this->option('slug'))->first();
         if (! $school) {
@@ -51,7 +52,7 @@ class SetupPpmsSectionReportCard extends Command
         $school->save();
         $this->info('School address/phone/website saved.');
 
-        return $tenants->connectTo($school, function () use ($school) {
+        return $tenants->connectTo($school, function () use ($school, $layout) {
             // 2. Term wording: "Trimester" (user directive 2026-09-21).
             Setting::put('term_label', 'Trimester');
             $this->info('Term wording set to "Trimester".');
@@ -117,15 +118,39 @@ class SetupPpmsSectionReportCard extends Command
             }
 
             // 4. Section report card look: Key Assessment Areas style,
-            // watermark on, Beginning/End of Term physical tracking on
-            // (user directive 2026-09-22, confirmed via AskUserQuestion:
-            // "Make it per-section" -- so Primary/Secondary's own
-            // report cards are unaffected by this).
+            // watermark on, Beginning/End of Term physical tracking on,
+            // Physical & Attendance and Stamp/Signature fields on (user
+            // directive 2026-09-22, confirmed via AskUserQuestion: "Make
+            // it/these per-section too" -- so none of this also turns
+            // on for Primary/Secondary's own report cards).
             SchoolSectionBranding::updateOrCreate(
                 ['section_id' => $section->id],
-                ['narrative_style' => 'skills', 'watermark_enabled' => true, 'tracks_physical_stats_start' => true]
+                [
+                    'narrative_style' => 'skills', 'watermark_enabled' => true, 'tracks_physical_stats_start' => true,
+                    'field_overrides' => ['physical_stats' => true, 'stamp_signature' => true],
+                ]
             );
-            $this->info("Section \"{$section->name}\" set to the Key Assessment Areas narrative style, watermark on, Beginning/End of Term tracking on.");
+            $this->info("Section \"{$section->name}\" set to the Key Assessment Areas narrative style, watermark on, Beginning/End of Term tracking on, Physical & Attendance and Stamp/Signature fields on.");
+
+            // The reference report card folds the stamp INTO the same
+            // row as "Trimester Begins" rather than showing it as its
+            // own separate block below (user reference report card,
+            // 2026-09-22: "THIRD TRIMESTER BEGINS... SCHOOL STAMP", one
+            // bordered row). _body-remarks.blade.php only renders the
+            // stamp inline when 'signoff' is NOT also in this section's
+            // own body order, so this section's own layout override
+            // deliberately omits it -- enabled stays false so the
+            // header/identity area keeps rendering on its normal,
+            // non-custom-layout path, only the body order is overridden.
+            $layout->setSectionOverride($section, [
+                'enabled' => false,
+                'zones' => ['header' => [], 'info' => []],
+                'body_order' => ['physical_stats', 'subject_comments', 'remarks'],
+                'header_align' => [],
+                'body_align' => [],
+                'body_columns' => [],
+            ]);
+            $this->info("Section \"{$section->name}\" body order set so the stamp shows inline next to \"Trimester Begins\", matching the reference report card.");
 
             // 5. PPMS's own Key Assessment Areas catalog, straight from
             // their real report card. School specific data, not a

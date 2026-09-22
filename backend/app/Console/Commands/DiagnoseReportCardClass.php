@@ -49,9 +49,19 @@ class DiagnoseReportCardClass extends Command
             $this->line('Class resolvedWatermarkEnabled(): '.var_export($class->resolvedWatermarkEnabled(), true));
             $this->line('Class resolvedTracksPhysicalStatsStart(): '.var_export($class->resolvedTracksPhysicalStatsStart(), true));
 
+            // The real page checks Narrative Evaluation FIRST, templateForClass()
+            // is only ever the fallback when that is false -- this line was
+            // wrongly reporting "classic" once before this fix, when the real
+            // page was actually rendering "narrative" the whole time.
+            $currentTerm = \App\Models\Tenant\Term::current()->first();
+            $isNarrativeNow = $currentTerm && $class->isNarrativeEvaluationForTerm($currentTerm->id);
             $prefs = app(ReportCardPreferences::class);
-            $this->line('Resolved template: '.$prefs->templateForClass($class));
+            $this->line('Current term: '.($currentTerm?->name ?? 'none'));
+            $this->line('isNarrativeEvaluationForTerm(current term): '.var_export($isNarrativeNow, true));
+            $this->line('Actual resolved template (matches the real page): '.($isNarrativeNow ? 'narrative' : $prefs->templateForClass($class)));
             $this->line('Resolved tracksPhysicalStatsStartFor: '.var_export($prefs->tracksPhysicalStatsStartFor($class), true));
+            $this->line('Section field_overrides: '.json_encode($class->section?->branding?->field_overrides));
+            $this->line('Class field_overrides: '.json_encode($class->field_overrides));
             $this->line('Field physical_stats on for this class: '.var_export($prefs->showsFor('physical_stats', $class), true));
             $this->line('Field stamp_signature on for this class: '.var_export($prefs->showsFor('stamp_signature', $class), true));
 

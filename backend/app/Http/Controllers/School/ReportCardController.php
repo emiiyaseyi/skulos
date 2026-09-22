@@ -422,6 +422,42 @@ class ReportCardController extends Controller
         return back()->with('status', "Watermark updated for {$section->name}.");
     }
 
+    /**
+     * Which report card fields this section overrides, beyond the
+     * school wide choice on this same page (user directive 2026-09-22,
+     * confirmed via AskUserQuestion: "Make these per-section too" --
+     * turning Physical & Attendance on for Nursery must not also turn
+     * it on for Primary/Secondary). Only the two fields with a real UI
+     * today (Physical & Attendance, Stamp/Signature) -- the underlying
+     * field_overrides column itself is not limited to these two, a
+     * future need can add another <select> here without a schema
+     * change.
+     */
+    public function updateSectionFieldOverrides(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.update');
+        $section = Section::findOrFail($request->route('sectionId'));
+
+        $data = $request->validate([
+            'physical_stats' => ['nullable', 'string', Rule::in(['1', '0'])],
+            'stamp_signature' => ['nullable', 'string', Rule::in(['1', '0'])],
+        ]);
+
+        $overrides = [];
+        foreach (['physical_stats', 'stamp_signature'] as $field) {
+            if (isset($data[$field])) {
+                $overrides[$field] = $data[$field] === '1';
+            }
+        }
+
+        \App\Models\Tenant\SchoolSectionBranding::updateOrCreate(
+            ['section_id' => $section->id],
+            ['field_overrides' => $overrides ?: null]
+        );
+
+        return back()->with('status', "Field overrides updated for {$section->name}.");
+    }
+
     /** The active grading scale's bands as the render view's grade key legend, most generous band first. */
     protected function gradeBands(): array
     {
@@ -497,7 +533,7 @@ class ReportCardController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'template' => $template,
-            'fields' => $prefs->fields(),
+            'fields' => $prefs->fieldsFor($class),
             'data' => $cards->sample($class),
             'gradeBands' => $this->gradeBands(),
             'layoutEnabled' => $resolvedLayout['enabled'],
@@ -558,7 +594,7 @@ class ReportCardController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'template' => $narrativeClass ? 'narrative' : $prefs->templateForClass($studentClass),
-            'fields' => $prefs->fields(),
+            'fields' => $prefs->fieldsFor($studentClass),
             'data' => $cards->forStudent($student, $term, null, $reportType),
             'gradeBands' => $this->gradeBands(),
             'layoutEnabled' => $resolvedLayout['enabled'],
@@ -1135,7 +1171,7 @@ class ReportCardController extends Controller
             'term' => $term,
             'report_type' => $reportType,
             'template' => $template,
-            'fields' => $prefs->fields(),
+            'fields' => $prefs->fieldsFor($class),
             'gradeBands' => $this->gradeBands(),
             'layoutEnabled' => $resolvedLayout['enabled'],
             'layoutZones' => $resolvedLayout['zones'],
