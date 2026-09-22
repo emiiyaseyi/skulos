@@ -706,4 +706,197 @@ class ReportCardSectionOverridesTest extends TestCase
             ->assertOk()
             ->assertSee(route('school.report-cards.preview.class', ['school' => $school->slug, 'classId' => $class->id]));
     }
+
+    /**
+     * "Overall Remarks", confirmed via AskUserQuestion 2026-09-21: "Add a
+     * real third field (recommended for an exact match)" -- its own
+     * distinct line, not the same value as Class Teacher's Remark, shown
+     * on the entry screen, saved on submit, and rendered on the card.
+     */
+    public function test_overall_remark_is_a_real_field_distinct_from_class_teacher_remark(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'overallremarkone');
+        ['class' => $class, 'student' => $student, 'term' => $term] = $this->seedOneClass($school);
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/classes/{$class->id}/entry?term_id={$term->id}")
+            ->assertOk()
+            ->assertSee('Overall remark');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/classes/{$class->id}/entry", [
+            'term_id' => $term->id,
+            'students' => [
+                $student->id => [
+                    'overall_remark' => 'A well rounded term overall.',
+                    'class_teacher_remark' => 'Keep up the good work in class.',
+                ],
+            ],
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $remark = \App\Models\Tenant\StudentTermRemark::where('student_id', $student->id)->where('term_id', $term->id)->first();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame('A well rounded term overall.', $remark->overall_remark);
+        $this->assertSame('Keep up the good work in class.', $remark->class_teacher_remark);
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/{$student->id}/{$term->id}");
+        $response->assertOk();
+        $html = $response->getContent();
+        $this->assertStringContainsString('<b>Overall Remarks</b>A well rounded term overall.', $html);
+        $this->assertStringContainsString("<b>Class Teacher's Remark</b>Keep up the good work in class.", $html);
+    }
+
+    /**
+     * Physical stats beginning/end of term tracking, confirmed via
+     * AskUserQuestion 2026-09-21: "option 2, also add it to what admin
+     * can enable if they want the stat to have begining of term and end
+     * of term or just one to cover it" -- off by default (a plain single
+     * Height/Weight row, unaffected), a real admin toggle turns on
+     * separate Beginning/End columns everywhere the stat is entered or
+     * shown.
+     */
+    public function test_physical_stats_beginning_and_end_of_term_tracking_is_off_by_default(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'physicalstartoff');
+        ['class' => $class, 'student' => $student, 'term' => $term] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        $this->assertFalse(app(ReportCardPreferences::class)->tracksPhysicalStatsStart());
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/classes/{$class->id}/entry?term_id={$term->id}")
+            ->assertOk()
+            ->assertSee('data-label="Height"', false)
+            ->assertDontSee('Height (start)');
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/preview/class/{$class->id}");
+        $response->assertOk();
+        $response->assertDontSee('Beginning of Term');
+    }
+
+    /**
+     * The admin facing toggle itself (Report Settings > Physical &
+     * Attendance): a real gap found and fixed after first shipping only
+     * the setTracksPhysicalStatsStart() plumbing with no way for an
+     * admin to actually reach it from the UI.
+     */
+    public function test_an_admin_can_toggle_physical_stats_tracking_from_report_settings(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'physicalstarttoggle');
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/settings")
+            ->assertOk()
+            ->assertSee('Track Height and Weight as Beginning of Term and End of Term');
+
+        app(TenantManager::class)->use($school);
+        $this->assertFalse(app(ReportCardPreferences::class)->tracksPhysicalStatsStart());
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/physical-stats-tracking", ['enabled' => '1'])
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertTrue(app(ReportCardPreferences::class)->tracksPhysicalStatsStart());
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/physical-stats-tracking", ['enabled' => '0'])
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertFalse(app(ReportCardPreferences::class)->tracksPhysicalStatsStart());
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_an_admin_can_turn_on_beginning_and_end_of_term_physical_tracking(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'physicalstarton');
+        ['class' => $class, 'student' => $student, 'term' => $term] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        app(ReportCardPreferences::class)->setTracksPhysicalStatsStart(true);
+        // physical_stats itself is off by default (config('skulos.
+        // report_card_fields')) -- turned on here purely so the card
+        // render assertions below have something to actually check.
+        app(ReportCardPreferences::class)->setFields(['physical_stats' => true]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/classes/{$class->id}/entry?term_id={$term->id}")
+            ->assertOk()
+            ->assertSee('data-label="Height (start)"', false)
+            ->assertSee('data-label="Height (end)"', false)
+            ->assertSee('data-label="Weight (start)"', false)
+            ->assertSee('data-label="Weight (end)"', false);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/classes/{$class->id}/entry", [
+            'term_id' => $term->id,
+            'students' => [
+                $student->id => [
+                    'height_start' => '110cm',
+                    'height' => '113cm',
+                    'weight_start' => '17kg',
+                    'weight' => '19kg',
+                ],
+            ],
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $remark = \App\Models\Tenant\StudentTermRemark::where('student_id', $student->id)->where('term_id', $term->id)->first();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame('110cm', $remark->height_start);
+        $this->assertSame('113cm', $remark->height);
+        $this->assertSame('17kg', $remark->weight_start);
+        $this->assertSame('19kg', $remark->weight);
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/{$student->id}/{$term->id}");
+        $response->assertOk();
+        $response->assertSee('Height (Beginning of Term)');
+        $response->assertSee('Height (End of Term)');
+        $response->assertSee('110cm');
+        $response->assertSee('113cm');
+    }
+
+    /**
+     * The bulk CSV round trip mirrors the on-screen table exactly, per
+     * its own existing docblock -- confirms the new Overall Remark and
+     * (when the toggle is on) beginning/end physical columns round trip
+     * through a real download-then-upload cycle, not just the on-screen
+     * form.
+     */
+    public function test_the_class_entry_csv_template_round_trips_overall_remark_and_physical_start(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'csvphysicalstart');
+        ['class' => $class, 'student' => $student, 'term' => $term] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        app(ReportCardPreferences::class)->setTracksPhysicalStatsStart(true);
+        app(TenantManager::class)->forget();
+
+        $csv = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/classes/{$class->id}/entry/template?term_id={$term->id}")
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('Height (Start)', $csv);
+        $this->assertStringContainsString('Overall Remark', $csv);
+
+        $row = "{$student->admission_number},{$student->fullName()},108cm,112cm,16kg,18kg,,A great term overall.,Doing well in class.\n";
+        $body = "Admission Number,Student Name,Height (Start),Height (End),Weight (Start),Weight (End),Club,Overall Remark,Class Teacher Remark\n".$row;
+        $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('entry.csv', $body);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/classes/{$class->id}/entry/upload", [
+            'term_id' => $term->id,
+            'file' => $file,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $remark = \App\Models\Tenant\StudentTermRemark::where('student_id', $student->id)->where('term_id', $term->id)->first();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame('108cm', $remark->height_start);
+        $this->assertSame('112cm', $remark->height);
+        $this->assertSame('16kg', $remark->weight_start);
+        $this->assertSame('18kg', $remark->weight);
+        $this->assertSame('A great term overall.', $remark->overall_remark);
+        $this->assertSame('Doing well in class.', $remark->class_teacher_remark);
+    }
 }

@@ -159,6 +159,7 @@ class ReportCardController extends Controller
             'schoolMotto' => $school->motto,
             'reviewStageEnabled' => $this->reviewStageEnabled(),
             'suggestedRemarkEnabled' => self::suggestedRemarkEnabled(),
+            'tracksPhysicalStatsStart' => $prefs->tracksPhysicalStatsStart(),
             'reviewChain' => ReportCardReview::reviewChain(),
             'reviewChainRoles' => config('skulos.report_card_review_roles'),
             // The school wide stamp/signature default lives on the School
@@ -201,6 +202,27 @@ class ReportCardController extends Controller
         return back()->with('status', $data['enabled']
             ? 'The score entry auto-suggested remark is on.'
             : 'The score entry auto-suggested remark is off. Teachers will type remarks from scratch.');
+    }
+
+    /**
+     * Turns Physical & Attendance's Beginning of Term tracking on or off
+     * school wide (user directive 2026-09-21, confirmed via
+     * AskUserQuestion: "add it to what admin can enable if they want the
+     * stat to have beginning of term and end of term or just one to
+     * cover it"). Off by default -- every school's report card and Class
+     * Teacher Entry screen show a plain single Height/Weight row until a
+     * school deliberately turns this on.
+     */
+    public function updatePhysicalStatsTracking(Request $request, ReportCardPreferences $prefs): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.update');
+        $data = $request->validate(['enabled' => ['required', 'boolean']]);
+
+        $prefs->setTracksPhysicalStatsStart($data['enabled']);
+
+        return back()->with('status', $data['enabled']
+            ? 'Physical & Attendance now tracks a Beginning of Term value alongside End of Term.'
+            : 'Physical & Attendance now shows a single Height/Weight value again.');
     }
 
     /**
@@ -361,6 +383,7 @@ class ReportCardController extends Controller
         $templates = array_keys(config('skulos.report_card_templates'));
         $requested = $request->route('template');
         $template = in_array($requested, $templates, true) ? $requested : $prefs->template();
+        $resolvedLayout = $layout->schoolDefaultSnapshot();
 
         return view('school.report-cards.render', [
             'school' => $school,
@@ -369,14 +392,14 @@ class ReportCardController extends Controller
             'fields' => $prefs->fields(),
             'data' => $cards->sample(),
             'gradeBands' => $this->gradeBands(),
-            'layoutEnabled' => $layout->enabled(),
-            'layoutZones' => $layout->zones(),
-            'bodySections' => $layout->effectiveBodyOrder($layout->enabled()),
-            'bodyRows' => $layout->groupIntoRows($layout->effectiveBodyOrder($layout->enabled())),
+            'layoutEnabled' => $resolvedLayout['enabled'],
+            'layoutZones' => $resolvedLayout['zones'],
+            'bodySections' => $resolvedLayout['body_order'],
+            'bodyRows' => $resolvedLayout['body_rows'],
             'footerText' => $prefs->footerText(),
             'footerAlign' => $prefs->footerAlign(),
-            'headerAlign' => $layout->headerAlign(),
-            'bodyAlign' => $layout->bodyAlign(),
+            'headerAlign' => $resolvedLayout['header_align'],
+            'bodyAlign' => $resolvedLayout['body_align'],
             'customBlocks' => $this->customBlocksKeyed(),
             'isPreview' => true,
         ]);
@@ -412,6 +435,7 @@ class ReportCardController extends Controller
         $currentTerm = Term::current()->first();
         $template = ($currentTerm && $class->isNarrativeEvaluationForTerm($currentTerm->id))
             ? 'narrative' : $prefs->templateForClass($class);
+        $resolvedLayout = $layout->resolvedFor($class);
 
         return view('school.report-cards.render', [
             'school' => $school,
@@ -420,14 +444,14 @@ class ReportCardController extends Controller
             'fields' => $prefs->fields(),
             'data' => $cards->sample($class),
             'gradeBands' => $this->gradeBands(),
-            'layoutEnabled' => $layout->enabled(),
-            'layoutZones' => $layout->zones(),
-            'bodySections' => $layout->effectiveBodyOrder($layout->enabled()),
-            'bodyRows' => $layout->groupIntoRows($layout->effectiveBodyOrder($layout->enabled())),
+            'layoutEnabled' => $resolvedLayout['enabled'],
+            'layoutZones' => $resolvedLayout['zones'],
+            'bodySections' => $resolvedLayout['body_order'],
+            'bodyRows' => $resolvedLayout['body_rows'],
             'footerText' => $prefs->footerText(),
             'footerAlign' => $prefs->footerAlign(),
-            'headerAlign' => $layout->headerAlign(),
-            'bodyAlign' => $layout->bodyAlign(),
+            'headerAlign' => $resolvedLayout['header_align'],
+            'bodyAlign' => $resolvedLayout['body_align'],
             'customBlocks' => $this->customBlocksKeyed(),
             'isPreview' => true,
         ]);
@@ -472,6 +496,7 @@ class ReportCardController extends Controller
         $narrativeClass = $reportType === ReportCardReview::REPORT_TYPE_FULL_TERM
             && $student->currentClassArm?->schoolClass?->isNarrativeEvaluationForTerm($term->id);
         $studentClass = $student->currentClassArm?->schoolClass;
+        $resolvedLayout = $layout->resolvedFor($studentClass);
 
         return view('school.report-cards.render', [
             'school' => $school,
@@ -480,14 +505,14 @@ class ReportCardController extends Controller
             'fields' => $prefs->fields(),
             'data' => $cards->forStudent($student, $term, null, $reportType),
             'gradeBands' => $this->gradeBands(),
-            'layoutEnabled' => $layout->enabled(),
-            'layoutZones' => $layout->zones(),
-            'bodySections' => $layout->effectiveBodyOrder($layout->enabled()),
-            'bodyRows' => $layout->groupIntoRows($layout->effectiveBodyOrder($layout->enabled())),
+            'layoutEnabled' => $resolvedLayout['enabled'],
+            'layoutZones' => $resolvedLayout['zones'],
+            'bodySections' => $resolvedLayout['body_order'],
+            'bodyRows' => $resolvedLayout['body_rows'],
             'footerText' => $prefs->footerText(),
             'footerAlign' => $prefs->footerAlign(),
-            'headerAlign' => $layout->headerAlign(),
-            'bodyAlign' => $layout->bodyAlign(),
+            'headerAlign' => $resolvedLayout['header_align'],
+            'bodyAlign' => $resolvedLayout['body_align'],
             'customBlocks' => $this->customBlocksKeyed(),
             'isPreview' => false,
         ]);
@@ -518,27 +543,60 @@ class ReportCardController extends Controller
         $this->authorizeAction($request, 'report_cards.view');
         $school = $this->school($request);
 
-        // "Preview as" a real class (user directive 2026-09-21: "the
-        // report card designer should also make it possible to design
-        // report cards per sections or per classes... one should be
-        // able to switch and view the report card designs for the
-        // various sections"). Blank/omitted keeps the exact previous
-        // behaviour -- the school wide default look with generic sample
-        // data -- so every school that never touches this selector sees
-        // nothing different.
-        $previewClass = $request->filled('classId')
-            ? SchoolClass::with('section')->find($request->query('classId'))
-            : null;
-        // A scoped teacher previewing here is restricted the same way
-        // previewClass() already restricts the dedicated preview route
-        // -- picking a class they don't teach silently falls back to
-        // the default look rather than showing someone else's class.
-        if ($previewClass) {
-            $scopedArmIds = app(TeacherScope::class)->classArmIds(Auth::user(), $school);
-            if ($scopedArmIds !== null && $previewClass->arms()->pluck('id')->intersect($scopedArmIds)->isEmpty()) {
-                $previewClass = null;
+        // "Editing for" a real class/section, not just a read only
+        // "Preview as" switcher (user directive 2026-09-21, confirmed
+        // via AskUserQuestion: "A genuinely different arrangement per
+        // class/section"). ?target=class:5 or ?target=section:2, blank/
+        // omitted (still the default) keeps editing the school wide
+        // layout exactly as before this existed. classId= is kept as a
+        // synonym for target=class:{id} so an old bookmarked preview
+        // link still resolves the same class it always did.
+        $target = (string) $request->query('target', '');
+        $editingScope = 'school';
+        $editingClass = null;
+        $editingSection = null;
+        if ($target !== '' && str_contains($target, ':')) {
+            [$editingScope, $rawId] = explode(':', $target, 2);
+            if ($editingScope === 'class') {
+                $editingClass = SchoolClass::with('section')->find((int) $rawId);
+            } elseif ($editingScope === 'section') {
+                $editingSection = Section::find((int) $rawId);
             }
+        } elseif ($request->filled('classId')) {
+            $editingScope = 'class';
+            $editingClass = SchoolClass::with('section')->find($request->query('classId'));
         }
+
+        // A scoped teacher is restricted to only their own class(es),
+        // the same guard previewClass() already applies -- picking a
+        // class they don't teach silently falls back to the school
+        // wide default rather than showing/editing someone else's
+        // class. Editing a whole SECTION's layout is an admin tier
+        // action (a section is not "my class" the way a teacher's own
+        // class arm is), so a scoped teacher never sees section targets
+        // at all -- see $sectionsForPicker below, which only ever lists
+        // classes for a scoped teacher, never bare section rows.
+        $scopedArmIds = app(TeacherScope::class)->classArmIds(Auth::user(), $school);
+        if ($editingClass && $scopedArmIds !== null && $editingClass->arms()->pluck('id')->intersect($scopedArmIds)->isEmpty()) {
+            $editingClass = null;
+            $editingScope = 'school';
+        }
+        if ($editingSection && $scopedArmIds !== null) {
+            $editingSection = null;
+            $editingScope = 'school';
+        }
+        if ($editingScope === 'class' && ! $editingClass) {
+            $editingScope = 'school';
+        }
+        if ($editingScope === 'section' && ! $editingSection) {
+            $editingScope = 'school';
+        }
+
+        // Previewing a bare SECTION target has no one class to render
+        // sample data for on its own -- its first class stands in, same
+        // resolution chain a real student's report card would follow
+        // anyway (class override, else section's, else school default).
+        $previewClass = $editingClass ?? $editingSection?->classes()->orderBy('sequence')->first();
         $currentTerm = Term::current()->first();
         $narrativeClass = $previewClass && $currentTerm && $previewClass->isNarrativeEvaluationForTerm($currentTerm->id);
 
@@ -587,35 +645,65 @@ class ReportCardController extends Controller
             $bodyHtml[$block->bodyKey()] = view('school.report-cards._body-custom', ['customBlock' => $block])->render();
         }
 
-        // The class picker itself: every section's classes, scoped to
-        // only the classes a scoped teacher actually teaches (the same
-        // restriction just applied to $previewClass above), so a class
-        // teacher previewing here only ever sees their own class(es) as
-        // options, never the whole school's.
-        $scopedArmIds = app(TeacherScope::class)->classArmIds(Auth::user(), $school);
+        // The picker itself: every section's classes, scoped to only the
+        // classes a scoped teacher actually teaches (the same
+        // restriction just applied to $editingClass above), so a class
+        // teacher editing here only ever sees their own class(es) as
+        // options, never the whole school's -- and never a bare section
+        // option, that stays admin tier (see $canEditSections below).
         $sectionsForPicker = Section::with(['classes' => function ($q) use ($scopedArmIds) {
             $q->orderBy('sequence');
             if ($scopedArmIds !== null) {
                 $q->whereHas('arms', fn ($a) => $a->whereIn('id', $scopedArmIds));
             }
         }])->orderBy('sequence')->get()->filter(fn (Section $s) => $s->classes->isNotEmpty());
+        $canEditSections = $scopedArmIds === null;
+
+        // Which layout is actually being edited: the school wide flat
+        // Setting rows (unchanged pre-existing behaviour) for scope
+        // 'school', or the class/section's own resolved layout
+        // (its own override if it has one, else the inherited default,
+        // used as the starting point for a first customization) for
+        // scope 'class'/'section'.
+        if ($editingScope === 'class') {
+            $editing = $layout->resolvedFor($editingClass);
+            $hasOwnOverride = $layout->classHasOwnOverride($editingClass);
+        } elseif ($editingScope === 'section') {
+            $editing = $layout->resolvedForSection($editingSection);
+            $hasOwnOverride = $layout->sectionHasOwnOverride($editingSection);
+        } else {
+            $editing = [
+                'enabled' => $layout->enabled(),
+                'zones' => $layout->zones(),
+                'body_order' => $layout->bodyOrder(),
+                'header_align' => $layout->headerAlign(),
+                'body_align' => $layout->bodyAlign(),
+                'body_columns' => $layout->bodyColumns(),
+            ];
+            $hasOwnOverride = false;
+        }
 
         return view('school.report-cards.layout', [
             'school' => $school,
             'accent' => $school->branding()['color'],
-            'enabled' => $layout->enabled(),
-            'zones' => $layout->zones(),
+            'enabled' => $editing['enabled'],
+            'zones' => $editing['zones'],
             'blocks' => $blockLabels,
             'blockHtml' => $blockHtml,
-            'headerAlign' => $layout->headerAlign(),
-            'bodySections' => $layout->bodyOrder(),
+            'headerAlign' => $editing['header_align'],
+            'bodySections' => $editing['body_order'],
             'bodyLabels' => $bodyLabels,
             'sectionsForPicker' => $sectionsForPicker,
+            'canEditSections' => $canEditSections,
             'previewClass' => $previewClass,
             'bodyHtml' => $bodyHtml,
-            'bodyAlign' => $layout->bodyAlign(),
-            'bodyColumns' => $layout->bodyColumns(),
+            'bodyAlign' => $editing['body_align'],
+            'bodyColumns' => $editing['body_columns'],
             'customBlocks' => $customBlocks,
+            'editingScope' => $editingScope,
+            'editingClass' => $editingClass,
+            'editingSection' => $editingSection,
+            'hasOwnOverride' => $hasOwnOverride,
         ]);
     }
 
@@ -667,12 +755,27 @@ class ReportCardController extends Controller
         return back()->with('status', 'Custom block removed.');
     }
 
+    /**
+     * Saves the layout for whichever scope the "Editing for" selector on
+     * the Designer page was set to when the form was submitted (user
+     * directive 2026-09-21, confirmed via AskUserQuestion: "A genuinely
+     * different arrangement per class/section" -- the larger of two
+     * options offered, over a read only "preview as" switcher). No
+     * target (or target_scope=school) is the pre-existing, only-ever
+     * behaviour before this existed: the flat school wide Setting rows.
+     * A class or section target instead writes one atomic snapshot into
+     * that row's own layout_override column, resolved ahead of every
+     * other student/class render path by ReportCardLayout::resolvedFor()/
+     * resolvedForSection().
+     */
     public function updateLayout(Request $request, ReportCardLayout $layout): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeAction($request, 'report_cards.update');
         $validBlocks = array_keys(config('skulos.report_card_layout_blocks', []));
 
         $data = $request->validate([
+            'target_scope' => ['nullable', Rule::in(['school', 'class', 'section'])],
+            'target_id' => ['nullable', 'integer'],
             'enabled' => ['nullable', 'boolean'],
             'header' => ['array'],
             'header.*' => [Rule::in($validBlocks)],
@@ -693,14 +796,87 @@ class ReportCardController extends Controller
             'body_columns.*' => ['integer', 'min:1', 'max:3'],
         ]);
 
-        $layout->setEnabled((bool) ($data['enabled'] ?? false));
-        $layout->setZones(['header' => $data['header'] ?? [], 'info' => $data['info'] ?? []]);
-        $layout->setHeaderAlign($data['header_align'] ?? []);
-        $layout->setBodyOrder($data['body'] ?? []);
-        $layout->setBodyAlign($data['body_align'] ?? []);
-        $layout->setBodyColumns($data['body_columns'] ?? []);
+        $snapshot = [
+            'enabled' => (bool) ($data['enabled'] ?? false),
+            'zones' => ['header' => $data['header'] ?? [], 'info' => $data['info'] ?? []],
+            'body_order' => $data['body'] ?? [],
+            'header_align' => $data['header_align'] ?? [],
+            'body_align' => $data['body_align'] ?? [],
+            'body_columns' => $data['body_columns'] ?? [],
+        ];
+
+        $scope = $data['target_scope'] ?? 'school';
+        if ($scope === 'class') {
+            $class = $this->resolveOwnedClass($request, (int) ($data['target_id'] ?? 0));
+            $layout->setClassOverride($class, $snapshot);
+
+            return redirect()->route('school.report-cards.layout.edit', ['school' => $request->route('school'), 'target' => 'class:'.$class->id])
+                ->with('status', 'Custom layout saved for '.$class->name.'.');
+        }
+        if ($scope === 'section') {
+            $section = $this->resolveSection($request, (int) ($data['target_id'] ?? 0));
+            $layout->setSectionOverride($section, $snapshot);
+
+            return redirect()->route('school.report-cards.layout.edit', ['school' => $request->route('school'), 'target' => 'section:'.$section->id])
+                ->with('status', 'Custom layout saved for '.$section->name.'.');
+        }
+
+        $layout->setEnabled($snapshot['enabled']);
+        $layout->setZones($snapshot['zones']);
+        $layout->setHeaderAlign($snapshot['header_align']);
+        $layout->setBodyOrder($snapshot['body_order']);
+        $layout->setBodyAlign($snapshot['body_align']);
+        $layout->setBodyColumns($snapshot['body_columns']);
 
         return back()->with('status', 'Report card layout saved.');
+    }
+
+    /** "Follow the school default instead" / "Follow the section's layout instead" -- clears a class or section's own layout override. */
+    public function resetLayoutOverride(Request $request, ReportCardLayout $layout): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.update');
+        $data = $request->validate([
+            'target_scope' => ['required', Rule::in(['class', 'section'])],
+            'target_id' => ['required', 'integer'],
+        ]);
+
+        if ($data['target_scope'] === 'class') {
+            $class = $this->resolveOwnedClass($request, (int) $data['target_id']);
+            $layout->clearClassOverride($class);
+            $redirectTarget = 'class:'.$class->id;
+        } else {
+            $section = $this->resolveSection($request, (int) $data['target_id']);
+            $layout->clearSectionOverride($section);
+            $redirectTarget = 'section:'.$section->id;
+        }
+
+        return redirect()->route('school.report-cards.layout.edit', ['school' => $request->route('school'), 'target' => $redirectTarget])
+            ->with('status', 'Custom layout removed, back to the inherited default.');
+    }
+
+    /** A class the acting user is genuinely allowed to edit the layout for -- unscoped for an admin, TeacherScope restricted for a scoped teacher, the same guard previewClass() already applies. */
+    protected function resolveOwnedClass(Request $request, int $classId): SchoolClass
+    {
+        $school = $this->school($request);
+        $class = SchoolClass::with('arms')->findOrFail($classId);
+
+        $scopedArmIds = app(TeacherScope::class)->classArmIds(Auth::user(), $school);
+        if ($scopedArmIds !== null) {
+            abort_unless($class->arms->pluck('id')->intersect($scopedArmIds)->isNotEmpty(), 404);
+        }
+
+        return $class;
+    }
+
+    /**
+     * A section is a whole-school-division concept with no per-teacher
+     * scoping of its own (unlike a class) -- editing a section's layout
+     * is treated as an admin-tier action, same tier report_cards.update
+     * already gates the rest of this screen at.
+     */
+    protected function resolveSection(Request $request, int $sectionId): Section
+    {
+        return Section::findOrFail($sectionId);
     }
 
     /**
@@ -894,6 +1070,7 @@ class ReportCardController extends Controller
         $students = Student::whereIn('current_class_arm_id', $armIds)->orderBy('last_name')->get();
         $template = ($reportType === ReportCardReview::REPORT_TYPE_FULL_TERM && $class->isNarrativeEvaluationForTerm($term->id))
             ? 'narrative' : $prefs->templateForClass($class);
+        $resolvedLayout = $layout->resolvedFor($class);
 
         return view('school.report-cards.class-print', [
             'school' => $school,
@@ -904,14 +1081,14 @@ class ReportCardController extends Controller
             'template' => $template,
             'fields' => $prefs->fields(),
             'gradeBands' => $this->gradeBands(),
-            'layoutEnabled' => $layout->enabled(),
-            'layoutZones' => $layout->zones(),
-            'bodySections' => $layout->effectiveBodyOrder($layout->enabled()),
-            'bodyRows' => $layout->groupIntoRows($layout->effectiveBodyOrder($layout->enabled())),
+            'layoutEnabled' => $resolvedLayout['enabled'],
+            'layoutZones' => $resolvedLayout['zones'],
+            'bodySections' => $resolvedLayout['body_order'],
+            'bodyRows' => $resolvedLayout['body_rows'],
             'footerText' => $prefs->footerText(),
             'footerAlign' => $prefs->footerAlign(),
-            'headerAlign' => $layout->headerAlign(),
-            'bodyAlign' => $layout->bodyAlign(),
+            'headerAlign' => $resolvedLayout['header_align'],
+            'bodyAlign' => $resolvedLayout['body_align'],
             'customBlocks' => $this->customBlocksKeyed(),
             'reportData' => $students->map(fn (Student $student) => $cards->forStudent($student, $term, null, $reportType)),
         ]);
@@ -1786,6 +1963,7 @@ class ReportCardController extends Controller
             'narrativeStyle' => $narrativeStyle,
             'template' => $template,
             'canEnterPrincipalRemark' => app(Rbac::class)->check($user, $school, 'report_cards.release'),
+            'tracksPhysicalStatsStart' => $prefs->tracksPhysicalStatsStart(),
         ]);
     }
 
@@ -1808,6 +1986,8 @@ class ReportCardController extends Controller
         $validStudentIds = Student::whereIn('current_class_arm_id', $armIds)->pluck('id');
 
         $canEnterPrincipalRemark = app(Rbac::class)->check($user, $school, 'report_cards.release');
+        $prefs = app(ReportCardPreferences::class);
+        $tracksStart = $prefs->tracksPhysicalStatsStart();
         $data = $request->input('students', []);
 
         foreach ($data as $studentId => $row) {
@@ -1817,10 +1997,15 @@ class ReportCardController extends Controller
 
             $remarkData = [
                 'class_teacher_remark' => $row['class_teacher_remark'] ?? null,
+                'overall_remark' => $row['overall_remark'] ?? null,
                 'height' => $row['height'] ?? null,
                 'weight' => $row['weight'] ?? null,
                 'club' => $row['club'] ?? null,
             ];
+            if ($tracksStart) {
+                $remarkData['height_start'] = $row['height_start'] ?? null;
+                $remarkData['weight_start'] = $row['weight_start'] ?? null;
+            }
             if ($canEnterPrincipalRemark) {
                 $remarkData['principal_remark'] = $row['principal_remark'] ?? null;
             }
@@ -1896,20 +2081,26 @@ class ReportCardController extends Controller
             ? \App\Models\Tenant\Subject::whereIn('id', \App\Models\Tenant\TeachingAssignment::whereIn('class_arm_id', $armIds)->pluck('subject_id')->unique())->orderBy('name')->get()
             : collect();
         $canEnterPrincipalRemark = app(Rbac::class)->check($user, $school, 'report_cards.release');
+        $tracksStart = $prefs->tracksPhysicalStatsStart();
 
         $remarks = \App\Models\Tenant\StudentTermRemark::whereIn('student_id', $students->pluck('id'))->where('term_id', $term->id)->get()->keyBy('student_id');
         $ratings = \App\Models\Tenant\StudentBehaviouralRating::whereIn('student_id', $students->pluck('id'))->where('term_id', $term->id)->get()->groupBy('student_id');
         $comments = \App\Models\Tenant\StudentSubjectComment::whereIn('student_id', $students->pluck('id'))->where('term_id', $term->id)->get();
 
-        return response()->streamDownload(function () use ($students, $traits, $subjects, $remarks, $ratings, $comments, $canEnterPrincipalRemark) {
+        return response()->streamDownload(function () use ($students, $traits, $subjects, $remarks, $ratings, $comments, $canEnterPrincipalRemark, $tracksStart) {
             $out = fopen('php://output', 'w');
-            $header = ['Admission Number', 'Student Name', 'Height', 'Weight', 'Club'];
+            $header = ['Admission Number', 'Student Name'];
+            $header = array_merge($header, $tracksStart
+                ? ['Height (Start)', 'Height (End)', 'Weight (Start)', 'Weight (End)']
+                : ['Height', 'Weight']);
+            $header[] = 'Club';
             foreach ($traits as $trait) {
                 $header[] = $trait->name;
             }
             foreach ($subjects as $subject) {
                 $header[] = $subject->name.' comment';
             }
+            $header[] = 'Overall Remark';
             $header[] = 'Class Teacher Remark';
             if ($canEnterPrincipalRemark) {
                 $header[] = 'Head of School Remark';
@@ -1919,13 +2110,18 @@ class ReportCardController extends Controller
             foreach ($students as $student) {
                 $remark = $remarks->get($student->id);
                 $studentRatings = ($ratings->get($student->id) ?? collect())->keyBy('behavioural_trait_id');
-                $row = [$student->admission_number, $student->fullName(), $remark?->height, $remark?->weight, $remark?->club];
+                $row = [$student->admission_number, $student->fullName()];
+                $row = array_merge($row, $tracksStart
+                    ? [$remark?->height_start, $remark?->height, $remark?->weight_start, $remark?->weight]
+                    : [$remark?->height, $remark?->weight]);
+                $row[] = $remark?->club;
                 foreach ($traits as $trait) {
                     $row[] = $studentRatings->get($trait->id)?->value;
                 }
                 foreach ($subjects as $subject) {
                     $row[] = $comments->first(fn ($c) => $c->student_id === $student->id && $c->subject_id === $subject->id)?->comment;
                 }
+                $row[] = $remark?->overall_remark;
                 $row[] = $remark?->class_teacher_remark;
                 if ($canEnterPrincipalRemark) {
                     $row[] = $remark?->principal_remark;
@@ -1962,6 +2158,7 @@ class ReportCardController extends Controller
             ? \App\Models\Tenant\Subject::whereIn('id', \App\Models\Tenant\TeachingAssignment::whereIn('class_arm_id', $armIds)->pluck('subject_id')->unique())->orderBy('name')->get()
             : collect();
         $canEnterPrincipalRemark = app(Rbac::class)->check($user, $school, 'report_cards.release');
+        $tracksStart = $prefs->tracksPhysicalStatsStart();
         $remarkScale = config('skulos.behavioural_trait_remark_scale', []);
 
         $handle = fopen($data['file']->getRealPath(), 'r');
@@ -1979,7 +2176,17 @@ class ReportCardController extends Controller
                 continue;
             }
 
-            $remarkData = ['height' => $line[$cursor++] ?? null, 'weight' => $line[$cursor++] ?? null, 'club' => $line[$cursor++] ?? null];
+            if ($tracksStart) {
+                $remarkData = [
+                    'height_start' => $line[$cursor++] ?? null,
+                    'height' => $line[$cursor++] ?? null,
+                    'weight_start' => $line[$cursor++] ?? null,
+                    'weight' => $line[$cursor++] ?? null,
+                ];
+            } else {
+                $remarkData = ['height' => $line[$cursor++] ?? null, 'weight' => $line[$cursor++] ?? null];
+            }
+            $remarkData['club'] = $line[$cursor++] ?? null;
             \App\Models\Tenant\StudentTermRemark::updateOrCreate(
                 ['student_id' => $student->id, 'term_id' => $term->id],
                 array_filter($remarkData, fn ($v) => $v !== null && $v !== '') + ($canEnterPrincipalRemark ? [] : [])
@@ -2011,6 +2218,12 @@ class ReportCardController extends Controller
                     ['student_id' => $student->id, 'subject_id' => $subject->id, 'term_id' => $term->id],
                     ['comment' => $comment]
                 );
+            }
+
+            $overallRemark = trim((string) ($line[$cursor++] ?? ''));
+            if ($overallRemark !== '') {
+                \App\Models\Tenant\StudentTermRemark::where('student_id', $student->id)->where('term_id', $term->id)
+                    ->update(['overall_remark' => $overallRemark]);
             }
 
             $classTeacherRemark = trim((string) ($line[$cursor++] ?? ''));

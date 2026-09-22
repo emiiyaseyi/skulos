@@ -261,8 +261,8 @@ class NarrativeEvaluationTest extends TestCase
         $this->assertStringContainsString($student->admission_number, $csv);
         $this->assertStringContainsString('Numeracy comment', $csv);
 
-        $filled = "Admission Number,Student Name,Height,Weight,Club,Numeracy comment,Class Teacher Remark\n"
-            .$student->admission_number.",{$student->fullName()},110cm,18kg,Chess,Counts to ten confidently,Doing well\n";
+        $filled = "Admission Number,Student Name,Height,Weight,Club,Numeracy comment,Overall Remark,Class Teacher Remark\n"
+            .$student->admission_number.",{$student->fullName()},110cm,18kg,Chess,Counts to ten confidently,A great term overall,Doing well\n";
         $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('filled.csv', $filled);
 
         $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/classes/{$crecheClass->id}/entry/upload", [
@@ -277,6 +277,7 @@ class NarrativeEvaluationTest extends TestCase
 
         $this->assertSame('110cm', $remark->height);
         $this->assertSame('Chess', $remark->club);
+        $this->assertSame('A great term overall', $remark->overall_remark);
         $this->assertSame('Doing well', $remark->class_teacher_remark);
         $this->assertSame('Counts to ten confidently', $comment->comment);
     }

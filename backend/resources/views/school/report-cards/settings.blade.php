@@ -63,6 +63,20 @@
 </div>
 
 <div class="card" style="margin-bottom:1.25rem">
+  <h3 style="margin-bottom:.4rem">Physical &amp; Attendance</h3>
+  <p class="muted" style="margin-bottom:.8rem">By default, Height and Weight each show a single value for the term. Turn this on to record and show a Beginning of Term value alongside the End of Term one.</p>
+  <form method="POST" action="{{ route('school.report-cards.physical-stats-tracking', ['school' => $school->slug]) }}" style="display:flex;align-items:center;gap:.6rem">
+    @csrf
+    <input type="hidden" name="enabled" value="{{ $tracksPhysicalStatsStart ? '1' : '0' }}" />
+    <label style="display:flex;align-items:center;gap:.5rem;margin:0">
+      <input type="checkbox" @checked($tracksPhysicalStatsStart) onchange="this.form.querySelector('[name=enabled]').value=this.checked?'1':'0';this.form.submit()" />
+      <span>Track Height and Weight as Beginning of Term and End of Term</span>
+    </label>
+    <span class="muted">Turning this off shows a single Height/Weight value again; any Beginning of Term values already entered are kept, not deleted.</span>
+  </form>
+</div>
+
+<div class="card" style="margin-bottom:1.25rem">
   <h3 style="margin-bottom:.4rem">Review chain</h3>
   <p class="muted" style="margin-bottom:.8rem">Who a report card must pass through, in order, before it can be approved. Each stage's Approve action moves it to the next stage; the last stage's Approve makes it Approved and ready to release.</p>
   <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-bottom:1rem">
@@ -231,7 +245,10 @@
               <span class="muted" style="font-size:.78rem">Logo as watermark</span>
             </label>
           </td>
-          <td><button class="btn btn-ghost btn-sm" type="submit" form="{{ $ovFormId }}">Save</button></td>
+          <td style="white-space:nowrap;display:flex;gap:.4rem">
+            <button class="btn btn-ghost btn-sm" type="submit" form="{{ $ovFormId }}">Save</button>
+            <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.layout.edit', ['school' => $school->slug, 'target' => 'section:'.$section->id]) }}">Layout</a>
+          </td>
         </tr>
         @foreach($section->classes as $class)
           @php($cvFormId = 'class-overrides-'.$class->id)
@@ -266,6 +283,7 @@
             </td>
             <td style="white-space:nowrap;display:flex;gap:.4rem">
               <button class="btn btn-ghost btn-sm" type="submit" form="{{ $cvFormId }}">Save</button>
+              <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.layout.edit', ['school' => $school->slug, 'target' => 'class:'.$class->id]) }}">Layout</a>
               <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.preview.class', ['school' => $school->slug, 'classId' => $class->id]) }}" target="_blank" rel="noopener">Preview</a>
             </td>
           </tr>

@@ -2,6 +2,9 @@
 
 namespace App\Services\ReportCards;
 
+use App\Models\Tenant\Section;
+use App\Models\Tenant\SchoolClass;
+use App\Models\Tenant\SchoolSectionBranding;
 use App\Models\Tenant\Setting;
 
 /**
@@ -238,11 +241,15 @@ class ReportCardLayout
      * live report card view").
      *
      * @param  array<int, string>  $order
+     * @param  array<string, int>|null  $columns  explicit column map (a
+     *   resolved class/section override's own), falling back to the
+     *   school wide bodyColumns() when omitted -- the pre-existing,
+     *   only-ever behaviour before per-class/section overrides existed.
      * @return array<int, array<int, string>> rows of section keys
      */
-    public function groupIntoRows(array $order): array
+    public function groupIntoRows(array $order, ?array $columns = null): array
     {
-        $columns = $this->bodyColumns();
+        $columns ??= $this->bodyColumns();
         $rows = [];
         $i = 0;
         $count = count($order);
@@ -269,5 +276,140 @@ class ReportCardLayout
         }
 
         return $rows;
+    }
+
+    /**
+     * The layout a report card actually renders with, for a student in
+     * the given class: that class's own override if it has one,
+     * otherwise its section's, otherwise the school wide layout above
+     * (user directive 2026-09-21, confirmed via AskUserQuestion: "A
+     * genuinely different arrangement per class/section"). An override
+     * replaces the whole arrangement at once -- zones, body order,
+     * alignment, columns together -- never merged field by field with
+     * the school default, the same all-or-nothing shape
+     * report_card_template already uses at this same class/section
+     * level.
+     *
+     * @return array{enabled: bool, zones: array, body_order: array, body_rows: array, header_align: array, body_align: array, body_columns: array}
+     */
+    public function resolvedFor(?SchoolClass $class): array
+    {
+        $override = $class?->resolvedLayoutOverride();
+
+        return $override ? $this->normalizeSnapshot($override) : $this->schoolDefaultSnapshot();
+    }
+
+    /** resolvedFor()'s section level equivalent, used when editing a section's own layout directly rather than through one of its classes. */
+    public function resolvedForSection(?Section $section): array
+    {
+        $override = $section?->branding?->layout_override;
+
+        return $override ? $this->normalizeSnapshot($override) : $this->schoolDefaultSnapshot();
+    }
+
+    /** The school wide layout, in the same shape resolvedFor() returns, for whoever has no class/section override. */
+    public function schoolDefaultSnapshot(): array
+    {
+        $enabled = $this->enabled();
+        $order = $this->effectiveBodyOrder($enabled);
+        $columns = $this->bodyColumns();
+
+        return [
+            'enabled' => $enabled,
+            'zones' => $this->zones(),
+            'body_order' => $order,
+            'body_rows' => $this->groupIntoRows($order, $columns),
+            'header_align' => $this->headerAlign(),
+            'body_align' => $this->bodyAlign(),
+            'body_columns' => $columns,
+        ];
+    }
+
+    /**
+     * Cleans a raw override snapshot the same way the individual
+     * setEnabled()/setZones()/setBodyOrder()/etc. methods above already
+     * clean their own input, then derives body_rows from the override's
+     * OWN body_order/body_columns (never the school wide ones).
+     */
+    protected function normalizeSnapshot(array $raw): array
+    {
+        $enabled = (bool) ($raw['enabled'] ?? false);
+        $zones = $this->clean(is_array($raw['zones'] ?? null) ? $raw['zones'] : []);
+        $order = is_array($raw['body_order'] ?? null)
+            ? array_values(array_filter($raw['body_order'], fn ($k) => $this->isValidBodyKey($k)))
+            : [];
+        $headerAlign = [];
+        foreach ((is_array($raw['header_align'] ?? null) ? $raw['header_align'] : []) as $key => $align) {
+            if (in_array($key, array_keys(config('skulos.report_card_layout_blocks', [])), true) && in_array($align, ['left', 'center', 'right'], true)) {
+                $headerAlign[$key] = $align;
+            }
+        }
+        $bodyAlign = [];
+        foreach ((is_array($raw['body_align'] ?? null) ? $raw['body_align'] : []) as $key => $align) {
+            if ($this->isValidBodyKey($key) && in_array($align, ['left', 'center', 'right', 'stretch'], true)) {
+                $bodyAlign[$key] = $align;
+            }
+        }
+        $bodyColumns = [];
+        foreach ((is_array($raw['body_columns'] ?? null) ? $raw['body_columns'] : []) as $key => $count) {
+            $count = (int) $count;
+            if ($this->isValidBodyKey($key) && $count >= 1 && $count <= 3) {
+                $bodyColumns[$key] = $count;
+            }
+        }
+
+        return [
+            'enabled' => $enabled,
+            'zones' => $zones,
+            'body_order' => $order,
+            'body_rows' => $this->groupIntoRows($order, $bodyColumns),
+            'header_align' => $headerAlign,
+            'body_align' => $bodyAlign,
+            'body_columns' => $bodyColumns,
+        ];
+    }
+
+    public function classHasOwnOverride(SchoolClass $class): bool
+    {
+        return ! empty($class->layout_override);
+    }
+
+    public function sectionHasOwnOverride(Section $section): bool
+    {
+        return ! empty($section->branding?->layout_override);
+    }
+
+    /** @param array{enabled: bool, zones: array, body_order: array, header_align: array, body_align: array, body_columns: array} $snapshot */
+    public function setClassOverride(SchoolClass $class, array $snapshot): void
+    {
+        $class->update(['layout_override' => $this->snapshotForStorage($snapshot)]);
+    }
+
+    public function clearClassOverride(SchoolClass $class): void
+    {
+        $class->update(['layout_override' => null]);
+    }
+
+    /** @param array{enabled: bool, zones: array, body_order: array, header_align: array, body_align: array, body_columns: array} $snapshot */
+    public function setSectionOverride(Section $section, array $snapshot): void
+    {
+        SchoolSectionBranding::updateOrCreate(
+            ['section_id' => $section->id],
+            ['layout_override' => $this->snapshotForStorage($snapshot)]
+        );
+    }
+
+    public function clearSectionOverride(Section $section): void
+    {
+        $section->branding?->update(['layout_override' => null]);
+    }
+
+    /** Cleans and strips the derived body_rows key before writing -- only the four raw settings are ever stored, body_rows is always recomputed at read time. */
+    protected function snapshotForStorage(array $snapshot): array
+    {
+        $normalized = $this->normalizeSnapshot($snapshot);
+        unset($normalized['body_rows']);
+
+        return $normalized;
     }
 }

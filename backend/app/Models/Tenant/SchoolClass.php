@@ -26,7 +26,7 @@ class SchoolClass extends Model
 
     protected $fillable = [
         'section_id', 'name', 'sequence', 'is_active', 'default_reviewer_staff_id', 'evaluation_style', 'grading_scale_id',
-        'report_card_template', 'narrative_style', 'watermark_enabled',
+        'report_card_template', 'narrative_style', 'watermark_enabled', 'layout_override',
     ];
 
     protected function casts(): array
@@ -35,6 +35,7 @@ class SchoolClass extends Model
             'sequence' => 'integer',
             'is_active' => 'boolean',
             'watermark_enabled' => 'boolean',
+            'layout_override' => 'array',
         ];
     }
 
@@ -146,5 +147,17 @@ class SchoolClass extends Model
         }
 
         return $this->section?->watermarkEnabled() ?? false;
+    }
+
+    /**
+     * This class's own report card block arrangement, or its section's,
+     * or null to inherit the school wide layout (the pre-existing flat
+     * Setting rows ReportCardLayout already reads). See
+     * ReportCardLayout::resolvedFor() for the actual resolution used at
+     * render time.
+     */
+    public function resolvedLayoutOverride(): ?array
+    {
+        return $this->layout_override ?: $this->section?->branding?->layout_override ?: null;
     }
 }

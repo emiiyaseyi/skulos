@@ -108,26 +108,29 @@
 </div>
 
 {{--
-  "Preview as" a real class (user directive 2026-09-21: "one should be
-  able to switch and view the report card designs for the various
-  sections... class teachers should be able to see this too"). Every
-  block/section below is re-rendered server side (on submit) with that
-  class's own resolved template, narrative style, watermark, and real
-  Key Assessment Areas, using dummy student data -- exactly what that
-  class's real report card will look like once it has students. Left on
-  "Whole school (default look)", this page behaves exactly as before.
+  "Editing for" a real class or section, not just a read only preview
+  (user directive 2026-09-21, confirmed via AskUserQuestion: "A
+  genuinely different arrangement per class/section"). Every block/
+  section below is re-rendered server side (on submit) with that class
+  or section's own resolved template, narrative style, watermark, and
+  real Key Assessment Areas, using dummy student data. Left on "Whole
+  school (default layout)", this page behaves exactly as before this
+  existed -- the school wide flat layout, unchanged.
 --}}
 @if($sectionsForPicker->isNotEmpty())
 <div class="card" style="margin-bottom:1.1rem">
   <form method="GET" style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap">
     <div class="field" style="margin:0;min-width:16rem">
-      <label for="lb_class_id">Preview as</label>
-      <select id="lb_class_id" name="classId" onchange="this.form.requestSubmit()">
-        <option value="">Whole school (default look)</option>
+      <label for="lb_target">Editing for</label>
+      <select id="lb_target" name="target" onchange="this.form.requestSubmit()">
+        <option value="" @selected($editingScope === 'school')>Whole school (default layout)</option>
         @foreach($sectionsForPicker as $section)
           <optgroup label="{{ $section->name }}">
+            @if($canEditSections)
+              <option value="section:{{ $section->id }}" @selected($editingScope === 'section' && $editingSection?->id === $section->id)>{{ $section->name }} (whole section)</option>
+            @endif
             @foreach($section->classes as $class)
-              <option value="{{ $class->id }}" @selected($previewClass?->id === $class->id)>{{ $class->name }}</option>
+              <option value="class:{{ $class->id }}" @selected($editingScope === 'class' && $editingClass?->id === $class->id)>{{ $class->name }}</option>
             @endforeach
           </optgroup>
         @endforeach
@@ -137,11 +140,31 @@
       <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.preview.class', ['school' => $school->slug, 'classId' => $previewClass->id]) }}" target="_blank" rel="noopener">Open full preview</a>
     @endif
   </form>
+
+  @if($editingScope !== 'school')
+    <p class="muted" style="margin-top:.7rem">
+      @if($hasOwnOverride)
+        Editing {{ $editingClass?->name ?? $editingSection?->name }}'s own custom layout, separate from the school default.
+      @else
+        Showing the layout {{ $editingClass?->name ?? $editingSection?->name }} currently inherits. Saving below starts a custom layout just for {{ $editingScope === 'class' ? 'this class' : 'this section' }}, the school default is untouched.
+      @endif
+    </p>
+    @if($hasOwnOverride)
+      <form method="POST" action="{{ route('school.report-cards.layout.reset-override', ['school' => $school->slug]) }}" style="margin-top:.5rem" onsubmit="return confirm('Remove this custom layout and go back to the inherited default?')">
+        @csrf
+        <input type="hidden" name="target_scope" value="{{ $editingScope }}" />
+        <input type="hidden" name="target_id" value="{{ $editingClass?->id ?? $editingSection?->id }}" />
+        <button class="btn btn-ghost btn-sm" type="submit">Follow the inherited default instead</button>
+      </form>
+    @endif
+  @endif
 </div>
 @endif
 
 <form method="POST" action="{{ route('school.report-cards.layout.update', ['school' => $school->slug]) }}" id="layoutForm">
   @csrf
+  <input type="hidden" name="target_scope" value="{{ $editingScope }}" />
+  <input type="hidden" name="target_id" value="{{ $editingClass?->id ?? $editingSection?->id }}" />
   <input type="hidden" name="enabled" id="enabledInput" value="{{ $enabled ? '1' : '0' }}" />
   <div id="hiddenBlockInputs"></div>
 
@@ -238,7 +261,13 @@
     </div>
   </div>
 
-  <button class="btn btn-primary" type="submit" style="margin-top:1.1rem">Save layout</button>
+  <button class="btn btn-primary" type="submit" style="margin-top:1.1rem">
+    @if($editingScope === 'school')
+      Save layout
+    @else
+      Save custom layout for {{ $editingClass?->name ?? $editingSection?->name }}
+    @endif
+  </button>
 </form>
 
 <div class="card" style="margin-top:1.1rem">

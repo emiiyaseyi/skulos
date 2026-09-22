@@ -22,6 +22,8 @@ class ReportCardPreferences
 
     public const KEY_FOOTER_ALIGN = 'report_card_footer_align';
 
+    public const KEY_PHYSICAL_STATS_TRACK_START = 'physical_stats_track_start';
+
     public function template(): string
     {
         $chosen = Setting::grab(self::KEY_TEMPLATE);
@@ -135,5 +137,24 @@ class ReportCardPreferences
     public function setFooterAlign(string $align): void
     {
         Setting::put(self::KEY_FOOTER_ALIGN, in_array($align, ['left', 'center', 'right'], true) ? $align : 'center');
+    }
+
+    /**
+     * Whether Physical & Attendance tracks a Beginning-of-Term value
+     * alongside the existing End-of-Term one (user directive 2026-09-21,
+     * confirmed via AskUserQuestion: "add it to what admin can enable if
+     * they want the stat to have beginning of term and end of term or
+     * just one to cover it"). Off by default -- every existing school's
+     * report card, and Class Teacher Entry screen, is completely
+     * unaffected until a school deliberately turns this on.
+     */
+    public function tracksPhysicalStatsStart(): bool
+    {
+        return (bool) Setting::grab(self::KEY_PHYSICAL_STATS_TRACK_START, false);
+    }
+
+    public function setTracksPhysicalStatsStart(bool $tracks): void
+    {
+        Setting::put(self::KEY_PHYSICAL_STATS_TRACK_START, $tracks);
     }
 }

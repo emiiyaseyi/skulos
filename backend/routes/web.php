@@ -1145,11 +1145,13 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/settings', [$reportCards, 'update'])->name('update');
             Route::get('/settings/layout', [$reportCards, 'editLayout'])->name('layout.edit');
             Route::post('/settings/layout', [$reportCards, 'updateLayout'])->name('layout.update');
+            Route::post('/settings/layout/reset-override', [$reportCards, 'resetLayoutOverride'])->name('layout.reset-override');
             Route::post('/settings/layout/custom-blocks', [$reportCards, 'storeCustomBlock'])->name('layout.custom-blocks.store');
             Route::post('/settings/layout/custom-blocks/{blockId}', [$reportCards, 'updateCustomBlock'])->name('layout.custom-blocks.update');
             Route::delete('/settings/layout/custom-blocks/{blockId}', [$reportCards, 'destroyCustomBlock'])->name('layout.custom-blocks.destroy');
             Route::post('/review-stage', [$reportCards, 'updateReviewStage'])->name('review-stage');
             Route::post('/suggested-remark', [$reportCards, 'updateSuggestedRemark'])->name('suggested-remark');
+            Route::post('/physical-stats-tracking', [$reportCards, 'updatePhysicalStatsTracking'])->name('physical-stats-tracking');
             Route::post('/review-chain', [$reportCards, 'updateReviewChain'])->name('review-chain');
             Route::post('/sections/{sectionId}/signer', [$reportCards, 'updateSectionSigner'])->name('section.signer');
             Route::post('/sections/{sectionId}/overrides', [$reportCards, 'updateSectionOverrides'])->name('section.overrides');

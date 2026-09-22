@@ -2900,6 +2900,11 @@ If you have run into any issue at all, or have any questions, just reply to this
         'summary_grade' => ['label' => 'Summary: Grade', 'group' => 'academic', 'default' => true],
         'overall_position' => ['label' => 'Summary: Position', 'group' => 'academic', 'default' => true],
         'summary_class_size' => ['label' => 'Summary: Class Size', 'group' => 'academic', 'default' => true],
+        // "OVERALL remarks", a distinct third line above the class
+        // teacher's and head of school's own comments (user reference
+        // report card, 2026-09-21, confirmed via AskUserQuestion as a
+        // real separate field, not the same thing as class_teacher_remark).
+        'overall_remark' => ['label' => 'Overall remark', 'group' => 'remarks', 'default' => true],
         'class_teacher_remark' => ['label' => 'Class teacher remark', 'group' => 'remarks', 'default' => true],
         'principal_remark' => ['label' => 'Head of school remark', 'group' => 'remarks', 'default' => true],
         'next_term_begins' => ['label' => 'Next term begins on', 'group' => 'remarks', 'default' => true],

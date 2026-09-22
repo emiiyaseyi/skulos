@@ -278,4 +278,175 @@ class ReportCardLayoutDesignerTest extends TestCase
         $this->actingAs($parent)->get("http://{$school->slug}.localhost/report-cards/settings/layout")
             ->assertForbidden();
     }
+
+    protected function seedOneClass(School $school): array
+    {
+        app(TenantManager::class)->use($school);
+
+        $section = \App\Models\Tenant\Section::create(['name' => 'Nursery', 'sequence' => 1]);
+        $class = \App\Models\Tenant\SchoolClass::create(['section_id' => $section->id, 'name' => 'KG One', 'sequence' => 1]);
+        $arm = \App\Models\Tenant\Arm::create(['name' => 'A']);
+        $classArm = \App\Models\Tenant\ClassArm::create(['school_class_id' => $class->id, 'arm_id' => $arm->id]);
+
+        app(TenantManager::class)->forget();
+
+        return compact('section', 'class', 'classArm');
+    }
+
+    /**
+     * A genuinely different report card block arrangement per class,
+     * not just a different template/narrative style/watermark (user
+     * directive 2026-09-21, confirmed via AskUserQuestion: "A genuinely
+     * different arrangement per class/section (recommended if KG 1
+     * really needs its own unique block order)").
+     */
+    public function test_saving_a_layout_for_a_class_does_not_touch_the_school_default(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'classlayoutone');
+        ['class' => $class] = $this->seedOneClass($school);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/settings/layout", [
+            'enabled' => '1',
+            'header' => ['school_name'],
+            'info' => ['student_name'],
+            'body' => ['signoff', 'summary'],
+        ])->assertRedirect();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/settings/layout", [
+            'target_scope' => 'class',
+            'target_id' => $class->id,
+            'enabled' => '1',
+            'header' => ['logo'],
+            'info' => ['class'],
+            'body' => ['remarks'],
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $layout = app(\App\Services\ReportCards\ReportCardLayout::class);
+        $schoolDefault = $layout->schoolDefaultSnapshot();
+        $classFresh = \App\Models\Tenant\SchoolClass::find($class->id);
+        $classLook = $layout->resolvedFor($classFresh);
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(['signoff', 'summary'], $schoolDefault['body_order']);
+        $this->assertSame(['remarks'], $classLook['body_order']);
+        $this->assertTrue($layout->classHasOwnOverride($classFresh));
+    }
+
+    public function test_a_class_with_no_override_inherits_its_sections_own_layout(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'classlayouttwo');
+        ['section' => $section, 'class' => $class] = $this->seedOneClass($school);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/settings/layout", [
+            'target_scope' => 'section',
+            'target_id' => $section->id,
+            'enabled' => '1',
+            'header' => ['school_name'],
+            'info' => ['student_name'],
+            'body' => ['grade_key'],
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $layout = app(\App\Services\ReportCards\ReportCardLayout::class);
+        $classFresh = \App\Models\Tenant\SchoolClass::find($class->id);
+        $resolved = $layout->resolvedFor($classFresh);
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(['grade_key'], $resolved['body_order']);
+        $this->assertFalse($layout->classHasOwnOverride($classFresh));
+        $this->assertTrue($layout->sectionHasOwnOverride($section->fresh()));
+    }
+
+    public function test_resetting_a_classs_layout_override_falls_back_to_the_inherited_default(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'classlayoutthree');
+        ['class' => $class] = $this->seedOneClass($school);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/settings/layout", [
+            'target_scope' => 'class',
+            'target_id' => $class->id,
+            'enabled' => '1',
+            'header' => [],
+            'info' => [],
+            'body' => ['remarks'],
+        ])->assertRedirect();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/settings/layout/reset-override", [
+            'target_scope' => 'class',
+            'target_id' => $class->id,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $layout = app(\App\Services\ReportCards\ReportCardLayout::class);
+        $classFresh = \App\Models\Tenant\SchoolClass::find($class->id);
+        $stillOverridden = $layout->classHasOwnOverride($classFresh);
+        app(TenantManager::class)->forget();
+
+        $this->assertFalse($stillOverridden);
+    }
+
+    public function test_the_designer_editing_for_picker_shows_which_layout_is_being_edited(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'classlayoutfour');
+        ['class' => $class] = $this->seedOneClass($school);
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/settings/layout?target=class:{$class->id}")
+            ->assertOk()
+            ->assertSee('Showing the layout KG One currently inherits');
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/settings/layout", [
+            'target_scope' => 'class',
+            'target_id' => $class->id,
+            'enabled' => '1',
+            'header' => ['school_name'],
+            'info' => ['student_name'],
+            'body' => ['remarks'],
+        ])->assertRedirect();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/settings/layout?target=class:{$class->id}")
+            ->assertOk()
+            // Not escaped (false): the apostrophe here is literal Blade
+            // template text, not inside {{ }}, so it renders as a raw
+            // ' rather than assertSee's own default &#039; escaping.
+            ->assertSee("KG One's own custom layout", false)
+            ->assertSee('Follow the inherited default instead');
+    }
+
+    /**
+     * The end to end proof: a class's own custom layout arrangement
+     * actually changes what its real students' report cards render,
+     * not just what the designer/service report. 'remarks' (Class
+     * Teacher's Remark, always shown by default) proves the class's own
+     * body order actually took effect; 'grade_key' (the school default's
+     * own choice, never given to this class) proves it stayed only on
+     * the school default, never applied here.
+     */
+    public function test_a_classs_own_custom_layout_renders_on_its_real_report_card(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'classlayoutfive');
+        ['class' => $class] = $this->seedOneClass($school);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/settings/layout", [
+            'enabled' => '1',
+            'header' => ['school_name'],
+            'info' => ['student_name'],
+            'body' => ['grade_key'],
+        ])->assertRedirect();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/settings/layout", [
+            'target_scope' => 'class',
+            'target_id' => $class->id,
+            'enabled' => '1',
+            'header' => ['school_name'],
+            'info' => ['student_name'],
+            'body' => ['remarks'],
+        ])->assertRedirect();
+
+        $classResponse = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/preview/class/{$class->id}");
+        $classResponse->assertOk();
+        $classHtml = $classResponse->getContent();
+        $this->assertStringContainsString("Class Teacher's Remark", $classHtml);
+        $this->assertStringNotContainsString('Grade Key', $classHtml);
+    }
 }

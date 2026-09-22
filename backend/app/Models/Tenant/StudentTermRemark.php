@@ -17,8 +17,8 @@ class StudentTermRemark extends Model
     protected $connection = 'tenant';
 
     protected $fillable = [
-        'student_id', 'term_id', 'class_teacher_remark', 'principal_remark', 'next_term_begins_on',
-        'height', 'weight', 'club',
+        'student_id', 'term_id', 'class_teacher_remark', 'principal_remark', 'overall_remark', 'next_term_begins_on',
+        'height', 'weight', 'height_start', 'weight_start', 'club',
     ];
 
     protected function casts(): array

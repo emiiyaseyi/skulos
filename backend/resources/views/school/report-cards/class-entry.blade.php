@@ -95,7 +95,12 @@
       <table class="table-stack ce-table">
         <thead><tr>
           <th style="position:sticky;left:0;background:var(--panel)">Student</th>
-          <th>Height</th><th>Weight</th><th>Club</th>
+          @if($tracksPhysicalStatsStart)
+            <th>Height (start)</th><th>Height (end)</th><th>Weight (start)</th><th>Weight (end)</th>
+          @else
+            <th>Height</th><th>Weight</th>
+          @endif
+          <th>Club</th>
           @foreach($traits as $trait)
             <th>{{ $trait->name }}</th>
           @endforeach
@@ -108,6 +113,7 @@
               <th>{{ $subject->name }} comment</th>
             @endforeach
           @endif
+          <th style="min-width:14rem">Overall remark</th>
           <th style="min-width:14rem">Class teacher's remark</th>
           @if($canEnterPrincipalRemark)<th style="min-width:14rem">Head of school's remark</th>@endif
         </tr></thead>
@@ -119,8 +125,15 @@
             @endphp
             <tr>
               <td style="position:sticky;left:0;background:var(--panel)" data-label="Student"><strong>{{ $student->fullName() }}</strong></td>
-              <td data-label="Height"><input name="students[{{ $student->id }}][height]" value="{{ $remark?->height }}" placeholder="e.g. 111cm" style="min-width:6rem" /></td>
-              <td data-label="Weight"><input name="students[{{ $student->id }}][weight]" value="{{ $remark?->weight }}" placeholder="e.g. 18kg" style="min-width:6rem" /></td>
+              @if($tracksPhysicalStatsStart)
+                <td data-label="Height (start)"><input name="students[{{ $student->id }}][height_start]" value="{{ $remark?->height_start }}" placeholder="e.g. 110cm" style="min-width:6rem" /></td>
+                <td data-label="Height (end)"><input name="students[{{ $student->id }}][height]" value="{{ $remark?->height }}" placeholder="e.g. 111cm" style="min-width:6rem" /></td>
+                <td data-label="Weight (start)"><input name="students[{{ $student->id }}][weight_start]" value="{{ $remark?->weight_start }}" placeholder="e.g. 17kg" style="min-width:6rem" /></td>
+                <td data-label="Weight (end)"><input name="students[{{ $student->id }}][weight]" value="{{ $remark?->weight }}" placeholder="e.g. 18kg" style="min-width:6rem" /></td>
+              @else
+                <td data-label="Height"><input name="students[{{ $student->id }}][height]" value="{{ $remark?->height }}" placeholder="e.g. 111cm" style="min-width:6rem" /></td>
+                <td data-label="Weight"><input name="students[{{ $student->id }}][weight]" value="{{ $remark?->weight }}" placeholder="e.g. 18kg" style="min-width:6rem" /></td>
+              @endif
               <td data-label="Club"><input name="students[{{ $student->id }}][club]" value="{{ $remark?->club }}" style="min-width:7rem" /></td>
               @foreach($traits as $trait)
                 <td data-label="{{ $trait->name }}">
@@ -145,6 +158,7 @@
                   <td data-label="{{ $subject->name }} comment"><input name="students[{{ $student->id }}][comments][{{ $subject->id }}]" value="{{ $comments->get($student->id.'-'.$subject->id)?->first()?->comment }}" style="min-width:14rem" /></td>
                 @endforeach
               @endif
+              <td data-label="Overall remark"><textarea name="students[{{ $student->id }}][overall_remark]" rows="2" style="min-width:14rem">{{ $remark?->overall_remark }}</textarea></td>
               <td data-label="Class teacher's remark"><textarea name="students[{{ $student->id }}][class_teacher_remark]" rows="2" style="min-width:14rem">{{ $remark?->class_teacher_remark }}</textarea></td>
               @if($canEnterPrincipalRemark)
                 <td data-label="Head of school's remark"><textarea name="students[{{ $student->id }}][principal_remark]" rows="2" style="min-width:14rem">{{ $remark?->principal_remark }}</textarea></td>

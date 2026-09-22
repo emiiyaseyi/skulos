@@ -13,8 +13,21 @@
     @if($show('physical_stats'))
       <h3>Physical &amp; Attendance</h3>
       <table class="rc-traits">
-        <tr><td>Height</td><td class="val">{{ $data['physical']['height'] ?? 'N/A' }}</td></tr>
-        <tr><td>Weight</td><td class="val">{{ $data['physical']['weight'] ?? 'N/A' }}</td></tr>
+        {{-- Beginning-of-term tracking is admin optional (user directive
+             2026-09-21, confirmed via AskUserQuestion: "add it to what
+             admin can enable if they want the stat to have beginning of
+             term and end of term or just one to cover it") -- off by
+             default, every existing school keeps its plain single Height/
+             Weight row until a school deliberately turns this on. --}}
+        @if($data['physical']['tracks_start'] ?? false)
+          <tr><td>Height (Beginning of Term)</td><td class="val">{{ $data['physical']['height_start'] ?? 'N/A' }}</td></tr>
+          <tr><td>Height (End of Term)</td><td class="val">{{ $data['physical']['height'] ?? 'N/A' }}</td></tr>
+          <tr><td>Weight (Beginning of Term)</td><td class="val">{{ $data['physical']['weight_start'] ?? 'N/A' }}</td></tr>
+          <tr><td>Weight (End of Term)</td><td class="val">{{ $data['physical']['weight'] ?? 'N/A' }}</td></tr>
+        @else
+          <tr><td>Height</td><td class="val">{{ $data['physical']['height'] ?? 'N/A' }}</td></tr>
+          <tr><td>Weight</td><td class="val">{{ $data['physical']['weight'] ?? 'N/A' }}</td></tr>
+        @endif
         {{-- Clubs are optional (2026-08-16): a school that does not run
              them should not see an empty "Club: N/A" line on every
              report card, which is what this printed before. --}}

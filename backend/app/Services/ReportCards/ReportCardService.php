@@ -28,7 +28,7 @@ use App\Services\Tenancy\TenantManager;
  */
 class ReportCardService
 {
-    public function __construct(protected ResultService $results, protected TenantManager $tenants, protected ReportCardCumulativePolicy $cumulativePolicy)
+    public function __construct(protected ResultService $results, protected TenantManager $tenants, protected ReportCardCumulativePolicy $cumulativePolicy, protected ReportCardPreferences $prefs)
     {
     }
 
@@ -258,6 +258,7 @@ class ReportCardService
                 'class_size' => $classSize,
             ],
             'remarks' => [
+                'overall' => $remark?->overall_remark,
                 'class_teacher' => $remark?->class_teacher_remark,
                 'principal' => $remark?->principal_remark,
                 'next_term_begins_on' => $remark?->next_term_begins_on?->format('d M Y'),
@@ -265,6 +266,9 @@ class ReportCardService
             'physical' => [
                 'height' => $remark?->height,
                 'weight' => $remark?->weight,
+                'height_start' => $remark?->height_start,
+                'weight_start' => $remark?->weight_start,
+                'tracks_start' => $this->prefs->tracksPhysicalStatsStart(),
                 // The student's real assigned club wins; the old
                 // free-text value typed on the term remark is the
                 // fallback so report cards for terms recorded before
@@ -385,6 +389,7 @@ class ReportCardService
             'attendance' => ['present' => 58, 'total' => 62],
             'overall' => ['total' => 313, 'average' => 78.25, 'grade' => 'A', 'position' => 2, 'class_size' => 28],
             'remarks' => [
+                'overall' => 'A good performance this term, keep it up.',
                 'class_teacher' => 'A hardworking and consistent student this term. Keep it up.',
                 'principal' => 'Impressive result. Well done.',
                 'next_term_begins_on' => '08 Sep 2026',
@@ -394,7 +399,8 @@ class ReportCardService
                 'English Studies' => 'Reads with good expression. Should practice writing longer sentences.',
             ],
             'physical' => [
-                'height' => '148cm', 'weight' => '38kg', 'club' => 'Debate Club',
+                'height' => '148cm', 'weight' => '38kg', 'height_start' => '145cm', 'weight_start' => '36kg',
+                'tracks_start' => $this->prefs->tracksPhysicalStatsStart(), 'club' => 'Debate Club',
                 'total_school_days' => 62, 'times_absent' => 4,
                 'class_teacher_name' => 'Mrs. F. Adigun', 'class_teacher_phone' => '0803 123 4567',
             ],
