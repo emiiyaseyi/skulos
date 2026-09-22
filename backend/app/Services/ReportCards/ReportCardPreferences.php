@@ -56,6 +56,44 @@ class ReportCardPreferences
     }
 
     /**
+     * The class-aware version of fields() (user directive 2026-09-22,
+     * confirmed via AskUserQuestion: "Make these per-section too" --
+     * Physical & Attendance and Stamp/Signature turned on for Nursery
+     * must not also turn on for Primary/Secondary). A section's own
+     * {field: bool} overrides win over the school wide fields() above,
+     * a class's own win over its section's -- the same "own override
+     * replaces the fallback for that one field, everything else
+     * inherits" shape report_card_template/watermark_enabled/
+     * tracks_physical_stats_start already use on these same two
+     * tables, just generalised to any field code instead of one
+     * dedicated column per field.
+     *
+     * @return array<string, bool>
+     */
+    public function fieldsFor(?SchoolClass $class): array
+    {
+        $resolved = $this->fields();
+
+        foreach ([$class?->section?->branding?->field_overrides, $class?->field_overrides] as $override) {
+            if (! is_array($override)) {
+                continue;
+            }
+            foreach ($override as $field => $value) {
+                if (array_key_exists($field, $resolved)) {
+                    $resolved[$field] = (bool) $value;
+                }
+            }
+        }
+
+        return $resolved;
+    }
+
+    public function showsFor(string $field, ?SchoolClass $class): bool
+    {
+        return (bool) ($this->fieldsFor($class)[$field] ?? false);
+    }
+
+    /**
      * The base template a report card actually renders with, for a
      * student in the given section: that section's own override if it
      * has one, otherwise the school wide choice (user directive

@@ -27,6 +27,7 @@ class SchoolClass extends Model
     protected $fillable = [
         'section_id', 'name', 'sequence', 'is_active', 'default_reviewer_staff_id', 'evaluation_style', 'grading_scale_id',
         'report_card_template', 'narrative_style', 'watermark_enabled', 'layout_override', 'tracks_physical_stats_start',
+        'field_overrides',
     ];
 
     protected function casts(): array
@@ -37,6 +38,7 @@ class SchoolClass extends Model
             'watermark_enabled' => 'boolean',
             'layout_override' => 'array',
             'tracks_physical_stats_start' => 'boolean',
+            'field_overrides' => 'array',
         ];
     }
 
