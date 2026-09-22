@@ -43,7 +43,7 @@
        Attendance/Physical block and the closing Remarks block, every
        template. --}}
   .rc-bordered-table{width:100%;border-collapse:collapse;font-size:.75rem;margin-bottom:.4rem}
-  .rc-bordered-table th,.rc-bordered-table td{border:1px solid #999;padding:.3rem .45rem;text-align:left;vertical-align:top}
+  .rc-bordered-table th,.rc-bordered-table td{border:1px solid #444;padding:.3rem .45rem;text-align:left;vertical-align:top}
   .rc-bordered-table th{background:#f3f4f6;font-size:.62rem;text-transform:uppercase;letter-spacing:.03em;text-align:center}
   .rc-bordered-table b{text-transform:uppercase;letter-spacing:.02em;font-size:.65rem}
   .rc-identity-table{margin-bottom:.8rem}

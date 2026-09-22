@@ -8,13 +8,23 @@
   .rc-wrap{max-width:56rem;margin:0 auto;padding:2rem 1.25rem 4rem}
   .rc-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
   .rc-bar .tag{font-size:.75rem;font-weight:700;padding:.3rem .7rem;border-radius:999px;background:var(--accent);color:var(--accent-ink)}
-  .rc-sheet{position:relative;background:#fff;color:#1a1a1a;border-radius:10px;padding:2rem;box-shadow:0 8px 30px rgba(0,0,0,.12);font-size:.72rem}
+  {{-- A4 proportioned by default (user directive 2026-09-22: "all
+       report cards for all schools are going to be on A4 paper size by
+       default"), on screen too, not just when printed -- min-height
+       only, so a genuinely long report (many subjects, long comments)
+       still grows past one page rather than being clipped; the .rc-wrap
+       max-width above is the 210mm side of that same 210:297 ratio. --}}
+  .rc-sheet{position:relative;background:#fff;color:#1a1a1a;border-radius:10px;padding:2rem;box-shadow:0 8px 30px rgba(0,0,0,.12);font-size:.72rem;min-height:79.2rem}
   {{-- Section watermark (2026-09-21): tiled behind everything via a
        negative z-index inside .rc-sheet's own stacking context
        (position:relative above), so no other rule in this file needs
        to know it exists. --}}
-  {{-- .14, not the original .07 (user report 2026-09-22, live: "watermark is missing too" -- the data was resolving correctly, .07 was just too faint against a colourful logo to actually notice). --}}
-  .rc-watermark{position:absolute;inset:0;background-repeat:repeat;background-position:center;background-size:130px;opacity:.14;z-index:-1;pointer-events:none}
+  {{-- .22 and a smaller/denser tile, not the original .07 (user report
+       2026-09-22, live, twice: "watermark is missing too" -- confirmed
+       via a local structural test that the markup/CSS were correct the
+       whole time, this was purely a visibility problem, so pushed well
+       past subtle this time rather than another small guess. --}}
+  .rc-watermark{position:absolute;inset:0;background-repeat:repeat;background-position:center;background-size:100px;opacity:.22;z-index:-1;pointer-events:none}
   {{-- Text watermark (2026-09-22, "add a text" alternative to an
        image): one large rotated word across the page, not tiled like
        the logo image above -- a repeating text pattern needs real
@@ -128,7 +138,8 @@
        Attendance/Physical block and the closing Remarks block, every
        template. --}}
   .rc-bordered-table{width:100%;border-collapse:collapse;font-size:.68rem;margin-bottom:.4rem}
-  .rc-bordered-table th,.rc-bordered-table td{border:1px solid #999;padding:.3rem .45rem;text-align:left;vertical-align:top}
+  {{-- #444, not the original #999 (user report 2026-09-22: "the borderlines also are not correct" -- too light to read as a real grid, matching the reference's own bolder lines). --}}
+  .rc-bordered-table th,.rc-bordered-table td{border:1px solid #444;padding:.3rem .45rem;text-align:left;vertical-align:top}
   .rc-bordered-table th{background:#f3f4f6;font-size:.6rem;text-transform:uppercase;letter-spacing:.03em;text-align:center}
   .rc-bordered-table b{text-transform:uppercase;letter-spacing:.02em;font-size:.62rem}
   .rc-identity-table{margin-bottom:.8rem}
@@ -173,7 +184,11 @@
     .rc-bar,.appbar,.side,.impersonate-bar,.rc-table-hint{display:none !important}
     .content{padding:0 !important}
     .rc-wrap{max-width:none;margin:0;padding:0}
-    .rc-sheet{box-shadow:none;border-radius:0;padding:0}
+    {{-- min-height:auto here specifically: the real @page{size:A4} rule
+         above already governs actual print pagination, a min-height
+         meant for the on-screen preview would otherwise risk pushing a
+         short report onto a needless second blank printed page. --}}
+    .rc-sheet{box-shadow:none;border-radius:0;padding:0;min-height:auto}
     .rc-sheet p{margin:.15rem 0 0}
     .rc-head{padding-bottom:.4rem;margin-bottom:.5rem}
     .rc-modern .rc-head{padding:.6rem}

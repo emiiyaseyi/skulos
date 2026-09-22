@@ -7,9 +7,9 @@
   body{background:#e9ebee}
   .rc-wrap{max-width:56rem;margin:0 auto;padding:2rem 1.25rem 4rem}
   .rc-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
-  .rc-sheet{position:relative;background:#fff;color:#1a1a1a;border-radius:10px;padding:2rem;box-shadow:0 8px 30px rgba(0,0,0,.12);margin-bottom:1.5rem;font-size:.72rem}
+  .rc-sheet{position:relative;background:#fff;color:#1a1a1a;border-radius:10px;padding:2rem;box-shadow:0 8px 30px rgba(0,0,0,.12);margin-bottom:1.5rem;font-size:.72rem;min-height:79.2rem}
   {{-- Section watermark, mirrors render.blade.php's own copy (2026-09-21). --}}
-  .rc-watermark{position:absolute;inset:0;background-repeat:repeat;background-position:center;background-size:130px;opacity:.14;z-index:-1;pointer-events:none}
+  .rc-watermark{position:absolute;inset:0;background-repeat:repeat;background-position:center;background-size:100px;opacity:.22;z-index:-1;pointer-events:none}
   .rc-watermark-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;z-index:-1;pointer-events:none}
   .rc-watermark-text span{font-size:3.4rem;font-weight:800;color:rgba(0,0,0,.07);transform:rotate(-30deg);white-space:nowrap;text-transform:uppercase;letter-spacing:.06em}
   .rc-sheet p{margin:.2rem 0 0}
@@ -76,7 +76,7 @@
        Attendance/Physical block and the closing Remarks block, every
        template. --}}
   .rc-bordered-table{width:100%;border-collapse:collapse;font-size:.68rem;margin-bottom:.4rem}
-  .rc-bordered-table th,.rc-bordered-table td{border:1px solid #999;padding:.3rem .45rem;text-align:left;vertical-align:top}
+  .rc-bordered-table th,.rc-bordered-table td{border:1px solid #444;padding:.3rem .45rem;text-align:left;vertical-align:top}
   .rc-bordered-table th{background:#f3f4f6;font-size:.6rem;text-transform:uppercase;letter-spacing:.03em;text-align:center}
   .rc-bordered-table b{text-transform:uppercase;letter-spacing:.02em;font-size:.62rem}
   .rc-identity-table{margin-bottom:.8rem}
@@ -106,7 +106,7 @@
     .rc-bar,.appbar,.side,.impersonate-bar,.rc-table-hint{display:none !important}
     .content{padding:0 !important}
     .rc-wrap{max-width:none;margin:0;padding:0}
-    .rc-sheet{box-shadow:none;border-radius:0;padding:0;margin-bottom:0}
+    .rc-sheet{box-shadow:none;border-radius:0;padding:0;margin-bottom:0;min-height:auto}
     .rc-sheet p{margin:.15rem 0 0}
     .rc-head{padding-bottom:.4rem;margin-bottom:.5rem}
     .rc-modern .rc-head{padding:.6rem}

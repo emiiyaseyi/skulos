@@ -14,7 +14,7 @@
     <div class="rc-block">
       <h3>Key Assessment Areas</h3>
       <div style="overflow-x:auto">
-      <table class="rc-table">
+      <table class="rc-bordered-table">
         <thead><tr><th style="width:20%">Area</th><th style="width:28%">Skill</th><th>Class Teacher's Remark</th></tr></thead>
         <tbody>
           @forelse(($data['skill_areas'] ?? []) as $category => $skills)
