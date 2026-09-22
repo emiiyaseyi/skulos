@@ -96,18 +96,33 @@
               native.value = color;
             });
           });
-          document.querySelectorAll('input[data-scope]').forEach(function(radio){
-            radio.addEventListener('change', function(){
-              var panel = document.querySelector('.section-ticks[data-scope-panel="'+this.getAttribute('data-scope')+'"]');
-              if (panel) panel.classList.toggle('open', this.value === 'sections');
+          // Deferred to DOMContentLoaded (user report 2026-09-22: "when
+          // on click on Just some sections under logo, its not showing
+          // the sections") -- this script tag sits ABOVE the Logo
+          // field's own scope-picker markup further down the page, so
+          // running querySelectorAll immediately (the old behaviour)
+          // only ever found the Brand colour scope radios, which exist
+          // above it; the Logo ones did not exist in the DOM yet.
+          document.addEventListener('DOMContentLoaded', function(){
+            document.querySelectorAll('input[data-scope]').forEach(function(radio){
+              radio.addEventListener('change', function(){
+                var panel = document.querySelector('.section-ticks[data-scope-panel="'+this.getAttribute('data-scope')+'"]');
+                if (panel) panel.classList.toggle('open', this.value === 'sections');
+              });
             });
           });
         })();
       </script>
       <div class="field">
         <label for="logo">Logo</label>
+        {{-- Missing before (user report 2026-09-22: "the current logo
+             is not showing") -- Stamp/Signature just below both already
+             show a preview, Logo never did. --}}
+        @if($school->logo_path)
+          <img src="{{ \App\Support\TenantAsset::url($school->logo_path) }}" alt="Current school logo" style="height:56px;display:block;margin-bottom:.4rem" />
+        @endif
         <input id="logo" name="logo" type="file" accept="image/*" />
-        <div class="hint">A square image works best. Up to 2 MB.</div>
+        <div class="hint">A square image works best. Up to 2 MB. To assign the logo shown above to just some sections without choosing a file again, pick "Just some sections" below and save.</div>
         @error('logo')<div class="err">{{ $message }}</div>@enderror
         @if($sections->count() > 1)
           {{-- User request 2026-09-09: a school running, say, Nursery &
@@ -131,7 +146,7 @@
       <div class="field">
         <label for="stamp">School stamp</label>
         @if($school->stamp_path)
-          <img src="{{ \Illuminate\Support\Facades\Storage::url($school->stamp_path) }}" alt="Current school stamp" style="height:48px;display:block;margin-bottom:.4rem" />
+          <img src="{{ \App\Support\TenantAsset::url($school->stamp_path) }}" alt="Current school stamp" style="height:48px;display:block;margin-bottom:.4rem" />
         @endif
         <input id="stamp" name="stamp" type="file" accept="image/*" />
         <div class="hint">Shown on report cards that turn on "School stamp and signature". Used school wide unless a class teacher uploads their own. Up to 2 MB.</div>
@@ -141,7 +156,7 @@
       <div class="field">
         <label for="signature">Signature</label>
         @if($school->signature_path)
-          <img src="{{ \Illuminate\Support\Facades\Storage::url($school->signature_path) }}" alt="Current signature" style="height:48px;display:block;margin-bottom:.4rem" />
+          <img src="{{ \App\Support\TenantAsset::url($school->signature_path) }}" alt="Current signature" style="height:48px;display:block;margin-bottom:.4rem" />
         @endif
         <input id="signature" name="signature" type="file" accept="image/*" />
         <div class="hint">Used the same way as the school stamp. A class teacher can still upload their own from their Class Teacher Entry screen.</div>
@@ -235,7 +250,7 @@
       @php($sColor = $s->branding?->brand_color ?: $b['color'])
       <div class="section-row">
         <div class="mark" style="background:{{ $sColor }}">
-          @if($sLogo)<img src="{{ \Illuminate\Support\Facades\Storage::url($sLogo) }}" alt="">@else{{ strtoupper(substr($s->name,0,1)) }}@endif
+          @if($sLogo)<img src="{{ \App\Support\TenantAsset::url($sLogo) }}" alt="">@else{{ strtoupper(substr($s->name,0,1)) }}@endif
         </div>
         <div class="name">{{ $s->name }}</div>
         <div class="state">

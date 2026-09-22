@@ -32,10 +32,10 @@
     <div class="field">
       <label for="logo">Logo</label>
       @if($school->logo_path)
-        <img src="{{ \Illuminate\Support\Facades\Storage::url($school->logo_path) }}" alt="Current school logo" style="height:56px;display:block;margin-bottom:.4rem" />
+        <img src="{{ \App\Support\TenantAsset::url($school->logo_path) }}" alt="Current school logo" style="height:56px;display:block;margin-bottom:.4rem" />
       @endif
       <input id="logo" name="logo" type="file" accept="image/*" />
-      <p class="hint">A square image works best. Up to 2 MB. Shared with Branding.</p>
+      <p class="hint">A square image works best. Up to 2 MB. Shared with Branding. To assign the logo shown above to just some sections without choosing a file again, pick "Just some sections" below and save.</p>
       @if($sections->count() > 1)
         {{-- User request 2026-09-09: the per-section option Branding
              offers should be reachable from here too. --}}

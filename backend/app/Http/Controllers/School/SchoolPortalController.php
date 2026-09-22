@@ -273,23 +273,21 @@ class SchoolPortalController extends Controller
         // A scope of "sections" with nothing ticked is a genuine mistake,
         // not a signal to fall back to the whole school -- silently
         // re-interpreting it that way would repaint every section's
-        // logo/colour the moment an admin forgot to tick anything.
-        if ($request->hasFile('logo') && ($data['logo_scope'] ?? 'school') === 'sections' && empty($data['logo_sections'])) {
+        // logo/colour the moment an admin forgot to tick anything. Not
+        // gated on hasFile('logo') any more (user report 2026-09-22: "i
+        // change the school logo to apply to only secondary section...
+        // it did not save" -- they were reassigning the ALREADY
+        // uploaded school logo to a section, not choosing a new file,
+        // so the old file-only guard silently did nothing at all).
+        if (($data['logo_scope'] ?? 'school') === 'sections' && empty($data['logo_sections'])) {
             return back()->withErrors(['logo_sections' => 'Tick at least one section, or choose "Whole school" instead.'])->withInput();
         }
         if (! empty($data['brand_color']) && ($data['brand_color_scope'] ?? 'school') === 'sections' && empty($data['brand_color_sections'])) {
             return back()->withErrors(['brand_color_sections' => 'Tick at least one section, or choose "Whole school" instead.'])->withInput();
         }
 
-        if ($request->hasFile('logo')) {
-            $path = $request->file('logo')->store("schools/{$school->id}", 'public');
-            if (($data['logo_scope'] ?? 'school') === 'sections') {
-                foreach ($data['logo_sections'] as $sectionId) {
-                    SchoolSectionBranding::updateOrCreate(['section_id' => $sectionId], ['logo_path' => $path]);
-                }
-            } else {
-                $school->logo_path = $path;
-            }
+        if ($error = $this->applyScopedLogo($request, $school, $data)) {
+            return back()->withErrors(['logo' => $error])->withInput();
         }
         if ($request->hasFile('stamp')) {
             $school->stamp_path = $images->toWebp($request->file('stamp'), "schools/{$school->id}", maxDimension: 500);
@@ -319,6 +317,37 @@ class SchoolPortalController extends Controller
         ])->save();
 
         return back()->with('status', 'Your school branding has been updated.');
+    }
+
+    /**
+     * Shared by updateBranding() and updateProfile() (user directive
+     * 2026-09-22: "update both the school profile and branding page so
+     * it does the same thing"). A freshly chosen file always wins; with
+     * scope "sections" and no new file, reassigns the school's own
+     * CURRENT logo to the ticked sections instead -- reassigning an
+     * already-uploaded logo to one section shouldn't require
+     * re-selecting the exact same file from disk. Returns an error
+     * string on failure (nothing to assign), null on success/no-op.
+     */
+    protected function applyScopedLogo(Request $request, School $school, array $data): ?string
+    {
+        $freshPath = $request->hasFile('logo')
+            ? $request->file('logo')->store("schools/{$school->id}", 'public')
+            : null;
+
+        if (($data['logo_scope'] ?? 'school') === 'sections') {
+            $applyPath = $freshPath ?? $school->logo_path;
+            if (! $applyPath) {
+                return 'Choose a logo file, or set a whole-school logo first so there is something to assign to a section.';
+            }
+            foreach ($data['logo_sections'] ?? [] as $sectionId) {
+                SchoolSectionBranding::updateOrCreate(['section_id' => $sectionId], ['logo_path' => $applyPath]);
+            }
+        } elseif ($freshPath) {
+            $school->logo_path = $freshPath;
+        }
+
+        return null;
     }
 
     /**
@@ -420,19 +449,12 @@ class SchoolPortalController extends Controller
             'logo_sections.*' => [Rule::in($sectionIds)],
         ]);
 
-        if ($request->hasFile('logo') && ($data['logo_scope'] ?? 'school') === 'sections' && empty($data['logo_sections'])) {
+        if (($data['logo_scope'] ?? 'school') === 'sections' && empty($data['logo_sections'])) {
             return back()->withErrors(['logo_sections' => 'Tick at least one section, or choose "Whole school" instead.'])->withInput();
         }
 
-        if ($request->hasFile('logo')) {
-            $path = $request->file('logo')->store("schools/{$school->id}", 'public');
-            if (($data['logo_scope'] ?? 'school') === 'sections') {
-                foreach ($data['logo_sections'] as $sectionId) {
-                    SchoolSectionBranding::updateOrCreate(['section_id' => $sectionId], ['logo_path' => $path]);
-                }
-            } else {
-                $school->logo_path = $path;
-            }
+        if ($error = $this->applyScopedLogo($request, $school, $data)) {
+            return back()->withErrors(['logo' => $error])->withInput();
         }
 
         // term_label lives in tenant Settings, not on the platform School

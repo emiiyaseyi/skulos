@@ -115,6 +115,75 @@ class SectionBrandingTest extends TestCase
         app(TenantManager::class)->forget();
     }
 
+    /**
+     * A logo already uploaded as the school default can be assigned to
+     * a section without re-choosing the same file (user report
+     * 2026-09-22, live: "i change the school logo to apply to only
+     * secondary section and i clicked on save... it did not save" --
+     * the old code only ever acted when a NEW file was chosen, doing
+     * nothing at all if the admin was just reassigning the existing one).
+     */
+    public function test_the_schools_current_logo_can_be_assigned_to_a_section_without_a_new_upload(): void
+    {
+        Storage::fake('public');
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'secbrandreuse1');
+        app(TenantManager::class)->use($school);
+        [$nurseryPrimary, $secondary] = $this->makeTwoSections();
+        app(TenantManager::class)->forget();
+
+        $school->logo_path = 'schools/'.$school->id.'/already-there.png';
+        $school->save();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/settings/branding", [
+            'logo_scope' => 'sections',
+            'logo_sections' => [$secondary->id],
+        ])->assertRedirect()->assertSessionDoesntHaveErrors();
+
+        app(TenantManager::class)->use($school);
+        $override = SchoolSectionBranding::where('section_id', $secondary->id)->first();
+        $this->assertNotNull($override);
+        $this->assertSame('schools/'.$school->id.'/already-there.png', $override->logo_path);
+        $this->assertNull(SchoolSectionBranding::where('section_id', $nurseryPrimary->id)->first());
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_assigning_a_section_logo_with_no_school_default_and_no_new_file_is_rejected(): void
+    {
+        Storage::fake('public');
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'secbrandreuse2');
+        app(TenantManager::class)->use($school);
+        [, $secondary] = $this->makeTwoSections();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/settings/branding", [
+            'logo_scope' => 'sections',
+            'logo_sections' => [$secondary->id],
+        ])->assertRedirect()->assertSessionHasErrors('logo');
+    }
+
+    /** Same reuse behaviour, reachable from School Profile too (user directive: "update both the school profile and branding page"). */
+    public function test_the_schools_current_logo_can_be_assigned_to_a_section_from_school_profile_too(): void
+    {
+        Storage::fake('public');
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'secbrandreuse3');
+        app(TenantManager::class)->use($school);
+        [, $secondary] = $this->makeTwoSections();
+        app(TenantManager::class)->forget();
+
+        $school->logo_path = 'schools/'.$school->id.'/already-there.png';
+        $school->save();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/settings/profile", [
+            'logo_scope' => 'sections',
+            'logo_sections' => [$secondary->id],
+        ])->assertRedirect()->assertSessionDoesntHaveErrors();
+
+        app(TenantManager::class)->use($school);
+        $override = SchoolSectionBranding::where('section_id', $secondary->id)->first();
+        $this->assertSame('schools/'.$school->id.'/already-there.png', $override?->logo_path);
+        app(TenantManager::class)->forget();
+    }
+
     public function test_choosing_sections_scope_with_none_ticked_is_rejected_rather_than_silently_applied_school_wide(): void
     {
         Storage::fake('public');
