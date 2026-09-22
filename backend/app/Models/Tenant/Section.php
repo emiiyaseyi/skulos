@@ -90,10 +90,38 @@ class Section extends Model
         return $this->branding?->narrative_style === 'skills' ? 'skills' : 'comments';
     }
 
-    /** Whether this section's own report cards render its resolved logo as a background watermark. Off for every section until an admin turns it on. */
+    /** Whether this section's own report cards render a watermark at all. Off for every section until an admin turns it on. */
     public function watermarkEnabled(): bool
     {
         return (bool) ($this->branding?->watermark_enabled ?? false);
+    }
+
+    /**
+     * What that watermark actually shows, once turned on (user directive
+     * 2026-09-22: "let the watermark use the school section logo as the
+     * default watermark or make it possible for the school to upload
+     * another or add a text"). Three modes: 'logo' (the default, every
+     * section's pre-existing behaviour -- its own resolved logo, same
+     * as resolvedLogoPath()), 'custom' (a separately uploaded image, not
+     * the section's real logo), 'text' (a plain text watermark instead
+     * of an image). Only meaningful when watermarkEnabled() is true --
+     * this does not check that itself, the caller already does.
+     *
+     * @return array{type: 'image'|'text', value: string}|null null when there is genuinely nothing to show (custom/logo mode with no image on file)
+     */
+    public function resolvedWatermark(\App\Models\School $school): ?array
+    {
+        $mode = $this->branding?->watermark_mode ?: 'logo';
+
+        if ($mode === 'text') {
+            $text = trim((string) ($this->branding?->watermark_text ?? ''));
+
+            return $text !== '' ? ['type' => 'text', 'value' => $text] : null;
+        }
+
+        $imagePath = $mode === 'custom' ? $this->branding?->watermark_path : $this->resolvedLogoPath($school);
+
+        return $imagePath ? ['type' => 'image', 'value' => $imagePath] : null;
     }
 
     /**

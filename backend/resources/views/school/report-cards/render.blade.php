@@ -14,6 +14,13 @@
        (position:relative above), so no other rule in this file needs
        to know it exists. --}}
   .rc-watermark{position:absolute;inset:0;background-repeat:repeat;background-position:center;background-size:130px;opacity:.07;z-index:-1;pointer-events:none}
+  {{-- Text watermark (2026-09-22, "add a text" alternative to an
+       image): one large rotated word across the page, not tiled like
+       the logo image above -- a repeating text pattern needs real
+       image generation to tile cleanly, a single centered word does
+       not. --}}
+  .rc-watermark-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;z-index:-1;pointer-events:none}
+  .rc-watermark-text span{font-size:3.4rem;font-weight:800;color:rgba(0,0,0,.07);transform:rotate(-30deg);white-space:nowrap;text-transform:uppercase;letter-spacing:.06em}
   {{-- Every <p> in a report card sheet used the browser's own default
        paragraph margin (about 1em top and bottom) with nothing to zero it
        out, real font/spacing culprit behind "so many spaces...too big"
@@ -100,8 +107,6 @@
   .rc-eval .rc-head .rc-logo{margin:0;flex:none}
   .rc-eval .rc-head-text{flex:1}
   .rc-eval .rc-head h1{font-size:1.9rem}
-  .rc-eval .rc-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;background:#f3f4f6;border-radius:8px;padding:.5rem .6rem;font-size:.7rem;margin-bottom:.8rem}
-  .rc-eval .rc-strip div b{display:block;font-size:.58rem;text-transform:uppercase;letter-spacing:.04em;color:#777;font-weight:700}
   .rc-block{margin-bottom:.7rem}
   {{-- Section headers centered, body text justified: the same site wide
        rule every other product screen already follows (CLAUDE.md's Design
@@ -124,14 +129,15 @@
   .rc-bordered-table{width:100%;border-collapse:collapse;font-size:.68rem;margin-bottom:.4rem}
   .rc-bordered-table th,.rc-bordered-table td{border:1px solid #999;padding:.3rem .45rem;text-align:left;vertical-align:top}
   .rc-bordered-table th{background:#f3f4f6;font-size:.6rem;text-transform:uppercase;letter-spacing:.03em;text-align:center}
-  .rc-remarks-table b{text-transform:uppercase;letter-spacing:.02em;font-size:.62rem}
+  .rc-bordered-table b{text-transform:uppercase;letter-spacing:.02em;font-size:.62rem}
+  .rc-identity-table{margin-bottom:.8rem}
   .rc-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem;font-size:.62rem}
   .rc-legend span{background:#f3f4f6;border-radius:6px;padding:.2rem .45rem}
   .rc-signoff{display:flex;justify-content:space-around;gap:1.2rem;text-align:center;margin-top:1rem;padding-top:.7rem;border-top:1px solid #e2e2e2}
   .rc-signoff img{max-height:44px;max-width:120px;object-fit:contain;display:block;margin:0 auto .25rem}
   .rc-signoff .line{border-top:1px solid #999;margin-top:.3rem;padding-top:.25rem;font-size:.58rem;text-transform:uppercase;letter-spacing:.03em;color:#777}
   .rc-footer{margin-top:.8rem;padding-top:.6rem;border-top:1px solid #e2e2e2;font-size:.66rem;color:#777}
-  @media (max-width:640px){ .rc-twocol{grid-template-columns:1fr} .rc-cols{grid-template-columns:1fr} .rc-eval .rc-strip{grid-template-columns:1fr} }
+  @media (max-width:640px){ .rc-twocol{grid-template-columns:1fr} .rc-cols{grid-template-columns:1fr} }
   {{--
     Fit on one A4 page (user report 2026-07-21: "Report cards need to be
     fitted into one A4 page without it spilling into other pages and

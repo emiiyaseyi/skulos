@@ -205,11 +205,17 @@ class ReportCardService
         // Watermark (user directive 2026-09-21: "the section logo is
         // also used as a watermark for the section report cards", then
         // extended to class level the same day: "one can tick the
-        // section or classes"), opt-in per class or section, off by
-        // default everywhere. Reuses whichever logo just resolved above
-        // (own override or the school default), so a watermark always
-        // matches the same mark already printed in the header.
-        $watermarkPath = ($classArm?->schoolClass?->resolvedWatermarkEnabled() ?? false) ? $logoPath : null;
+        // section or classes"; 2026-09-22: "make it possible for the
+        // school to upload another or add a text"), opt-in per class or
+        // section, off by default everywhere. The section's own
+        // resolvedWatermark() decides WHAT shows (its resolved logo by
+        // default, a separately uploaded image, or plain text) --
+        // watermark_enabled here only decides whether it shows at all,
+        // same as before this existed.
+        $watermarkOn = $classArm?->schoolClass?->resolvedWatermarkEnabled() ?? false;
+        $watermark = $watermarkOn ? $section?->resolvedWatermark($school) : null;
+        $watermarkPath = $watermark && $watermark['type'] === 'image' ? $watermark['value'] : null;
+        $watermarkText = $watermark && $watermark['type'] === 'text' ? $watermark['value'] : null;
 
         // Key Assessment Areas (user directive 2026-09-21): only built
         // when this class (falling back to its section) has actually
@@ -285,6 +291,7 @@ class ReportCardService
             'skill_areas' => $skillAreas,
             'logo_url' => \App\Support\TenantAsset::url($logoPath),
             'watermark_url' => \App\Support\TenantAsset::url($watermarkPath),
+            'watermark_text' => $watermarkText,
             'stamp_url' => \App\Support\TenantAsset::url($stampPath),
             'signature_url' => \App\Support\TenantAsset::url($signaturePath),
             // Who the signature under the signoff belongs to (user
@@ -348,7 +355,9 @@ class ReportCardService
         $school = $this->tenants->current();
         $logoPath = ($section && $school ? $section->resolvedLogoPath($school) : null) ?: $school?->logo_path;
         $logoUrl = \App\Support\TenantAsset::url($logoPath);
-        $watermarkUrl = $watermarkOn ? \App\Support\TenantAsset::url($logoPath) : null;
+        $watermark = $watermarkOn ? $section?->resolvedWatermark($school) : null;
+        $watermarkUrl = $watermark && $watermark['type'] === 'image' ? \App\Support\TenantAsset::url($watermark['value']) : null;
+        $watermarkText = $watermark && $watermark['type'] === 'text' ? $watermark['value'] : null;
 
         // The school's own real current term/session (user directive
         // 2026-09-21: "the preview should match the current term"),
@@ -431,6 +440,7 @@ class ReportCardService
             'logo_url' => $logoUrl,
             'stamp_url' => null,
             'watermark_url' => $watermarkUrl,
+            'watermark_text' => $watermarkText,
             'signature_url' => null,
             'signer_name' => $section?->signerLabel() ?? 'Head Teacher',
             'trend' => ['First Term' => 74.3, 'Second Term' => 76.75, 'Third Term' => 78.25],

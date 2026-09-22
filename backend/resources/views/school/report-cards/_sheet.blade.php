@@ -16,15 +16,22 @@
 @php($logoUrl = $data['logo_url'] ?? null)
 {{-- Section watermark (user directive 2026-09-21): opt-in per section,
      off unless that section's own ReportCardSection branding turned it
-     on, in which case ReportCardService already resolved it to the
-     same logo already printed in the header. Purely decorative, so it
-     is excluded from print's page-count math the same way every other
-     background/border decoration already is. --}}
+     on. By default it is that section's own resolved logo, exactly as
+     before; 2026-09-22 added two more modes ("make it possible for the
+     school to upload another or add a text") -- a separately uploaded
+     image, or plain text -- ReportCardService has already resolved
+     which one applies into watermark_url (image, either kind) or
+     watermark_text (text). Purely decorative, so it is excluded from
+     print's page-count math the same way every other background/border
+     decoration already is. --}}
 @php($watermarkUrl = $data['watermark_url'] ?? null)
+@php($watermarkText = $data['watermark_text'] ?? null)
 @php($rcTemplateClasses = ['modern' => 'rc-modern', 'compact' => 'rc-compact', 'bordered' => 'rc-bordered', 'vibrant' => 'rc-vibrant'])
 <div class="rc-sheet {{ $rcTemplateClasses[$template] ?? ($isEval ? 'rc-eval' : '') }}">
   @if($watermarkUrl)
     <div class="rc-watermark" style="background-image:url('{{ $watermarkUrl }}')" aria-hidden="true"></div>
+  @elseif($watermarkText)
+    <div class="rc-watermark-text" aria-hidden="true"><span>{{ $watermarkText }}</span></div>
   @endif
   @if(($layoutEnabled ?? false) && ! empty($layoutZones))
     <div class="rc-head rc-head-custom">
@@ -124,21 +131,24 @@
 
   @if($isEval)
     {{-- Name/Gender/Class/Session, ONLY, in one row (user reference
-         report card, 2026-09-21: "NAME: ... GENDER: ... CLASS: ...
-         SESSION: ..."), and nothing else -- the reference's own
-         identity row has no admission number, date of birth, age,
-         house, class teacher, or attendance count, all of which used
-         to ALSO render in the .rc-id grid just below regardless of
-         $isEval (duplicating Gender a second time and adding clutter
-         the reference never had). "Next Term Begins" moved to the
-         bottom, near the stamp, matching the reference's own
-         "THIRD TRIMESTER BEGINS" placement -- see _body-remarks. --}}
-    <div class="rc-strip">
-      <div><b>Name</b>{{ $data['identity']['name'] }}</div>
-      @if($show('gender'))<div><b>Gender</b>{{ $data['identity']['gender'] }}</div>@endif
-      @if($show('class'))<div><b>Class</b>{{ $data['identity']['class'] }}</div>@endif
-      @if($data['term']['session'] ?? null)<div><b>Session</b>{{ $data['term']['session'] }}</div>@endif
-    </div>
+         report card, 2026-09-21/2026-09-22: "NAME: ... GENDER: ...
+         CLASS: ... SESSION: ..."), a real bordered table row, not a
+         stacked label-above-value card -- the reference's own identity
+         row has no admission number, date of birth, age, house, class
+         teacher, or attendance count, all of which used to ALSO render
+         in the .rc-id grid just below regardless of $isEval
+         (duplicating Gender a second time and adding clutter the
+         reference never had). "Next Term Begins" moved to the bottom,
+         near the stamp, matching the reference's own "THIRD TRIMESTER
+         BEGINS" placement -- see _body-remarks. --}}
+    <table class="rc-bordered-table rc-identity-table">
+      <tr>
+        <td><b>Name:</b> {{ $data['identity']['name'] }}</td>
+        @if($show('gender'))<td><b>Gender:</b> {{ $data['identity']['gender'] }}</td>@endif
+        @if($show('class'))<td><b>Class:</b> {{ $data['identity']['class'] }}</td>@endif
+        @if($data['term']['session'] ?? null)<td><b>Session:</b> {{ $data['term']['session'] }}</td>@endif
+      </tr>
+    </table>
   @else
     <div class="rc-id">
       <div><b>Name</b>{{ $data['identity']['name'] }}</div>

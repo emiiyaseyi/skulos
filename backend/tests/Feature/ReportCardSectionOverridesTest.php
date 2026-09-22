@@ -135,6 +135,73 @@ class ReportCardSectionOverridesTest extends TestCase
             ->assertSee('class="rc-watermark"', false);
     }
 
+    /**
+     * The watermark defaults to the section's own logo (unchanged), but
+     * can instead be plain text (user directive 2026-09-22: "make it
+     * possible for the school to upload another or add a text").
+     */
+    public function test_a_section_can_use_a_text_watermark_instead_of_its_logo(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'sectionwmtext');
+        ['section' => $section, 'student' => $student, 'term' => $term] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        SchoolSectionBranding::create([
+            'section_id' => $section->id, 'watermark_enabled' => true,
+            'watermark_mode' => 'text', 'watermark_text' => 'GREENFIELD',
+        ]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/{$student->id}/{$term->id}");
+        $response->assertOk();
+        $response->assertSee('class="rc-watermark-text"', false);
+        $response->assertSee('GREENFIELD');
+        $response->assertDontSee('class="rc-watermark"', false);
+    }
+
+    /**
+     * The admin form itself, a real round trip: choosing "custom image"
+     * uploads a separate file, not the section's real logo.
+     */
+    public function test_an_admin_can_upload_a_custom_watermark_image_via_the_settings_form(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'sectionwmupload');
+        ['section' => $section, 'student' => $student, 'term' => $term] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        SchoolSectionBranding::create(['section_id' => $section->id, 'watermark_enabled' => true]);
+        $school->logo_path = 'schools/'.$school->id.'/logo.png';
+        $school->save();
+        app(TenantManager::class)->forget();
+
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $file = \Illuminate\Http\UploadedFile::fake()->image('mark.png', 200, 200);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/sections/{$section->id}/watermark", [
+            'watermark_mode' => 'custom',
+            'watermark_image' => $file,
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $branding = SchoolSectionBranding::where('section_id', $section->id)->first();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame('custom', $branding->watermark_mode);
+        $this->assertNotNull($branding->watermark_path);
+        \Illuminate\Support\Facades\Storage::disk('public')->assertExists($branding->watermark_path);
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/{$student->id}/{$term->id}");
+        $response->assertOk();
+        $response->assertSee('class="rc-watermark"', false);
+        // The watermark shows the separately uploaded file, not the
+        // section's real logo (still legitimately shown in the header
+        // itself, so a bare assertDontSee('logo.png') would be wrong).
+        $response->assertSee($branding->watermark_path);
+        $html = $response->getContent();
+        preg_match('/class="rc-watermark" style="background-image:url\(\'([^\']+)\'\)"/', $html, $m);
+        $this->assertStringNotContainsString('logo.png', $m[1] ?? '');
+    }
+
     public function test_a_narrative_class_in_a_skills_section_renders_key_assessment_areas_instead_of_subject_comments(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'sectionskillone');
@@ -667,8 +734,8 @@ class ReportCardSectionOverridesTest extends TestCase
 
         $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/{$student->id}/{$term->id}")
             ->assertOk()
-            ->assertSee('<b>Gender</b>', false)
-            ->assertSee('<b>Session</b>', false);
+            ->assertSee('<b>Gender:</b>', false)
+            ->assertSee('<b>Session:</b>', false);
     }
 
     /**
@@ -761,7 +828,11 @@ class ReportCardSectionOverridesTest extends TestCase
         $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/{$student->id}/{$term->id}");
         $response->assertOk();
         $html = $response->getContent();
-        $this->assertSame(1, substr_count($html, '<b>Gender</b>'));
+        // The identity row is now a real bordered table (user directive
+        // 2026-09-22, "NAME: ... GENDER: ..." exactly as the reference
+        // shows it), label + colon inline, not the old stacked
+        // label-above-value card.
+        $this->assertSame(1, substr_count($html, '<b>Gender:</b>'));
         $this->assertStringNotContainsString('<b>Admission No.</b>', $html);
         $this->assertStringNotContainsString('<b>Date of Birth</b>', $html);
         $this->assertStringNotContainsString('<b>House</b>', $html);

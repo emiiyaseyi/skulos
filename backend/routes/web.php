@@ -1155,6 +1155,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::post('/review-chain', [$reportCards, 'updateReviewChain'])->name('review-chain');
             Route::post('/sections/{sectionId}/signer', [$reportCards, 'updateSectionSigner'])->name('section.signer');
             Route::post('/sections/{sectionId}/overrides', [$reportCards, 'updateSectionOverrides'])->name('section.overrides');
+            Route::post('/sections/{sectionId}/watermark', [$reportCards, 'updateSectionWatermark'])->name('section.watermark');
             Route::post('/classes/{classId}/overrides', [$reportCards, 'updateClassOverrides'])->name('class.overrides');
             Route::get('/preview/{template?}', [$reportCards, 'preview'])->name('preview');
             Route::get('/preview/class/{classId}', [$reportCards, 'previewClass'])->name('preview.class');

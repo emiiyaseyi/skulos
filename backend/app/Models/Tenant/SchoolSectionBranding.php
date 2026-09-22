@@ -21,6 +21,7 @@ class SchoolSectionBranding extends Model
     protected $fillable = [
         'section_id', 'logo_path', 'brand_color',
         'report_card_template', 'narrative_style', 'watermark_enabled', 'layout_override', 'tracks_physical_stats_start',
+        'watermark_mode', 'watermark_path', 'watermark_text',
     ];
 
     protected function casts(): array

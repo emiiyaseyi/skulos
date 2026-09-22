@@ -381,6 +381,47 @@ class ReportCardController extends Controller
         return back()->with('status', "Report card look updated for \"{$class->name}\".");
     }
 
+    /**
+     * What a section's own watermark actually shows, beyond a plain
+     * on/off of its resolved logo (user directive 2026-09-22: "let the
+     * watermark use the school section logo as the default watermark or
+     * make it possible for the school to upload another or add a
+     * text"). Section level only, matching where logo/brand colour
+     * overrides already live -- watermark_enabled itself (whether it
+     * shows at all) stays the existing per-section/per-class on/off,
+     * untouched by this action.
+     */
+    public function updateSectionWatermark(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.update');
+        $school = $this->school($request);
+        $section = Section::findOrFail($request->route('sectionId'));
+
+        $data = $request->validate([
+            'watermark_mode' => ['required', Rule::in(['logo', 'custom', 'text'])],
+            'watermark_image' => ['nullable', 'image', 'max:2048'],
+            'watermark_text' => ['nullable', 'string', 'max:40'],
+        ]);
+
+        $updates = ['watermark_mode' => $data['watermark_mode']];
+        if ($data['watermark_mode'] === 'text') {
+            abort_if(empty($data['watermark_text']), 422, 'Enter the watermark text first.');
+            $updates['watermark_text'] = $data['watermark_text'];
+        }
+        if ($data['watermark_mode'] === 'custom' && $request->hasFile('watermark_image')) {
+            // Plain store, not toWebp() -- same reasoning as the school
+            // logo upload (SchoolPortalController::updateBranding()): a
+            // transparent PNG watermark would have its transparency
+            // flattened onto white by toWebp()'s own encode() step.
+            $updates['watermark_path'] = $request->file('watermark_image')->store("schools/{$school->id}", 'public');
+        }
+        abort_if($data['watermark_mode'] === 'custom' && empty($updates['watermark_path']) && ! optional(\App\Models\Tenant\SchoolSectionBranding::where('section_id', $section->id)->first())->watermark_path, 422, 'Upload an image first.');
+
+        \App\Models\Tenant\SchoolSectionBranding::updateOrCreate(['section_id' => $section->id], $updates);
+
+        return back()->with('status', "Watermark updated for {$section->name}.");
+    }
+
     /** The active grading scale's bands as the render view's grade key legend, most generous band first. */
     protected function gradeBands(): array
     {

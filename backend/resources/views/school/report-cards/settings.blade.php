@@ -309,6 +309,40 @@
 </div>
 
 <div class="card" style="margin-top:1.25rem">
+  <h3 style="margin-bottom:.4rem">Watermark</h3>
+  <p class="muted" style="margin-bottom:.8rem">What a section's watermark actually shows, once turned on above. By default it's that section's own logo; a section can instead use a separately uploaded image, or plain text.</p>
+  <div style="display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+    @foreach($sections as $section)
+      @php($wm = $section->branding)
+      <form method="POST" action="{{ route('school.report-cards.section.watermark', ['school' => $school->slug, 'sectionId' => $section->id]) }}" enctype="multipart/form-data" style="border:1px solid var(--line);border-radius:10px;padding:.8rem">
+        @csrf
+        <div style="font-weight:700;font-size:.85rem;margin-bottom:.5rem">{{ $section->name }}</div>
+        <div class="field" style="margin-bottom:.5rem">
+          <label>Watermark shows</label>
+          <select name="watermark_mode">
+            <option value="logo" @selected(($wm?->watermark_mode ?: 'logo') === 'logo')>This section's logo (default)</option>
+            <option value="custom" @selected($wm?->watermark_mode === 'custom')>A separately uploaded image</option>
+            <option value="text" @selected($wm?->watermark_mode === 'text')>Text</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end">
+          <div class="field" style="margin:0;flex:1;min-width:10rem">
+            <label>Custom image</label>
+            <input type="file" name="watermark_image" accept="image/*" />
+            @if($wm?->watermark_path)<span class="muted" style="font-size:.72rem;display:block;margin-top:.2rem">An image is already uploaded, choose a new one to replace it.</span>@endif
+          </div>
+          <div class="field" style="margin:0;flex:1;min-width:10rem">
+            <label>Text</label>
+            <input type="text" name="watermark_text" value="{{ $wm?->watermark_text }}" maxlength="40" placeholder="e.g. the school's short name" />
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" type="submit" style="margin-top:.6rem">Save</button>
+      </form>
+    @endforeach
+  </div>
+</div>
+
+<div class="card" style="margin-top:1.25rem">
   <h3 style="margin-bottom:.4rem">Signature signer</h3>
   <p class="muted" style="margin-bottom:.8rem">Who the signature above is shown as belonging to on each section's report cards. Left blank, a section defaults to Head Teacher, or Principal for a section named Secondary.</p>
 
