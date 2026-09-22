@@ -205,7 +205,7 @@
 
   <div style="overflow-x:auto">
   <table>
-    <thead><tr><th>Section / Class</th><th>Template</th><th>Narrative style</th><th>Watermark</th><th></th></tr></thead>
+    <thead><tr><th>Section / Class</th><th>Template</th><th>Narrative style</th><th>Watermark</th><th>Beginning/End tracking</th><th></th></tr></thead>
     <tbody>
       {{--
         A <form> cannot be a direct child of <tr> in valid HTML (only
@@ -245,6 +245,13 @@
               <span class="muted" style="font-size:.78rem">Logo as watermark</span>
             </label>
           </td>
+          <td>
+            <select name="tracks_physical_stats_start" form="{{ $ovFormId }}">
+              <option value="" @selected($section->branding?->tracks_physical_stats_start === null)>School default</option>
+              <option value="1" @selected($section->branding?->tracks_physical_stats_start === true)>On</option>
+              <option value="0" @selected($section->branding?->tracks_physical_stats_start === false)>Off</option>
+            </select>
+          </td>
           <td style="white-space:nowrap;display:flex;gap:.4rem">
             <button class="btn btn-ghost btn-sm" type="submit" form="{{ $ovFormId }}">Save</button>
             <a class="btn btn-ghost btn-sm" href="{{ route('school.report-cards.layout.edit', ['school' => $school->slug, 'target' => 'section:'.$section->id]) }}">Layout</a>
@@ -279,6 +286,13 @@
                 <option value="" @selected($class->watermark_enabled === null)>Section default</option>
                 <option value="1" @selected($class->watermark_enabled === true)>On</option>
                 <option value="0" @selected($class->watermark_enabled === false)>Off</option>
+              </select>
+            </td>
+            <td>
+              <select name="tracks_physical_stats_start" form="{{ $cvFormId }}">
+                <option value="" @selected($class->tracks_physical_stats_start === null)>Section default</option>
+                <option value="1" @selected($class->tracks_physical_stats_start === true)>On</option>
+                <option value="0" @selected($class->tracks_physical_stats_start === false)>Off</option>
               </select>
             </td>
             <td style="white-space:nowrap;display:flex;gap:.4rem">

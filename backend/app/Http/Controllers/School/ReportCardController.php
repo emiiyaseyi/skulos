@@ -321,14 +321,27 @@ class ReportCardController extends Controller
             'report_card_template' => ['nullable', 'string', Rule::in(array_keys(config('skulos.report_card_templates')))],
             'narrative_style' => ['nullable', 'string', Rule::in(['comments', 'skills'])],
             'watermark_enabled' => ['nullable', 'boolean'],
+            // Tri-state, matching the class-level select just below
+            // (user directive 2026-09-22, confirmed via AskUserQuestion:
+            // "Make it per-section") -- blank inherits the school wide
+            // Setting, so a section that never touches this is
+            // unaffected.
+            'tracks_physical_stats_start' => ['nullable', 'string', Rule::in(['1', '0'])],
         ]);
 
         \App\Models\Tenant\SchoolSectionBranding::updateOrCreate(
             ['section_id' => $section->id],
             [
-                'report_card_template' => $data['report_card_template'] ?: null,
-                'narrative_style' => $data['narrative_style'] ?: null,
+                // ?? before ?: (not ?: alone): a field genuinely absent
+                // from the request -- this action's own form always
+                // submits every field together, but a real caller (a
+                // future AJAX-only save, a test) may not -- must not
+                // throw "Undefined array key", which ?: alone does not
+                // guard against, only ?? does.
+                'report_card_template' => ($data['report_card_template'] ?? null) ?: null,
+                'narrative_style' => ($data['narrative_style'] ?? null) ?: null,
                 'watermark_enabled' => (bool) ($data['watermark_enabled'] ?? false),
+                'tracks_physical_stats_start' => isset($data['tracks_physical_stats_start']) ? ($data['tracks_physical_stats_start'] === '1') : null,
             ]
         );
 
@@ -355,12 +368,14 @@ class ReportCardController extends Controller
             'report_card_template' => ['nullable', 'string', Rule::in(array_keys(config('skulos.report_card_templates')))],
             'narrative_style' => ['nullable', 'string', Rule::in(['comments', 'skills'])],
             'watermark_enabled' => ['nullable', 'string', Rule::in(['1', '0'])],
+            'tracks_physical_stats_start' => ['nullable', 'string', Rule::in(['1', '0'])],
         ]);
 
         $class->update([
-            'report_card_template' => $data['report_card_template'] ?: null,
-            'narrative_style' => $data['narrative_style'] ?: null,
+            'report_card_template' => ($data['report_card_template'] ?? null) ?: null,
+            'narrative_style' => ($data['narrative_style'] ?? null) ?: null,
             'watermark_enabled' => isset($data['watermark_enabled']) ? ($data['watermark_enabled'] === '1') : null,
+            'tracks_physical_stats_start' => isset($data['tracks_physical_stats_start']) ? ($data['tracks_physical_stats_start'] === '1') : null,
         ]);
 
         return back()->with('status', "Report card look updated for \"{$class->name}\".");
@@ -1963,7 +1978,7 @@ class ReportCardController extends Controller
             'narrativeStyle' => $narrativeStyle,
             'template' => $template,
             'canEnterPrincipalRemark' => app(Rbac::class)->check($user, $school, 'report_cards.release'),
-            'tracksPhysicalStatsStart' => $prefs->tracksPhysicalStatsStart(),
+            'tracksPhysicalStatsStart' => $prefs->tracksPhysicalStatsStartFor($class),
         ]);
     }
 
@@ -1987,7 +2002,7 @@ class ReportCardController extends Controller
 
         $canEnterPrincipalRemark = app(Rbac::class)->check($user, $school, 'report_cards.release');
         $prefs = app(ReportCardPreferences::class);
-        $tracksStart = $prefs->tracksPhysicalStatsStart();
+        $tracksStart = $prefs->tracksPhysicalStatsStartFor($class);
         $data = $request->input('students', []);
 
         foreach ($data as $studentId => $row) {
@@ -2081,7 +2096,7 @@ class ReportCardController extends Controller
             ? \App\Models\Tenant\Subject::whereIn('id', \App\Models\Tenant\TeachingAssignment::whereIn('class_arm_id', $armIds)->pluck('subject_id')->unique())->orderBy('name')->get()
             : collect();
         $canEnterPrincipalRemark = app(Rbac::class)->check($user, $school, 'report_cards.release');
-        $tracksStart = $prefs->tracksPhysicalStatsStart();
+        $tracksStart = $prefs->tracksPhysicalStatsStartFor($class);
 
         $remarks = \App\Models\Tenant\StudentTermRemark::whereIn('student_id', $students->pluck('id'))->where('term_id', $term->id)->get()->keyBy('student_id');
         $ratings = \App\Models\Tenant\StudentBehaviouralRating::whereIn('student_id', $students->pluck('id'))->where('term_id', $term->id)->get()->groupBy('student_id');
@@ -2158,7 +2173,7 @@ class ReportCardController extends Controller
             ? \App\Models\Tenant\Subject::whereIn('id', \App\Models\Tenant\TeachingAssignment::whereIn('class_arm_id', $armIds)->pluck('subject_id')->unique())->orderBy('name')->get()
             : collect();
         $canEnterPrincipalRemark = app(Rbac::class)->check($user, $school, 'report_cards.release');
-        $tracksStart = $prefs->tracksPhysicalStatsStart();
+        $tracksStart = $prefs->tracksPhysicalStatsStartFor($class);
         $remarkScale = config('skulos.behavioural_trait_remark_scale', []);
 
         $handle = fopen($data['file']->getRealPath(), 'r');

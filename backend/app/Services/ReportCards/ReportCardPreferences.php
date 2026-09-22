@@ -157,4 +157,19 @@ class ReportCardPreferences
     {
         Setting::put(self::KEY_PHYSICAL_STATS_TRACK_START, $tracks);
     }
+
+    /**
+     * The class-aware version of tracksPhysicalStatsStart() (user
+     * directive 2026-09-22, confirmed via AskUserQuestion: "Make it
+     * per-section... a real schema change"): a class's own choice, else
+     * its section's, else the school wide Setting above -- so a school
+     * (PPMS) can turn this on for Nursery only, without Primary/
+     * Secondary's report cards also switching over.
+     */
+    public function tracksPhysicalStatsStartFor(?SchoolClass $class): bool
+    {
+        $resolved = $class?->resolvedTracksPhysicalStatsStart();
+
+        return $resolved ?? $this->tracksPhysicalStatsStart();
+    }
 }

@@ -463,7 +463,11 @@ class ReportCardSectionOverridesTest extends TestCase
             ->assertOk()
             ->assertSee('Key Assessment Areas')
             ->assertSee('Literacy &amp; Phonics', false)
-            ->assertSee('Not yet entered.')
+            // A filled-out illustrative sample remark (user directive
+            // 2026-09-22: "for the preview sample, add sample CLASS
+            // TEACHER'S REMARK too"), not the empty "Not yet entered."
+            // state a genuinely unscored real report would show.
+            ->assertSee('Shows strong progress in this area.')
             ->assertSee('class="rc-watermark"', false)
             ->assertSee($class->name);
     }
@@ -522,6 +526,73 @@ class ReportCardSectionOverridesTest extends TestCase
         $this->assertSame('bordered', $fresh->report_card_template);
         $this->assertSame('skills', $fresh->narrative_style);
         $this->assertTrue($fresh->watermark_enabled);
+    }
+
+    /**
+     * Beginning/End of Term tracking resolved class, then section, then
+     * the school wide Setting (user directive 2026-09-22, confirmed via
+     * AskUserQuestion: "Make it per-section" -- so PPMS's Nursery can
+     * turn this on without Primary/Secondary's own report cards also
+     * switching over).
+     */
+    public function test_beginning_end_tracking_resolves_class_then_section_then_school(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'physicalscope');
+        ['section' => $section, 'class' => $class] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        $prefs = app(ReportCardPreferences::class);
+        // School wide default off, section turns it on, this class then
+        // opts back out -- proves every level of the chain actually
+        // takes effect, not just the top or bottom of it.
+        $this->assertFalse($prefs->tracksPhysicalStatsStartFor($class));
+        SchoolSectionBranding::create(['section_id' => $section->id, 'tracks_physical_stats_start' => true]);
+        $this->assertTrue($prefs->tracksPhysicalStatsStartFor(SchoolClass::find($class->id)));
+        $class->update(['tracks_physical_stats_start' => false]);
+        $this->assertFalse($prefs->tracksPhysicalStatsStartFor(SchoolClass::find($class->id)));
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_a_section_can_turn_on_beginning_end_tracking_via_the_settings_form(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'physicalsectionform');
+        ['section' => $section, 'class' => $class] = $this->seedOneClass($school);
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/sections/{$section->id}/overrides", [
+            'tracks_physical_stats_start' => '1',
+        ])->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $resolved = app(ReportCardPreferences::class)->tracksPhysicalStatsStartFor(SchoolClass::find($class->id));
+        app(TenantManager::class)->forget();
+
+        $this->assertTrue($resolved);
+    }
+
+    /**
+     * The bordered-table redesign and "Comment" wording apply to every
+     * template (user directive 2026-09-22, confirmed via AskUserQuestion:
+     * "Every template" over narrative only) -- a plain Classic template
+     * class, no narrative involved at all, gets the same treatment.
+     */
+    public function test_every_template_shows_the_bordered_remarks_table_not_just_narrative(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'borderedeverytemplate');
+        ['class' => $class, 'student' => $student, 'term' => $term] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        app(ReportCardPreferences::class)->setTemplate('classic');
+        app(ReportCardPreferences::class)->setFields(['class_teacher_remark' => true]);
+        \App\Models\Tenant\StudentTermRemark::create([
+            'student_id' => $student->id, 'term_id' => $term->id, 'class_teacher_remark' => 'Great progress this term.',
+        ]);
+        app(TenantManager::class)->forget();
+
+        $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/{$student->id}/{$term->id}");
+        $response->assertOk();
+        $html = $response->getContent();
+        $this->assertStringContainsString('class="rc-bordered-table rc-remarks-table"', $html);
+        $this->assertStringContainsString("<b>Class Teacher's Comment:</b> Great progress this term.", $html);
     }
 
     /**
@@ -742,8 +813,11 @@ class ReportCardSectionOverridesTest extends TestCase
         $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/{$student->id}/{$term->id}");
         $response->assertOk();
         $html = $response->getContent();
-        $this->assertStringContainsString('<b>Overall Remarks</b>A well rounded term overall.', $html);
-        $this->assertStringContainsString("<b>Class Teacher's Remark</b>Keep up the good work in class.", $html);
+        // The new bordered-table remarks markup (user directive
+        // 2026-09-22, every template): label + colon inline with the
+        // value in a table cell, "Comment" not "Remark".
+        $this->assertStringContainsString('<b>Overall Remarks:</b> A well rounded term overall.', $html);
+        $this->assertStringContainsString("<b>Class Teacher's Comment:</b> Keep up the good work in class.", $html);
     }
 
     /**
@@ -850,8 +924,10 @@ class ReportCardSectionOverridesTest extends TestCase
 
         $response = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/{$student->id}/{$term->id}");
         $response->assertOk();
-        $response->assertSee('Height (Beginning of Term)');
-        $response->assertSee('Height (End of Term)');
+        // The new bordered-table layout (user directive 2026-09-22),
+        // every template: column headers, not one combined label.
+        $response->assertSee('Beginning of Term');
+        $response->assertSee('End of Term');
         $response->assertSee('110cm');
         $response->assertSee('113cm');
     }

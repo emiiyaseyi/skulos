@@ -95,4 +95,18 @@ class Section extends Model
     {
         return (bool) ($this->branding?->watermark_enabled ?? false);
     }
+
+    /**
+     * This section's own Beginning/End of Term tracking choice, or null
+     * to inherit the school wide Setting (user directive 2026-09-22,
+     * confirmed via AskUserQuestion: "Make it per-section" -- so
+     * turning this on for one section, e.g. Nursery, never also turns
+     * it on for Primary/Secondary).
+     */
+    public function tracksPhysicalStatsStart(): ?bool
+    {
+        return $this->branding?->tracks_physical_stats_start === null
+            ? null
+            : (bool) $this->branding->tracks_physical_stats_start;
+    }
 }

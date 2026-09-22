@@ -118,6 +118,13 @@
   .rc-traits{width:100%;border-collapse:collapse;font-size:.68rem}
   .rc-traits td{padding:.22rem 0;border-bottom:1px dashed #e2e2e2}
   .rc-traits td.val{text-align:right;font-weight:700}
+  {{-- Real bordered tables (2026-09-22, reference report card): the
+       Attendance/Physical block and the closing Remarks block, every
+       template. --}}
+  .rc-bordered-table{width:100%;border-collapse:collapse;font-size:.68rem;margin-bottom:.4rem}
+  .rc-bordered-table th,.rc-bordered-table td{border:1px solid #999;padding:.3rem .45rem;text-align:left;vertical-align:top}
+  .rc-bordered-table th{background:#f3f4f6;font-size:.6rem;text-transform:uppercase;letter-spacing:.03em;text-align:center}
+  .rc-remarks-table b{text-transform:uppercase;letter-spacing:.02em;font-size:.62rem}
   .rc-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem;font-size:.62rem}
   .rc-legend span{background:#f3f4f6;border-radius:6px;padding:.2rem .45rem}
   .rc-signoff{display:flex;justify-content:space-around;gap:1.2rem;text-align:center;margin-top:1rem;padding-top:.7rem;border-top:1px solid #e2e2e2}
@@ -170,6 +177,7 @@
     .rc-summary .box{padding:.35rem}
     .rc-block{margin-bottom:.35rem}
     .rc-traits td{padding:.14rem 0}
+    .rc-bordered-table th,.rc-bordered-table td{padding:.2rem .3rem}
     .rc-remarks div{margin-bottom:.35rem}
     .rc-signoff{margin-top:.5rem;padding-top:.4rem}
     .rc-footer{margin-top:.5rem;padding-top:.4rem}
@@ -198,6 +206,7 @@
     .rc-summary,.rc-block,.rc-signoff,.rc-tally,.rc-strip,.rc-footer{break-inside:avoid}
     .rc-table tr{break-inside:avoid}
     .rc-remarks div{break-inside:avoid}
+    .rc-bordered-table tr{break-inside:avoid}
   }
 </style>
 @endpush

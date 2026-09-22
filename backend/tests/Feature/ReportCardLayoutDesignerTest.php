@@ -446,7 +446,9 @@ class ReportCardLayoutDesignerTest extends TestCase
         $classResponse = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/preview/class/{$class->id}");
         $classResponse->assertOk();
         $classHtml = $classResponse->getContent();
-        $this->assertStringContainsString("Class Teacher's Remark", $classHtml);
+        // "Comment", not "Remark" (user directive 2026-09-22, every
+        // template): the new bordered-table remarks wording.
+        $this->assertStringContainsString("Class Teacher's Comment", $classHtml);
         $this->assertStringNotContainsString('Grade Key', $classHtml);
     }
 }

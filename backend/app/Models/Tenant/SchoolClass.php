@@ -26,7 +26,7 @@ class SchoolClass extends Model
 
     protected $fillable = [
         'section_id', 'name', 'sequence', 'is_active', 'default_reviewer_staff_id', 'evaluation_style', 'grading_scale_id',
-        'report_card_template', 'narrative_style', 'watermark_enabled', 'layout_override',
+        'report_card_template', 'narrative_style', 'watermark_enabled', 'layout_override', 'tracks_physical_stats_start',
     ];
 
     protected function casts(): array
@@ -36,6 +36,7 @@ class SchoolClass extends Model
             'is_active' => 'boolean',
             'watermark_enabled' => 'boolean',
             'layout_override' => 'array',
+            'tracks_physical_stats_start' => 'boolean',
         ];
     }
 
@@ -159,5 +160,23 @@ class SchoolClass extends Model
     public function resolvedLayoutOverride(): ?array
     {
         return $this->layout_override ?: $this->section?->branding?->layout_override ?: null;
+    }
+
+    /**
+     * This class's own Beginning/End of Term tracking choice, falling
+     * back to its section's, falling back to null (meaning "inherit the
+     * school wide Setting", ReportCardPreferences's own job to resolve
+     * -- this class has no idea what that ultimate default is). Per
+     * section/class (user directive 2026-09-22, confirmed via
+     * AskUserQuestion: "Make it per-section... a real schema change"),
+     * since PPMS only wants this on for Nursery, not Primary/Secondary.
+     */
+    public function resolvedTracksPhysicalStatsStart(): ?bool
+    {
+        if ($this->tracks_physical_stats_start !== null) {
+            return (bool) $this->tracks_physical_stats_start;
+        }
+
+        return $this->section?->tracksPhysicalStatsStart();
     }
 }

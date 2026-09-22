@@ -116,12 +116,16 @@ class SetupPpmsSectionReportCard extends Command
                 $this->warn('No current term found, skipped the Narrative Evaluation toggle.');
             }
 
-            // 4. Section report card look: Key Assessment Areas style, watermark on.
+            // 4. Section report card look: Key Assessment Areas style,
+            // watermark on, Beginning/End of Term physical tracking on
+            // (user directive 2026-09-22, confirmed via AskUserQuestion:
+            // "Make it per-section" -- so Primary/Secondary's own
+            // report cards are unaffected by this).
             SchoolSectionBranding::updateOrCreate(
                 ['section_id' => $section->id],
-                ['narrative_style' => 'skills', 'watermark_enabled' => true]
+                ['narrative_style' => 'skills', 'watermark_enabled' => true, 'tracks_physical_stats_start' => true]
             );
-            $this->info("Section \"{$section->name}\" set to the Key Assessment Areas narrative style, watermark on.");
+            $this->info("Section \"{$section->name}\" set to the Key Assessment Areas narrative style, watermark on, Beginning/End of Term tracking on.");
 
             // 5. PPMS's own Key Assessment Areas catalog, straight from
             // their real report card. School specific data, not a

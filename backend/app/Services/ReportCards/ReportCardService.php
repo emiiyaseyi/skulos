@@ -268,7 +268,7 @@ class ReportCardService
                 'weight' => $remark?->weight,
                 'height_start' => $remark?->height_start,
                 'weight_start' => $remark?->weight_start,
-                'tracks_start' => $this->prefs->tracksPhysicalStatsStart(),
+                'tracks_start' => $this->prefs->tracksPhysicalStatsStartFor($classArm?->schoolClass),
                 // The student's real assigned club wins; the old
                 // free-text value typed on the term remark is the
                 // fallback so report cards for terms recorded before
@@ -360,13 +360,27 @@ class ReportCardService
         $termName = $currentTerm?->name ?? 'Third Term';
         $termSession = $currentTerm?->session?->name ?? '2025/2026';
 
-        // Every configured Key Assessment Area shows, with no remark yet
-        // entered -- exactly what a genuinely not-yet-scored real
-        // student's report would show, never a fabricated sample remark.
+        // Every configured Key Assessment Area shows a genuinely
+        // illustrative sample remark (user directive 2026-09-22: "for
+        // the preview sample, add sample CLASS TEACHER'S REMARK too" --
+        // a direct reversal of the earlier "Not yet entered" choice,
+        // this screen is already plainly marked "(sample)" throughout,
+        // so a filled-out preview reads as intended rather than as an
+        // empty, not-yet-scored real report). Deliberately generic, not
+        // tailored to any one skill's real name (a school's own skill
+        // catalog varies), cycling through a short list so the preview
+        // does not read as one remark copy-pasted down the whole table.
         $skillAreas = [];
         if ($narrativeStyle === 'skills') {
+            $sampleSkillRemarks = [
+                'Shows strong progress in this area.',
+                'Doing well, with growing confidence.',
+                'Needs a little more practice here.',
+                'Excellent effort and understanding.',
+            ];
+            $i = 0;
             foreach (\App\Models\Tenant\ReportCardSkillArea::active()->orderBy('sequence')->get() as $area) {
-                $skillAreas[$area->category][] = ['name' => $area->name, 'remark' => null];
+                $skillAreas[$area->category][] = ['name' => $area->name, 'remark' => $sampleSkillRemarks[$i++ % count($sampleSkillRemarks)]];
             }
         }
 
@@ -400,7 +414,7 @@ class ReportCardService
             ],
             'physical' => [
                 'height' => '148cm', 'weight' => '38kg', 'height_start' => '145cm', 'weight_start' => '36kg',
-                'tracks_start' => $this->prefs->tracksPhysicalStatsStart(), 'club' => 'Debate Club',
+                'tracks_start' => $this->prefs->tracksPhysicalStatsStartFor($class), 'club' => 'Debate Club',
                 'total_school_days' => 62, 'times_absent' => 4,
                 'class_teacher_name' => 'Mrs. F. Adigun', 'class_teacher_phone' => '0803 123 4567',
             ],

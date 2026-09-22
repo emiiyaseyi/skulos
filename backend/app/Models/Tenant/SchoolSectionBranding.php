@@ -20,7 +20,7 @@ class SchoolSectionBranding extends Model
 
     protected $fillable = [
         'section_id', 'logo_path', 'brand_color',
-        'report_card_template', 'narrative_style', 'watermark_enabled', 'layout_override',
+        'report_card_template', 'narrative_style', 'watermark_enabled', 'layout_override', 'tracks_physical_stats_start',
     ];
 
     protected function casts(): array
@@ -28,6 +28,7 @@ class SchoolSectionBranding extends Model
         return [
             'watermark_enabled' => 'boolean',
             'layout_override' => 'array',
+            'tracks_physical_stats_start' => 'boolean',
         ];
     }
 
