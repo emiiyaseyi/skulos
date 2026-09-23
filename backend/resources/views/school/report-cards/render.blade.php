@@ -14,7 +14,17 @@
        only, so a genuinely long report (many subjects, long comments)
        still grows past one page rather than being clipped; the .rc-wrap
        max-width above is the 210mm side of that same 210:297 ratio. --}}
-  .rc-sheet{position:relative;background:#fff;color:#1a1a1a;border-radius:10px;padding:2rem;box-shadow:0 8px 30px rgba(0,0,0,.12);font-size:.72rem;min-height:79.2rem}
+  {{-- z-index:0 added 2026-09-23: position:relative alone does NOT
+       establish a new CSS stacking context (only position + an explicit
+       z-index does). Without it, .rc-watermark's z-index:-1 below isn't
+       contained behind THIS element's own background -- it escapes to
+       the nearest ancestor that DOES establish a stacking context,
+       which could be far up the tree, rendering the watermark hidden
+       under opaque backgrounds all the way up to <body>. This is the
+       real, previously-undiagnosed reason the watermark never showed at
+       all, on screen or in print, regardless of every opacity/size/
+       print-color-adjust fix tried before this. --}}
+  .rc-sheet{position:relative;z-index:0;background:#fff;color:#1a1a1a;border-radius:10px;padding:2rem;box-shadow:0 8px 30px rgba(0,0,0,.12);font-size:.72rem;min-height:79.2rem}
   {{-- Section watermark (2026-09-21): behind everything via a negative
        z-index inside .rc-sheet's own stacking context (position:relative
        above), so no other rule in this file needs to know it exists. --}}

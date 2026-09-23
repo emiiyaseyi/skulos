@@ -7,7 +7,9 @@
   body{background:#e9ebee}
   .rc-wrap{max-width:56rem;margin:0 auto;padding:2rem 1.25rem 4rem}
   .rc-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
-  .rc-sheet{position:relative;background:#fff;color:#1a1a1a;border-radius:10px;padding:2rem;box-shadow:0 8px 30px rgba(0,0,0,.12);margin-bottom:1.5rem;font-size:.72rem;min-height:79.2rem}
+  {{-- z-index:0, see render.blade.php's identical fix for the full
+       explanation -- the real cause of the watermark never showing. --}}
+  .rc-sheet{position:relative;z-index:0;background:#fff;color:#1a1a1a;border-radius:10px;padding:2rem;box-shadow:0 8px 30px rgba(0,0,0,.12);margin-bottom:1.5rem;font-size:.72rem;min-height:79.2rem}
   {{-- Section watermark, mirrors render.blade.php's own copy (2026-09-21,
        rebuilt 2026-09-23 to a single large centered image, see there). --}}
   .rc-watermark{position:absolute;inset:0;background-repeat:no-repeat;background-position:center 42%;background-size:62%;opacity:.22;z-index:-1;pointer-events:none}
