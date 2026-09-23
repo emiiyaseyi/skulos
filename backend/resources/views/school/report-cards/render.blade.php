@@ -225,6 +225,11 @@
   .rc-eval .rc-head-text{flex:0 1 auto}
   .rc-eval .rc-head .rc-logo{width:150px;height:150px}
   .rc-eval .rc-block > h3{margin:.55rem 0 .3rem}
+  {{-- The scored Evaluation Sheet (Primary/Secondary) shares this framed look: its scores table and summary boxes take the same closed dark grid and plain bold headers as the tables above. --}}
+  .rc-eval .rc-table{border-collapse:separate;border-spacing:0;border-top:1px solid #444;border-left:1px solid #444;font-size:.85rem;margin-bottom:.6rem}
+  .rc-eval .rc-table th,.rc-eval .rc-table td{border:0;border-right:1px solid #444;border-bottom:1px solid #444;padding:.4rem .5rem}
+  .rc-eval .rc-table th{background:transparent;color:#1a1a1a;font-weight:700;font-size:.8rem;letter-spacing:0;text-align:center}
+  .rc-eval .rc-summary .box{background:transparent;border:1px solid #444;border-radius:0}
   .rc-bordered-table td.rc-num{text-align:center;vertical-align:middle}
   .rc-eval .rc-attend-physical .rc-subhead th{font-weight:400;text-transform:none;font-size:.85rem}
   .rc-eval .rc-remarks-table{margin-top:auto}
@@ -295,6 +300,9 @@
     .rc-eval .rc-bordered-table,.rc-eval .rc-bordered-table th{font-size:1rem}
     .rc-eval .rc-bordered-table td{padding:.3rem .5rem}
     .rc-eval .rc-identity-table td{font-size:.85rem}
+    .rc-eval .rc-table{font-size:.95rem}
+    .rc-eval .rc-table th{font-size:.85rem}
+    .rc-eval .rc-table th,.rc-eval .rc-table td{padding:.28rem .45rem}
     .rc-eval .rc-head .rc-logo{width:118px;height:118px}
     .rc-eval .rc-remarks-table td{height:2.6rem}
     .rc-eval .rc-remarks-table tr:last-child td{height:4.5rem}

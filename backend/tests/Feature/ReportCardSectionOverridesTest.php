@@ -513,6 +513,36 @@ class ReportCardSectionOverridesTest extends TestCase
             ->assertDontSee('class="rc-watermark"', false);
     }
 
+    public function test_the_ppms_command_gives_the_other_sections_the_same_look_but_not_the_narrative_style(): void
+    {
+        [$school] = $this->schoolWithMember('school-owner', 'ppmslooktest');
+        ['section' => $nursery] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        $secondary = Section::create(['name' => 'Secondary', 'sequence' => 3]);
+        SchoolSectionBranding::create(['section_id' => $secondary->id, 'field_overrides' => ['principal_remark' => true]]);
+        app(TenantManager::class)->forget();
+
+        $this->artisan('ppms:setup-report-card', ['--slug' => $school->slug])->assertExitCode(0);
+
+        app(TenantManager::class)->use($school);
+        $other = SchoolSectionBranding::where('section_id', $secondary->id)->first();
+        $this->assertSame('evaluation', $other->report_card_template);
+        $this->assertNull($other->narrative_style);
+        $this->assertTrue($other->watermark_enabled);
+        $this->assertTrue($other->tracks_physical_stats_start);
+        // Added to, never replaced.
+        $this->assertSame(['principal_remark' => true, 'physical_stats' => true, 'stamp_signature' => true], $other->field_overrides);
+        // The nursery section keeps the narrative style and no scored template of its own.
+        $nurseryBranding = SchoolSectionBranding::where('section_id', $nursery->id)->first();
+        $this->assertSame('skills', $nurseryBranding->narrative_style);
+        $this->assertNull($nurseryBranding->report_card_template);
+        app(TenantManager::class)->forget();
+
+        // --nursery-only leaves other sections alone.
+        $this->artisan('ppms:setup-report-card', ['--slug' => $school->slug, '--nursery-only' => true])->assertExitCode(0);
+    }
+
     public function test_the_class_preview_shows_a_sample_report_card_reflecting_the_classs_own_resolved_look(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'classpreviewone');

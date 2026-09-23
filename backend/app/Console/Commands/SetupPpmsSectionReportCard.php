@@ -31,7 +31,8 @@ class SetupPpmsSectionReportCard extends Command
     protected $signature = 'ppms:setup-report-card
         {--slug=ppms : The school slug to apply this to}
         {--section= : Exact section name, auto-detected if omitted}
-        {--class= : Exact class name, auto-detected if omitted}';
+        {--class= : Exact class name, auto-detected if omitted}
+        {--nursery-only : Skip giving the other sections (Primary, Secondary) the same look}';
 
     protected $description = "Applies PPMS's own Nursery/Kindergarten report card design (real school details, Key Assessment Areas, watermark, Trimester wording) using the general per-section report card features";
 
@@ -151,6 +152,37 @@ class SetupPpmsSectionReportCard extends Command
                 'body_columns' => [],
             ]);
             $this->info("Section \"{$section->name}\" body order set so the stamp shows inline next to \"Trimester Begins\", matching the reference report card.");
+
+            // 4b. Every OTHER section (Primary/Basic, Secondary) gets the same
+            // report card look as the Nursery one, except the narrative Key
+            // Assessment Areas format (user directive 2026-09-23: "replicate
+            // all the other features... to all other sections"): the framed
+            // scored Evaluation Sheet, watermark, Beginning/End of Term
+            // weight and height, Physical & Attendance and Stamp/Signature
+            // rows, and the stamp inline beside "Trimester Begins" (no
+            // separate signoff block, same as the Nursery order). Existing
+            // field overrides on the section are kept and only added to.
+            if (! $this->option('nursery-only')) {
+                foreach (Section::where('id', '!=', $section->id)->orderBy('sequence')->get() as $other) {
+                    $existing = SchoolSectionBranding::where('section_id', $other->id)->first();
+                    SchoolSectionBranding::updateOrCreate(
+                        ['section_id' => $other->id],
+                        [
+                            'report_card_template' => 'evaluation', 'watermark_enabled' => true, 'tracks_physical_stats_start' => true,
+                            'field_overrides' => array_merge($existing?->field_overrides ?? [], ['physical_stats' => true, 'stamp_signature' => true]),
+                        ]
+                    );
+                    $layout->setSectionOverride($other, [
+                        'enabled' => false,
+                        'zones' => ['header' => [], 'info' => []],
+                        'body_order' => ['physical_stats', 'subjects_table', 'summary', 'behavioural_traits', 'grade_key', 'remarks'],
+                        'header_align' => [],
+                        'body_align' => [],
+                        'body_columns' => [],
+                    ]);
+                    $this->info("Section \"{$other->name}\" set to the framed scored Evaluation Sheet with the same watermark, Beginning/End tracking, attendance and inline stamp as \"{$section->name}\".");
+                }
+            }
 
             // 5. PPMS's own Key Assessment Areas catalog, straight from
             // their real report card. School specific data, not a
