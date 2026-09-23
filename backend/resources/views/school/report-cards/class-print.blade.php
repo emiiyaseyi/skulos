@@ -90,8 +90,11 @@
   {{-- Narrative report redesign, mirrors render.blade.php (2026-09-23). --}}
   .rc-eval{border:2px solid #000;border-radius:0;padding:1.4rem;display:flex;flex-direction:column;box-sizing:border-box}
   .rc-eval .rc-head{border-bottom:none;padding-bottom:.4rem}
-  .rc-eval .rc-head h1{font-size:1.6rem}
-  .rc-eval .rc-head .term{font-size:.95rem;font-weight:700;text-transform:uppercase}
+  .rc-eval .rc-head h1{font-size:1.9rem}
+  .rc-eval .rc-head p{font-size:.95rem;font-weight:600;color:#1a1a1a;margin:.2rem 0 0}
+  .rc-eval .rc-head .rc-contact-line{flex-direction:column;align-items:center;gap:.1rem}
+  .rc-eval .rc-head .rc-contact-item svg{width:.85rem;height:.85rem}
+  .rc-eval .rc-head .term{font-size:1.15rem;font-weight:800;text-transform:uppercase;margin-top:.4rem}
   .rc-eval .rc-bordered-table{font-size:.85rem}
   .rc-eval .rc-bordered-table th{background:transparent;font-size:.85rem;letter-spacing:0;padding:.35rem .5rem}
   .rc-eval .rc-bordered-table td{padding:.4rem .55rem}
