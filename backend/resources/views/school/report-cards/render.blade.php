@@ -15,16 +15,16 @@
        still grows past one page rather than being clipped; the .rc-wrap
        max-width above is the 210mm side of that same 210:297 ratio. --}}
   .rc-sheet{position:relative;background:#fff;color:#1a1a1a;border-radius:10px;padding:2rem;box-shadow:0 8px 30px rgba(0,0,0,.12);font-size:.72rem;min-height:79.2rem}
-  {{-- Section watermark (2026-09-21): tiled behind everything via a
-       negative z-index inside .rc-sheet's own stacking context
-       (position:relative above), so no other rule in this file needs
-       to know it exists. --}}
-  {{-- .22 and a smaller/denser tile, not the original .07 (user report
-       2026-09-22, live, twice: "watermark is missing too" -- confirmed
-       via a local structural test that the markup/CSS were correct the
-       whole time, this was purely a visibility problem, so pushed well
-       past subtle this time rather than another small guess. --}}
-  .rc-watermark{position:absolute;inset:0;background-repeat:repeat;background-position:center;background-size:100px;opacity:.22;z-index:-1;pointer-events:none}
+  {{-- Section watermark (2026-09-21): behind everything via a negative
+       z-index inside .rc-sheet's own stacking context (position:relative
+       above), so no other rule in this file needs to know it exists. --}}
+  {{-- Rebuilt 2026-09-23 to match the real reference report card (user's
+       own PDF): one large, roughly centered logo image, not a small
+       repeating tile -- the earlier tiled 100px pattern at .22 opacity
+       was structurally correct but visually nothing like what the
+       reference actually shows (one big crest behind the middle of the
+       page, faded but still clearly colored/legible). --}}
+  .rc-watermark{position:absolute;inset:0;background-repeat:no-repeat;background-position:center 42%;background-size:62%;opacity:.22;z-index:-1;pointer-events:none}
   {{-- Text watermark (2026-09-22, "add a text" alternative to an
        image): one large rotated word across the page, not tiled like
        the logo image above -- a repeating text pattern needs real
