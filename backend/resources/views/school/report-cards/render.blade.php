@@ -34,7 +34,7 @@
        was structurally correct but visually nothing like what the
        reference actually shows (one big crest behind the middle of the
        page, faded but still clearly colored/legible). --}}
-  .rc-watermark{position:absolute;inset:0;background-repeat:no-repeat;background-position:center 42%;background-size:62%;opacity:.22;z-index:-1;pointer-events:none}
+  .rc-watermark{position:absolute;inset:0;background-repeat:no-repeat;background-position:center 46%;background-size:90%;opacity:.22;z-index:-1;pointer-events:none}
   {{-- Text watermark (2026-09-22, "add a text" alternative to an
        image): one large rotated word across the page, not tiled like
        the logo image above -- a repeating text pattern needs real
@@ -181,6 +181,29 @@
   .rc-bordered-table th{background:#f3f4f6;color:#1a1a1a;font-weight:700;font-size:.64rem;text-transform:uppercase;letter-spacing:.03em;text-align:center}
   .rc-bordered-table b{text-transform:uppercase;letter-spacing:.02em;font-size:.62rem}
   .rc-identity-table{margin-bottom:.8rem}
+  {{-- Narrative / Key Assessment Areas report redesigned to match the
+       user's own reference PDF (2026-09-23, "redesign it to match the
+       template i gave you"): one bold outer frame around the whole card,
+       plain bold black table headers (no gray fill), larger table text,
+       bold uppercase identity row, centered figures in the attendance
+       and weight/height cells, tall comment rows, and the Remarks table
+       pushed to the bottom of the A4 frame (flex column, margin-top:auto)
+       so the frame is filled the way the reference is. Scoped to .rc-eval
+       so every other template keeps its own look. --}}
+  .rc-eval{border:2px solid #000;border-radius:0;padding:1.4rem;display:flex;flex-direction:column;box-sizing:border-box}
+  .rc-eval .rc-head{border-bottom:none;padding-bottom:.4rem}
+  .rc-eval .rc-head h1{font-size:1.6rem}
+  .rc-eval .rc-head .term{font-size:.95rem;font-weight:700;text-transform:uppercase}
+  .rc-eval .rc-bordered-table{font-size:.85rem}
+  .rc-eval .rc-bordered-table th{background:transparent;font-size:.85rem;letter-spacing:0;padding:.35rem .5rem}
+  .rc-eval .rc-bordered-table td{padding:.4rem .55rem}
+  .rc-eval .rc-bordered-table b{font-size:inherit;letter-spacing:0}
+  .rc-eval .rc-identity-table td{font-weight:700;font-size:.92rem;text-transform:uppercase}
+  .rc-bordered-table td.rc-num{text-align:center;vertical-align:middle}
+  .rc-eval .rc-attend-physical .rc-subhead th{font-weight:400;text-transform:none;font-size:.85rem}
+  .rc-eval .rc-remarks-table{margin-top:auto}
+  .rc-eval .rc-remarks-table td{font-weight:700;height:3rem}
+  .rc-eval .rc-remarks-table tr:last-child td{height:5.5rem;vertical-align:bottom}
   .rc-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem;font-size:.62rem}
   .rc-legend span{background:#f3f4f6;border-radius:6px;padding:.2rem .45rem}
   .rc-signoff{display:flex;justify-content:space-around;gap:1.2rem;text-align:center;margin-top:1rem;padding-top:.7rem;border-top:1px solid #e2e2e2}
@@ -238,6 +261,16 @@
          meant for the on-screen preview would otherwise risk pushing a
          short report onto a needless second blank printed page. --}}
     .rc-sheet{box-shadow:none;border-radius:0;padding:0;min-height:auto}
+    {{-- Narrative report fills one A4 page (user 2026-09-23: "make the
+         report card fit into the a4 paper size"): 262mm is under the
+         277mm printable height (@page margins), so it can never tip onto
+         a second blank page; a longer report still grows naturally. --}}
+    .rc-eval{padding:.7rem .9rem;min-height:262mm;border:2px solid #000}
+    .rc-eval .rc-bordered-table,.rc-eval .rc-bordered-table th{font-size:1rem}
+    .rc-eval .rc-bordered-table td{padding:.3rem .5rem}
+    .rc-eval .rc-identity-table td{font-size:1.02rem}
+    .rc-eval .rc-remarks-table td{height:2.6rem}
+    .rc-eval .rc-remarks-table tr:last-child td{height:4.5rem}
     .rc-sheet p{margin:.15rem 0 0}
     .rc-head{padding-bottom:.4rem;margin-bottom:.5rem}
     .rc-modern .rc-head{padding:.6rem}

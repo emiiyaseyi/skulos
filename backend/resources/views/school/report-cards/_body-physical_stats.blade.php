@@ -30,7 +30,7 @@
           <th colspan="2">Attendance Record</th>
           <th colspan="{{ $tracksStart ? 3 : 2 }}">Physical &amp; Health Records</th>
         </tr>
-        <tr>
+        <tr class="rc-subhead">
           <th>Days school opened</th>
           <th>Days present</th>
           <th></th>
@@ -42,20 +42,20 @@
           @endif
         </tr>
         <tr>
-          <td rowspan="2">{{ $data['physical']['total_school_days'] ?? 'N/A' }}</td>
-          <td rowspan="2">{{ $data['attendance']['present'] ?? 'N/A' }}</td>
+          <td rowspan="2" class="rc-num">{{ $data['physical']['total_school_days'] ?? 'N/A' }}</td>
+          <td rowspan="2" class="rc-num">{{ $data['attendance']['present'] ?? 'N/A' }}</td>
           <td>Weight:</td>
           @if($tracksStart)
-            <td>{{ $data['physical']['weight_start'] ?? 'N/A' }}</td>
+            <td class="rc-num">{{ $data['physical']['weight_start'] ?? 'N/A' }}</td>
           @endif
-          <td>{{ $data['physical']['weight'] ?? 'N/A' }}</td>
+          <td class="rc-num">{{ $data['physical']['weight'] ?? 'N/A' }}</td>
         </tr>
         <tr>
           <td>Height:</td>
           @if($tracksStart)
-            <td>{{ $data['physical']['height_start'] ?? 'N/A' }}</td>
+            <td class="rc-num">{{ $data['physical']['height_start'] ?? 'N/A' }}</td>
           @endif
-          <td>{{ $data['physical']['height'] ?? 'N/A' }}</td>
+          <td class="rc-num">{{ $data['physical']['height'] ?? 'N/A' }}</td>
         </tr>
       </table>
       {{-- Clubs are optional (2026-08-16): a school that does not run

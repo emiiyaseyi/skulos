@@ -12,7 +12,7 @@
   .rc-sheet{position:relative;z-index:0;background:#fff;color:#1a1a1a;border-radius:10px;padding:2rem;box-shadow:0 8px 30px rgba(0,0,0,.12);margin-bottom:1.5rem;font-size:.72rem;min-height:79.2rem}
   {{-- Section watermark, mirrors render.blade.php's own copy (2026-09-21,
        rebuilt 2026-09-23 to a single large centered image, see there). --}}
-  .rc-watermark{position:absolute;inset:0;background-repeat:no-repeat;background-position:center 42%;background-size:62%;opacity:.22;z-index:-1;pointer-events:none}
+  .rc-watermark{position:absolute;inset:0;background-repeat:no-repeat;background-position:center 46%;background-size:90%;opacity:.22;z-index:-1;pointer-events:none}
   .rc-watermark-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;z-index:-1;pointer-events:none}
   .rc-watermark-text span{font-size:3.4rem;font-weight:800;color:rgba(0,0,0,.07);transform:rotate(-30deg);white-space:nowrap;text-transform:uppercase;letter-spacing:.06em}
   .rc-sheet p{margin:.2rem 0 0}
@@ -85,6 +85,21 @@
   .rc-bordered-table th{background:#f3f4f6;color:#1a1a1a;font-weight:700;font-size:.64rem;text-transform:uppercase;letter-spacing:.03em;text-align:center}
   .rc-bordered-table b{text-transform:uppercase;letter-spacing:.02em;font-size:.62rem}
   .rc-identity-table{margin-bottom:.8rem}
+  {{-- Narrative report redesign, mirrors render.blade.php (2026-09-23). --}}
+  .rc-eval{border:2px solid #000;border-radius:0;padding:1.4rem;display:flex;flex-direction:column;box-sizing:border-box}
+  .rc-eval .rc-head{border-bottom:none;padding-bottom:.4rem}
+  .rc-eval .rc-head h1{font-size:1.6rem}
+  .rc-eval .rc-head .term{font-size:.95rem;font-weight:700;text-transform:uppercase}
+  .rc-eval .rc-bordered-table{font-size:.85rem}
+  .rc-eval .rc-bordered-table th{background:transparent;font-size:.85rem;letter-spacing:0;padding:.35rem .5rem}
+  .rc-eval .rc-bordered-table td{padding:.4rem .55rem}
+  .rc-eval .rc-bordered-table b{font-size:inherit;letter-spacing:0}
+  .rc-eval .rc-identity-table td{font-weight:700;font-size:.92rem;text-transform:uppercase}
+  .rc-bordered-table td.rc-num{text-align:center;vertical-align:middle}
+  .rc-eval .rc-attend-physical .rc-subhead th{font-weight:400;text-transform:none;font-size:.85rem}
+  .rc-eval .rc-remarks-table{margin-top:auto}
+  .rc-eval .rc-remarks-table td{font-weight:700;height:3rem}
+  .rc-eval .rc-remarks-table tr:last-child td{height:5.5rem;vertical-align:bottom}
   .rc-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem;font-size:.62rem}
   .rc-legend span{background:#f3f4f6;border-radius:6px;padding:.2rem .45rem}
   .rc-signoff{display:flex;justify-content:space-around;gap:1.2rem;text-align:center;margin-top:1rem;padding-top:.7rem;border-top:1px solid #e2e2e2}
@@ -116,6 +131,12 @@
     .content{padding:0 !important}
     .rc-wrap{max-width:none;margin:0;padding:0}
     .rc-sheet{box-shadow:none;border-radius:0;padding:0;margin-bottom:0;min-height:auto}
+    .rc-eval{padding:.7rem .9rem;min-height:262mm;border:2px solid #000}
+    .rc-eval .rc-bordered-table,.rc-eval .rc-bordered-table th{font-size:1rem}
+    .rc-eval .rc-bordered-table td{padding:.3rem .5rem}
+    .rc-eval .rc-identity-table td{font-size:1.02rem}
+    .rc-eval .rc-remarks-table td{height:2.6rem}
+    .rc-eval .rc-remarks-table tr:last-child td{height:4.5rem}
     .rc-sheet p{margin:.15rem 0 0}
     .rc-head{padding-bottom:.4rem;margin-bottom:.5rem}
     .rc-modern .rc-head{padding:.6rem}
