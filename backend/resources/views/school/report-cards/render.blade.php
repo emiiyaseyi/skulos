@@ -142,7 +142,11 @@
   .rc-bordered-table{width:100%;border-collapse:collapse;font-size:.68rem;margin-bottom:.4rem}
   {{-- #444, not the original #999 (user report 2026-09-22: "the borderlines also are not correct" -- too light to read as a real grid, matching the reference's own bolder lines). --}}
   .rc-bordered-table th,.rc-bordered-table td{border:1px solid #444;padding:.3rem .45rem;text-align:left;vertical-align:top}
-  .rc-bordered-table th{background:#f3f4f6;font-size:.6rem;text-transform:uppercase;letter-spacing:.03em;text-align:center}
+  {{-- Explicit color/weight, not just relying on the browser's default
+       <th> boldness (user report 2026-09-23: header row read as faint,
+       almost-invisible gray text in a real downloaded PDF -- the
+       reference's own headers are solid bold black). --}}
+  .rc-bordered-table th{background:#f3f4f6;color:#1a1a1a;font-weight:700;font-size:.64rem;text-transform:uppercase;letter-spacing:.03em;text-align:center}
   .rc-bordered-table b{text-transform:uppercase;letter-spacing:.02em;font-size:.62rem}
   .rc-identity-table{margin-bottom:.8rem}
   .rc-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem;font-size:.62rem}
@@ -169,6 +173,17 @@
   --}}
   @page{ size:A4; margin:10mm 12mm; }
   @media print{
+    /* Browsers strip background-image/background-color by default when
+       printing or "Save as PDF" (an ink-saving default) unless a page
+       explicitly opts in with print-color-adjust -- this is the real
+       root cause of the watermark never appearing in any printed/PDF
+       output regardless of how its opacity/tile size were tuned (user
+       report 2026-09-23: a real downloaded PDF with no watermark at all
+       despite the single-large-image rebuild two commits earlier).
+       Applied broadly (not just .rc-watermark) since the header row's
+       light gray background and the preview tag badge rely on the same
+       browser default too. */
+    *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important}
     /* Every spacing/font value on this page is set in rem, relative to
        the ROOT element's font-size, not to .rc-sheet's own (found
        2026-07-24 measuring actual rendered heights: an 11 subject SSS

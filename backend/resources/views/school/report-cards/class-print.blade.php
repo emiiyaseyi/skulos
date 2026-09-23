@@ -78,7 +78,7 @@
        template. --}}
   .rc-bordered-table{width:100%;border-collapse:collapse;font-size:.68rem;margin-bottom:.4rem}
   .rc-bordered-table th,.rc-bordered-table td{border:1px solid #444;padding:.3rem .45rem;text-align:left;vertical-align:top}
-  .rc-bordered-table th{background:#f3f4f6;font-size:.6rem;text-transform:uppercase;letter-spacing:.03em;text-align:center}
+  .rc-bordered-table th{background:#f3f4f6;color:#1a1a1a;font-weight:700;font-size:.64rem;text-transform:uppercase;letter-spacing:.03em;text-align:center}
   .rc-bordered-table b{text-transform:uppercase;letter-spacing:.02em;font-size:.62rem}
   .rc-identity-table{margin-bottom:.8rem}
   .rc-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem;font-size:.62rem}
@@ -96,6 +96,10 @@
   .rc-print-page{ break-after:page }
   .rc-print-page:last-child{ break-after:auto }
   @media print{
+    /* Forces backgrounds/images to actually print, see render.blade.php's
+       identical rule for the full explanation -- this is the root cause
+       of the watermark never appearing in print/PDF output. */
+    *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important}
     /* Root font-size scale, print only, mirrors render.blade.php's
        identical fix (2026-07-24): every spacing/font value here is in
        rem (relative to the root element, not .rc-sheet's own), so this
