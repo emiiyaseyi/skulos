@@ -109,9 +109,15 @@
   {{-- Same size as the student photo, both bigger than before (user
        request 2026-07-24: "make the school logo bigger than the current
        size and the child image should also have same size"). --}}
-  {{-- Bumped from 76px (user report 2026-09-23: "the school logo on
-       the report card seems very small" against the reference). --}}
-  .rc-logo{width:104px;height:104px;object-fit:contain;display:block;margin:0 auto .4rem}
+  {{-- Bumped again, 104px to 130px (user report 2026-09-23, a second
+       round: "check the school logo size, increase it" -- still read
+       as too small against the reference even after the first bump). --}}
+  .rc-logo{width:130px;height:130px;object-fit:contain;display:block;margin:0 auto .4rem}
+  {{-- Nudged right off the card's left edge, row-layout heads only
+       (user report 2026-09-23: "move it to the right a bit") --
+       .rc-head-custom's own column-stack layout already centers its
+       logo via the margin:auto above, untouched. --}}
+  .rc-head:not(.rc-head-custom) > .rc-logo{margin-left:.6rem}
   /* Student Photo layout designer block (2026-07-23) */
   .rc-photo{width:76px;height:76px;object-fit:cover;border-radius:10px;display:block;margin:0 auto .4rem;border:1px solid #d8d8d8;overflow:hidden}
   .rc-photo svg{width:100%;height:100%;display:block}
@@ -149,7 +155,23 @@
   {{-- Real bordered tables (2026-09-22, reference report card): the
        Attendance/Physical block and the closing Remarks block, every
        template. --}}
-  .rc-bordered-table{width:100%;border-collapse:collapse;font-size:.68rem;margin-bottom:.4rem}
+  {{-- margin-bottom:0, not .4rem (user report 2026-09-23: "the border
+       lines are breaking, should show the borderline across all
+       sections" -- the reference's own outer frame runs continuously
+       from Attendance/Physical through Key Assessment Areas through
+       the closing Remarks, with no visible gap between them; a
+       specific table's own spacing need (e.g. the identity strip)
+       comes from its own more specific class, see .rc-identity-table
+       below). --}}
+  .rc-bordered-table{width:100%;border-collapse:collapse;font-size:.68rem;margin-bottom:0}
+  {{-- Two consecutive blocks that both hold a bordered table sit flush
+       against each other, so their outer borders read as one
+       continuous frame instead of two separate boxes with a gap --
+       only when connecting to ANOTHER bordered block, so a block
+       followed by something else (or the last bordered block on the
+       card) keeps its normal breathing room via .rc-block's own
+       margin-bottom below. --}}
+  .rc-block:has(.rc-bordered-table):has(+ .rc-block .rc-bordered-table){margin-bottom:0}
   {{-- #444, not the original #999 (user report 2026-09-22: "the borderlines also are not correct" -- too light to read as a real grid, matching the reference's own bolder lines). --}}
   .rc-bordered-table th,.rc-bordered-table td{border:1px solid #444;padding:.3rem .45rem;text-align:left;vertical-align:top}
   {{-- Explicit color/weight, not just relying on the browser's default
@@ -231,7 +253,15 @@
     .rc-signoff{margin-top:.5rem;padding-top:.4rem}
     .rc-footer{margin-top:.5rem;padding-top:.4rem}
     .rc-signoff img{max-height:36px}
-    .rc-logo,.rc-photo{width:44px;height:44px}
+    {{-- Was unconditionally 44px, silently undoing every on-screen
+       .rc-logo size bump above for print/PDF specifically -- since
+       "preview and download" always renders through this print
+       stylesheet, this is very likely why the logo never looked bigger
+       across multiple size increases (user report 2026-09-23). Kept
+       print-budget-conscious (smaller than the 130px screen size) but
+       genuinely bigger than before. --}}
+    .rc-photo{width:44px;height:44px}
+    .rc-logo{width:92px;height:92px}
     /* Score Trend/Subject Breakdown are opt-in extras on top of an
        already full page (a school adds them deliberately, per this
        catalog's own doc comment: "not mandatory... only if the admin

@@ -55,7 +55,8 @@
   .rc-vibrant .rc-table th{background:var(--accent);color:var(--accent-ink)}
   .rc-vibrant .rc-table tbody tr:nth-child(even){background:color-mix(in srgb, var(--accent) 6%, #fff)}
   .rc-vibrant .rc-summary .box{background:color-mix(in srgb, var(--accent) 10%, #fff);border-radius:14px}
-  .rc-logo{width:104px;height:104px;object-fit:contain;display:block;margin:0 auto .4rem}
+  .rc-logo{width:130px;height:130px;object-fit:contain;display:block;margin:0 auto .4rem}
+  .rc-head:not(.rc-head-custom) > .rc-logo{margin-left:.6rem}
   {{-- Student Photo layout designer block, mirrors render.blade.php (2026-07-24, was missing here so bulk class printing dropped the photo silently). --}}
   .rc-photo{width:76px;height:76px;object-fit:cover;border-radius:10px;display:block;margin:0 auto .4rem;border:1px solid #d8d8d8;overflow:hidden}
   .rc-photo svg{width:100%;height:100%;display:block}
@@ -78,7 +79,8 @@
   {{-- Real bordered tables (2026-09-22, reference report card): the
        Attendance/Physical block and the closing Remarks block, every
        template. --}}
-  .rc-bordered-table{width:100%;border-collapse:collapse;font-size:.68rem;margin-bottom:.4rem}
+  .rc-bordered-table{width:100%;border-collapse:collapse;font-size:.68rem;margin-bottom:0}
+  .rc-block:has(.rc-bordered-table):has(+ .rc-block .rc-bordered-table){margin-bottom:0}
   .rc-bordered-table th,.rc-bordered-table td{border:1px solid #444;padding:.3rem .45rem;text-align:left;vertical-align:top}
   .rc-bordered-table th{background:#f3f4f6;color:#1a1a1a;font-weight:700;font-size:.64rem;text-transform:uppercase;letter-spacing:.03em;text-align:center}
   .rc-bordered-table b{text-transform:uppercase;letter-spacing:.02em;font-size:.62rem}
@@ -129,7 +131,8 @@
     .rc-signoff{margin-top:.5rem;padding-top:.4rem}
     .rc-footer{margin-top:.5rem;padding-top:.4rem}
     .rc-signoff img{max-height:36px}
-    .rc-logo,.rc-photo{width:44px;height:44px}
+    .rc-photo{width:44px;height:44px}
+    .rc-logo{width:92px;height:92px}
     /* Score Trend/Subject Breakdown print sizing, mirrors render.blade.php (2026-07-24): both opt-in and both heavy, shrunk rather than chased to zero overflow. */
     .rc-block svg{max-width:19rem !important}
     /* .rc-table deliberately excluded, see render.blade.php's identical
