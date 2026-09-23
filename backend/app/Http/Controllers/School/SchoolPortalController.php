@@ -351,6 +351,36 @@ class SchoolPortalController extends Controller
     }
 
     /**
+     * A logo for ONE section, uploaded straight from that section's own row
+     * (user directive 2026-09-23: "adding another logo to another section,
+     * create the option under both school profile and branding"), rather
+     * than only via the whole-school upload plus a tick-list.
+     */
+    public function updateSectionLogo(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'school_info.update');
+        $school = $this->school($request);
+        // route(), not a typed parameter: the domain wildcard binds positionally, see resetSectionBranding().
+        $section = Section::findOrFail($request->route('sectionId'));
+        $request->validate(['logo' => ['required', 'image', 'max:2048']]);
+
+        $path = $request->file('logo')->store("schools/{$school->id}", 'public');
+        SchoolSectionBranding::updateOrCreate(['section_id' => $section->id], ['logo_path' => $path]);
+
+        return back()->with('status', "{$section->name} now has its own logo.");
+    }
+
+    /** Drop a section's own logo only, back to the school logo; its colour/report card overrides stay. */
+    public function removeSectionLogo(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'school_info.update');
+        $section = Section::findOrFail($request->route('sectionId'));
+        SchoolSectionBranding::where('section_id', $section->id)->update(['logo_path' => null]);
+
+        return back()->with('status', "{$section->name} now uses the school logo again.");
+    }
+
+    /**
      * Undo a section's own logo/colour override, back to inheriting the
      * school's default (user request 2026-09-09). Deletes the row
      * outright rather than nulling both columns, since a row with both

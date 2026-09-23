@@ -163,7 +163,13 @@
        specific table's own spacing need (e.g. the identity strip)
        comes from its own more specific class, see .rc-identity-table
        below). --}}
-  .rc-bordered-table{width:100%;border-collapse:collapse;font-size:.68rem;margin-bottom:0}
+  {{-- Separate borders, not collapse (user 2026-09-23: "broken border...
+       close all the tables bottom border"): with collapsed borders the
+       right and bottom edges were being clipped when printed to PDF.
+       Here the table draws its own top and left edge and every cell draws
+       its own right and bottom edge, so all four outer edges sit inside
+       the table box and are always drawn, one line thick everywhere. --}}
+  .rc-bordered-table{width:100%;border-collapse:separate;border-spacing:0;border-top:1px solid #444;border-left:1px solid #444;font-size:.68rem;margin-bottom:0}
   {{-- Two consecutive blocks that both hold a bordered table sit flush
        against each other, so their outer borders read as one
        continuous frame instead of two separate boxes with a gap --
@@ -173,7 +179,7 @@
        margin-bottom below. --}}
   .rc-block:has(.rc-bordered-table):has(+ .rc-block .rc-bordered-table){margin-bottom:0}
   {{-- #444, not the original #999 (user report 2026-09-22: "the borderlines also are not correct" -- too light to read as a real grid, matching the reference's own bolder lines). --}}
-  .rc-bordered-table th,.rc-bordered-table td{border:1px solid #444;padding:.3rem .45rem;text-align:left;vertical-align:top}
+  .rc-bordered-table th,.rc-bordered-table td{border:0;border-right:1px solid #444;border-bottom:1px solid #444;padding:.3rem .45rem;text-align:left;vertical-align:top}
   {{-- Explicit color/weight, not just relying on the browser's default
        <th> boldness (user report 2026-09-23: header row read as faint,
        almost-invisible gray text in a real downloaded PDF -- the
@@ -198,7 +204,15 @@
   .rc-eval .rc-bordered-table th{background:transparent;font-size:.85rem;letter-spacing:0;padding:.35rem .5rem}
   .rc-eval .rc-bordered-table td{padding:.4rem .55rem}
   .rc-eval .rc-bordered-table b{font-size:inherit;letter-spacing:0}
-  .rc-eval .rc-identity-table td{font-weight:700;font-size:.92rem;text-transform:uppercase}
+  {{-- Name, gender, class and session on ONE row (user 2026-09-23): small
+       enough type, and only the name cell may wrap if a real name is long. --}}
+  .rc-eval .rc-identity-table td{font-weight:700;font-size:.78rem;text-transform:uppercase;padding:.35rem .4rem}
+  .rc-eval .rc-identity-table td:not(:first-child){white-space:nowrap}
+  {{-- Logo bigger and right beside the school details, the pair centered together, instead of the logo pinned to the far left. --}}
+  .rc-eval .rc-head{justify-content:center;gap:1.1rem}
+  .rc-eval .rc-head-text{flex:0 1 auto}
+  .rc-eval .rc-head .rc-logo{width:150px;height:150px}
+  .rc-eval .rc-block > h3{margin:.55rem 0 .3rem}
   .rc-bordered-table td.rc-num{text-align:center;vertical-align:middle}
   .rc-eval .rc-attend-physical .rc-subhead th{font-weight:400;text-transform:none;font-size:.85rem}
   .rc-eval .rc-remarks-table{margin-top:auto}
@@ -268,7 +282,8 @@
     .rc-eval{padding:.7rem .9rem;min-height:262mm;border:2px solid #000}
     .rc-eval .rc-bordered-table,.rc-eval .rc-bordered-table th{font-size:1rem}
     .rc-eval .rc-bordered-table td{padding:.3rem .5rem}
-    .rc-eval .rc-identity-table td{font-size:1.02rem}
+    .rc-eval .rc-identity-table td{font-size:.85rem}
+    .rc-eval .rc-head .rc-logo{width:118px;height:118px}
     .rc-eval .rc-remarks-table td{height:2.6rem}
     .rc-eval .rc-remarks-table tr:last-child td{height:4.5rem}
     .rc-sheet p{margin:.15rem 0 0}

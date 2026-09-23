@@ -270,4 +270,5 @@
     @endforeach
   </div>
 @endif
+@include('school._section-logos')
 @endsection

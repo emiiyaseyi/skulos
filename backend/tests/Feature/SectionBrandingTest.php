@@ -115,6 +115,37 @@ class SectionBrandingTest extends TestCase
         app(TenantManager::class)->forget();
     }
 
+    public function test_a_section_can_get_its_own_logo_from_its_own_row_and_go_back_to_the_school_logo(): void
+    {
+        Storage::fake('public');
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'secbrandrow1');
+        app(TenantManager::class)->use($school);
+        [$nurseryPrimary, $secondary] = $this->makeTwoSections();
+        app(TenantManager::class)->forget();
+
+        // Both screens show the per section list.
+        foreach (['settings/branding', 'settings/profile'] as $page) {
+            $this->actingAs($owner)->get("http://{$school->slug}.localhost/{$page}")
+                ->assertOk()->assertSee('Section logos')->assertSee('Upload logo');
+        }
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/settings/branding/sections/{$secondary->id}/logo", [
+            'logo' => UploadedFile::fake()->image('secondary.png'),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        app(TenantManager::class)->use($school);
+        $this->assertNotNull(SchoolSectionBranding::where('section_id', $secondary->id)->value('logo_path'));
+        $this->assertNull(SchoolSectionBranding::where('section_id', $nurseryPrimary->id)->first());
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/settings/branding/sections/{$secondary->id}/logo/remove")
+            ->assertRedirect();
+
+        app(TenantManager::class)->use($school);
+        $this->assertNull(SchoolSectionBranding::where('section_id', $secondary->id)->value('logo_path'));
+        app(TenantManager::class)->forget();
+    }
+
     /**
      * A logo already uploaded as the school default can be assigned to
      * a section without re-choosing the same file (user report

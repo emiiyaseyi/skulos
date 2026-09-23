@@ -916,6 +916,8 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
         Route::get('/settings/branding', [SchoolPortalController::class, 'editBranding'])->name('school.branding.edit');
         Route::post('/settings/branding', [SchoolPortalController::class, 'updateBranding'])->name('school.branding.update');
         Route::post('/settings/branding/sections/{sectionId}/reset', [SchoolPortalController::class, 'resetSectionBranding'])->name('school.branding.sections.reset');
+        Route::post('/settings/branding/sections/{sectionId}/logo', [SchoolPortalController::class, 'updateSectionLogo'])->name('school.branding.sections.logo');
+        Route::post('/settings/branding/sections/{sectionId}/logo/remove', [SchoolPortalController::class, 'removeSectionLogo'])->name('school.branding.sections.logo.remove');
         Route::get('/settings/profile', [SchoolPortalController::class, 'editProfile'])->name('school.settings.profile.edit');
         Route::post('/settings/profile', [SchoolPortalController::class, 'updateProfile'])->name('school.settings.profile.update');
         Route::get('/settings/dashboard', [SchoolPortalController::class, 'editDashboard'])->name('school.dashboard.edit');

@@ -42,8 +42,8 @@
   {{-- Real bordered tables (2026-09-22, reference report card): the
        Attendance/Physical block and the closing Remarks block, every
        template. --}}
-  .rc-bordered-table{width:100%;border-collapse:collapse;font-size:.75rem;margin-bottom:.4rem}
-  .rc-bordered-table th,.rc-bordered-table td{border:1px solid #444;padding:.3rem .45rem;text-align:left;vertical-align:top}
+  .rc-bordered-table{width:100%;border-collapse:separate;border-spacing:0;border-top:1px solid #444;border-left:1px solid #444;font-size:.75rem;margin-bottom:.4rem}
+  .rc-bordered-table th,.rc-bordered-table td{border:0;border-right:1px solid #444;border-bottom:1px solid #444;padding:.3rem .45rem;text-align:left;vertical-align:top}
   .rc-bordered-table th{background:#f3f4f6;color:#1a1a1a;font-weight:700;font-size:.66rem;text-transform:uppercase;letter-spacing:.03em;text-align:center}
   .rc-bordered-table b{text-transform:uppercase;letter-spacing:.02em;font-size:.65rem}
   .rc-identity-table{margin-bottom:.8rem}

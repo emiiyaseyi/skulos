@@ -109,4 +109,5 @@
     <button class="btn btn-primary btn-sm" type="submit">Save</button>
   </form>
 </div>
+<div style="max-width:34rem">@include('school._section-logos')</div>
 @endsection

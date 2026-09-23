@@ -146,7 +146,8 @@
         <td><b>Name:</b> {{ $data['identity']['name'] }}</td>
         @if($show('gender'))<td><b>Gender:</b> {{ $data['identity']['gender'] }}</td>@endif
         @if($show('class'))<td><b>Class:</b> {{ $data['identity']['class'] }}</td>@endif
-        @if($data['term']['session'] ?? null)<td><b>Session:</b> {{ $data['term']['session'] }}</td>@endif
+        {{-- The stored session name already ends in the word "Session"; the label says it once (user 2026-09-23). --}}
+        @if($data['term']['session'] ?? null)<td><b>Session:</b> {{ trim(preg_replace('/\s*Session$/i', '', $data['term']['session'])) }}</td>@endif
       </tr>
     </table>
   @else

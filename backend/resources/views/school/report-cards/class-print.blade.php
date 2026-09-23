@@ -79,9 +79,9 @@
   {{-- Real bordered tables (2026-09-22, reference report card): the
        Attendance/Physical block and the closing Remarks block, every
        template. --}}
-  .rc-bordered-table{width:100%;border-collapse:collapse;font-size:.68rem;margin-bottom:0}
+  .rc-bordered-table{width:100%;border-collapse:separate;border-spacing:0;border-top:1px solid #444;border-left:1px solid #444;font-size:.68rem;margin-bottom:0}
   .rc-block:has(.rc-bordered-table):has(+ .rc-block .rc-bordered-table){margin-bottom:0}
-  .rc-bordered-table th,.rc-bordered-table td{border:1px solid #444;padding:.3rem .45rem;text-align:left;vertical-align:top}
+  .rc-bordered-table th,.rc-bordered-table td{border:0;border-right:1px solid #444;border-bottom:1px solid #444;padding:.3rem .45rem;text-align:left;vertical-align:top}
   .rc-bordered-table th{background:#f3f4f6;color:#1a1a1a;font-weight:700;font-size:.64rem;text-transform:uppercase;letter-spacing:.03em;text-align:center}
   .rc-bordered-table b{text-transform:uppercase;letter-spacing:.02em;font-size:.62rem}
   .rc-identity-table{margin-bottom:.8rem}
@@ -94,7 +94,12 @@
   .rc-eval .rc-bordered-table th{background:transparent;font-size:.85rem;letter-spacing:0;padding:.35rem .5rem}
   .rc-eval .rc-bordered-table td{padding:.4rem .55rem}
   .rc-eval .rc-bordered-table b{font-size:inherit;letter-spacing:0}
-  .rc-eval .rc-identity-table td{font-weight:700;font-size:.92rem;text-transform:uppercase}
+  .rc-eval .rc-identity-table td{font-weight:700;font-size:.78rem;text-transform:uppercase;padding:.35rem .4rem}
+  .rc-eval .rc-identity-table td:not(:first-child){white-space:nowrap}
+  .rc-eval .rc-head{justify-content:center;gap:1.1rem}
+  .rc-eval .rc-head-text{flex:0 1 auto}
+  .rc-eval .rc-head .rc-logo{width:150px;height:150px}
+  .rc-eval .rc-block > h3{margin:.55rem 0 .3rem}
   .rc-bordered-table td.rc-num{text-align:center;vertical-align:middle}
   .rc-eval .rc-attend-physical .rc-subhead th{font-weight:400;text-transform:none;font-size:.85rem}
   .rc-eval .rc-remarks-table{margin-top:auto}
@@ -134,7 +139,8 @@
     .rc-eval{padding:.7rem .9rem;min-height:262mm;border:2px solid #000}
     .rc-eval .rc-bordered-table,.rc-eval .rc-bordered-table th{font-size:1rem}
     .rc-eval .rc-bordered-table td{padding:.3rem .5rem}
-    .rc-eval .rc-identity-table td{font-size:1.02rem}
+    .rc-eval .rc-identity-table td{font-size:.85rem}
+    .rc-eval .rc-head .rc-logo{width:118px;height:118px}
     .rc-eval .rc-remarks-table td{height:2.6rem}
     .rc-eval .rc-remarks-table tr:last-child td{height:4.5rem}
     .rc-sheet p{margin:.15rem 0 0}
