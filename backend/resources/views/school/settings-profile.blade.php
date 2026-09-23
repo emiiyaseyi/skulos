@@ -42,6 +42,7 @@
         @include('school._scope-picker', ['field' => 'logo', 'sections' => $sections])
         <p class="hint" style="margin:-.3rem 0 .7rem">Who this upload is for. Untouched sections keep whatever they already have. "Whole school" is the one that updates everywhere; a section-specific upload only changes that section.</p>
         @error('logo_sections')<div class="err">{{ $message }}</div>@enderror
+        @include('school._logo-groups')
         <script>
           document.querySelectorAll('input[data-scope="logo"]').forEach(function(radio){
             radio.addEventListener('change', function(){

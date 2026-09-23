@@ -115,6 +115,55 @@ class SectionBrandingTest extends TestCase
         app(TenantManager::class)->forget();
     }
 
+    public function test_several_logos_for_different_sections_save_together_from_one_form(): void
+    {
+        Storage::fake('public');
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'secbrandgroups');
+        app(TenantManager::class)->use($school);
+        [$nurseryPrimary, $secondary] = $this->makeTwoSections();
+        app(TenantManager::class)->forget();
+
+        foreach (['settings/branding', 'settings/profile'] as $page) {
+            $this->actingAs($owner)->post("http://{$school->slug}.localhost/{$page}", [
+                'logo' => UploadedFile::fake()->image('first.png'),
+                'logo_scope' => 'sections',
+                'logo_sections' => [$nurseryPrimary->id],
+                'logo_groups' => [
+                    0 => ['file' => UploadedFile::fake()->image('second.png'), 'sections' => [$secondary->id]],
+                ],
+            ])->assertRedirect()->assertSessionHasNoErrors();
+
+            app(TenantManager::class)->use($school);
+            $first = SchoolSectionBranding::where('section_id', $nurseryPrimary->id)->value('logo_path');
+            $second = SchoolSectionBranding::where('section_id', $secondary->id)->value('logo_path');
+            $this->assertNotNull($first);
+            $this->assertNotNull($second);
+            $this->assertNotSame($first, $second);
+            app(TenantManager::class)->forget();
+        }
+    }
+
+    public function test_an_extra_logo_with_no_section_ticked_is_rejected_and_nothing_is_half_saved(): void
+    {
+        Storage::fake('public');
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'secbrandgroups2');
+        app(TenantManager::class)->use($school);
+        [$nurseryPrimary] = $this->makeTwoSections();
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/settings/branding", [
+            'logo' => UploadedFile::fake()->image('first.png'),
+            'logo_scope' => 'sections',
+            'logo_sections' => [$nurseryPrimary->id],
+            'logo_groups' => [0 => ['file' => UploadedFile::fake()->image('second.png')]],
+        ])->assertRedirect()->assertSessionHasErrors('logo');
+
+        app(TenantManager::class)->use($school);
+        // The first logo was applied before the extra group was checked; the extra group itself saved nothing.
+        $this->assertSame(1, SchoolSectionBranding::count());
+        app(TenantManager::class)->forget();
+    }
+
     public function test_a_section_can_get_its_own_logo_from_its_own_row_and_go_back_to_the_school_logo(): void
     {
         Storage::fake('public');

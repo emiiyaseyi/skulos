@@ -253,6 +253,10 @@ class SchoolPortalController extends Controller
             'logo_scope' => ['nullable', Rule::in(['school', 'sections'])],
             'logo_sections' => ['nullable', 'array'],
             'logo_sections.*' => [Rule::in($sectionIds)],
+            'logo_groups' => ['nullable', 'array'],
+            'logo_groups.*.file' => ['nullable', 'image', 'max:2048'],
+            'logo_groups.*.sections' => ['nullable', 'array'],
+            'logo_groups.*.sections.*' => [Rule::in($sectionIds)],
             'brand_color_scope' => ['nullable', Rule::in(['school', 'sections'])],
             'brand_color_sections' => ['nullable', 'array'],
             'brand_color_sections.*' => [Rule::in($sectionIds)],
@@ -345,6 +349,44 @@ class SchoolPortalController extends Controller
             }
         } elseif ($freshPath) {
             $school->logo_path = $freshPath;
+        }
+
+        return $this->applyExtraLogoGroups($request, $school, $data);
+    }
+
+    /**
+     * "Logo for the other sections" (user directive 2026-09-23: after saying
+     * the first logo is only for some sections, let the admin upload
+     * another logo for the rest, and another, then save it all once). Each
+     * group is one uploaded file plus the sections it applies to. Only
+     * honoured when the whole form is in "just some sections" mode.
+     * Everything is checked before anything is stored, so a half filled
+     * group never leaves the other groups half saved.
+     */
+    protected function applyExtraLogoGroups(Request $request, School $school, array $data): ?string
+    {
+        if (($data['logo_scope'] ?? 'school') !== 'sections') {
+            return null;
+        }
+
+        $groups = [];
+        foreach (array_keys($data['logo_groups'] ?? []) as $i) {
+            $file = $request->file("logo_groups.{$i}.file");
+            $ids = $data['logo_groups'][$i]['sections'] ?? [];
+            if (! $file && empty($ids)) {
+                continue;
+            }
+            if (! $file || empty($ids)) {
+                return 'Each extra logo needs a file and at least one ticked section.';
+            }
+            $groups[] = [$file, $ids];
+        }
+
+        foreach ($groups as [$file, $ids]) {
+            $path = $file->store("schools/{$school->id}", 'public');
+            foreach ($ids as $sectionId) {
+                SchoolSectionBranding::updateOrCreate(['section_id' => $sectionId], ['logo_path' => $path]);
+            }
         }
 
         return null;
@@ -477,6 +519,10 @@ class SchoolPortalController extends Controller
             'logo_scope' => ['nullable', Rule::in(['school', 'sections'])],
             'logo_sections' => ['nullable', 'array'],
             'logo_sections.*' => [Rule::in($sectionIds)],
+            'logo_groups' => ['nullable', 'array'],
+            'logo_groups.*.file' => ['nullable', 'image', 'max:2048'],
+            'logo_groups.*.sections' => ['nullable', 'array'],
+            'logo_groups.*.sections.*' => [Rule::in($sectionIds)],
         ]);
 
         if (($data['logo_scope'] ?? 'school') === 'sections' && empty($data['logo_sections'])) {
@@ -492,7 +538,7 @@ class SchoolPortalController extends Controller
         // school fill() below like the other non-column fields already are.
         \App\Models\Tenant\Setting::put('term_label', $data['term_label'] ?? null);
 
-        $school->fill(collect($data)->except(['logo', 'logo_scope', 'logo_sections', 'term_label'])->all())->save();
+        $school->fill(collect($data)->except(['logo', 'logo_scope', 'logo_sections', 'logo_groups', 'term_label'])->all())->save();
 
         return back()->with('status', 'Your school profile has been updated.');
     }

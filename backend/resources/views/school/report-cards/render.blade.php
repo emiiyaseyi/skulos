@@ -180,6 +180,14 @@
   .rc-block:has(.rc-bordered-table):has(+ .rc-block .rc-bordered-table){margin-bottom:0}
   {{-- #444, not the original #999 (user report 2026-09-22: "the borderlines also are not correct" -- too light to read as a real grid, matching the reference's own bolder lines). --}}
   .rc-bordered-table th,.rc-bordered-table td{border:0;border-right:1px solid #444;border-bottom:1px solid #444;padding:.3rem .45rem;text-align:left;vertical-align:top}
+  {{-- The app-wide stylesheet (layouts/app.blade.php) has
+       "tr:last-child td{border-bottom:none}" for its own list tables. It is
+       MORE specific than the rule above, so it stripped the bottom border
+       off the last row of every report card table (user report
+       2026-09-23, "you still did not close the table borders at the
+       bottom", found by printing the page to PDF in a real browser).
+       This restores it at a higher specificity. --}}
+  .rc-bordered-table tr:last-child td,.rc-bordered-table tr:last-child th{border-bottom:1px solid #444}
   {{-- Explicit color/weight, not just relying on the browser's default
        <th> boldness (user report 2026-09-23: header row read as faint,
        almost-invisible gray text in a real downloaded PDF -- the

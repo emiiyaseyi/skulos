@@ -133,6 +133,7 @@
           @include('school._scope-picker', ['field' => 'logo', 'sections' => $sections])
           <div class="hint" style="margin:-.3rem 0 .7rem">Who this upload is for. Untouched sections keep whatever they already have.</div>
           @error('logo_sections')<div class="err">{{ $message }}</div>@enderror
+          @include('school._logo-groups')
         @endif
       </div>
 
