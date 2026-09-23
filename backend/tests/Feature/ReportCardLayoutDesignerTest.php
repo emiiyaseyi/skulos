@@ -61,7 +61,7 @@ class ReportCardLayoutDesignerTest extends TestCase
         $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/settings/layout")
             ->assertOk()
             ->assertSee('rc-sheet', false)
-            ->assertSee('Ada Grace Obi')
+            ->assertSee('Ada Oluwaseyi Adamu')
             ->assertSee('ADM/2025/014');
     }
 

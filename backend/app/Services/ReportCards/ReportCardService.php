@@ -395,7 +395,7 @@ class ReportCardService
 
         return [
             'identity' => [
-                'name' => 'Ada Grace Obi (sample)', 'admission_number' => 'ADM/2025/014', 'gender' => 'Female',
+                'name' => 'Ada Oluwaseyi Adamu (sample)', 'admission_number' => 'ADM/2025/014', 'gender' => 'Female',
                 'date_of_birth' => '12 Mar 2013', 'age' => 13, 'class' => $class?->name ?? 'JSS 2 A', 'house' => 'Red House',
                 'class_teacher' => 'Mrs. F. Adigun', 'photo_url' => null,
             ],

@@ -91,7 +91,7 @@ class ReportCardTest extends TestCase
 
         foreach (array_keys(config('skulos.report_card_templates')) as $template) {
             $this->actingAs($admin)->get("http://{$school->slug}.localhost/report-cards/preview/{$template}")
-                ->assertOk()->assertSee('Ada Grace Obi');
+                ->assertOk()->assertSee('Ada Oluwaseyi Adamu');
         }
     }
 

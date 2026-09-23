@@ -99,7 +99,9 @@
   {{-- Same size as the student photo, both bigger than before (user
        request 2026-07-24: "make the school logo bigger than the current
        size and the child image should also have same size"). --}}
-  .rc-logo{width:76px;height:76px;object-fit:contain;display:block;margin:0 auto .4rem}
+  {{-- Bumped from 76px (user report 2026-09-23: "the school logo on
+       the report card seems very small" against the reference). --}}
+  .rc-logo{width:104px;height:104px;object-fit:contain;display:block;margin:0 auto .4rem}
   /* Student Photo layout designer block (2026-07-23) */
   .rc-photo{width:76px;height:76px;object-fit:cover;border-radius:10px;display:block;margin:0 auto .4rem;border:1px solid #d8d8d8;overflow:hidden}
   .rc-photo svg{width:100%;height:100%;display:block}

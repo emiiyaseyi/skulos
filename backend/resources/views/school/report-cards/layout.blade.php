@@ -20,7 +20,7 @@
      block content and order either way, only the wrap width differs. */
   .rc-id{display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem;font-size:.82rem;margin-bottom:1.1rem}
   .rc-id div b{display:block;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:#777;font-weight:700}
-  .rc-logo{width:60px;height:60px;object-fit:contain;display:block;margin:0 auto .5rem}
+  .rc-logo{width:82px;height:82px;object-fit:contain;display:block;margin:0 auto .5rem}
   .rc-head-custom .rc-logo{margin-bottom:0}
   .rc-table{width:100%;border-collapse:collapse;font-size:.78rem;margin-bottom:.6rem}
   .rc-table th,.rc-table td{border:1px solid #d8d8d8;padding:.4rem .45rem;text-align:left}

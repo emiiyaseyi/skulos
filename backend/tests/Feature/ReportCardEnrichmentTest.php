@@ -515,7 +515,7 @@ class ReportCardEnrichmentTest extends TestCase
         $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/preview/classic")
             ->assertOk()
             ->assertSee('class="rc-head rc-head-custom"', false)
-            ->assertSee('Ada Grace Obi') // student_name block, from sample()
+            ->assertSee('Ada Oluwaseyi Adamu') // student_name block, from sample()
             ->assertSee('Position'); // overall_position block label
     }
 

@@ -53,7 +53,7 @@
   .rc-vibrant .rc-table th{background:var(--accent);color:var(--accent-ink)}
   .rc-vibrant .rc-table tbody tr:nth-child(even){background:color-mix(in srgb, var(--accent) 6%, #fff)}
   .rc-vibrant .rc-summary .box{background:color-mix(in srgb, var(--accent) 10%, #fff);border-radius:14px}
-  .rc-logo{width:76px;height:76px;object-fit:contain;display:block;margin:0 auto .4rem}
+  .rc-logo{width:104px;height:104px;object-fit:contain;display:block;margin:0 auto .4rem}
   {{-- Student Photo layout designer block, mirrors render.blade.php (2026-07-24, was missing here so bulk class printing dropped the photo silently). --}}
   .rc-photo{width:76px;height:76px;object-fit:cover;border-radius:10px;display:block;margin:0 auto .4rem;border:1px solid #d8d8d8;overflow:hidden}
   .rc-photo svg{width:100%;height:100%;display:block}
