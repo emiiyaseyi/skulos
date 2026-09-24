@@ -532,7 +532,10 @@ class ReportCardSectionOverridesTest extends TestCase
         $this->assertTrue($other->watermark_enabled);
         $this->assertTrue($other->tracks_physical_stats_start);
         // Added to, never replaced.
-        $this->assertSame(['principal_remark' => true, 'physical_stats' => true, 'stamp_signature' => true], $other->field_overrides);
+        $this->assertEquals([
+            'principal_remark' => true, 'physical_stats' => true, 'stamp_signature' => true,
+            'behavioural_traits' => true, 'overall_remark' => false, 'subject_groups' => false,
+        ], $other->field_overrides);
         // The nursery section keeps the narrative style and no scored template of its own.
         $nurseryBranding = SchoolSectionBranding::where('section_id', $nursery->id)->first();
         $this->assertSame('skills', $nurseryBranding->narrative_style);
@@ -628,6 +631,35 @@ class ReportCardSectionOverridesTest extends TestCase
         app(TenantManager::class)->forget();
     }
 
+    public function test_the_cognitive_table_lists_mandatory_subjects_but_only_scored_optional_ones_and_can_drop_the_group_labels(): void
+    {
+        $data = [
+            'component_columns' => ['Test 1', 'Exam'],
+            'component_max' => ['Test 1' => 20.0, 'Exam' => 80.0],
+            'offered_subjects' => [
+                ['name' => 'English Language', 'category' => 'Languages', 'mandatory' => true],
+                ['name' => 'Physics', 'category' => null, 'mandatory' => false],
+                ['name' => 'Biology', 'category' => null, 'mandatory' => false],
+            ],
+            'subjects' => [
+                ['name' => 'Physics', 'category' => null, 'components' => ['Test 1' => 15, 'Exam' => 60], 'total' => 75, 'grade' => 'A', 'remark' => 'Excellent', 'class_average' => 60],
+            ],
+            'overall' => ['average' => 0],
+        ];
+
+        $grouped = view('school.report-cards._body-cognitive_domain', ['data' => $data, 'show' => fn ($f) => true])->render();
+        $this->assertStringContainsString('English Language', $grouped);
+        $this->assertStringContainsString('Physics', $grouped);          // optional but this student has a score
+        $this->assertStringNotContainsString('Biology', $grouped);       // optional and never taken
+        $this->assertStringContainsString('<span>Languages</span>', $grouped);
+        // (0 + 75) / (2 listed subjects x 100 marks) x 100
+        $this->assertStringContainsString('37.5%', $grouped);
+
+        $plain = view('school.report-cards._body-cognitive_domain', ['data' => $data, 'show' => fn ($f) => $f !== 'subject_groups'])->render();
+        $this->assertStringNotContainsString('<span>Languages</span>', $plain);
+        $this->assertStringContainsString('English Language', $plain);
+    }
+
     public function test_the_generic_sample_carries_groups_and_domains_so_the_grouped_sections_still_show_something_full(): void
     {
         [$school] = $this->schoolWithMember('school-owner', 'genericsampleone');
@@ -661,9 +693,12 @@ class ReportCardSectionOverridesTest extends TestCase
         $this->assertFalse($b->field_overrides['overall_remark']);
         $this->assertTrue($b->field_overrides['behavioural_traits']);
         $this->assertSame(['physical_stats', 'cognitive_domain', 'skills_domains', 'remarks'], $b->layout_override['body_order']);
-        // The plain framed sheet stays for the other sections.
+        // Secondary gets the same layout (their own subjects), but without Basic's side group labels.
+        $this->assertTrue($b->field_overrides['subject_groups']);
         $s = SchoolSectionBranding::where('section_id', $secondary->id)->first();
-        $this->assertContains('subjects_table', $s->layout_override['body_order']);
+        $this->assertSame(['physical_stats', 'cognitive_domain', 'skills_domains', 'remarks'], $s->layout_override['body_order']);
+        $this->assertFalse($s->field_overrides['subject_groups']);
+        $this->assertSame('evaluation', $s->report_card_template);
         // 16 traits, and the one the school already had is reused, not duplicated.
         $this->assertSame(16, \App\Models\Tenant\BehaviouralTrait::count());
         $this->assertSame('affective', \App\Models\Tenant\BehaviouralTrait::where('name', 'punctuality')->value('domain'));

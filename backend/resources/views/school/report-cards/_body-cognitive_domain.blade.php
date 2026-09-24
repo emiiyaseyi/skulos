@@ -12,13 +12,19 @@
   $cogCols = $data['component_columns'] ?? [];
   $cogMax = $data['component_max'] ?? [];
   $cogScores = collect($data['subjects'] ?? [])->keyBy('name');
-  $cogList = collect($data['offered_subjects'] ?? []);
+  // A mandatory subject is always listed (blank until scored); an optional
+  // one only when this student has a score for it, so a student is not
+  // shown subjects they never took (SSS students take different subjects).
+  $cogList = collect($data['offered_subjects'] ?? [])
+    ->filter(fn ($s) => ($s['mandatory'] ?? true) || $cogScores->has($s['name']))
+    ->values();
   foreach ($cogScores as $cogName => $cogRow) {
     if (! $cogList->contains('name', $cogName)) {
       $cogList->push(['name' => $cogName, 'category' => $cogRow['category'] ?? null]);
     }
   }
-  $cogGroups = $cogList->groupBy(fn ($s) => $s['category'] ?: '');
+  $cogGrouped = $show('subject_groups');
+  $cogGroups = $cogList->groupBy(fn ($s) => $cogGrouped ? ($s['category'] ?: '') : '');
   $cogSpan = 2 + count($cogCols) + 4;
   // Overall Performance (user directive 2026-09-24): the student's total
   // score as a percentage of the marks available across EVERY subject the

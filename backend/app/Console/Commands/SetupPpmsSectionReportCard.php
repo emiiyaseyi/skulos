@@ -167,18 +167,19 @@ class SetupPpmsSectionReportCard extends Command
             if (! $this->option('nursery-only')) {
                 foreach (Section::where('id', '!=', $section->id)->orderBy('sequence')->get() as $other) {
                     $existing = SchoolSectionBranding::where('section_id', $other->id)->first();
-                    // The Basic (Primary) section gets its own grouped Cognitive
-                    // Domain + Psychomotor/Affective layout (user directive
-                    // 2026-09-24, the school's Basic 1 to 5 report card, no
-                    // Overall Remarks row); every other section keeps the
-                    // plain framed scored sheet.
+                    // Every non-Nursery section gets the Cognitive Domain +
+                    // Psychomotor/Affective layout from the school's Basic 1
+                    // to 5 report card (user directives 2026-09-24, Basic
+                    // first, then "same to Secondary... their own subjects"),
+                    // no Overall Remarks row. Only the Basic (Primary)
+                    // section keeps the side group labels (Languages,
+                    // Maths & Sciences...): subjects are shared by name
+                    // across sections, so those labels would otherwise leak
+                    // onto Secondary's English and Mathematics.
                     $isBasic = $this->option('basic-section')
                         ? mb_strtolower($other->name) === mb_strtolower($this->option('basic-section'))
                         : (bool) preg_match('/basic|primary/i', $other->name);
-                    $overrides = ['physical_stats' => true, 'stamp_signature' => true];
-                    if ($isBasic) {
-                        $overrides += ['behavioural_traits' => true, 'overall_remark' => false];
-                    }
+                    $overrides = ['physical_stats' => true, 'stamp_signature' => true, 'behavioural_traits' => true, 'overall_remark' => false, 'subject_groups' => $isBasic];
                     SchoolSectionBranding::updateOrCreate(
                         ['section_id' => $other->id],
                         [
@@ -189,19 +190,13 @@ class SetupPpmsSectionReportCard extends Command
                     $layout->setSectionOverride($other, [
                         'enabled' => false,
                         'zones' => ['header' => [], 'info' => []],
-                        'body_order' => $isBasic
-                            ? ['physical_stats', 'cognitive_domain', 'skills_domains', 'remarks']
-                            : ['physical_stats', 'subjects_table', 'summary', 'behavioural_traits', 'grade_key', 'remarks'],
+                        'body_order' => ['physical_stats', 'cognitive_domain', 'skills_domains', 'remarks'],
                         'header_align' => [],
                         'body_align' => [],
                         'body_columns' => [],
                     ]);
-                    if ($isBasic) {
-                        $this->seedDomainTraits();
-                        $this->info("Section \"{$other->name}\" set to the grouped Cognitive Domain layout with the Psychomotor and Affective domains, watermark, Beginning/End tracking and the stamp beside \"Trimester Begins\".");
-                    } else {
-                        $this->info("Section \"{$other->name}\" set to the framed scored Evaluation Sheet with the same watermark, Beginning/End tracking, attendance and inline stamp as \"{$section->name}\".");
-                    }
+                    $this->seedDomainTraits();
+                    $this->info("Section \"{$other->name}\" set to the Cognitive Domain layout ".($isBasic ? 'with side group labels' : 'without side group labels').', the Psychomotor and Affective domains, watermark, Beginning/End tracking and the stamp beside "Trimester Begins".');
                 }
             }
 

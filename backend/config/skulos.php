@@ -2920,6 +2920,10 @@ If you have run into any issue at all, or have any questions, just reply to this
         // and signature images, or a grade key legend on whichever
         // template it prefers.
         'behavioural_traits' => ['label' => 'Behavioural / psychomotor traits', 'group' => 'evaluation', 'default' => false],
+        // The grouped Cognitive Domain table's side labels (Languages,
+        // Maths & Sciences...). On by default; a section whose subjects
+        // are not grouped that way (Secondary) turns it off.
+        'subject_groups' => ['label' => 'Group subjects under side labels in the Cognitive Domain table', 'group' => 'evaluation', 'default' => true],
         'physical_stats' => ['label' => 'Physical stats (height, weight, club, days present)', 'group' => 'evaluation', 'default' => false],
         // Rendered as fixed content inside the Physical & Attendance
         // column itself (user directive 2026-07-24: "you are not to add

@@ -259,8 +259,22 @@ class ReportCardService
             // Every subject this class offers, scored or not, so the grouped
             // Cognitive Domain table lists the whole class list like the
             // school's paper sheet instead of only subjects with a score.
+            // "mandatory": a subject is mandatory if the class list OR this
+            // stream's own list says so. The grouped table always lists a
+            // mandatory subject (blank until scored) but only lists an
+            // optional one the student actually has a score for, so an SSS
+            // student is not shown the subjects they never took.
             'offered_subjects' => $classArm
-                ? $classArm->offeredSubjects()->map(fn ($s) => ['name' => $s->name, 'category' => $s->category])->values()->all()
+                ? (function () use ($classArm) {
+                    $mandatory = [];
+                    foreach ([$classArm->schoolClass?->subjects ?? collect(), $classArm->subjects] as $list) {
+                        foreach ($list as $s) {
+                            $mandatory[$s->id] = ($mandatory[$s->id] ?? false) || (bool) ($s->pivot->is_mandatory ?? true);
+                        }
+                    }
+
+                    return $classArm->offeredSubjects()->map(fn ($s) => ['name' => $s->name, 'category' => $s->category, 'mandatory' => $mandatory[$s->id] ?? true])->values()->all();
+                })()
                 : [],
             'cumulative_mode' => $cumulativeMode,
             'subjects' => $subjectRows,
@@ -418,7 +432,14 @@ class ReportCardService
             }
             $maxTotal = max(1.0, array_sum(array_column($sampleComponents, 'max')));
             $sampleSubjects = [];
-            foreach ($offered->values() as $i => $subject) {
+            // A class with optional subjects (SSS) previews like one real
+            // student: every mandatory subject plus the first few optional
+            // ones, not all 25 at once.
+            $optionalTaken = 0;
+            $previewed = $offered->values()->filter(function ($s) use (&$optionalTaken) {
+                return (bool) ($s->pivot->is_mandatory ?? true) || $optionalTaken++ < 8;
+            })->values();
+            foreach ($previewed as $i => $subject) {
                 $parts = [];
                 foreach ($sampleComponents as $ci => $c) {
                     $parts[$c['name']] = (int) round($c['max'] * (0.55 + (($i * 7 + $ci * 3) % 40) / 100));
@@ -451,7 +472,7 @@ class ReportCardService
             'component_max' => $sampleSubjects ? array_column($sampleComponents, 'max', 'name') : ['First CA' => 20.0, 'Second CA' => 20.0, 'Exam' => 60.0],
             // No subject list on this class (e.g. the Layout Designer's generic preview): group the four illustrative rows so the grouped section still shows something full.
             'offered_subjects' => $offered->isNotEmpty()
-                ? $offered->map(fn ($s) => ['name' => $s->name, 'category' => $s->category])->values()->all()
+                ? $offered->map(fn ($s) => ['name' => $s->name, 'category' => $s->category, 'mandatory' => (bool) ($s->pivot->is_mandatory ?? true)])->values()->all()
                 : [
                     ['name' => 'English Studies', 'category' => 'Languages'],
                     ['name' => 'Mathematics', 'category' => 'Maths & Sciences'],
