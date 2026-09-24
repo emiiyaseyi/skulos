@@ -34,7 +34,8 @@ class SetupPpmsSectionReportCard extends Command
         {--section= : Exact section name, auto-detected if omitted}
         {--class= : Exact class name, auto-detected if omitted}
         {--nursery-only : Skip giving the other sections (Primary, Secondary) the same look}
-        {--basic-section= : Exact name of the Basic/Primary section (default: the section whose name has "basic" or "primary")}';
+        {--basic-section= : Exact name of the Basic/Primary section (default: the section whose name has "basic" or "primary")}
+        {--scored-nursery= : Exact names of the Nursery classes that enter scores, comma separated (default: "Nursery 1" and "Nursery 2")}';
 
     protected $description = "Applies PPMS's own Nursery/Kindergarten report card design (real school details, Key Assessment Areas, watermark, Trimester wording) using the general per-section report card features";
 
@@ -105,8 +106,25 @@ class SetupPpmsSectionReportCard extends Command
                 ? SchoolClass::where('section_id', $section->id)->where('name', $className)->get()
                 : SchoolClass::where('section_id', $section->id)->get();
 
+            // Nursery 1 and 2 enter scores for their subjects (user directive
+            // 2026-09-24), so they get the scored Cognitive Domain layout
+            // instead of the narrative Key Assessment Areas one; the rest of
+            // the section (Creche, Reception, KG...) stays narrative.
+            $scoredNames = $this->option('scored-nursery')
+                ? array_map(fn ($n) => mb_strtolower(trim($n)), explode(',', $this->option('scored-nursery')))
+                : null;
+            $isScored = fn (SchoolClass $c) => $scoredNames !== null
+                ? in_array(mb_strtolower(trim($c->name)), $scoredNames, true)
+                : (bool) preg_match('/^nursery\s*[12]$/i', trim($c->name));
+            $scoredClasses = $classes->filter($isScored)->values();
+            $classes = $classes->reject($isScored)->values();
+            $this->info('Scored Nursery classes (Cognitive Domain layout): '.($scoredClasses->isEmpty() ? 'none found' : $scoredClasses->pluck('name')->implode(', ')).'. If your Nursery 1 and 2 have different names, re-run with --scored-nursery="Exact A,Exact B".');
+            if ($scoredClasses->isNotEmpty()) {
+                $this->setUpScoredNurseryClasses($scoredClasses, $layout);
+            }
+
             if ($classes->isEmpty()) {
-                $this->warn('No classes found under this section (known classes: '.
+                $this->warn('No narrative classes found under this section (known classes: '.
                     SchoolClass::where('section_id', $section->id)->pluck('name')->implode(', ').
                     '). Skipping the Narrative Evaluation toggle -- turn it on manually from Academic > Narrative Evaluation for the right class(es), the rest of this setup still applies to the section.');
             } elseif ($currentTerm) {
@@ -233,6 +251,39 @@ class SetupPpmsSectionReportCard extends Command
 
             return self::SUCCESS;
         });
+    }
+
+    /**
+     * Class level settings for the Nursery classes that enter scores: the
+     * scored Evaluation Sheet with the Cognitive Domain layout, no side
+     * group labels, no Overall Remarks row, and narrative mode switched
+     * off (Narrative Evaluation is only a per class per term toggle, so
+     * removing it changes nothing else). These sit on the class itself so
+     * the section's own narrative look for the KG classes is untouched.
+     */
+    protected function setUpScoredNurseryClasses($classes, ReportCardLayout $layout): void
+    {
+        foreach ($classes as $class) {
+            ClassNarrativeTerm::where('school_class_id', $class->id)->delete();
+            $class->update([
+                'report_card_template' => 'evaluation',
+                'narrative_style' => 'comments',
+                'field_overrides' => array_merge($class->field_overrides ?? [], [
+                    'physical_stats' => true, 'stamp_signature' => true, 'behavioural_traits' => true,
+                    'overall_remark' => false, 'subject_groups' => false,
+                ]),
+            ]);
+            $layout->setClassOverride($class, [
+                'enabled' => false,
+                'zones' => ['header' => [], 'info' => []],
+                'body_order' => ['physical_stats', 'cognitive_domain', 'skills_domains', 'remarks'],
+                'header_align' => [],
+                'body_align' => [],
+                'body_columns' => [],
+            ]);
+            $this->info("Class \"{$class->name}\" set to the scored Cognitive Domain layout (narrative mode off).");
+        }
+        $this->seedDomainTraits();
     }
 
     /**

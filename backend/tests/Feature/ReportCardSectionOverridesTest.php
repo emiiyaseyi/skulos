@@ -674,6 +674,38 @@ class ReportCardSectionOverridesTest extends TestCase
         $this->assertSame(['affective', 'psychomotor'], $domains);
     }
 
+    public function test_the_ppms_command_makes_nursery_1_and_2_scored_while_the_kg_classes_stay_narrative(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'ppmsnurseryscored');
+        ['section' => $nursery, 'class' => $kg, 'term' => $term] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        $n1 = SchoolClass::create(['section_id' => $nursery->id, 'name' => 'Nursery 1', 'sequence' => 2]);
+        ClassNarrativeTerm::create(['school_class_id' => $n1->id, 'term_id' => $term->id]);
+        app(TenantManager::class)->forget();
+
+        $this->artisan('ppms:setup-report-card', ['--slug' => $school->slug])->assertExitCode(0);
+
+        app(TenantManager::class)->use($school);
+        $n1 = SchoolClass::find($n1->id);
+        $this->assertFalse($n1->isNarrativeEvaluationForTerm($term->id));
+        $this->assertSame('evaluation', $n1->report_card_template);
+        $this->assertSame(['physical_stats', 'cognitive_domain', 'skills_domains', 'remarks'], $n1->layout_override['body_order']);
+        $this->assertFalse($n1->field_overrides['subject_groups']);
+        // The KG class in the same section keeps its narrative setup.
+        $this->assertTrue(SchoolClass::find($kg->id)->isNarrativeEvaluationForTerm($term->id));
+        $this->assertNull(SchoolClass::find($kg->id)->report_card_template);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/preview/class/{$n1->id}")
+            ->assertOk()
+            ->assertSee('Cognitive Domain')
+            ->assertDontSee('Key Assessment Areas');
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/preview/class/{$kg->id}")
+            ->assertOk()
+            ->assertDontSee('Cognitive Domain');
+    }
+
     public function test_the_ppms_command_sets_up_the_basic_section_with_the_grouped_layout_and_domain_traits(): void
     {
         [$school] = $this->schoolWithMember('school-owner', 'ppmsbasictest');
