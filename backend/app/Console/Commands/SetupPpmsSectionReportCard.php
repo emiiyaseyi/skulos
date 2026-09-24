@@ -252,6 +252,9 @@ class SetupPpmsSectionReportCard extends Command
             BehaviouralTrait::DOMAIN_PSYCHOMOTOR => ['Handwriting', 'Sports', 'Musical Skills', 'Drawing & Painting', 'Verbal Fluency', 'Tools Handling'],
             BehaviouralTrait::DOMAIN_AFFECTIVE => ['Punctuality', 'Neatness', 'Politeness', 'Leadership', 'Obedience', 'Hospitality', 'Health', 'Attentiveness', 'Perseverance', 'Confidence'],
         ];
+        // The four words the school rates with (admin editable afterward on
+        // the Behavioural Traits screen).
+        \App\Support\TraitRemarkScale::save(['Fair', 'Good', 'Very Good', 'Excellent']);
         $sequence = (int) BehaviouralTrait::max('sequence');
         foreach ($domains as $domain => $names) {
             foreach ($names as $name) {

@@ -92,8 +92,28 @@
            the table-stack default (11rem is fine for a short input,
            too narrow to actually write a remark in). --}}
       <div style="overflow-x:auto">
+      @php
+        // Trait columns come grouped Psychomotor, then Affective, then any
+        // trait with no domain (BehaviouralTrait::forEntry()); a heading
+        // row above names each group so a teacher rating 16 columns can
+        // see which domain they are in.
+        $domainNames = ['psychomotor' => 'Psychomotor Domain', 'affective' => 'Affective Domain'];
+        $traitGroups = $traits->groupBy(fn ($t) => $t->domain ?: '');
+        $remarkOptions = \App\Support\TraitRemarkScale::options();
+        $fixedCols = 1 + ($tracksPhysicalStatsStart ? 4 : 2) + 1;
+      @endphp
       <table class="table-stack ce-table">
-        <thead><tr>
+        <thead>
+        @if($traits->contains(fn ($t) => $t->domain))
+          <tr class="ce-groups">
+            <th colspan="{{ $fixedCols }}"></th>
+            @foreach($traitGroups as $domainKey => $group)
+              <th colspan="{{ $group->count() }}" style="text-align:center;border-bottom:2px solid var(--accent)">{{ $domainNames[$domainKey] ?? 'Other traits' }}</th>
+            @endforeach
+            <th colspan="99"></th>
+          </tr>
+        @endif
+        <tr>
           <th style="position:sticky;left:0;background:var(--panel)">Student</th>
           @if($tracksPhysicalStatsStart)
             <th>Height (start)</th><th>Height (end)</th><th>Weight (start)</th><th>Weight (end)</th>
@@ -136,13 +156,13 @@
               @endif
               <td data-label="Club"><input name="students[{{ $student->id }}][club]" value="{{ $remark?->club }}" style="min-width:7rem" /></td>
               @foreach($traits as $trait)
-                <td data-label="{{ $trait->name }}">
+                <td data-label="{{ ($domainNames[$trait->domain] ?? null) ? str_replace(' Domain', '', $domainNames[$trait->domain]).' · ' : '' }}{{ $trait->name }}">
                   @if($trait->type === 'score')
                     <input type="number" min="0" max="{{ $trait->max_score }}" name="students[{{ $student->id }}][traits][{{ $trait->id }}]" value="{{ $studentRatings->get($trait->id)?->value }}" style="min-width:5rem" />
                   @else
                     <select name="students[{{ $student->id }}][traits][{{ $trait->id }}]" style="min-width:8rem">
                       <option value="">Not set</option>
-                      @foreach(config('skulos.behavioural_trait_remark_scale', []) as $option)
+                      @foreach($remarkOptions as $option)
                         <option value="{{ $option }}" @selected($studentRatings->get($trait->id)?->value === $option)>{{ $option }}</option>
                       @endforeach
                     </select>

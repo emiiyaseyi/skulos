@@ -20,6 +20,15 @@
   }
   $cogGroups = $cogList->groupBy(fn ($s) => $s['category'] ?: '');
   $cogSpan = 2 + count($cogCols) + 4;
+  // Overall Performance (user directive 2026-09-24): the student's total
+  // score as a percentage of the marks available across EVERY subject the
+  // class offers, i.e. total / (subjects offered x marks obtainable) x 100,
+  // so a subject not yet scored still counts in the divisor.
+  $cogPerSubject = array_sum($cogMax) ?: 100;
+  $cogTotal = collect($data['subjects'] ?? [])->sum('total');
+  $cogOverall = ($cogList->count() && count($data['subjects'] ?? []))
+    ? round($cogTotal / ($cogList->count() * $cogPerSubject) * 100, 2)
+    : null;
 @endphp
 @if($cogList->isNotEmpty())
   <div class="rc-block rc-cognitive-block">
@@ -59,7 +68,7 @@
         @endforeach
         <tr class="rc-overall-row">
           <td colspan="2"><b>Overall Performance</b></td>
-          <td colspan="{{ count($cogCols) + 4 }}" class="num"><strong>{{ count($data['subjects'] ?? []) ? ($data['overall']['average'] ?? '').'%' : '' }}</strong></td>
+          <td colspan="{{ count($cogCols) + 4 }}" class="num"><strong>{{ $cogOverall !== null ? $cogOverall.'%' : '' }}</strong></td>
         </tr>
       </tbody>
     </table>

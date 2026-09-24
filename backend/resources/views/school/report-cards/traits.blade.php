@@ -12,6 +12,18 @@
 
 @if($canManage)
   <div class="card" style="margin-bottom:1.1rem;max-width:40rem">
+    <h3 style="margin-bottom:.3rem">Rating options</h3>
+    <p class="hint" style="margin-bottom:.6rem">The words a class teacher picks from when rating a remark trait, one per line, in the order they should appear.</p>
+    <form method="POST" action="{{ route('school.report-cards.traits.scale', ['school' => $school->slug]) }}">
+      @csrf
+      <div class="field">
+        <textarea name="options" rows="5" required maxlength="500">{{ old('options', implode("\n", $remarkScale)) }}</textarea>
+        @error('options')<div class="err">{{ $message }}</div>@enderror
+      </div>
+      <button class="btn btn-primary btn-sm" type="submit">Save options</button>
+    </form>
+  </div>
+  <div class="card" style="margin-bottom:1.1rem;max-width:40rem">
     <h3 style="margin-bottom:.6rem">Add a trait</h3>
     <form method="POST" action="{{ route('school.report-cards.traits.store', ['school' => $school->slug]) }}">
       @csrf
@@ -32,6 +44,14 @@
         <label for="max_score">Maximum score</label>
         <input id="max_score" name="max_score" type="number" min="1" max="1000" value="{{ old('max_score', 5) }}" />
       </div>
+      <div class="field">
+        <label for="domain">Domain</label>
+        <select id="domain" name="domain">
+          <option value="">None (plain behavioural trait)</option>
+          <option value="psychomotor" @selected(old('domain') === 'psychomotor')>Psychomotor</option>
+          <option value="affective" @selected(old('domain') === 'affective')>Affective</option>
+        </select>
+      </div>
       <button class="btn btn-primary btn-sm" type="submit">Add trait</button>
     </form>
   </div>
@@ -48,7 +68,7 @@
     <table>
       <thead><tr>
         @if($canManage)<th style="width:2.2rem"><input type="checkbox" id="trait-select-all" aria-label="Select all traits" /></th>@endif
-        <th>Name</th><th>Type</th><th>Status</th>@if($canManage)<th></th>@endif</tr></thead>
+        <th>Name</th><th>Type</th><th>Domain</th><th>Status</th>@if($canManage)<th></th>@endif</tr></thead>
       <tbody>
         @foreach($traits as $trait)
           <tr>
@@ -57,6 +77,7 @@
             @endif
             <td><strong>{{ $trait->name }}</strong></td>
             <td class="muted">{{ $trait->type === 'score' ? 'Score (0 to '.$trait->max_score.')' : 'Remark' }}</td>
+            <td class="muted">{{ ['psychomotor' => 'Psychomotor', 'affective' => 'Affective'][$trait->domain] ?? 'None' }}</td>
             <td><span class="badge {{ $trait->is_active ? 'badge-ok' : 'badge-warn' }}">{{ $trait->is_active ? 'Active' : 'Retired' }}</span></td>
             @if($canManage)
               <td style="white-space:nowrap">
@@ -78,6 +99,14 @@
                     <div class="field" id="maxScoreField_{{ $trait->id }}" style="{{ $trait->type === 'score' ? '' : 'display:none' }}">
                       <label for="max_score_{{ $trait->id }}">Maximum score</label>
                       <input id="max_score_{{ $trait->id }}" name="max_score" type="number" min="1" max="1000" value="{{ $trait->max_score ?: 5 }}" />
+                    </div>
+                    <div class="field">
+                      <label for="domain_{{ $trait->id }}">Domain</label>
+                      <select id="domain_{{ $trait->id }}" name="domain">
+                        <option value="">None (plain behavioural trait)</option>
+                        <option value="psychomotor" @selected($trait->domain === 'psychomotor')>Psychomotor</option>
+                        <option value="affective" @selected($trait->domain === 'affective')>Affective</option>
+                      </select>
                     </div>
                     <button class="btn btn-primary btn-sm" type="submit">Save</button>
                   </form>

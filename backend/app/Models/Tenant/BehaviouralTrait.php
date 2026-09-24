@@ -47,4 +47,15 @@ class BehaviouralTrait extends Model
     {
         return $query->where('is_active', true);
     }
+
+    /**
+     * Order for class teacher entry and its CSV template/upload: Psychomotor
+     * first, then Affective, then any trait with no domain, each group in
+     * its own sequence. All three places must agree because the CSV columns
+     * are positional.
+     */
+    public function scopeForEntry($query)
+    {
+        return $query->orderByRaw("case domain when 'psychomotor' then 0 when 'affective' then 1 else 2 end")->orderBy('sequence');
+    }
 }

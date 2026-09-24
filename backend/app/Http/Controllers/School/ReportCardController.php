@@ -1992,7 +1992,7 @@ class ReportCardController extends Controller
         }
 
         app(\App\Services\Results\BehaviouralTraitCatalog::class)->ensureSeeded();
-        $traits = \App\Models\Tenant\BehaviouralTrait::active()->orderBy('sequence')->get();
+        $traits = \App\Models\Tenant\BehaviouralTrait::active()->forEntry()->get();
 
         $students = Student::whereIn('current_class_arm_id', $armIds)->active()->orderBy('last_name')->get();
         $studentIds = $students->pluck('id');
@@ -2166,7 +2166,7 @@ class ReportCardController extends Controller
         }
 
         $students = Student::whereIn('current_class_arm_id', $armIds)->active()->orderBy('last_name')->get();
-        $traits = \App\Models\Tenant\BehaviouralTrait::active()->orderBy('sequence')->get();
+        $traits = \App\Models\Tenant\BehaviouralTrait::active()->forEntry()->get();
         $prefs = app(ReportCardPreferences::class);
         $narrativeClass = $class->isNarrativeEvaluationForTerm($term->id);
         $subjects = ($narrativeClass || $prefs->shows('subject_comments'))
@@ -2187,7 +2187,8 @@ class ReportCardController extends Controller
                 : ['Height', 'Weight']);
             $header[] = 'Club';
             foreach ($traits as $trait) {
-                $header[] = $trait->name;
+                // Column heading carries the domain so a teacher filling the sheet in Excel can see which of the two grids each column belongs to.
+                $header[] = ($trait->domain ? ucfirst($trait->domain).': ' : '').$trait->name;
             }
             foreach ($subjects as $subject) {
                 $header[] = $subject->name.' comment';
@@ -2243,7 +2244,7 @@ class ReportCardController extends Controller
         $data = $request->validate(['file' => ['required', 'file', 'mimes:csv,txt']]);
 
         $students = Student::whereIn('current_class_arm_id', $armIds)->active()->get()->keyBy('admission_number');
-        $traits = \App\Models\Tenant\BehaviouralTrait::active()->orderBy('sequence')->get();
+        $traits = \App\Models\Tenant\BehaviouralTrait::active()->forEntry()->get();
         $prefs = app(ReportCardPreferences::class);
         $narrativeClass = $class->isNarrativeEvaluationForTerm($term->id);
         $subjects = ($narrativeClass || $prefs->shows('subject_comments'))
@@ -2251,12 +2252,13 @@ class ReportCardController extends Controller
             : collect();
         $canEnterPrincipalRemark = app(Rbac::class)->check($user, $school, 'report_cards.release');
         $tracksStart = $prefs->tracksPhysicalStatsStartFor($class);
-        $remarkScale = config('skulos.behavioural_trait_remark_scale', []);
+        $remarkScale = \App\Support\TraitRemarkScale::options();
 
         $handle = fopen($data['file']->getRealPath(), 'r');
         fgetcsv($handle); // header row, columns are positional per classEntryTemplate() above
         $updated = 0;
         $skipped = 0;
+        $badRatings = 0;
         while (($line = fgetcsv($handle)) !== false) {
             $cursor = 0;
             $admissionNumber = trim((string) ($line[$cursor++] ?? ''));
@@ -2290,10 +2292,19 @@ class ReportCardController extends Controller
                     continue;
                 }
                 if ($trait->type === 'score' && ! is_numeric($value)) {
+                    $badRatings++;
+
                     continue;
                 }
-                if ($trait->type !== 'score' && ! in_array($value, $remarkScale, true)) {
-                    continue;
+                if ($trait->type !== 'score') {
+                    // Accept the school's own words whatever the capitals ("very good" from Excel), stored exactly as the school spells them.
+                    $canonical = collect($remarkScale)->first(fn ($o) => mb_strtolower($o) === mb_strtolower($value));
+                    if ($canonical === null) {
+                        $badRatings++;
+
+                        continue;
+                    }
+                    $value = $canonical;
                 }
                 \App\Models\Tenant\StudentBehaviouralRating::updateOrCreate(
                     ['student_id' => $student->id, 'term_id' => $term->id, 'behavioural_trait_id' => $trait->id],
@@ -2335,7 +2346,12 @@ class ReportCardController extends Controller
         }
         fclose($handle);
 
-        return back()->with('status', "Class entry uploaded for {$updated} student(s)".($skipped > 0 ? ", {$skipped} row(s) skipped (unrecognized admission number)." : '.'));
+        $message = "Class entry uploaded for {$updated} student(s)".($skipped > 0 ? ", {$skipped} row(s) skipped (unrecognized admission number)." : '.');
+        if ($badRatings > 0) {
+            $message .= " {$badRatings} rating(s) were left out because they are not one of: ".implode(', ', $remarkScale).' (or a number for score traits).';
+        }
+
+        return back()->with('status', $message);
     }
 
     /**

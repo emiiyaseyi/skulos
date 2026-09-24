@@ -47,7 +47,7 @@ class BehaviouralTraitController extends Controller
             'school' => $school,
             'accent' => $school->branding()['color'],
             'traits' => BehaviouralTrait::orderBy('sequence')->orderBy('id')->get(),
-            'remarkScale' => config('skulos.behavioural_trait_remark_scale', []),
+            'remarkScale' => \App\Support\TraitRemarkScale::options(),
             'canManage' => app(Rbac::class)->check(Auth::user(), $school, 'report_cards.assign_review'),
         ]);
     }
@@ -59,11 +59,13 @@ class BehaviouralTraitController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'type' => ['required', Rule::in([BehaviouralTrait::TYPE_REMARK, BehaviouralTrait::TYPE_SCORE])],
             'max_score' => ['nullable', 'integer', 'min:1', 'max:1000'],
+            'domain' => ['nullable', Rule::in([BehaviouralTrait::DOMAIN_PSYCHOMOTOR, BehaviouralTrait::DOMAIN_AFFECTIVE])],
         ]);
 
         BehaviouralTrait::create([
             'name' => $data['name'],
             'type' => $data['type'],
+            'domain' => $data['domain'] ?? null,
             'max_score' => $data['type'] === BehaviouralTrait::TYPE_SCORE ? ($data['max_score'] ?? 5) : null,
             'sequence' => (int) BehaviouralTrait::max('sequence') + 1,
         ]);
@@ -80,15 +82,43 @@ class BehaviouralTraitController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'type' => ['required', Rule::in([BehaviouralTrait::TYPE_REMARK, BehaviouralTrait::TYPE_SCORE])],
             'max_score' => ['nullable', 'integer', 'min:1', 'max:1000'],
+            'domain' => ['nullable', Rule::in([BehaviouralTrait::DOMAIN_PSYCHOMOTOR, BehaviouralTrait::DOMAIN_AFFECTIVE])],
         ]);
 
         $trait->update([
             'name' => $data['name'],
             'type' => $data['type'],
+            'domain' => $data['domain'] ?? null,
             'max_score' => $data['type'] === BehaviouralTrait::TYPE_SCORE ? ($data['max_score'] ?? 5) : null,
         ]);
 
         return back()->with('status', "\"{$trait->name}\" updated.");
+    }
+
+    /**
+     * The words a class teacher picks from for a remark type trait (user
+     * directive 2026-09-24: "Fair, Good, Very Good and Excellent... the
+     * admin can change them as needed"). One word per line, best kept in
+     * the order they should appear in the dropdown.
+     */
+    public function updateScale(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorizeAction($request, 'report_cards.assign_review');
+        $data = $request->validate(['options' => ['required', 'string', 'max:500']]);
+
+        $options = collect(preg_split('/\r\n|\r|\n/', $data['options']))
+            ->map(fn ($o) => trim($o))
+            ->filter(fn ($o) => $o !== '')
+            ->unique(fn ($o) => mb_strtolower($o))
+            ->values();
+
+        if ($options->isEmpty() || $options->count() > 10 || $options->contains(fn ($o) => mb_strlen($o) > 40)) {
+            return back()->withErrors(['options' => 'Give between 1 and 10 words, one per line, each under 40 characters.'])->withInput();
+        }
+
+        \App\Support\TraitRemarkScale::save($options->all());
+
+        return back()->with('status', 'Rating options saved: '.$options->implode(', ').'.');
     }
 
     public function toggleActive(Request $request): \Illuminate\Http\RedirectResponse

@@ -567,6 +567,8 @@ class ReportCardSectionOverridesTest extends TestCase
             ->assertOk()
             ->assertSee('Cognitive Domain')
             ->assertSee('Marks Obtainable')
+            // (57 + 64) / (2 subjects offered x 100 marks) x 100
+            ->assertSee('60.5%')
             ->assertSee('Test 1')
             ->assertSee('English Language')
             ->assertSee('<span>Languages</span>', false)
@@ -577,6 +579,67 @@ class ReportCardSectionOverridesTest extends TestCase
             ->assertSee('Punctuality')
             // A trait with no domain is not part of the two domain grids.
             ->assertDontSee('Honesty');
+    }
+
+    public function test_teachers_rate_psychomotor_and_affective_traits_from_the_schools_own_words_by_screen_or_template(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'domainentryone');
+        ['class' => $class, 'term' => $term, 'student' => $student] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        \App\Models\Tenant\BehaviouralTrait::create(['name' => 'Punctuality', 'type' => 'remark', 'domain' => 'affective', 'sequence' => 1]);
+        $sports = \App\Models\Tenant\BehaviouralTrait::create(['name' => 'Sports', 'type' => 'remark', 'domain' => 'psychomotor', 'sequence' => 2]);
+        $honesty = \App\Models\Tenant\BehaviouralTrait::create(['name' => 'Honesty', 'type' => 'remark', 'sequence' => 3]);
+        app(TenantManager::class)->forget();
+
+        // The admin sets the words teachers pick from.
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/traits/rating-options", [
+            'options' => "Fair\nGood\nVery Good\nExcellent\ngood",
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        app(TenantManager::class)->use($school);
+        $this->assertSame(['Fair', 'Good', 'Very Good', 'Excellent'], \App\Support\TraitRemarkScale::options());
+        app(TenantManager::class)->forget();
+
+        // The entry screen: columns grouped under the two domains, dropdown from those words only.
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/classes/{$class->id}/entry?term_id={$term->id}")
+            ->assertOk()
+            ->assertSee('Psychomotor Domain')
+            ->assertSee('Affective Domain')
+            ->assertSee('<option value="Very Good"', false)
+            ->assertDontSee('<option value="Weak"', false);
+
+        // The bulk template: Psychomotor, then Affective, then the rest, labelled by domain.
+        $template = $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/classes/{$class->id}/entry/template?term_id={$term->id}")->assertOk();
+        $header = strtok($template->streamedContent(), "\n");
+        $this->assertStringContainsString('"Psychomotor: Sports","Affective: Punctuality",Honesty', $header);
+
+        // Upload fills every student; the school's words match whatever the capitals, anything else is left out and reported.
+        $csv = "Admission Number,Student Name,Height,Weight,Club,Psychomotor: Sports,Affective: Punctuality,Honesty,Overall Remark,Class Teacher Remark\n"
+            ."{$student->admission_number},{$student->fullName()},,,,very good,EXCELLENT,Bogus,,\n";
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/report-cards/classes/{$class->id}/entry/upload", [
+            'term_id' => $term->id,
+            'file' => \Illuminate\Http\UploadedFile::fake()->createWithContent('filled.csv', $csv),
+        ])->assertRedirect()->assertSessionHas('status', fn ($s) => str_contains($s, '1 rating(s) were left out'));
+
+        app(TenantManager::class)->use($school);
+        $rating = fn ($traitId) => \App\Models\Tenant\StudentBehaviouralRating::where('student_id', $student->id)->where('term_id', $term->id)->where('behavioural_trait_id', $traitId)->value('value');
+        $this->assertSame('Very Good', $rating($sports->id));
+        $this->assertNull($rating($honesty->id));
+        app(TenantManager::class)->forget();
+    }
+
+    public function test_the_generic_sample_carries_groups_and_domains_so_the_grouped_sections_still_show_something_full(): void
+    {
+        [$school] = $this->schoolWithMember('school-owner', 'genericsampleone');
+        app(TenantManager::class)->use($school);
+        $data = app(\App\Services\ReportCards\ReportCardService::class)->sample();
+        app(TenantManager::class)->forget();
+
+        $this->assertSame(['Languages', 'Maths & Sciences', 'Maths & Sciences', 'Arts & Culture'], array_column($data['offered_subjects'], 'category'));
+        $this->assertSame(['First CA' => 20.0, 'Second CA' => 20.0, 'Exam' => 60.0], $data['component_max']);
+        $domains = array_unique(array_column($data['traits'], 'domain'));
+        sort($domains);
+        $this->assertSame(['affective', 'psychomotor'], $domains);
     }
 
     public function test_the_ppms_command_sets_up_the_basic_section_with_the_grouped_layout_and_domain_traits(): void

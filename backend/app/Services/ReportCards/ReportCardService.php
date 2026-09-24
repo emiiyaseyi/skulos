@@ -449,7 +449,15 @@ class ReportCardService
             'report_type' => ReportCardReview::REPORT_TYPE_FULL_TERM,
             'component_columns' => $sampleSubjects ? array_column($sampleComponents, 'name') : ['First CA', 'Second CA', 'Exam'],
             'component_max' => $sampleSubjects ? array_column($sampleComponents, 'max', 'name') : ['First CA' => 20.0, 'Second CA' => 20.0, 'Exam' => 60.0],
-            'offered_subjects' => $offered->map(fn ($s) => ['name' => $s->name, 'category' => $s->category])->values()->all(),
+            // No subject list on this class (e.g. the Layout Designer's generic preview): group the four illustrative rows so the grouped section still shows something full.
+            'offered_subjects' => $offered->isNotEmpty()
+                ? $offered->map(fn ($s) => ['name' => $s->name, 'category' => $s->category])->values()->all()
+                : [
+                    ['name' => 'English Studies', 'category' => 'Languages'],
+                    ['name' => 'Mathematics', 'category' => 'Maths & Sciences'],
+                    ['name' => 'Basic Science', 'category' => 'Maths & Sciences'],
+                    ['name' => 'Civic Education', 'category' => 'Arts & Culture'],
+                ],
             'cumulative_mode' => $sampleSubjects ? ReportCardCumulativePolicy::MODE_OFF : ReportCardCumulativePolicy::MODE_AVERAGE,
             'subjects' => $sampleSubjects ?? [
                 ['name' => 'Mathematics', 'components' => ['First CA' => 18, 'Second CA' => 17, 'Exam' => 50], 'total' => 85, 'grade' => 'A', 'remark' => 'Distinction', 'position' => 1, 'class_average' => 68.4, 'highest' => 92, 'lowest' => 31, 'previous_terms' => ['First Term' => 78.0, 'Second Term' => 81.0], 'cumulative_average' => 81.33],
@@ -478,12 +486,12 @@ class ReportCardService
                 'class_teacher_name' => 'Mrs. F. Adigun', 'class_teacher_phone' => '0803 123 4567',
             ],
             'traits' => $sampleTraits ?? [
-                ['name' => 'Punctuality', 'type' => 'remark', 'value' => 'Excellent'],
-                ['name' => 'Neatness', 'type' => 'remark', 'value' => 'Very Good'],
-                ['name' => 'Honesty', 'type' => 'remark', 'value' => 'Excellent'],
-                ['name' => 'Cooperation', 'type' => 'remark', 'value' => 'Good'],
-                ['name' => 'Handling of Tools', 'type' => 'score', 'value' => 4],
-                ['name' => 'Sports', 'type' => 'score', 'value' => 5],
+                ['name' => 'Punctuality', 'type' => 'remark', 'domain' => 'affective', 'value' => 'Excellent'],
+                ['name' => 'Neatness', 'type' => 'remark', 'domain' => 'affective', 'value' => 'Very Good'],
+                ['name' => 'Honesty', 'type' => 'remark', 'domain' => 'affective', 'value' => 'Excellent'],
+                ['name' => 'Cooperation', 'type' => 'remark', 'domain' => 'affective', 'value' => 'Good'],
+                ['name' => 'Handling of Tools', 'type' => 'score', 'domain' => 'psychomotor', 'value' => 4],
+                ['name' => 'Sports', 'type' => 'score', 'domain' => 'psychomotor', 'value' => 5],
             ],
             'narrative_style' => $narrativeStyle,
             'skill_areas' => $skillAreas,

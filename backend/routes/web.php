@@ -1352,6 +1352,7 @@ Route::domain('{school}.'.$appDomain)->middleware('tenant')->group(function () {
             Route::get('/', [$traits, 'index'])->name('index');
             Route::post('/', [$traits, 'store'])->name('store');
             Route::post('/bulk-action', [$traits, 'bulkAction'])->name('bulk-action');
+            Route::post('/rating-options', [$traits, 'updateScale'])->name('scale');
             Route::post('/{traitId}', [$traits, 'update'])->name('update');
             Route::post('/{traitId}/toggle-active', [$traits, 'toggleActive'])->name('toggle-active');
         });
