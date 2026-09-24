@@ -232,8 +232,11 @@
   .rc-eval .rc-summary .box{background:transparent;border:1px solid #444;border-radius:0}
   {{-- Grouped Cognitive Domain and the Psychomotor / Affective grids (2026-09-24). --}}
   .rc-bordered-table td.num{text-align:center;vertical-align:middle}
+  {{-- inline-block, so the sideways label is one box the cell can centre both ways (user 2026-09-24: centre each group label within its rows). --}}
   .rc-vgroup{width:1.7rem;text-align:center;vertical-align:middle;padding:.15rem}
-  .rc-vgroup span{writing-mode:vertical-rl;transform:rotate(180deg);font-weight:700;text-transform:uppercase;font-size:.68rem;letter-spacing:.04em;white-space:nowrap}
+  .rc-vgroup span{display:inline-block;vertical-align:middle;writing-mode:vertical-rl;transform:rotate(180deg);text-align:center;font-weight:700;text-transform:uppercase;font-size:.68rem;letter-spacing:.04em;white-space:nowrap}
+  {{-- Attendance and weight/height labels in bold on every report card (user 2026-09-24). --}}
+  .rc-attend-physical td.rc-lbl{font-weight:700}
   .rc-eval .rc-cognitive{font-size:.8rem;margin-bottom:.5rem}
   .rc-eval .rc-cognitive th{font-size:.74rem;padding:.25rem .3rem}
   .rc-eval .rc-cognitive td{padding:.18rem .35rem}
@@ -242,8 +245,11 @@
   .rc-domains .rc-bordered-table{margin-bottom:.5rem}
   .rc-eval .rc-domains td{font-size:.78rem;padding:.18rem .35rem}
   .rc-domains td.num{width:5.4rem;white-space:nowrap}
+  {{-- Subject names and trait names in bold capitals, as on the school's own sheet (user 2026-09-24). --}}
+  .rc-cognitive td.rc-subj,.rc-domains td.rc-trait{font-weight:700;text-transform:uppercase}
   .rc-bordered-table td.rc-num{text-align:center;vertical-align:middle}
-  .rc-eval .rc-attend-physical .rc-subhead th{font-weight:400;text-transform:none;font-size:.85rem}
+  .rc-attend-physical .rc-subhead th{font-weight:700}
+  .rc-eval .rc-attend-physical .rc-subhead th{font-weight:700;text-transform:none;font-size:.85rem}
   .rc-eval .rc-remarks-table{margin-top:auto}
   .rc-eval .rc-remarks-table td{font-weight:700;height:3rem}
   .rc-eval .rc-remarks-table tr:last-child td{height:5.5rem;vertical-align:bottom}

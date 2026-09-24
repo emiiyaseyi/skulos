@@ -20,7 +20,7 @@
         <thead><tr><th colspan="2">Psychomotor Domain</th></tr></thead>
         <tbody>
           @foreach($psy as $t)
-            <tr><td>{{ $t['name'] }}</td><td class="num">{{ $t['value'] ?? '' }}</td></tr>
+            <tr><td class="rc-trait">{{ $t['name'] }}</td><td class="num">{{ $t['value'] ?? '' }}</td></tr>
           @endforeach
         </tbody>
       </table>
@@ -33,8 +33,8 @@
             @php($left = $aff[$i] ?? null)
             @php($right = $aff[$i + $affRows] ?? null)
             <tr>
-              <td>{{ $left['name'] ?? '' }}</td><td class="num">{{ $left['value'] ?? '' }}</td>
-              <td>{{ $right['name'] ?? '' }}</td><td class="num">{{ $right['value'] ?? '' }}</td>
+              <td class="rc-trait">{{ $left['name'] ?? '' }}</td><td class="num">{{ $left['value'] ?? '' }}</td>
+              <td class="rc-trait">{{ $right['name'] ?? '' }}</td><td class="num">{{ $right['value'] ?? '' }}</td>
             </tr>
           @endfor
         </tbody>

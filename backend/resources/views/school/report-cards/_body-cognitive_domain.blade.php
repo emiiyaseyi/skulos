@@ -63,7 +63,7 @@
               @if($groupLabel !== '' && $i === 0)
                 <td rowspan="{{ $groupSubjects->count() }}" class="rc-vgroup"><span>{{ $groupLabel }}</span></td>
               @endif
-              <td @if($groupLabel === '') colspan="2" @endif>{{ $sub['name'] }}</td>
+              <td class="rc-subj" @if($groupLabel === '') colspan="2" @endif>{{ $sub['name'] }}</td>
               @foreach($cogCols as $c)<td class="num">{{ $row['components'][$c] ?? '' }}</td>@endforeach
               <td class="num"><strong>{{ $row['total'] ?? '' }}</strong></td>
               <td class="num">{{ $row['class_average'] ?? '' }}</td>

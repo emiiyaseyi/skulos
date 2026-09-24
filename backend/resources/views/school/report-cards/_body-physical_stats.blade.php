@@ -44,14 +44,14 @@
         <tr>
           <td rowspan="2" class="rc-num">{{ $data['physical']['total_school_days'] ?? 'N/A' }}</td>
           <td rowspan="2" class="rc-num">{{ $data['attendance']['present'] ?? 'N/A' }}</td>
-          <td>Weight:</td>
+          <td class="rc-lbl">Weight:</td>
           @if($tracksStart)
             <td class="rc-num">{{ $data['physical']['weight_start'] ?? 'N/A' }}</td>
           @endif
           <td class="rc-num">{{ $data['physical']['weight'] ?? 'N/A' }}</td>
         </tr>
         <tr>
-          <td>Height:</td>
+          <td class="rc-lbl">Height:</td>
           @if($tracksStart)
             <td class="rc-num">{{ $data['physical']['height_start'] ?? 'N/A' }}</td>
           @endif
