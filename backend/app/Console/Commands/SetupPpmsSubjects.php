@@ -60,6 +60,13 @@ class SetupPpmsSubjects extends Command
         ],
     ];
 
+    /** The Basic report card's subject groups, in the order the school's own sheet shows them (used for the grouped Cognitive Domain table). */
+    protected const BASIC_GROUPS = [
+        'Languages' => ['ENGLISH LANGUAGE', 'PHONICS & VERBAL REASONING', 'PHONETICS', 'FRENCH LANGUAGE', 'YORUBA LANGUAGE'],
+        'Maths & Sciences' => ['BASIC SCIENCE', 'ICT', 'PHYSICAL & HEALTH EDUCATION', 'GENERAL & VOCATIONAL STUDIES', 'MATHEMATICS', 'QUANT/M. MATH', 'CIVICS & CULTURAL STUDIES'],
+        'Arts & Culture' => ['MUSIC & CREATIVE ARTS', 'HAND WRITING SKILLS', 'CRS', 'MORAL & ETHICS STUDIES'],
+    ];
+
     protected const DEFAULT_MATCH = [
         'nursery' => '/^nursery\s*[12]$/i',
         'basic' => '/^basic\s*[1-5]$/i',
@@ -155,6 +162,23 @@ class SetupPpmsSubjects extends Command
                     }
                     if ($w['toDetach']->isNotEmpty()) {
                         $class->subjects()->detach($w['toDetach']->pluck('id')->all());
+                    }
+                }
+
+                // Basic subjects get their group label and the sheet's own order.
+                // They keep the same set of sequence numbers they already
+                // held (just reassigned in the sheet's order), so no other
+                // subject list is shuffled around them.
+                if (collect($work)->contains(fn ($w) => $w['p']['group'] === 'basic')) {
+                    $ordered = [];
+                    foreach (self::BASIC_GROUPS as $category => $names) {
+                        foreach ($names as $raw) {
+                            $ordered[] = [$category, $catalog[$this->key($raw)]];
+                        }
+                    }
+                    $slots = collect($ordered)->map(fn ($o) => (int) $o[1]->sequence)->sort()->values();
+                    foreach ($ordered as $i => [$category, $subject]) {
+                        $subject->update(['category' => $category, 'sequence' => $slots[$i]]);
                     }
                 }
             });

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\School;
+use App\Models\Tenant\BehaviouralTrait;
 use App\Models\Tenant\ClassNarrativeTerm;
 use App\Models\Tenant\ReportCardSkillArea;
 use App\Models\Tenant\SchoolClass;
@@ -32,7 +33,8 @@ class SetupPpmsSectionReportCard extends Command
         {--slug=ppms : The school slug to apply this to}
         {--section= : Exact section name, auto-detected if omitted}
         {--class= : Exact class name, auto-detected if omitted}
-        {--nursery-only : Skip giving the other sections (Primary, Secondary) the same look}';
+        {--nursery-only : Skip giving the other sections (Primary, Secondary) the same look}
+        {--basic-section= : Exact name of the Basic/Primary section (default: the section whose name has "basic" or "primary")}';
 
     protected $description = "Applies PPMS's own Nursery/Kindergarten report card design (real school details, Key Assessment Areas, watermark, Trimester wording) using the general per-section report card features";
 
@@ -165,22 +167,41 @@ class SetupPpmsSectionReportCard extends Command
             if (! $this->option('nursery-only')) {
                 foreach (Section::where('id', '!=', $section->id)->orderBy('sequence')->get() as $other) {
                     $existing = SchoolSectionBranding::where('section_id', $other->id)->first();
+                    // The Basic (Primary) section gets its own grouped Cognitive
+                    // Domain + Psychomotor/Affective layout (user directive
+                    // 2026-09-24, the school's Basic 1 to 5 report card, no
+                    // Overall Remarks row); every other section keeps the
+                    // plain framed scored sheet.
+                    $isBasic = $this->option('basic-section')
+                        ? mb_strtolower($other->name) === mb_strtolower($this->option('basic-section'))
+                        : (bool) preg_match('/basic|primary/i', $other->name);
+                    $overrides = ['physical_stats' => true, 'stamp_signature' => true];
+                    if ($isBasic) {
+                        $overrides += ['behavioural_traits' => true, 'overall_remark' => false];
+                    }
                     SchoolSectionBranding::updateOrCreate(
                         ['section_id' => $other->id],
                         [
                             'report_card_template' => 'evaluation', 'watermark_enabled' => true, 'tracks_physical_stats_start' => true,
-                            'field_overrides' => array_merge($existing?->field_overrides ?? [], ['physical_stats' => true, 'stamp_signature' => true]),
+                            'field_overrides' => array_merge($existing?->field_overrides ?? [], $overrides),
                         ]
                     );
                     $layout->setSectionOverride($other, [
                         'enabled' => false,
                         'zones' => ['header' => [], 'info' => []],
-                        'body_order' => ['physical_stats', 'subjects_table', 'summary', 'behavioural_traits', 'grade_key', 'remarks'],
+                        'body_order' => $isBasic
+                            ? ['physical_stats', 'cognitive_domain', 'skills_domains', 'remarks']
+                            : ['physical_stats', 'subjects_table', 'summary', 'behavioural_traits', 'grade_key', 'remarks'],
                         'header_align' => [],
                         'body_align' => [],
                         'body_columns' => [],
                     ]);
-                    $this->info("Section \"{$other->name}\" set to the framed scored Evaluation Sheet with the same watermark, Beginning/End tracking, attendance and inline stamp as \"{$section->name}\".");
+                    if ($isBasic) {
+                        $this->seedDomainTraits();
+                        $this->info("Section \"{$other->name}\" set to the grouped Cognitive Domain layout with the Psychomotor and Affective domains, watermark, Beginning/End tracking and the stamp beside \"Trimester Begins\".");
+                    } else {
+                        $this->info("Section \"{$other->name}\" set to the framed scored Evaluation Sheet with the same watermark, Beginning/End tracking, attendance and inline stamp as \"{$section->name}\".");
+                    }
                 }
             }
 
@@ -217,5 +238,30 @@ class SetupPpmsSectionReportCard extends Command
 
             return self::SUCCESS;
         });
+    }
+
+    /**
+     * The Basic report card's Psychomotor and Affective domain traits
+     * (from the school's own sheet). An existing trait of the same name
+     * is kept and only tagged with its domain, so ratings already entered
+     * stay attached; other traits the school has are left untouched.
+     */
+    protected function seedDomainTraits(): void
+    {
+        $domains = [
+            BehaviouralTrait::DOMAIN_PSYCHOMOTOR => ['Handwriting', 'Sports', 'Musical Skills', 'Drawing & Painting', 'Verbal Fluency', 'Tools Handling'],
+            BehaviouralTrait::DOMAIN_AFFECTIVE => ['Punctuality', 'Neatness', 'Politeness', 'Leadership', 'Obedience', 'Hospitality', 'Health', 'Attentiveness', 'Perseverance', 'Confidence'],
+        ];
+        $sequence = (int) BehaviouralTrait::max('sequence');
+        foreach ($domains as $domain => $names) {
+            foreach ($names as $name) {
+                $trait = BehaviouralTrait::whereRaw('lower(name) = ?', [mb_strtolower($name)])->first();
+                if ($trait) {
+                    $trait->update(['domain' => $domain, 'is_active' => true]);
+                } else {
+                    BehaviouralTrait::create(['name' => $name, 'type' => BehaviouralTrait::TYPE_REMARK, 'domain' => $domain, 'sequence' => ++$sequence, 'is_active' => true]);
+                }
+            }
+        }
     }
 }

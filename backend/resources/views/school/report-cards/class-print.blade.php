@@ -109,6 +109,17 @@
   .rc-eval .rc-table th,.rc-eval .rc-table td{border:0;border-right:1px solid #444;border-bottom:1px solid #444;padding:.4rem .5rem}
   .rc-eval .rc-table th{background:transparent;color:#1a1a1a;font-weight:700;font-size:.8rem;letter-spacing:0;text-align:center}
   .rc-eval .rc-summary .box{background:transparent;border:1px solid #444;border-radius:0}
+  .rc-bordered-table td.num{text-align:center;vertical-align:middle}
+  .rc-vgroup{width:1.7rem;text-align:center;vertical-align:middle;padding:.15rem}
+  .rc-vgroup span{writing-mode:vertical-rl;transform:rotate(180deg);font-weight:700;text-transform:uppercase;font-size:.68rem;letter-spacing:.04em;white-space:nowrap}
+  .rc-eval .rc-cognitive{font-size:.8rem;margin-bottom:.5rem}
+  .rc-eval .rc-cognitive th{font-size:.74rem;padding:.25rem .3rem}
+  .rc-eval .rc-cognitive td{padding:.18rem .35rem}
+  .rc-eval .rc-marks-row th{font-weight:700}
+  .rc-domains{display:grid;grid-template-columns:1fr 1.6fr;gap:.7rem;align-items:start}
+  .rc-domains .rc-bordered-table{margin-bottom:.5rem}
+  .rc-eval .rc-domains td{font-size:.78rem;padding:.18rem .35rem}
+  .rc-domains td.num{width:5.4rem;white-space:nowrap}
   .rc-bordered-table td.rc-num{text-align:center;vertical-align:middle}
   .rc-eval .rc-attend-physical .rc-subhead th{font-weight:400;text-transform:none;font-size:.85rem}
   .rc-eval .rc-remarks-table{margin-top:auto}
@@ -152,6 +163,12 @@
     .rc-eval .rc-table{font-size:.95rem}
     .rc-eval .rc-table th{font-size:.85rem}
     .rc-eval .rc-table th,.rc-eval .rc-table td{padding:.28rem .45rem}
+    .rc-eval .rc-cognitive{font-size:.8rem}
+    .rc-eval .rc-cognitive th{font-size:.74rem;padding:.12rem .3rem}
+    .rc-eval .rc-cognitive td{padding:.05rem .3rem}
+    .rc-eval .rc-domains td{font-size:.76rem;padding:.06rem .3rem}
+    .rc-eval:has(.rc-cognitive) .rc-remarks-table td{height:2rem}
+    .rc-eval:has(.rc-cognitive) .rc-remarks-table tr:last-child td{height:3.4rem}
     .rc-eval .rc-head .rc-logo{width:118px;height:118px}
     .rc-eval .rc-remarks-table td{height:2.6rem}
     .rc-eval .rc-remarks-table tr:last-child td{height:4.5rem}

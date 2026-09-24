@@ -543,6 +543,71 @@ class ReportCardSectionOverridesTest extends TestCase
         $this->artisan('ppms:setup-report-card', ['--slug' => $school->slug, '--nursery-only' => true])->assertExitCode(0);
     }
 
+    public function test_the_grouped_cognitive_domain_and_the_two_domain_grids_render_from_subject_groups_and_trait_domains(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'basiclayoutone');
+        app(TenantManager::class)->use($school);
+        $section = Section::create(['name' => 'Basic', 'sequence' => 2]);
+        $class = SchoolClass::create(['section_id' => $section->id, 'name' => 'Basic 2', 'sequence' => 1]);
+        $english = \App\Models\Tenant\Subject::create(['name' => 'English Language', 'category' => 'Languages', 'sequence' => 1]);
+        $maths = \App\Models\Tenant\Subject::create(['name' => 'Mathematics', 'category' => 'Maths & Sciences', 'sequence' => 2]);
+        $class->subjects()->attach([$english->id => ['is_mandatory' => true, 'is_examinable' => true], $maths->id => ['is_mandatory' => true, 'is_examinable' => true]]);
+        $session = AcademicSession::create(['name' => '2025/2026']);
+        Term::create(['academic_session_id' => $session->id, 'name' => 'First Term 2025/2026', 'sequence' => 1])->makeCurrent();
+        \App\Models\Tenant\AssessmentComponent::create(['name' => 'Test 1', 'type' => 'ca', 'max_score' => 20, 'sequence' => 1]);
+        \App\Models\Tenant\AssessmentComponent::create(['name' => 'Exam', 'type' => 'exam', 'max_score' => 80, 'sequence' => 2]);
+        \App\Models\Tenant\BehaviouralTrait::create(['name' => 'Sports', 'type' => 'remark', 'domain' => 'psychomotor', 'sequence' => 1]);
+        \App\Models\Tenant\BehaviouralTrait::create(['name' => 'Punctuality', 'type' => 'remark', 'domain' => 'affective', 'sequence' => 2]);
+        \App\Models\Tenant\BehaviouralTrait::create(['name' => 'Honesty', 'type' => 'remark', 'sequence' => 3]);
+        SchoolSectionBranding::create(['section_id' => $section->id, 'report_card_template' => 'evaluation', 'field_overrides' => ['behavioural_traits' => true]]);
+        app(\App\Services\ReportCards\ReportCardLayout::class)->setSectionOverride($section, ['enabled' => false, 'body_order' => ['cognitive_domain', 'skills_domains']]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->get("http://{$school->slug}.localhost/report-cards/preview/class/{$class->id}")
+            ->assertOk()
+            ->assertSee('Cognitive Domain')
+            ->assertSee('Marks Obtainable')
+            ->assertSee('Test 1')
+            ->assertSee('English Language')
+            ->assertSee('<span>Languages</span>', false)
+            ->assertSee('<span>Maths &amp; Sciences</span>', false)
+            ->assertSee('Psychomotor Domain')
+            ->assertSee('Affective Domain')
+            ->assertSee('Sports')
+            ->assertSee('Punctuality')
+            // A trait with no domain is not part of the two domain grids.
+            ->assertDontSee('Honesty');
+    }
+
+    public function test_the_ppms_command_sets_up_the_basic_section_with_the_grouped_layout_and_domain_traits(): void
+    {
+        [$school] = $this->schoolWithMember('school-owner', 'ppmsbasictest');
+        $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        $basic = Section::create(['name' => 'Basic', 'sequence' => 2]);
+        $secondary = Section::create(['name' => 'Secondary', 'sequence' => 3]);
+        \App\Models\Tenant\BehaviouralTrait::create(['name' => 'punctuality', 'type' => 'remark', 'sequence' => 1]);
+        app(TenantManager::class)->forget();
+
+        $this->artisan('ppms:setup-report-card', ['--slug' => $school->slug])->assertExitCode(0);
+
+        app(TenantManager::class)->use($school);
+        $b = SchoolSectionBranding::where('section_id', $basic->id)->first();
+        $this->assertSame('evaluation', $b->report_card_template);
+        $this->assertFalse($b->field_overrides['overall_remark']);
+        $this->assertTrue($b->field_overrides['behavioural_traits']);
+        $this->assertSame(['physical_stats', 'cognitive_domain', 'skills_domains', 'remarks'], $b->layout_override['body_order']);
+        // The plain framed sheet stays for the other sections.
+        $s = SchoolSectionBranding::where('section_id', $secondary->id)->first();
+        $this->assertContains('subjects_table', $s->layout_override['body_order']);
+        // 16 traits, and the one the school already had is reused, not duplicated.
+        $this->assertSame(16, \App\Models\Tenant\BehaviouralTrait::count());
+        $this->assertSame('affective', \App\Models\Tenant\BehaviouralTrait::where('name', 'punctuality')->value('domain'));
+        $this->assertSame(6, \App\Models\Tenant\BehaviouralTrait::where('domain', 'psychomotor')->count());
+        app(TenantManager::class)->forget();
+    }
+
     public function test_the_class_preview_shows_a_sample_report_card_reflecting_the_classs_own_resolved_look(): void
     {
         [$school, $owner] = $this->schoolWithMember('school-owner', 'classpreviewone');

@@ -15,7 +15,7 @@ class Subject extends Model
 
     protected $connection = 'tenant';
 
-    protected $fillable = ['name', 'code', 'sequence'];
+    protected $fillable = ['name', 'code', 'category', 'sequence'];
 
     protected function casts(): array
     {

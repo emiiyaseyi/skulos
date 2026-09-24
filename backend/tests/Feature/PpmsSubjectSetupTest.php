@@ -71,6 +71,13 @@ class PpmsSubjectSetupTest extends TestCase
         $this->assertContains('CRS', $names);
         $this->assertTrue((bool) $basic->subjects()->where('subjects.name', 'ICT')->first()->pivot->is_mandatory);
 
+        // Basic subjects carry their report card group, in the sheet's order.
+        $this->assertSame('Maths & Sciences', Subject::find($maths->id)->category);
+        $english = Subject::where('name', 'English Language')->first();
+        $phonics = Subject::where('name', 'Phonics & Verbal Reasoning')->first();
+        $this->assertSame('Languages', $english->category);
+        $this->assertLessThan($phonics->sequence, $english->sequence);
+
         // SSS: English and Mathematics mandatory, the rest optional.
         $sssSubjects = $sss->subjects()->get();
         $this->assertCount(25, $sssSubjects);

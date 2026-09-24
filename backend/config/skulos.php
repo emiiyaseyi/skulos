@@ -2673,6 +2673,11 @@ If you have run into any issue at all, or have any questions, just reply to this
         // still controls it independently.
         'physical_stats' => 'Physical & Attendance',
         'grade_key' => 'Grade Key',
+        // Grouped scores table and the two side by side domain grids (user
+        // directive 2026-09-24, the school's own Basic 1 to 5 report card):
+        // opt in from the Layout Designer, not part of the default order.
+        'cognitive_domain' => 'Cognitive Domain (grouped scores)',
+        'skills_domains' => 'Psychomotor & Affective Domains',
         'remarks' => 'Remarks (Class Teacher / Head of School)',
         'signoff' => 'Stamp & Signature',
         // Charts (user request 2026-07-19: "add option to add text,

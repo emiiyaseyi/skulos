@@ -28,7 +28,10 @@ class BehaviouralTrait extends Model
 
     protected $table = 'behavioural_traits';
 
-    protected $fillable = ['name', 'type', 'max_score', 'sequence', 'is_active'];
+    public const DOMAIN_PSYCHOMOTOR = 'psychomotor';
+    public const DOMAIN_AFFECTIVE = 'affective';
+
+    protected $fillable = ['name', 'type', 'domain', 'max_score', 'sequence', 'is_active'];
 
     protected function casts(): array
     {

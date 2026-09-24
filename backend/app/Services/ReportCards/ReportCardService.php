@@ -118,6 +118,7 @@ class ReportCardService
 
             $subjectRows[] = [
                 'name' => $subjects[$subjectId]?->name ?? (string) $subjectId,
+                'category' => $subjects[$subjectId]?->category,
                 'components' => $current['components'],
                 'total' => $current['total'],
                 'grade' => $current['grade'],
@@ -176,6 +177,7 @@ class ReportCardService
         $traits = BehaviouralTrait::active()->orderBy('sequence')->get()->map(fn (BehaviouralTrait $t) => [
             'name' => $t->name,
             'type' => $t->type,
+            'domain' => $t->domain,
             'value' => $traitRatings[$t->id] ?? null,
         ]);
 
@@ -252,6 +254,14 @@ class ReportCardService
             'term' => ['name' => $term->name, 'session' => $term->session?->name],
             'report_type' => $reportType,
             'component_columns' => $componentColumns,
+            // Marks obtainable per component, for the grouped Cognitive Domain table's "Marks Obtainable" row.
+            'component_max' => $reportComponents->mapWithKeys(fn ($c) => [$c->name => (float) $c->max_score])->all(),
+            // Every subject this class offers, scored or not, so the grouped
+            // Cognitive Domain table lists the whole class list like the
+            // school's paper sheet instead of only subjects with a score.
+            'offered_subjects' => $classArm
+                ? $classArm->offeredSubjects()->map(fn ($s) => ['name' => $s->name, 'category' => $s->category])->values()->all()
+                : [],
             'cumulative_mode' => $cumulativeMode,
             'subjects' => $subjectRows,
             'subject_comments' => $subjectComments,
@@ -393,6 +403,42 @@ class ReportCardService
             }
         }
 
+        // A class that has its own subject list previews with THAT list,
+        // real subject names and groups, the school's real assessment
+        // columns, and sample scores (so the grouped Cognitive Domain
+        // table can be checked before any real score exists). A class
+        // with no list keeps the four generic illustrative rows below.
+        $sampleSubjects = null;
+        $sampleComponents = [['name' => 'First CA', 'max' => 20.0], ['name' => 'Second CA', 'max' => 20.0], ['name' => 'Exam', 'max' => 60.0]];
+        $offered = $class ? $class->subjects()->get() : collect();
+        if ($offered->isNotEmpty()) {
+            $real = $currentTerm ? AssessmentComponent::forReportType($currentTerm, ReportCardReview::REPORT_TYPE_FULL_TERM) : collect();
+            if ($real->isNotEmpty()) {
+                $sampleComponents = $real->map(fn ($c) => ['name' => $c->name, 'max' => (float) $c->max_score])->values()->all();
+            }
+            $maxTotal = max(1.0, array_sum(array_column($sampleComponents, 'max')));
+            $sampleSubjects = [];
+            foreach ($offered->values() as $i => $subject) {
+                $parts = [];
+                foreach ($sampleComponents as $ci => $c) {
+                    $parts[$c['name']] = (int) round($c['max'] * (0.55 + (($i * 7 + $ci * 3) % 40) / 100));
+                }
+                $total = (int) round(array_sum($parts) / $maxTotal * 100);
+                $grade = $total >= 70 ? 'A' : ($total >= 60 ? 'B' : ($total >= 50 ? 'C' : ($total >= 40 ? 'D' : 'F')));
+                $sampleSubjects[] = [
+                    'name' => $subject->name, 'category' => $subject->category, 'components' => $parts, 'total' => $total, 'grade' => $grade,
+                    'remark' => ['A' => 'Excellent', 'B' => 'Very Good', 'C' => 'Good', 'D' => 'Fair', 'F' => 'Poor'][$grade],
+                    'position' => 1 + ($i % 5), 'class_average' => round($total - 8 + ($i * 3 % 10), 1), 'highest' => min(100, $total + 6), 'lowest' => max(0, $total - 35),
+                    'previous_terms' => [], 'cumulative_average' => null,
+                ];
+            }
+        }
+        $sampleTotal = $sampleSubjects ? array_sum(array_column($sampleSubjects, 'total')) : null;
+        $realTraits = BehaviouralTrait::active()->whereNotNull('domain')->orderBy('sequence')->get();
+        $sampleTraits = $realTraits->isNotEmpty()
+            ? $realTraits->values()->map(fn ($t, $i) => ['name' => $t->name, 'type' => $t->type, 'domain' => $t->domain, 'value' => $t->type === 'score' ? 4 : ['Excellent', 'Very Good', 'Good'][$i % 3]])->all()
+            : null;
+
         return [
             'identity' => [
                 'name' => 'Ada Oluwaseyi Adamu (sample)', 'admission_number' => 'ADM/2025/014', 'gender' => 'Female',
@@ -401,16 +447,20 @@ class ReportCardService
             ],
             'term' => ['name' => $termName, 'session' => $termSession],
             'report_type' => ReportCardReview::REPORT_TYPE_FULL_TERM,
-            'component_columns' => ['First CA', 'Second CA', 'Exam'],
-            'cumulative_mode' => ReportCardCumulativePolicy::MODE_AVERAGE,
-            'subjects' => [
+            'component_columns' => $sampleSubjects ? array_column($sampleComponents, 'name') : ['First CA', 'Second CA', 'Exam'],
+            'component_max' => $sampleSubjects ? array_column($sampleComponents, 'max', 'name') : ['First CA' => 20.0, 'Second CA' => 20.0, 'Exam' => 60.0],
+            'offered_subjects' => $offered->map(fn ($s) => ['name' => $s->name, 'category' => $s->category])->values()->all(),
+            'cumulative_mode' => $sampleSubjects ? ReportCardCumulativePolicy::MODE_OFF : ReportCardCumulativePolicy::MODE_AVERAGE,
+            'subjects' => $sampleSubjects ?? [
                 ['name' => 'Mathematics', 'components' => ['First CA' => 18, 'Second CA' => 17, 'Exam' => 50], 'total' => 85, 'grade' => 'A', 'remark' => 'Distinction', 'position' => 1, 'class_average' => 68.4, 'highest' => 92, 'lowest' => 31, 'previous_terms' => ['First Term' => 78.0, 'Second Term' => 81.0], 'cumulative_average' => 81.33],
                 ['name' => 'English Studies', 'components' => ['First CA' => 15, 'Second CA' => 16, 'Exam' => 48], 'total' => 79, 'grade' => 'B', 'remark' => 'Upper Credit / Very Good', 'position' => 3, 'class_average' => 65.1, 'highest' => 88, 'lowest' => 28, 'previous_terms' => ['First Term' => 74.0, 'Second Term' => 76.0], 'cumulative_average' => 76.33],
                 ['name' => 'Basic Science', 'components' => ['First CA' => 17, 'Second CA' => 18, 'Exam' => 45], 'total' => 80, 'grade' => 'A', 'remark' => 'Distinction', 'position' => 2, 'class_average' => 60.7, 'highest' => 90, 'lowest' => 22, 'previous_terms' => ['First Term' => 70.0, 'Second Term' => 75.0], 'cumulative_average' => 75.0],
                 ['name' => 'Civic Education', 'components' => ['First CA' => 14, 'Second CA' => 15, 'Exam' => 40], 'total' => 69, 'grade' => 'B', 'remark' => 'Upper Credit / Very Good', 'position' => 5, 'class_average' => 62.0, 'highest' => 85, 'lowest' => 30, 'previous_terms' => ['First Term' => 65.0, 'Second Term' => 67.0], 'cumulative_average' => 67.0],
             ],
             'attendance' => ['present' => 58, 'total' => 62],
-            'overall' => ['total' => 313, 'average' => 78.25, 'grade' => 'A', 'position' => 2, 'class_size' => 28],
+            'overall' => $sampleSubjects
+                ? ['total' => $sampleTotal, 'average' => round($sampleTotal / count($sampleSubjects), 2), 'grade' => 'B', 'position' => 2, 'class_size' => 28]
+                : ['total' => 313, 'average' => 78.25, 'grade' => 'A', 'position' => 2, 'class_size' => 28],
             'remarks' => [
                 'overall' => 'A good performance this term, keep it up.',
                 'class_teacher' => 'A hardworking and consistent student this term. Keep it up.',
@@ -427,7 +477,7 @@ class ReportCardService
                 'total_school_days' => 62, 'times_absent' => 4,
                 'class_teacher_name' => 'Mrs. F. Adigun', 'class_teacher_phone' => '0803 123 4567',
             ],
-            'traits' => [
+            'traits' => $sampleTraits ?? [
                 ['name' => 'Punctuality', 'type' => 'remark', 'value' => 'Excellent'],
                 ['name' => 'Neatness', 'type' => 'remark', 'value' => 'Very Good'],
                 ['name' => 'Honesty', 'type' => 'remark', 'value' => 'Excellent'],
