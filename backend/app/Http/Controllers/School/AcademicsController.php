@@ -310,6 +310,8 @@ class AcademicsController extends Controller
             'starts_on' => ['nullable', 'date'],
             'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
             'total_school_days' => ['nullable', 'integer', 'min:1', 'max:250'],
+            // "Trimester Begins" on every report card of this term.
+            'next_term_begins_on' => ['nullable', 'date'],
         ]);
 
         $startsOn = $data['starts_on'] ?? $term->starts_on;

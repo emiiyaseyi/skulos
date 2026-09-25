@@ -103,9 +103,13 @@ class SchoolClass extends Model
      */
     public function subjects(): BelongsToMany
     {
+        // A class's own order (class_subject.sequence) first, unordered
+        // subjects after it by the school wide order, as before.
         return $this->belongsToMany(Subject::class, 'class_subject')
-            ->withPivot(['is_mandatory', 'is_examinable'])
+            ->withPivot(['is_mandatory', 'is_examinable', 'sequence'])
             ->withTimestamps()
+            ->orderByRaw('class_subject.sequence is null')
+            ->orderBy('class_subject.sequence')
             ->orderBy('subjects.sequence')
             ->orderBy('subjects.name');
     }

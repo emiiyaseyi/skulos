@@ -662,9 +662,46 @@ class ReportCardSectionOverridesTest extends TestCase
         // ...and that band's remark in the Remark column.
         $this->assertStringContainsString('<td class="num">Needs Work</td>', $grouped);
 
+        // Mandatory subjects come first even when an optional one is listed before them (SSS).
+        $reordered = $data;
+        $reordered['offered_subjects'] = [
+            ['name' => 'Physics', 'category' => null, 'mandatory' => false],
+            ['name' => 'English Language', 'category' => null, 'mandatory' => true],
+        ];
+        $html = view('school.report-cards._body-cognitive_domain', ['data' => $reordered, 'show' => fn ($f) => $f !== 'subject_groups'])->render();
+        $this->assertLessThan(strpos($html, 'Physics'), strpos($html, 'English Language'));
+
         $plain = view('school.report-cards._body-cognitive_domain', ['data' => $data, 'show' => fn ($f) => $f !== 'subject_groups'])->render();
         $this->assertStringNotContainsString('<span>Languages</span>', $plain);
         $this->assertStringContainsString('English Language', $plain);
+    }
+
+    public function test_the_admin_can_set_the_term_begins_date_and_a_subjects_group_and_the_report_uses_them(): void
+    {
+        [$school, $owner] = $this->schoolWithMember('school-owner', 'nextdateone');
+        ['term' => $term, 'student' => $student] = $this->seedOneClass($school);
+
+        app(TenantManager::class)->use($school);
+        $subject = \App\Models\Tenant\Subject::create(['name' => 'English Language', 'sequence' => 1]);
+        app(TenantManager::class)->forget();
+
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/settings/calendar/terms/{$term->id}/dates", ['next_term_begins_on' => '2026-09-14'])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/subjects/{$subject->id}", ['name' => 'English Language', 'category' => 'Languages'])
+            ->assertRedirect()->assertSessionHasNoErrors();
+
+        app(TenantManager::class)->use($school);
+        $this->assertSame('Languages', \App\Models\Tenant\Subject::find($subject->id)->category);
+        $report = app(\App\Services\ReportCards\ReportCardService::class);
+        $this->assertSame('14 Sep 2026', $report->forStudent($student->fresh(), $term->fresh())['remarks']['next_term_begins_on']);
+        app(TenantManager::class)->forget();
+
+        // With no date typed, the next term's own start date is used.
+        $this->actingAs($owner)->post("http://{$school->slug}.localhost/settings/calendar/terms/{$term->id}/dates", ['ends_on' => '2026-12-15', 'next_term_begins_on' => ''])->assertRedirect();
+        app(TenantManager::class)->use($school);
+        Term::create(['academic_session_id' => $term->academic_session_id, 'name' => 'Second Term', 'sequence' => 2, 'starts_on' => '2027-01-10']);
+        $this->assertSame('10 Jan 2027', $report->forStudent($student->fresh(), $term->fresh())['remarks']['next_term_begins_on']);
+        app(TenantManager::class)->forget();
     }
 
     public function test_the_generic_sample_carries_groups_and_domains_so_the_grouped_sections_still_show_something_full(): void

@@ -294,7 +294,10 @@ class ReportCardService
                 'overall' => $remark?->overall_remark,
                 'class_teacher' => $remark?->class_teacher_remark,
                 'principal' => $remark?->principal_remark,
-                'next_term_begins_on' => $remark?->next_term_begins_on?->format('d M Y'),
+                // A per-student date still wins; otherwise the term's own
+                // "next term begins" date the admin sets with the term dates;
+                // otherwise the start date of the next term if it exists.
+                'next_term_begins_on' => ($remark?->next_term_begins_on ?? $term->next_term_begins_on ?? $this->nextTermStart($term))?->format('d M Y'),
             ],
             'physical' => [
                 'height' => $remark?->height,
@@ -361,6 +364,16 @@ class ReportCardService
         $trend[$currentTermName] = $currentOverallAverage;
 
         return $trend;
+    }
+
+    /** When the next term (in date order, across sessions) starts, if it has been created with a start date. */
+    protected function nextTermStart(Term $term): ?\Carbon\CarbonInterface
+    {
+        $after = $term->ends_on ?? $term->starts_on;
+
+        return $after
+            ? Term::whereNotNull('starts_on')->where('starts_on', '>', $after->toDateString())->orderBy('starts_on')->first()?->starts_on
+            : null;
     }
 
     /**
@@ -507,7 +520,7 @@ class ReportCardService
                 'overall' => 'A good performance this term, keep it up.',
                 'class_teacher' => 'A hardworking and consistent student this term. Keep it up.',
                 'principal' => 'Impressive result. Well done.',
-                'next_term_begins_on' => '08 Sep 2026',
+                'next_term_begins_on' => $currentTerm?->next_term_begins_on?->format('d M Y') ?? '08 Sep 2026',
             ],
             'subject_comments' => [
                 'Mathematics' => 'Ada shows strong number sense and works confidently with little guidance.',

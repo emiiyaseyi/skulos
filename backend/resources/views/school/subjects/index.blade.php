@@ -31,6 +31,10 @@
             <input id="code" name="code" maxlength="20" placeholder="Optional" />
           </div>
         </div>
+        <div class="field">
+          <label for="category">Group on the report card</label>
+          <input id="category" name="category" maxlength="80" placeholder="Optional, e.g. Languages" />
+        </div>
         <button class="btn btn-primary btn-sm" type="submit">Add subject</button>
       </form>
     </div>
@@ -65,7 +69,7 @@
     <div style="overflow-x:auto">
       <table class="table-stack">
         <thead>
-          <tr><th>Subject</th><th>Code</th><th>Classes taking it</th><th>With a teacher</th><th>Still uncovered</th><th></th></tr>
+          <tr><th>Subject</th><th>Code</th><th>Report group</th><th>Classes taking it</th><th>With a teacher</th><th>Still uncovered</th><th></th></tr>
         </thead>
         <tbody>
           @foreach($rows as $row)
@@ -74,6 +78,7 @@
                 <a href="{{ route('school.subjects.show', ['school' => $school->slug, 'subjectId' => $row['subject']->id]) }}">{{ $row['subject']->name }}</a>
               </td>
               <td data-label="Code" class="muted">{{ $row['subject']->code ?: '—' }}</td>
+              <td data-label="Report group" class="muted">{{ $row['subject']->category ?: '—' }}</td>
               <td data-label="Classes taking it" class="muted">{{ $row['arms'] }}</td>
               <td data-label="With a teacher" class="muted">{{ $row['covered'] }}</td>
               <td data-label="Still uncovered">

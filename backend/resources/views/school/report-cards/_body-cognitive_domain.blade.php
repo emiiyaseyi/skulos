@@ -23,6 +23,11 @@
       $cogList->push(['name' => $cogName, 'category' => $cogRow['category'] ?? null]);
     }
   }
+  // Mandatory subjects first (user 2026-09-25, for SSS), each half keeping the class's own subject order.
+  $cogList = $cogList->values()
+    ->map(fn ($s, $i) => $s + ['_i' => $i])
+    ->sortBy(fn ($s) => [($s['mandatory'] ?? true) ? 0 : 1, $s['_i']])
+    ->values();
   $cogGrouped = $show('subject_groups');
   $cogGroups = $cogList->groupBy(fn ($s) => $cogGrouped ? ($s['category'] ?: '') : '');
   $cogSpan = 2 + count($cogCols) + 4;

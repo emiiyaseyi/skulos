@@ -67,6 +67,9 @@ class SetupPpmsSubjects extends Command
         'Arts & Culture' => ['MUSIC & CREATIVE ARTS', 'HAND WRITING SKILLS', 'CRS', 'MORAL & ETHICS STUDIES'],
     ];
 
+    /** JSS reports start with these four (user 2026-09-25), the rest following in the list's own order. */
+    protected const JSS_FIRST = ['ENGLISH LANGUAGE', 'MATHEMATICS', 'CIVIC EDUCATION', 'BASIC TECHNOLOGY'];
+
     protected const DEFAULT_MATCH = [
         'nursery' => '/^nursery\s*[12]$/i',
         'basic' => '/^basic\s*[1-5]$/i',
@@ -163,6 +166,10 @@ class SetupPpmsSubjects extends Command
                     if ($w['toDetach']->isNotEmpty()) {
                         $class->subjects()->detach($w['toDetach']->pluck('id')->all());
                     }
+                    // This class's own subject order on its report card, per class (a subject shared with another list keeps a different place there).
+                    foreach ($this->orderedKeys($w['p']['group']) as $i => $k) {
+                        $class->subjects()->updateExistingPivot($catalog[$k]->id, ['sequence' => $i + 1]);
+                    }
                 }
 
                 // Basic subjects get their group label and the sheet's own order.
@@ -188,6 +195,18 @@ class SetupPpmsSubjects extends Command
 
             return self::SUCCESS;
         });
+    }
+
+    /** The subject keys of a group in the order its report card lists them. @return list<string> */
+    protected function orderedKeys(string $group): array
+    {
+        $names = self::LISTS[$group];
+        if ($group === 'jss') {
+            $first = self::JSS_FIRST;
+            $names = array_merge($first, array_values(array_filter($names, fn ($n) => ! in_array($n, $first, true))));
+        }
+
+        return array_map(fn ($n) => $this->key($n), $names);
     }
 
     protected function groupFor(string $className): ?string

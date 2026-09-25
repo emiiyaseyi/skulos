@@ -23,6 +23,7 @@ class Term extends Model
         'sequence',
         'starts_on',
         'ends_on',
+        'next_term_begins_on',
         'is_current',
         'total_school_days',
     ];
@@ -33,6 +34,7 @@ class Term extends Model
             'sequence' => 'integer',
             'starts_on' => 'date',
             'ends_on' => 'date',
+            'next_term_begins_on' => 'date',
             'is_current' => 'boolean',
         ];
     }

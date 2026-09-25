@@ -93,13 +93,16 @@ class SubjectController extends Controller
         $this->authorizeAction($request, 'academics.update');
 
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:100', Rule::unique('subjects', 'name')],
+            // 'tenant.subjects', not 'subjects': a bare table name is looked up on the PLATFORM connection, which has no subjects table.
+            'name' => ['required', 'string', 'max:100', Rule::unique('tenant.subjects', 'name')],
             'code' => ['nullable', 'string', 'max:20'],
+            'category' => ['nullable', 'string', 'max:80'],
         ]);
 
         Subject::create([
             'name' => $data['name'],
             'code' => $data['code'] ?? null,
+            'category' => $data['category'] ?? null,
             'sequence' => (int) Subject::max('sequence') + 1,
         ]);
 
@@ -112,8 +115,9 @@ class SubjectController extends Controller
         $subject = Subject::findOrFail($request->route('subjectId'));
 
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:100', Rule::unique('subjects', 'name')->ignore($subject->id)],
+            'name' => ['required', 'string', 'max:100', Rule::unique('tenant.subjects', 'name')->ignore($subject->id)],
             'code' => ['nullable', 'string', 'max:20'],
+            'category' => ['nullable', 'string', 'max:80'],
         ]);
 
         $subject->update($data);

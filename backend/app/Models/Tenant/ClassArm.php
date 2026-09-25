@@ -85,8 +85,12 @@ class ClassArm extends Model
         $classSubjects = $this->schoolClass?->subjects ?? collect();
         $ownSubjects = $this->subjects;
 
+        // The class's own subject order first (class_subject.sequence), then
+        // the school wide order, so each class can list its subjects its own way.
+        $order = fn ($s) => [data_get($s, 'pivot.sequence') ?? PHP_INT_MAX, $s->sequence, $s->name];
+
         return $classSubjects->concat($ownSubjects)->unique('id')
-            ->sortBy([['sequence', 'asc'], ['name', 'asc']])->values();
+            ->sortBy([fn ($a, $b) => $order($a) <=> $order($b)])->values();
     }
 
     /**

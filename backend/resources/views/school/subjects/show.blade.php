@@ -26,6 +26,11 @@
           <input id="code" name="code" value="{{ $subject->code }}" maxlength="20" />
         </div>
       </div>
+      <div class="field">
+        <label for="category">Group on the report card</label>
+        <input id="category" name="category" value="{{ $subject->category }}" maxlength="80" placeholder="e.g. Languages. Leave blank for no group." />
+        <div class="hint">Shown as a side label in the Cognitive Domain table when the section has subject groups switched on.</div>
+      </div>
       <button class="btn btn-primary btn-sm" type="submit">Save</button>
     </form>
   </div>

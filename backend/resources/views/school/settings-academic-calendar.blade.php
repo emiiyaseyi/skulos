@@ -89,6 +89,8 @@
                       end up saved.
                     --}}
                     <input type="number" name="total_school_days" value="{{ $calculatedSchoolDays[$term->id] ?? $term->total_school_days }}" min="1" max="250" style="padding:.3rem .4rem;font-size:.8rem;width:4.5rem" placeholder="auto" title="Auto calculated from start/end dates, excluding weekends and holiday/break calendar events. Adjust freely, or clear to recalculate on save." />
+                    <span class="muted" title="Printed beside &quot;Begins&quot; on this term's report cards. Leave blank to use the next term's start date.">Next begins</span>
+                    <input type="date" name="next_term_begins_on" value="{{ $term->next_term_begins_on?->toDateString() }}" style="padding:.3rem .4rem;font-size:.8rem" />
                     <button class="btn btn-ghost btn-sm" type="submit">Save</button>
                   </form>
                 @else

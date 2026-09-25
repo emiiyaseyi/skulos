@@ -43,6 +43,7 @@ class PpmsSubjectSetupTest extends TestCase
         $basic = SchoolClass::create(['section_id' => $basicSection->id, 'name' => 'Basic 1', 'sequence' => 1]);
         $sss = SchoolClass::create(['section_id' => $sssSection->id, 'name' => 'SSS 1', 'sequence' => 2]);
         $other = SchoolClass::create(['section_id' => $sssSection->id, 'name' => 'Odd Class', 'sequence' => 3]);
+        $jss = SchoolClass::create(['section_id' => $sssSection->id, 'name' => 'JSS 1', 'sequence' => 4]);
         $arm = ClassArm::create(['school_class_id' => $basic->id, 'arm_id' => Arm::create(['name' => 'A'])->id]);
 
         $maths = Subject::create(['name' => 'MATHEMATICS', 'sequence' => 1]);
@@ -77,6 +78,14 @@ class PpmsSubjectSetupTest extends TestCase
         $phonics = Subject::where('name', 'Phonics & Verbal Reasoning')->first();
         $this->assertSame('Languages', $english->category);
         $this->assertLessThan($phonics->sequence, $english->sequence);
+
+        // JSS starts English, Mathematics, Civic Education, Basic Technology; the rest follow in the list's order.
+        $jssNames = $jss->subjects()->pluck('subjects.name')->all();
+        $this->assertCount(14, $jssNames);
+        $this->assertSame(['English Language', 'MATHEMATICS', 'Civic Education', 'Basic Technology'], array_slice($jssNames, 0, 4));
+        $this->assertSame('Basic Science', $jssNames[4]);
+        // ...while the same shared subjects sit in the Basic class's own order (no Civic/Technology first there).
+        $this->assertSame('English Language', $basic->subjects()->first()->name);
 
         // SSS: English and Mathematics mandatory, the rest optional.
         $sssSubjects = $sss->subjects()->get();
