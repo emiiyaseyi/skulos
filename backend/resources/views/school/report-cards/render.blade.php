@@ -237,14 +237,20 @@
   .rc-vgroup span{display:inline-block;vertical-align:middle;writing-mode:vertical-rl;transform:rotate(180deg);text-align:center;font-weight:700;text-transform:uppercase;font-size:.68rem;letter-spacing:.04em;white-space:nowrap}
   {{-- Attendance and weight/height labels in bold on every report card (user 2026-09-24). --}}
   .rc-attend-physical td.rc-lbl{font-weight:700}
-  .rc-eval .rc-cognitive{font-size:.8rem;margin-bottom:.5rem}
-  .rc-eval .rc-cognitive th{font-size:.74rem;padding:.25rem .3rem}
+  .rc-eval .rc-cognitive{font-size:.78rem;margin-bottom:.5rem}
+  .rc-eval .rc-cognitive th{font-size:.76rem;padding:.25rem .3rem}
   .rc-eval .rc-cognitive td{padding:.18rem .35rem}
   .rc-eval .rc-marks-row th{font-weight:700}
   .rc-domains{display:grid;grid-template-columns:1fr 1.6fr;gap:.7rem;align-items:start}
   .rc-domains .rc-bordered-table{margin-bottom:.5rem}
   .rc-eval .rc-domains td{font-size:.78rem;padding:.18rem .35rem}
   .rc-domains td.num{width:5.4rem;white-space:nowrap}
+  {{-- The Psychomotor / Affective grids are the look the school prefers (user 2026-09-25): the Physical & Attendance and Cognitive Domain tables now use the same title size, compact rows, bold capital labels and plain values. --}}
+  .rc-bordered-table td.rc-vgroup{vertical-align:middle;text-align:center}
+  .rc-eval .rc-cognitive th.rc-title{font-size:.85rem;padding:.35rem .5rem}
+  .rc-eval .rc-attend-physical td,.rc-eval .rc-attend-physical .rc-subhead th{font-size:.78rem;padding:.18rem .35rem;text-transform:none}
+  .rc-eval .rc-attend-physical .rc-subhead th{text-transform:uppercase}
+  .rc-eval .rc-attend-physical td.rc-lbl{text-transform:uppercase}
   {{-- Subject names and trait names in bold capitals, as on the school's own sheet (user 2026-09-24). --}}
   .rc-cognitive td.rc-subj,.rc-domains td.rc-trait{font-weight:700;text-transform:uppercase}
   .rc-bordered-table td.rc-num{text-align:center;vertical-align:middle}
@@ -321,10 +327,12 @@
     .rc-eval .rc-table{font-size:.95rem}
     .rc-eval .rc-table th{font-size:.85rem}
     .rc-eval .rc-table th,.rc-eval .rc-table td{padding:.28rem .45rem}
-    .rc-eval .rc-cognitive{font-size:.8rem}
-    .rc-eval .rc-cognitive th{font-size:.74rem;padding:.12rem .3rem}
-    .rc-eval .rc-cognitive td{padding:.05rem .3rem}
+    .rc-eval .rc-cognitive{font-size:.76rem}
+    .rc-eval .rc-cognitive th{font-size:.76rem;padding:.12rem .3rem}
+    .rc-eval .rc-cognitive td{padding:.06rem .3rem}
+    .rc-eval .rc-cognitive th.rc-title{font-size:1rem;padding:.3rem .5rem}
     .rc-eval .rc-domains td{font-size:.76rem;padding:.06rem .3rem}
+    .rc-eval .rc-attend-physical td,.rc-eval .rc-attend-physical .rc-subhead th{font-size:.76rem;padding:.06rem .3rem}
     {{-- A sheet carrying the full grouped subject table needs shorter comment rows to stay on one A4 page. --}}
     .rc-eval:has(.rc-cognitive) .rc-remarks-table td{height:2rem}
     .rc-eval:has(.rc-cognitive) .rc-remarks-table tr:last-child td{height:3.4rem}

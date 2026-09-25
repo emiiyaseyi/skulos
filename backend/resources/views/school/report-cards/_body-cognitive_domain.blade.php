@@ -40,7 +40,7 @@
   <div class="rc-block rc-cognitive-block">
     <table class="rc-bordered-table rc-cognitive">
       <thead>
-        <tr><th colspan="{{ $cogSpan }}">Cognitive Domain</th></tr>
+        <tr><th colspan="{{ $cogSpan }}" class="rc-title">Cognitive Domain</th></tr>
         <tr>
           <th colspan="2" style="text-align:left">Class Subjects</th>
           @foreach($cogCols as $c)<th>{{ $c }}</th>@endforeach
