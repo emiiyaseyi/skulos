@@ -26,14 +26,14 @@
   $cogGrouped = $show('subject_groups');
   $cogGroups = $cogList->groupBy(fn ($s) => $cogGrouped ? ($s['category'] ?: '') : '');
   $cogSpan = 2 + count($cogCols) + 4;
-  // Overall Performance (user directive 2026-09-24): the student's total
-  // score as a percentage of the marks available across EVERY subject the
-  // class offers, i.e. total / (subjects offered x marks obtainable) x 100,
-  // so a subject not yet scored still counts in the divisor.
-  $cogPerSubject = array_sum($cogMax) ?: 100;
+  // Overall Performance (user directive 2026-09-25, replacing the earlier
+  // percentage): the average of the total score the learner got across all
+  // the subjects offered, i.e. sum of the subject totals / subjects listed,
+  // shown as a plain number (no percent sign). A subject not yet scored
+  // still counts in the divisor.
   $cogTotal = collect($data['subjects'] ?? [])->sum('total');
   $cogOverall = ($cogList->count() && count($data['subjects'] ?? []))
-    ? round($cogTotal / ($cogList->count() * $cogPerSubject) * 100, 2)
+    ? round($cogTotal / $cogList->count(), 2)
     : null;
 @endphp
 @if($cogList->isNotEmpty())
@@ -74,7 +74,7 @@
         @endforeach
         <tr class="rc-overall-row">
           <td colspan="2"><b>Overall Performance</b></td>
-          <td colspan="{{ count($cogCols) + 4 }}" class="num"><strong>{{ $cogOverall !== null ? $cogOverall.'%' : '' }}</strong></td>
+          <td colspan="{{ count($cogCols) + 4 }}" class="num"><strong>{{ $cogOverall !== null ? $cogOverall : '' }}</strong></td>
         </tr>
       </tbody>
     </table>

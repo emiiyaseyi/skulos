@@ -570,8 +570,9 @@ class ReportCardSectionOverridesTest extends TestCase
             ->assertOk()
             ->assertSee('Cognitive Domain')
             ->assertSee('Marks Obtainable')
-            // (57 + 64) / (2 subjects offered x 100 marks) x 100
-            ->assertSee('60.5%')
+            // Average of the subject totals across the subjects offered: (57 + 64) / 2, no percent sign.
+            ->assertSee('<strong>60.5</strong>', false)
+            ->assertDontSee('60.5%')
             ->assertSee('Test 1')
             ->assertSee('English Language')
             ->assertSee('<span>Languages</span>', false)
@@ -652,8 +653,9 @@ class ReportCardSectionOverridesTest extends TestCase
         $this->assertStringContainsString('Physics', $grouped);          // optional but this student has a score
         $this->assertStringNotContainsString('Biology', $grouped);       // optional and never taken
         $this->assertStringContainsString('<span>Languages</span>', $grouped);
-        // (0 + 75) / (2 listed subjects x 100 marks) x 100
-        $this->assertStringContainsString('37.5%', $grouped);
+        // (0 + 75) / 2 listed subjects, a plain number
+        $this->assertStringContainsString('<strong>37.5</strong>', $grouped);
+        $this->assertStringNotContainsString('37.5%', $grouped);
 
         $plain = view('school.report-cards._body-cognitive_domain', ['data' => $data, 'show' => fn ($f) => $f !== 'subject_groups'])->render();
         $this->assertStringNotContainsString('<span>Languages</span>', $plain);
