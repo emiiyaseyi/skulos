@@ -256,6 +256,9 @@ class ReportCardService
             'component_columns' => $componentColumns,
             // Marks obtainable per component, for the grouped Cognitive Domain table's "Marks Obtainable" row.
             'component_max' => $reportComponents->mapWithKeys(fn ($c) => [$c->name => (float) $c->max_score])->all(),
+            // This student's resolved grading scale (class, then section, then school default), highest band first, so the
+            // Cognitive Domain's Overall Performance can show its own grade with the same scale the subject grades use.
+            'grading_bands' => $scale ? $scale->bands->map(fn ($b) => ['grade' => $b->grade, 'min' => (float) $b->min_score])->values()->all() : [],
             // Every subject this class offers, scored or not, so the grouped
             // Cognitive Domain table lists the whole class list like the
             // school's paper sheet instead of only subjects with a score.
@@ -470,6 +473,13 @@ class ReportCardService
             'report_type' => ReportCardReview::REPORT_TYPE_FULL_TERM,
             'component_columns' => $sampleSubjects ? array_column($sampleComponents, 'name') : ['First CA', 'Second CA', 'Exam'],
             'component_max' => $sampleSubjects ? array_column($sampleComponents, 'max', 'name') : ['First CA' => 20.0, 'Second CA' => 20.0, 'Exam' => 60.0],
+            // The class's own scale when it has one; otherwise a plain illustrative A to F so the preview still shows an overall grade.
+            'grading_bands' => (function () use ($class) {
+                $scale = $class?->gradingScale ?? $class?->section?->gradingScale ?? \App\Models\Tenant\GradingScale::default();
+                $bands = $scale ? $scale->bands->map(fn ($b) => ['grade' => $b->grade, 'min' => (float) $b->min_score])->values()->all() : [];
+
+                return $bands ?: [['grade' => 'A', 'min' => 70.0], ['grade' => 'B', 'min' => 60.0], ['grade' => 'C', 'min' => 50.0], ['grade' => 'D', 'min' => 40.0], ['grade' => 'F', 'min' => 0.0]];
+            })(),
             // No subject list on this class (e.g. the Layout Designer's generic preview): group the four illustrative rows so the grouped section still shows something full.
             'offered_subjects' => $offered->isNotEmpty()
                 ? $offered->map(fn ($s) => ['name' => $s->name, 'category' => $s->category, 'mandatory' => (bool) ($s->pivot->is_mandatory ?? true)])->values()->all()

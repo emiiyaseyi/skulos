@@ -35,6 +35,11 @@
   $cogOverall = ($cogList->count() && count($data['subjects'] ?? []))
     ? round($cogTotal / $cogList->count(), 2)
     : null;
+  // Its grade: the highest band of this student's own grading scale that the
+  // overall score reaches (bands are listed highest first).
+  $cogOverallGrade = $cogOverall !== null
+    ? (collect($data['grading_bands'] ?? [])->first(fn ($b) => $cogOverall >= ($b['min'] ?? 0))['grade'] ?? null)
+    : null;
 @endphp
 @if($cogList->isNotEmpty())
   <div class="rc-block rc-cognitive-block">
@@ -74,7 +79,9 @@
         @endforeach
         <tr class="rc-overall-row">
           <td colspan="2"><b>Overall Performance</b></td>
-          <td colspan="{{ count($cogCols) + 4 }}" class="num"><strong>{{ $cogOverall !== null ? $cogOverall : '' }}</strong></td>
+          <td colspan="{{ count($cogCols) + 2 }}" class="num"><strong>{{ $cogOverall !== null ? $cogOverall : '' }}</strong></td>
+          <td class="num"><strong>{{ $cogOverallGrade ?? '' }}</strong></td>
+          <td></td>
         </tr>
       </tbody>
     </table>
