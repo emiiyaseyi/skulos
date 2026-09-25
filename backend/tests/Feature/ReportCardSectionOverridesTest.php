@@ -646,7 +646,7 @@ class ReportCardSectionOverridesTest extends TestCase
                 ['name' => 'Physics', 'category' => null, 'components' => ['Test 1' => 15, 'Exam' => 60], 'total' => 75, 'grade' => 'A', 'remark' => 'Excellent', 'class_average' => 60],
             ],
             'overall' => ['average' => 0],
-            'grading_bands' => [['grade' => 'A', 'min' => 70.0], ['grade' => 'B', 'min' => 60.0], ['grade' => 'F', 'min' => 0.0]],
+            'grading_bands' => [['grade' => 'A', 'min' => 70.0, 'remark' => 'Excellent'], ['grade' => 'B', 'min' => 60.0, 'remark' => 'Very Good'], ['grade' => 'F', 'min' => 0.0, 'remark' => 'Needs Work']],
         ];
 
         $grouped = view('school.report-cards._body-cognitive_domain', ['data' => $data, 'show' => fn ($f) => true])->render();
@@ -659,6 +659,8 @@ class ReportCardSectionOverridesTest extends TestCase
         $this->assertStringNotContainsString('37.5%', $grouped);
         // ...with its grade, from the highest band the score reaches, in the Grade column beside it.
         $this->assertStringContainsString('<td class="num"><strong>F</strong></td>', $grouped);
+        // ...and that band's remark in the Remark column.
+        $this->assertStringContainsString('<td class="num">Needs Work</td>', $grouped);
 
         $plain = view('school.report-cards._body-cognitive_domain', ['data' => $data, 'show' => fn ($f) => $f !== 'subject_groups'])->render();
         $this->assertStringNotContainsString('<span>Languages</span>', $plain);
