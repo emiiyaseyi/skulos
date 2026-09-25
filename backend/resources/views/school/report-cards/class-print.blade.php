@@ -104,7 +104,7 @@
   .rc-eval .rc-head{justify-content:center;gap:1.1rem}
   .rc-eval .rc-head-text{flex:0 1 auto}
   .rc-eval .rc-head .rc-logo{width:150px;height:150px}
-  .rc-eval .rc-block > h3{margin:.55rem 0 .3rem}
+  .rc-eval .rc-block > h3{margin:.55rem 0 .3rem;color:#1a1a1a;font-weight:700;font-size:.85rem;letter-spacing:0;border-bottom:0;padding-bottom:0}
   .rc-eval .rc-table{border-collapse:separate;border-spacing:0;border-top:1px solid #444;border-left:1px solid #444;font-size:.85rem;margin-bottom:.6rem}
   .rc-eval .rc-table th,.rc-eval .rc-table td{border:0;border-right:1px solid #444;border-bottom:1px solid #444;padding:.4rem .5rem}
   .rc-eval .rc-table th{background:transparent;color:#1a1a1a;font-weight:700;font-size:.8rem;letter-spacing:0;text-align:center}
@@ -175,6 +175,7 @@
     .rc-eval .rc-cognitive th{font-size:.76rem;padding:.12rem .3rem}
     .rc-eval .rc-cognitive td{padding:.06rem .3rem}
     .rc-eval .rc-cognitive th.rc-title{font-size:1rem;padding:.3rem .5rem}
+    .rc-eval .rc-block > h3{font-size:1rem}
     .rc-eval .rc-domains td{font-size:.76rem;padding:.06rem .3rem}
     .rc-eval .rc-attend-physical td,.rc-eval .rc-attend-physical .rc-subhead th{font-size:.76rem;padding:.06rem .3rem}
     .rc-eval:has(.rc-cognitive) .rc-remarks-table td{height:2rem}
