@@ -49,7 +49,7 @@ class MarketingAnalyticsController extends Controller
 
         $multiView = $sessionSpans->where('views', '>', 1);
         $avgSpanSeconds = $multiView->isNotEmpty()
-            ? (int) $multiView->avg(fn ($s) => \Carbon\Carbon::parse($s->last_seen)->diffInSeconds(\Carbon\Carbon::parse($s->first_seen)))
+            ? (int) $multiView->avg(fn ($s) => \Carbon\Carbon::parse($s->last_seen)->diffInSeconds(\Carbon\Carbon::parse($s->first_seen), true))
             : null;
         $singlePageShare = $sessionSpans->isNotEmpty()
             ? round($sessionSpans->where('views', 1)->count() / $sessionSpans->count() * 100)

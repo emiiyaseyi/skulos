@@ -73,7 +73,12 @@ class MarketingAnalyticsTest extends TestCase
         $this->assertSame(3, $response->viewData('totalViews'));
         $this->assertSame(2, $response->viewData('uniqueSessions'));
         $this->assertEquals(50, $response->viewData('singlePageShare'), 'exactly 1 of 2 sessions viewed only one page');
-        $this->assertNotNull($response->viewData('avgSpanSeconds'));
+        // Real bug caught live 2026-11-06: Carbon 3 made diffInSeconds()
+        // signed by default (negative when the first argument is later),
+        // so this came back as -120 instead of 120 until an explicit
+        // $absolute=true was added. Assert the real positive value, not
+        // just non-null, so a sign flip fails this test directly.
+        $this->assertSame(120, $response->viewData('avgSpanSeconds'));
 
         $sources = $response->viewData('sources');
         $this->assertTrue($sources->contains(fn ($s) => $s->source === 'owners-group-nov' && $s->views === 2));
