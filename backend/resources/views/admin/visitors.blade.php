@@ -30,6 +30,58 @@
   @endforeach
 </div>
 
+<div class="card" style="margin-bottom:1.25rem">
+  <h3 style="margin-top:0">Create a share link</h3>
+  <p class="muted" style="margin-top:-.5rem">Pick a page and name this outreach (e.g. a WhatsApp group, a post), then share the generated link instead of the plain page address &mdash; it's what lets this screen tell that one apart from any other.</p>
+  <div class="grid cols-2" style="align-items:end">
+    <div class="field">
+      <label for="va_page">Page</label>
+      <select id="va_page">
+        <option value="/">Home</option>
+        <option value="/trial.html">Start a Trial</option>
+        <option value="/pricing.html">Pricing</option>
+        <option value="/about.html">About</option>
+        <option value="/faq.html">FAQ</option>
+        <option value="/contact.html">Contact</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="va_campaign">Campaign name</label>
+      <input id="va_campaign" placeholder="e.g. lagos-owners-nov" />
+    </div>
+  </div>
+  <div class="field" style="margin-top:.5rem">
+    <label for="va_link">Share this link</label>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <input id="va_link" readonly style="flex:1;min-width:16rem" value="https://{{ config('app.domain') }}/" />
+      <button type="button" class="btn btn-sm btn-ghost" id="va_copy">Copy</button>
+    </div>
+    <div class="hint" id="va_copied" style="display:none;color:var(--ok,#12A97B)">Copied.</div>
+  </div>
+</div>
+<script>
+(function(){
+  var page = document.getElementById('va_page'), campaign = document.getElementById('va_campaign'),
+      link = document.getElementById('va_link'), copyBtn = document.getElementById('va_copy'), copied = document.getElementById('va_copied');
+  var domain = 'https://{{ config("app.domain") }}';
+  function slugify(s){ return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''); }
+  function rebuild(){
+    var slug = slugify(campaign.value);
+    link.value = domain + page.value + (slug ? '?utm_campaign=' + slug : '');
+    copied.style.display = 'none';
+  }
+  page.addEventListener('change', rebuild);
+  campaign.addEventListener('input', rebuild);
+  copyBtn.addEventListener('click', function(){
+    link.select();
+    navigator.clipboard && navigator.clipboard.writeText(link.value).then(function(){
+      copied.style.display = 'block';
+    });
+  });
+  rebuild();
+})();
+</script>
+
 <div class="va-figs">
   <div class="va-fig"><b>{{ number_format($totalViews) }}</b><span>Page views</span></div>
   <div class="va-fig"><b>{{ number_format($uniqueSessions) }}</b><span>Unique visitors</span></div>
