@@ -80,6 +80,26 @@ class MarketingAnalyticsTest extends TestCase
         $this->assertTrue($sources->contains(fn ($s) => $s->source === 'Direct / Unknown'));
     }
 
+    public function test_a_custom_date_range_overrides_the_fixed_day_presets(): void
+    {
+        $admin = $this->superAdmin();
+        MarketingPageView::create(['path' => '/', 'session_id' => 'v_old', 'created_at' => now()->subDays(60)]);
+        MarketingPageView::create(['path' => '/', 'session_id' => 'v_recent', 'created_at' => now()->subDay()]);
+
+        // The 60-day-old view falls outside every fixed preset (max 90 is
+        // fine, so pick a custom range that EXCLUDES the recent one
+        // instead, to prove "from"/"to" genuinely narrows the window
+        // rather than just being ignored in favour of the day presets.
+        $response = $this->actingAs($admin)->get(route('admin.visitors.index', [
+            'from' => now()->subDays(65)->toDateString(),
+            'to' => now()->subDays(55)->toDateString(),
+        ]));
+
+        $response->assertOk();
+        $this->assertSame(1, $response->viewData('totalViews'));
+        $this->assertTrue($response->viewData('customRange'));
+    }
+
     public function test_admin_can_export_trial_requests_as_csv_for_outreach(): void
     {
         $admin = $this->superAdmin();

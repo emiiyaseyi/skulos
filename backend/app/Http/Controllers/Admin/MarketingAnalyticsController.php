@@ -24,11 +24,19 @@ class MarketingAnalyticsController extends Controller
 {
     public function index(Request $request): \Illuminate\View\View
     {
+        $request->validate(['from' => ['nullable', 'date'], 'to' => ['nullable', 'date']]);
+
+        $from = $request->query('from');
+        $to = $request->query('to');
+        $customRange = (bool) ($from || $to);
+
         $days = (int) $request->query('days', 30);
         $days = in_array($days, [7, 30, 90], true) ? $days : 30;
-        $since = now()->subDays($days);
 
-        $base = MarketingPageView::where('created_at', '>=', $since);
+        $since = $from ? \Carbon\Carbon::parse($from)->startOfDay() : now()->subDays($days);
+        $until = $to ? \Carbon\Carbon::parse($to)->endOfDay() : now();
+
+        $base = MarketingPageView::where('created_at', '>=', $since)->where('created_at', '<=', $until);
 
         $totalViews = (clone $base)->count();
         $uniqueSessions = (clone $base)->distinct('session_id')->count('session_id');
@@ -70,6 +78,9 @@ class MarketingAnalyticsController extends Controller
 
         return view('admin.visitors', [
             'days' => $days,
+            'customRange' => $customRange,
+            'from' => $from,
+            'to' => $to,
             'totalViews' => $totalViews,
             'uniqueSessions' => $uniqueSessions,
             'avgSpanSeconds' => $avgSpanSeconds,

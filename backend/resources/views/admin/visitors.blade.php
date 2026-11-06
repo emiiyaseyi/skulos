@@ -24,10 +24,16 @@
   </div>
 @endunless
 
-<div class="stack" style="flex-direction:row;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap">
+<div class="stack" style="flex-direction:row;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap;align-items:center">
   @foreach([7 => 'Last 7 days', 30 => 'Last 30 days', 90 => 'Last 90 days'] as $key => $label)
-    <a class="btn btn-sm {{ $days === $key ? 'btn-primary' : 'btn-ghost' }}" href="{{ route('admin.visitors.index', ['days' => $key]) }}">{{ $label }}</a>
+    <a class="btn btn-sm {{ !$customRange && $days === $key ? 'btn-primary' : 'btn-ghost' }}" href="{{ route('admin.visitors.index', ['days' => $key]) }}">{{ $label }}</a>
   @endforeach
+  <form method="GET" action="{{ route('admin.visitors.index') }}" style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
+    <input type="date" name="from" value="{{ $from }}" style="padding:.4rem .6rem;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink)" />
+    <span class="muted">to</span>
+    <input type="date" name="to" value="{{ $to }}" style="padding:.4rem .6rem;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink)" />
+    <button type="submit" class="btn btn-sm {{ $customRange ? 'btn-primary' : 'btn-ghost' }}">Custom range</button>
+  </form>
 </div>
 
 <div class="card" style="margin-bottom:1.25rem">
