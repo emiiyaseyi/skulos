@@ -27,7 +27,7 @@ class MarketingAnalyticsTest extends TestCase
 
     public function test_the_public_beacon_records_a_page_view_with_no_authentication(): void
     {
-        $this->postJson('/api/marketing/track', [
+        $this->postJson('/api/marketing/visit', [
             'path' => '/pricing.html',
             'referrer' => 'https://wa.me/',
             'utm_source' => 'whatsapp',
@@ -45,7 +45,7 @@ class MarketingAnalyticsTest extends TestCase
 
     public function test_the_beacon_requires_a_path_and_session_id(): void
     {
-        $this->postJson('/api/marketing/track', [])->assertStatus(422);
+        $this->postJson('/api/marketing/visit', [])->assertStatus(422);
         $this->assertSame(0, MarketingPageView::count());
     }
 

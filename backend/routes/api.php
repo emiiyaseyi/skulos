@@ -57,7 +57,16 @@ Route::post('/contact', [\App\Http\Controllers\ContactFormController::class, 'st
 | Same reasoning as the contact form above (stateless, no CSRF, called
 | from a plain <script> on static HTML). Generous per-IP throttle since
 | this fires on every page a real visitor loads, not once per form.
+|
+| Deliberately NOT named "/marketing/track" (found live 2026-11-06, a
+| real user's own visits to a tagged link never recorded even though
+| migration/file/endpoint all checked out individually): most ad
+| blockers and built-in browser tracking protection (Safari ITP,
+| Firefox ETP, uBlock/Brave Shields) ship generic filter rules that
+| block ANY request whose path contains the literal word "track",
+| first-party or not. The beacon's own fetch().catch() swallows the
+| failure silently, so this was invisible until traced end to end.
 */
-Route::post('/marketing/track', [\App\Http\Controllers\MarketingTrackController::class, 'store'])
+Route::post('/marketing/visit', [\App\Http\Controllers\MarketingTrackController::class, 'store'])
     ->middleware('throttle:120,1')
-    ->name('marketing.track');
+    ->name('marketing.visit');

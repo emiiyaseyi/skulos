@@ -61,7 +61,7 @@
       localStorage.setItem('skulos_vid', vid);
     }
     var params = new URLSearchParams(window.location.search);
-    fetch('/api/marketing/track', {
+    fetch('/api/marketing/visit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       keepalive: true,
