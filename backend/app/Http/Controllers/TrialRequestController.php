@@ -4,13 +4,23 @@ namespace App\Http\Controllers;
 
 use App\Models\Country;
 use App\Models\TrialRequest;
+use App\Models\User;
+use App\Services\Schools\TrialProvisioningService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 
 /**
- * Public "Start a Trial" form (user request 2026-07-09): a brief form the
- * marketing site links to, reviewed by a platform admin before anything
- * is created. No authentication needed to submit.
+ * Public "Start a Trial" form. Since 2026-11-06 (direct instruction:
+ * "instant access for setup with manual review from the backend"), a
+ * valid submission provisions the real school and emails sign in details
+ * immediately -- it no longer waits on a platform admin to approve it
+ * first. The admin review queue still exists (TrialRequestAdminController)
+ * as an after-the-fact audit/intervention point, not a gate: this was a
+ * deliberate reversal of the original "reviewed before anything is
+ * created" design, made after live signups stalled on this exact gap
+ * ("free trial" reading as a lead form with an unknown wait, not real
+ * access). No authentication needed to submit.
  */
 class TrialRequestController extends Controller
 {
@@ -21,7 +31,7 @@ class TrialRequestController extends Controller
         ]);
     }
 
-    public function store(Request $request): \Illuminate\Http\RedirectResponse
+    public function store(Request $request, TrialProvisioningService $provisioning): \Illuminate\Http\RedirectResponse
     {
         // Honeypot: a real visitor never fills this hidden field in.
         if ($request->filled('website')) {
@@ -38,8 +48,8 @@ class TrialRequestController extends Controller
             'school_name' => ['required', 'string', 'max:150'],
             // 2026-08-19, made mandatory (direct instruction): a school
             // no longer leaves this to be assigned later. Shape only
-            // here; availability is re-checked at approval time, since
-            // another school could claim the same one in between.
+            // here; availability is re-checked at provisioning time,
+            // since another school could claim the same one in between.
             'preferred_slug' => ['required', 'string', 'max:60', 'regex:/^[a-zA-Z0-9]+$/'],
             // 2026-08-19: a real country, from the same reference table
             // every other country picker in the app already uses, not a
@@ -54,8 +64,52 @@ class TrialRequestController extends Controller
 
         $data['preferred_slug'] = \Illuminate\Support\Str::slug($data['preferred_slug'], '');
 
-        TrialRequest::create($data);
+        $trial = TrialRequest::create($data);
 
+        // Security: an email that already has a real login (its own
+        // school, or a role on someone else's) does not get a second one
+        // auto-created silently -- left pending for a human to look at,
+        // rather than risking a surprise duplicate account for someone
+        // who may already be using the platform.
+        $alreadyHasAccount = User::where('email', \Illuminate\Support\Str::lower($data['email']))->exists();
+
+        // Security: a platform wide circuit breaker, separate from the
+        // per IP limit above. Instant provisioning is now genuinely
+        // expensive (a real tenant database and its migrations, not just
+        // a row), which an IP based limit alone does not bound -- that is
+        // trivially bypassed by spreading submissions across many IPs
+        // (a botnet, rotating proxies). Past this many real provisions in
+        // an hour, every further submission falls back to the same
+        // pending-for-manual-review path a duplicate email already takes,
+        // rather than erroring out or refusing the submission outright.
+        $globalKey = 'trial-instant-provision|global';
+        $circuitOpen = RateLimiter::tooManyAttempts($globalKey, 20);
+
+        if ($alreadyHasAccount || $circuitOpen) {
+            return redirect()->route('trial.thanks');
+        }
+
+        try {
+            RateLimiter::hit($globalKey, 3600);
+            $provisioning->provision($trial);
+        } catch (\Throwable $e) {
+            // Provisioning does real I/O (a new tenant database, its
+            // migrations, a mail send) -- a transient failure here must
+            // never surface as a broken public page. The request stays
+            // pending (no school_id was ever set on a throw mid-way) for
+            // an admin to retry via the existing manual "Approve" action.
+            Log::error('Instant trial provisioning failed, left pending for manual retry.', [
+                'trial_request_id' => $trial->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // Security: the thank-you page's wording never reveals which of
+        // the above branches was taken. A page that said "You're in" only
+        // on success and "we'll review it" otherwise would let anyone
+        // enumerate which email addresses already have a SKULOS account,
+        // just by submitting this public, unauthenticated form with a
+        // guessed address and reading back which message appeared.
         return redirect()->route('trial.thanks');
     }
 

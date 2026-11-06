@@ -19,7 +19,7 @@
   <div class="trial-card">
     <div class="auth-logo" style="margin-inline:auto">S</div>
     <h1>Start a trial</h1>
-    <p class="lead">Tell us about your school. We review every request and reply with your setup status, a demo, and training for your staff.</p>
+    <p class="lead">Tell us about your school and you'll get instant access to set it up, free for a full year. Our team reviews every new account in the background and follows up about a demo and training for your staff.</p>
 
     @if($errors->any())
       <div class="flash flash-bad" style="margin-bottom:1rem">{{ $errors->first() }}</div>
@@ -114,7 +114,7 @@
   function check() {
     var value = input.value.trim();
     if (!value) {
-      note.textContent = 'Letters and numbers only, no spaces. Leave blank and we will suggest one.';
+      note.textContent = 'Letters and numbers only, no spaces.';
       note.style.color = '';
       return;
     }

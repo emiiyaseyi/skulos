@@ -116,10 +116,29 @@
           </form>
         </details>
       @elseif($trial->status === 'approved' && $trial->school_id)
-        <form method="POST" action="{{ route('admin.trial-requests.nudge', $trial) }}">
-          @csrf
-          <button class="btn btn-ghost btn-sm" type="submit">Nudge: check in on their setup</button>
-        </form>
+        {{--
+          Every trial now provisions itself instantly on submission, so
+          this is the normal case, not an edge case -- without a reachable
+          action here, "manual review from the backend" (the whole point
+          of keeping this screen once access stopped being gated on it)
+          would have no real control on the one state almost every row
+          is actually in.
+        --}}
+        <div class="grid cols-2">
+          <form method="POST" action="{{ route('admin.trial-requests.nudge', $trial) }}">
+            @csrf
+            <button class="btn btn-ghost btn-sm" type="submit">Nudge: check in on their setup</button>
+          </form>
+          <form method="POST" action="{{ route('admin.trial-requests.reject', $trial) }}"
+                onsubmit="return confirm('Suspend {{ $trial->school_name }}\'s account? They will not be able to sign in until reinstated.')">
+            @csrf
+            <div class="field">
+              <label for="suspend_note_{{ $trial->id }}">Reason (included in the email)</label>
+              <textarea id="suspend_note_{{ $trial->id }}" name="review_note" rows="2" placeholder="Optional reason"></textarea>
+            </div>
+            <button class="btn btn-ghost btn-sm" type="submit" style="color:var(--bad)">Suspend account</button>
+          </form>
+        </div>
       @endif
     </div>
   @endforeach

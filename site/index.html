@@ -33,7 +33,7 @@
     "@type": "Offer",
     "price": "500",
     "priceCurrency": "NGN",
-    "description": "Per student, per term. One full academic term free to start."
+    "description": "Per student, per term. One full academic year free to start."
   },
   "publisher": {
     "@type": "Organization",
@@ -45,6 +45,38 @@
 }
 </script>
 <!-- seo:end -->
+<!-- analytics:start -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-2GPE1MEMZ2"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-2GPE1MEMZ2');
+</script>
+<script type="text/javascript">
+  (function(c,l,a,r,i,t,y){
+    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+  })(window, document, "clarity", "script", "z9e4jrjq28");
+</script>
+<!-- analytics:end -->
+<script>
+(function(){
+  document.addEventListener('click', function(e){
+    var a = e.target.closest('a[href="trial.html"]');
+    if (a && window.gtag) {
+      gtag('event', 'start_trial_click', { link_text: a.textContent.trim(), page_location: window.location.pathname });
+    }
+  });
+  var form = document.getElementById('contactForm');
+  if (form && window.gtag) {
+    form.addEventListener('submit', function(){
+      gtag('event', 'contact_form_submit', { page_location: window.location.pathname });
+    });
+  }
+})();
+</script>
 <script>
 (function(){
   try{
@@ -1068,7 +1100,7 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
  </div>
  <ul class="trust-row">
  <li>No card required</li>
- <li>One full term, free</li>
+ <li>One full year, free</li>
  <li>Live in under 15 minutes</li>
  </ul>
  </div>
@@ -1434,7 +1466,7 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
  </div>
  <div class="cap-card">
  <div class="cap-icon hue-teal">🎁</div>
- <div><h3>A free term to prove it</h3><p>Every new school starts with one full academic term at no cost, with no card required to begin.</p></div>
+ <div><h3>A free year to prove it</h3><p>Every new school starts with one full academic year at no cost, with no card required to begin.</p></div>
  </div>
  </div>
  </section>
@@ -1607,7 +1639,7 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
  <div class="path-step">
  <div class="path-num">1</div>
  <h3>Create your account</h3>
- <p>Register your school in minutes. No card required to start your free term.</p>
+ <p>Register your school in minutes. No card required to start your free year.</p>
  </div>
  <div class="path-step">
  <div class="path-num">2</div>
@@ -1635,7 +1667,7 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
  <div class="section-head">
  <span class="eyebrow">Pricing</span>
  <h2>Pay for the size of your school, not someone else's</h2>
- <p class="lede" style="margin-top:.9rem">Priced per student, per term, billed termly or annually. Every plan starts with one full term free, no card required.</p>
+ <p class="lede" style="margin-top:.9rem">Priced per student, per term, billed termly or annually. Every plan starts with one full year free, no card required.</p>
  </div>
  <div class="pricing-grid">
  <div class="tier">
@@ -1651,7 +1683,7 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
  <li>Timed assessments &amp; question bank</li>
  </ul>
  <button type="button" class="tier-more" data-plan="foundation">See all features</button>
- <a href="trial.html" class="btn btn-ghost">Start free term</a>
+ <a href="trial.html" class="btn btn-ghost">Start free year</a>
  </div>
  <div class="tier is-featured">
  <span class="tier-flag">Most chosen</span>
@@ -1666,7 +1698,7 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
  <li>Custom report card designer</li>
  </ul>
  <button type="button" class="tier-more" data-plan="advance">See all features</button>
- <a href="trial.html" class="btn btn-gold">Start free term</a>
+ <a href="trial.html" class="btn btn-gold">Start free year</a>
  </div>
  <div class="tier is-soon">
  <span class="tier-flag tier-flag-soon">Coming soon</span>
@@ -1702,7 +1734,7 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
  <div class="inclusions">
  <div class="inclusions-head">Included with every SKULOS plan</div>
  <ul class="inclusions-grid">
- <li>Free one term trial</li>
+ <li>Free one year trial</li>
  <li>Free data migration</li>
  <li>Free staff onboarding and training</li>
  <li>Automatic system updates</li>
@@ -1777,7 +1809,7 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
  </div>
  <ul class="trust-row">
  <li>No card required</li>
- <li>One full term, free</li>
+ <li>One full year, free</li>
  <li>Cancel anytime</li>
  </ul>
  </div>
@@ -1818,7 +1850,7 @@ footer{ position:relative; z-index:1; border-top:1px solid var(--glass-border); 
  </div>
  <div class="footer-bottom">
  <span>© 2026 SKULOS. Skulos OS is a registered business in Nigeria, Ogun State. Built for schools across Africa.</span>
- <span>Termly &amp; annual billing · One free term to try everything</span>
+ <span>Termly &amp; annual billing · One full year free to try everything</span>
  </div>
  </div>
 </footer>

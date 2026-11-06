@@ -16,7 +16,14 @@
   <div class="trial-card">
     <div class="auth-logo" style="margin-inline:auto">S</div>
     <h1>Thank you</h1>
-    <p>Your trial request has been received. Our team reviews every request and will email you with your setup status, a demo, and training for your staff.</p>
+    {{--
+      Security: this copy must read the same regardless of whether this
+      submission got instant access or was held for manual review --
+      branching the message on that outcome would let anyone submit a
+      guessed email address here and learn from the reply whether it
+      already has a SKULOS account (see TrialRequestController::store()).
+    --}}
+    <p>Your trial request has been received. If everything checks out you'll get an email within a couple of minutes with your school's sign in link and a temporary password, ready to use right away. Our team reviews every new account in the background and will follow up personally about a demo and training for your staff.</p>
     <a href="/" class="btn btn-primary" style="margin-top:1.4rem">Back to homepage</a>
   </div>
 </div>

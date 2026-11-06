@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Terms and Conditions | SKULOS</title>
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
-<meta name="description" content="The terms governing use of the SKULOS platform, covering subscriptions, the free term, billing, data ownership and acceptable use." />
+<meta name="description" content="The terms governing use of the SKULOS platform, covering subscriptions, the free year, billing, data ownership and acceptable use." />
 <!-- seo:start -->
 <meta name="keywords" content="SKULOS terms of service, school software terms and conditions" />
 <link rel="canonical" href="https://skulosapp.com/terms.html" />
@@ -13,13 +13,45 @@
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="SKULOS" />
 <meta property="og:title" content="Terms and Conditions | SKULOS" />
-<meta property="og:description" content="The terms governing use of the SKULOS platform, covering subscriptions, the free term, billing, data ownership and acceptable use." />
+<meta property="og:description" content="The terms governing use of the SKULOS platform, covering subscriptions, the free year, billing, data ownership and acceptable use." />
 <meta property="og:url" content="https://skulosapp.com/terms.html" />
 <meta property="og:locale" content="en_NG" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Terms and Conditions | SKULOS" />
-<meta name="twitter:description" content="The terms governing use of the SKULOS platform, covering subscriptions, the free term, billing, data ownership and acceptable use." />
+<meta name="twitter:description" content="The terms governing use of the SKULOS platform, covering subscriptions, the free year, billing, data ownership and acceptable use." />
 <!-- seo:end -->
+<!-- analytics:start -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-2GPE1MEMZ2"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-2GPE1MEMZ2');
+</script>
+<script type="text/javascript">
+  (function(c,l,a,r,i,t,y){
+    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+  })(window, document, "clarity", "script", "z9e4jrjq28");
+</script>
+<!-- analytics:end -->
+<script>
+(function(){
+  document.addEventListener('click', function(e){
+    var a = e.target.closest('a[href="trial.html"]');
+    if (a && window.gtag) {
+      gtag('event', 'start_trial_click', { link_text: a.textContent.trim(), page_location: window.location.pathname });
+    }
+  });
+  var form = document.getElementById('contactForm');
+  if (form && window.gtag) {
+    form.addEventListener('submit', function(){
+      gtag('event', 'contact_form_submit', { page_location: window.location.pathname });
+    });
+  }
+})();
+</script>
 <script>
 (function(){try{var s=localStorage.getItem('skulos-theme');var t=s||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
 </script>
@@ -113,7 +145,7 @@
 <p>You are responsible for the accuracy of the information you provide and for keeping your login credentials secure. You must tell us promptly if you believe an account has been accessed without permission. Each person should use their own account, since access across the platform is governed by the permissions assigned to that account.</p>
 
 <h2 id="subs">Subscriptions, trial and billing</h2>
-<p>Subscriptions are priced per active student, per academic term. A school may pay termly or annually, and annual billing is calculated as three times the termly rate. Every new school may begin with one free academic term. During the free term nothing is charged automatically. Before the free term ends, the school chooses a plan to continue, and no payment is taken without the school's confirmation. Plan prices and the features included in each plan may be updated over time, and any change is applied from the next billing period.</p>
+<p>Subscriptions are priced per active student, per academic term. A school may pay termly or annually, and annual billing is calculated as three times the termly rate. Every new school may begin with one free academic year. During the free year nothing is charged automatically. Before the free year ends, the school chooses a plan to continue, and no payment is taken without the school's confirmation. Plan prices and the features included in each plan may be updated over time, and any change is applied from the next billing period.</p>
 
 <h2 id="use">Acceptable use</h2>
 <p>You agree not to misuse the platform. This includes not attempting to access data belonging to another school, not disrupting or probing the security of the service, not uploading unlawful or harmful content, and not using the platform to break any law that applies to you.</p>
@@ -181,7 +213,7 @@
 </div>
 <div class="footer-bottom">
 <span>© 2026 SKULOS. Skulos OS is a registered business in Nigeria, Ogun State. Built for schools across Africa.</span>
-<span>Termly and annual billing · One free term to try everything</span>
+<span>Termly and annual billing · One full year free to try everything</span>
 </div>
 </div>
 </footer>

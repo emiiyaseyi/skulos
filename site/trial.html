@@ -3,10 +3,42 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Start a Free Term | SKULOS School Management Software</title>
-<meta name="description" content="Start your school on SKULOS with one full academic term free. No card required." />
+<title>Start a Free Year | SKULOS School Management Software</title>
+<meta name="description" content="Start your school on SKULOS with one full academic year free. No card required." />
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
 <meta name="robots" content="noindex" />
+<!-- analytics:start -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-2GPE1MEMZ2"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-2GPE1MEMZ2');
+</script>
+<script type="text/javascript">
+  (function(c,l,a,r,i,t,y){
+    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+  })(window, document, "clarity", "script", "z9e4jrjq28");
+</script>
+<!-- analytics:end -->
+<script>
+(function(){
+  document.addEventListener('click', function(e){
+    var a = e.target.closest('a[href="trial.html"]');
+    if (a && window.gtag) {
+      gtag('event', 'start_trial_click', { link_text: a.textContent.trim(), page_location: window.location.pathname });
+    }
+  });
+  var form = document.getElementById('contactForm');
+  if (form && window.gtag) {
+    form.addEventListener('submit', function(){
+      gtag('event', 'contact_form_submit', { page_location: window.location.pathname });
+    });
+  }
+})();
+</script>
 <style>
   :root{--accent:#E8A33D;--bg:#0B0F1A;--panel:#12182A;--ink:#F5F7FA;--mut:rgba(245,247,250,.65);--line:rgba(245,247,250,.12)}
   *{box-sizing:border-box}

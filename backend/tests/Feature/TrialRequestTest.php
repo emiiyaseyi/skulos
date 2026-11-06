@@ -12,6 +12,7 @@ use Database\Seeders\RbacSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 use Tests\TestCase;
 
 /**
@@ -54,9 +55,24 @@ class TrialRequestTest extends TestCase
         return $u;
     }
 
-    public function test_a_visitor_can_submit_a_trial_request(): void
+    /**
+     * Since 2026-11-06 (direct instruction: "instant access for setup
+     * with manual review from the backend"), a valid submission no
+     * longer waits on an admin -- it provisions a real, working school
+     * immediately, free for a full year, and emails the sign in details
+     * right away. The old "left pending for review" behaviour only
+     * applies now when something stops instant provisioning (see the
+     * duplicate-email and provisioning-failure tests below).
+     */
+    public function test_a_visitor_can_submit_a_trial_request_and_gets_instant_access(): void
     {
+        Mail::fake();
         Country::create(['name' => 'Nigeria', 'iso2' => 'NG', 'sequence' => 1]);
+        \App\Models\Plan::create([
+            'name' => 'Foundation', 'slug' => 'foundation', 'price_per_student_per_term' => 500,
+            'modules' => [], 'features' => [], 'is_purchasable' => true, 'is_active' => true, 'sort_order' => 1,
+        ]);
+        $this->seed(RbacSeeder::class);
 
         $this->get('/trial')->assertOk()->assertSee('Nigeria');
 
@@ -71,13 +87,46 @@ class TrialRequestTest extends TestCase
             'message' => 'We have 3 campuses.',
         ])->assertRedirect(route('trial.thanks'));
 
-        $this->assertDatabaseHas('trial_requests', [
-            'school_name' => 'Sunrise Academy',
-            'country' => 'Nigeria',
-            'preferred_slug' => 'sunriseacademy',
-            'email' => 'bola@sunrise.test',
-            'status' => TrialRequest::STATUS_PENDING,
-        ]);
+        $trial = TrialRequest::where('email', 'bola@sunrise.test')->first();
+        $this->assertNotNull($trial);
+        $this->assertSame(TrialRequest::STATUS_APPROVED, $trial->status);
+        $this->assertNull($trial->reviewed_by, 'auto-approved, not a human reviewer');
+        $this->assertNotNull($trial->school_id);
+
+        $school = School::find($trial->school_id);
+        $this->assertNotNull($school);
+        $this->assertTrue($school->isProvisioned());
+        $this->assertSame('foundation', $school->plan->slug);
+        $this->assertNotNull($school->next_billing_date);
+        $this->assertSame(now()->addYear()->toDateString(), $school->next_billing_date->toDateString(), 'the free trial is a full year, concretely enforced');
+
+        $admin = User::where('email', 'bola@sunrise.test')->first();
+        $this->assertNotNull($admin);
+        $this->assertTrue($admin->isMemberOf($school));
+
+        Mail::assertSent(TrialRequestStatusMail::class, fn ($mail) => $mail->hasTo('bola@sunrise.test') && ! empty($mail->credentials['password']));
+    }
+
+    /**
+     * An email that already has a real login anywhere on the platform
+     * does not get a second school auto-created silently -- left pending
+     * for a human to look at, so a returning customer never ends up with
+     * a surprise duplicate account.
+     */
+    public function test_an_email_that_already_has_an_account_is_left_pending_not_auto_provisioned(): void
+    {
+        Mail::fake();
+        Country::create(['name' => 'Nigeria', 'iso2' => 'NG', 'sequence' => 1]);
+        User::factory()->create(['email' => 'existing@school.test']);
+
+        $this->post('/trial', [
+            'school_name' => 'Second School', 'country' => 'Nigeria', 'preferred_slug' => 'secondschool',
+            'contact_name' => 'Existing Person', 'email' => 'existing@school.test',
+        ])->assertRedirect(route('trial.thanks'));
+
+        $trial = TrialRequest::where('email', 'existing@school.test')->first();
+        $this->assertSame(TrialRequest::STATUS_PENDING, $trial->status);
+        $this->assertNull($trial->school_id);
     }
 
     public function test_the_web_address_and_country_are_both_required(): void
@@ -120,11 +169,22 @@ class TrialRequestTest extends TestCase
 
     public function test_repeated_submissions_are_rate_limited(): void
     {
+        Mail::fake();
         Country::create(['name' => 'Nigeria', 'iso2' => 'NG', 'sequence' => 1]);
         $payload = [
             'school_name' => 'A', 'country' => 'Nigeria', 'preferred_slug' => 'rateschool',
             'contact_name' => 'B', 'email' => 'c@example.com',
         ];
+
+        // Only the first of these 3 attempts the real instant-provisioning
+        // path (the same email every time means attempts 2 and 3 hit the
+        // "already has an account" guard and skip it, no Rbac/Plan setup
+        // needed for them).
+        $this->seed(RbacSeeder::class);
+        \App\Models\Plan::create([
+            'name' => 'Foundation', 'slug' => 'foundation', 'price_per_student_per_term' => 500,
+            'modules' => [], 'features' => [], 'is_purchasable' => true, 'is_active' => true, 'sort_order' => 1,
+        ]);
 
         for ($i = 0; $i < 3; $i++) {
             $this->post('/trial', $payload)->assertRedirect(route('trial.thanks'));
@@ -257,6 +317,118 @@ class TrialRequestTest extends TestCase
         $this->assertSame(TrialRequest::STATUS_REJECTED, $trial->fresh()->status);
         $this->assertNull($trial->fresh()->school_id);
         Mail::assertSent(TrialRequestStatusMail::class, fn ($mail) => $mail->hasTo('tunde@far.test'));
+    }
+
+    /**
+     * Since a trial now provisions itself instantly, "Approve" on a
+     * request that is already a live school must not try to provision a
+     * second one -- it is a no-op, not a crash or a duplicate school.
+     */
+    public function test_approving_an_already_provisioned_trial_is_a_no_op(): void
+    {
+        Mail::fake();
+        $admin = $this->superAdmin();
+        $trial = TrialRequest::create([
+            'school_name' => 'Already Live', 'contact_name' => 'A', 'email' => 'a@alreadylive.test',
+            'status' => TrialRequest::STATUS_APPROVED, 'school_id' => School::factory()->create()->id,
+        ]);
+
+        $this->actingAs($admin)->post(route('admin.trial-requests.approve', $trial))->assertRedirect();
+
+        $this->assertSame(1, School::count());
+    }
+
+    /**
+     * "Reject" on a request that is already a live school (the normal
+     * case now that submission provisions instantly) is an after-the-fact
+     * intervention: it suspends that real school rather than pretending
+     * no account was ever created.
+     */
+    public function test_rejecting_an_already_provisioned_trial_suspends_the_school(): void
+    {
+        Mail::fake();
+        $admin = $this->superAdmin();
+        $school = School::factory()->create(['status' => School::STATUS_ACTIVE]);
+        $trial = TrialRequest::create([
+            'school_name' => $school->name, 'contact_name' => 'A', 'email' => 'a@suspendme.test',
+            'status' => TrialRequest::STATUS_APPROVED, 'school_id' => $school->id,
+        ]);
+
+        $this->actingAs($admin)->post(route('admin.trial-requests.reject', $trial))->assertRedirect();
+
+        $this->assertSame(School::STATUS_SUSPENDED, $school->fresh()->status);
+        $this->assertSame(TrialRequest::STATUS_REJECTED, $trial->fresh()->status);
+    }
+
+    /**
+     * Security: the public thank-you page must read identically whether
+     * this exact submission got instant access or was held back (an
+     * already-registered email, or the global circuit breaker tripping).
+     * A page that said different things for each would let anyone
+     * enumerate which email addresses already have a SKULOS account by
+     * submitting this unauthenticated form with a guessed address and
+     * reading back which message came back.
+     */
+    public function test_the_thank_you_page_reads_the_same_whether_or_not_instant_access_was_granted(): void
+    {
+        Mail::fake();
+        Country::create(['name' => 'Nigeria', 'iso2' => 'NG', 'sequence' => 1]);
+        \App\Models\Plan::create([
+            'name' => 'Foundation', 'slug' => 'foundation', 'price_per_student_per_term' => 500,
+            'modules' => [], 'features' => [], 'is_purchasable' => true, 'is_active' => true, 'sort_order' => 1,
+        ]);
+        $this->seed(RbacSeeder::class);
+        User::factory()->create(['email' => 'taken@school.test']);
+
+        $instantResponse = $this->post('/trial', [
+            'school_name' => 'Fresh School', 'country' => 'Nigeria', 'preferred_slug' => 'freshschool',
+            'contact_name' => 'Fresh Person', 'email' => 'fresh@school.test',
+        ])->assertRedirect(route('trial.thanks'));
+
+        $heldBackResponse = $this->post('/trial', [
+            'school_name' => 'Known School', 'country' => 'Nigeria', 'preferred_slug' => 'knownschool',
+            'contact_name' => 'Known Person', 'email' => 'taken@school.test',
+        ])->assertRedirect(route('trial.thanks'));
+
+        $this->assertNotNull(TrialRequest::where('email', 'fresh@school.test')->first()->school_id, 'sanity check: this one really was instant');
+        $this->assertNull(TrialRequest::where('email', 'taken@school.test')->first()->school_id, 'sanity check: this one really was held back');
+
+        // Both requests redirect to the exact same URL with no query
+        // string or flash key distinguishing the outcome -- and the page
+        // itself carries no per-outcome branching to render differently.
+        $this->assertSame($instantResponse->headers->get('location'), $heldBackResponse->headers->get('location'));
+        $this->assertStringNotContainsString('?', $instantResponse->headers->get('location'));
+    }
+
+    /**
+     * Security: instant provisioning does real I/O (a whole tenant
+     * database) per submission, which the per IP rate limit alone does
+     * not bound against an attacker spreading submissions across many
+     * IPs. Past the platform wide cap, further submissions fall back to
+     * the pending/manual-review path instead of provisioning.
+     */
+    public function test_a_platform_wide_cap_stops_instant_provisioning_once_tripped(): void
+    {
+        Mail::fake();
+        Country::create(['name' => 'Nigeria', 'iso2' => 'NG', 'sequence' => 1]);
+        \App\Models\Plan::create([
+            'name' => 'Foundation', 'slug' => 'foundation', 'price_per_student_per_term' => 500,
+            'modules' => [], 'features' => [], 'is_purchasable' => true, 'is_active' => true, 'sort_order' => 1,
+        ]);
+        $this->seed(RbacSeeder::class);
+        RateLimiter::clear('trial-instant-provision|global');
+        for ($i = 0; $i < 20; $i++) {
+            RateLimiter::hit('trial-instant-provision|global', 3600);
+        }
+
+        $this->post('/trial', [
+            'school_name' => 'Overflow School', 'country' => 'Nigeria', 'preferred_slug' => 'overflowschool',
+            'contact_name' => 'Overflow Person', 'email' => 'overflow@school.test',
+        ])->assertRedirect(route('trial.thanks'));
+
+        $trial = TrialRequest::where('email', 'overflow@school.test')->first();
+        $this->assertSame(TrialRequest::STATUS_PENDING, $trial->status);
+        $this->assertNull($trial->school_id);
     }
 
     public function test_only_super_admin_can_review_trial_requests(): void
