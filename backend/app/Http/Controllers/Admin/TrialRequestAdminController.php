@@ -76,6 +76,54 @@ class TrialRequestAdminController extends Controller
             "{$trialRequest->school_name} approved and set up at {$result['school']->slug}.".config('app.domain').". {$trialRequest->contact_name} has been emailed their sign in details.");
     }
 
+    /**
+     * A real, actionable "targeted campaign" lever (2026-11-06, direct
+     * instruction): every trial request already carries real contact
+     * info (name, email, phone, country, student count, when they
+     * signed up) -- this hands it to the admin as a plain CSV, filtered
+     * by status and date range, for genuine outreach (a WhatsApp/email
+     * follow-up to everyone still pending from a given window, every
+     * school from a given country, etc.) rather than guessing at who to
+     * reach out to.
+     */
+    public function export(Request $request): \Illuminate\Http\Response
+    {
+        $status = $request->query('status', 'all');
+        $from = $request->query('from');
+        $to = $request->query('to');
+
+        $trials = TrialRequest::query()
+            ->when(in_array($status, ['pending', 'approved', 'rejected'], true), fn ($q) => $q->where('status', $status))
+            ->when($from, fn ($q) => $q->whereDate('created_at', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('created_at', '<=', $to))
+            ->orderByDesc('created_at')
+            ->get();
+
+        $out = fopen('php://temp', 'r+');
+        fputcsv($out, ['Date', 'School', 'Contact', 'Email', 'Phone', 'Country', 'Students', 'Status', 'Web address']);
+        foreach ($trials as $trial) {
+            fputcsv($out, [
+                $trial->created_at?->toDateString(),
+                $trial->school_name,
+                $trial->contact_name,
+                $trial->email,
+                $trial->phone,
+                $trial->country,
+                $trial->student_count,
+                $trial->status,
+                $trial->preferred_slug,
+            ]);
+        }
+        rewind($out);
+        $csv = (string) stream_get_contents($out);
+        fclose($out);
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="trial-requests-'.$status.'-'.now()->toDateString().'.csv"',
+        ]);
+    }
+
     public function reject(Request $request, TrialRequest $trialRequest): RedirectResponse
     {
         $data = $request->validate(['review_note' => ['nullable', 'string', 'max:2000']]);

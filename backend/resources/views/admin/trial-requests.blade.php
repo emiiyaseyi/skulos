@@ -4,12 +4,15 @@
 @section('crumb', 'Review Start a Trial leads from the marketing site')
 @section('content')
 
-<div class="stack" style="flex-direction:row;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap">
-  @foreach(['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected', 'all' => 'All'] as $key => $label)
-    <a class="btn btn-sm {{ $status === $key ? 'btn-primary' : 'btn-ghost' }}" href="{{ route('admin.trial-requests.index', ['status' => $key]) }}">
-      {{ $label }}@if($key !== 'all') ({{ $counts[$key] }})@endif
-    </a>
-  @endforeach
+<div class="stack" style="flex-direction:row;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap;justify-content:space-between">
+  <div class="stack" style="flex-direction:row;gap:.5rem;flex-wrap:wrap">
+    @foreach(['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected', 'all' => 'All'] as $key => $label)
+      <a class="btn btn-sm {{ $status === $key ? 'btn-primary' : 'btn-ghost' }}" href="{{ route('admin.trial-requests.index', ['status' => $key]) }}">
+        {{ $label }}@if($key !== 'all') ({{ $counts[$key] }})@endif
+      </a>
+    @endforeach
+  </div>
+  <a class="btn btn-sm btn-ghost" href="{{ route('admin.trial-requests.export', ['status' => $status]) }}" title="Every contact in this tab, as a CSV, for real outreach">Export for outreach</a>
 </div>
 
 @if($trials->isEmpty())

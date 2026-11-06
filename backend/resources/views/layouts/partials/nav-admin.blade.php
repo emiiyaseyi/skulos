@@ -18,6 +18,7 @@
 {!! $item('admin.dashboard', 'Dashboard', 'dashboard') !!}
 {!! $item('admin.schools.index', 'Schools', 'school') !!}
 {!! $item('admin.trial-requests.index', 'Trial Requests', 'trial', $pendingTrialCount ?? 0) !!}
+{!! $item('admin.visitors.index', 'Visitor Analytics', 'trend') !!}
 {!! $item('admin.billing.index', 'Billing', 'billing') !!}
 {!! $item('admin.subscriptions.index', 'Subscriptions', 'billing', $pendingSubscriptionPayments ?? 0) !!}
 {!! $item('admin.schools.archive-list', 'Archive', 'archive') !!}

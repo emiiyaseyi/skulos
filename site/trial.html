@@ -37,6 +37,34 @@
       gtag('event', 'contact_form_submit', { page_location: window.location.pathname });
     });
   }
+
+  // First-party visitor tracking inside SKULOS's own admin backend
+  // (Admin > Visitor Analytics), separate from the GA4/Clarity tags
+  // above which report to Google's/Microsoft's own dashboards. This
+  // page is the handoff step itself, so a view here confirms someone
+  // genuinely clicked a "Start Free Trial" link, not just landed on a
+  // marketing page.
+  try {
+    var vid = localStorage.getItem('skulos_vid');
+    if (!vid) {
+      vid = 'v_' + Date.now().toString(36) + Math.random().toString(36).slice(2);
+      localStorage.setItem('skulos_vid', vid);
+    }
+    var params = new URLSearchParams(window.location.search);
+    fetch('/api/marketing/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
+      body: JSON.stringify({
+        path: window.location.pathname,
+        referrer: document.referrer || null,
+        utm_source: params.get('utm_source'),
+        utm_medium: params.get('utm_medium'),
+        utm_campaign: params.get('utm_campaign'),
+        session_id: vid
+      })
+    }).catch(function(){});
+  } catch (e) {}
 })();
 </script>
 <style>

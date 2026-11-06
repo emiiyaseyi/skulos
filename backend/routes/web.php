@@ -102,6 +102,8 @@ Route::domain($appDomain)->group(function () {
         Route::post('/trial-requests/bulk-reject', [\App\Http\Controllers\Admin\TrialRequestAdminController::class, 'bulkReject'])->name('trial-requests.bulk-reject');
         Route::post('/trial-requests/{trialRequest}/request-info', [\App\Http\Controllers\Admin\TrialRequestAdminController::class, 'requestInfo'])->name('trial-requests.request-info');
         Route::post('/trial-requests/{trialRequest}/nudge', [\App\Http\Controllers\Admin\TrialRequestAdminController::class, 'nudge'])->name('trial-requests.nudge');
+        Route::get('/trial-requests/export', [\App\Http\Controllers\Admin\TrialRequestAdminController::class, 'export'])->name('trial-requests.export');
+        Route::get('/visitors', [\App\Http\Controllers\Admin\MarketingAnalyticsController::class, 'index'])->name('visitors.index');
         Route::get('/broadcast', [\App\Http\Controllers\Admin\BroadcastController::class, 'create'])->name('broadcast.create');
         Route::post('/broadcast', [\App\Http\Controllers\Admin\BroadcastController::class, 'send'])->name('broadcast.send');
         Route::get('/audit-log', [\App\Http\Controllers\Admin\AuditLogController::class, 'index'])->name('audit-log.index');

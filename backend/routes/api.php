@@ -49,3 +49,15 @@ Route::post('/license/download', [\App\Http\Controllers\ReleaseDownloadControlle
 Route::post('/contact', [\App\Http\Controllers\ContactFormController::class, 'store'])
     ->middleware('throttle:10,1')
     ->name('contact.store');
+
+/*
+|--------------------------------------------------------------------------
+| Marketing site visitor tracking beacon
+|--------------------------------------------------------------------------
+| Same reasoning as the contact form above (stateless, no CSRF, called
+| from a plain <script> on static HTML). Generous per-IP throttle since
+| this fires on every page a real visitor loads, not once per form.
+*/
+Route::post('/marketing/track', [\App\Http\Controllers\MarketingTrackController::class, 'store'])
+    ->middleware('throttle:120,1')
+    ->name('marketing.track');
